@@ -55,7 +55,7 @@ func boxed(radius style.Radius, c color.Color) *buffer.Buffer {
 	box := sized(6, 3, one)
 	s := style.ComputedStyle{BorderStyle: style.BorderSingle, BorderColor: color.Color{Kind: color.Current}, Radius: radius, Color: c}
 	buf := buffer.New(8, 4)
-	Paint(buf, []scene.Node{scene.New(box, s, "")})
+	Paint(buf, []scene.Node{scene.New(box, s, scene.Text{})})
 	return buf
 }
 
@@ -81,7 +81,7 @@ func TestBorderCurrentColor(t *testing.T) {
 func TestTextWide(t *testing.T) {
 	box := sized(5, 1, layout.Edges{})
 	buf := buffer.New(7, 2)
-	Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, "中文ab")})
+	Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, scene.Sanitize("中文ab"))})
 	expect(t, buf, "中文a  ", "       ")
 	want := []buffer.Width{buffer.Wide, buffer.Continuation, buffer.Wide, buffer.Continuation, buffer.Narrow, buffer.Narrow, buffer.Narrow}
 	for x, w := range want {
@@ -94,7 +94,7 @@ func TestTextWide(t *testing.T) {
 func TestTextWideAtEdge(t *testing.T) {
 	box := sized(1, 1, layout.Edges{})
 	buf := buffer.New(3, 1)
-	Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, "中")})
+	Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, scene.Sanitize("中"))})
 	expect(t, buf, "   ")
 	if buf.At(1, 0).Width != buffer.Narrow {
 		t.Errorf("cell 1 is %d, a wide glyph spilled out of a 1-cell box", buf.At(1, 0).Width)
@@ -104,7 +104,7 @@ func TestTextWideAtEdge(t *testing.T) {
 func TestTextTab(t *testing.T) {
 	box := sized(12, 1, layout.Edges{})
 	buf := buffer.New(12, 1)
-	Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, "ab\tc")})
+	Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, scene.Sanitize("ab\tc"))})
 	expect(t, buf, "ab      c   ")
 }
 
@@ -122,7 +122,7 @@ func TestTextColors(t *testing.T) {
 	root := &layout.Box{Style: layout.Style{Width: cells(6), Height: cells(3), Padding: layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}}, Children: []*layout.Box{leaf}}
 	layout.Layout(root, 6, cells(3))
 	buf := buffer.New(6, 3)
-	Paint(buf, []scene.Node{scene.New(root, parent, ""), scene.New(leaf, child, "hi")})
+	Paint(buf, []scene.Node{scene.New(root, parent, scene.Text{}), scene.New(leaf, child, scene.Sanitize("hi"))})
 	expect(t, buf, "      ", " hi   ", "      ")
 	for x := range 2 {
 		c := buf.At(1+x, 1)
@@ -140,8 +140,8 @@ func TestBackgroundTransparent(t *testing.T) {
 	over := sized(2, 1, layout.Edges{})
 	buf := buffer.New(4, 1)
 	Paint(buf, []scene.Node{
-		scene.New(under, style.ComputedStyle{Background: color.Color{Kind: color.Literal, RGBA: zinc950}}, ""),
-		scene.New(over, style.ComputedStyle{Background: color.Color{Kind: color.Literal}}, ""),
+		scene.New(under, style.ComputedStyle{Background: color.Color{Kind: color.Literal, RGBA: zinc950}}, scene.Text{}),
+		scene.New(over, style.ComputedStyle{Background: color.Color{Kind: color.Literal}}, scene.Text{}),
 	})
 	if c := buf.At(0, 0); c.Bg.RGBA != zinc950 {
 		t.Errorf("transparent background replaced zinc-950 with %+v", c.Bg)
@@ -153,7 +153,7 @@ func TestHiddenPaintsNothing(t *testing.T) {
 	box := sized(4, 3, one)
 	s := style.ComputedStyle{Visibility: style.Hidden, BorderStyle: style.BorderSingle, Background: color.Color{Kind: color.Literal, RGBA: zinc950}}
 	buf := buffer.New(4, 3)
-	Paint(buf, []scene.Node{scene.New(box, s, "x")})
+	Paint(buf, []scene.Node{scene.New(box, s, scene.Sanitize("x"))})
 	for y := range 3 {
 		for x := range 4 {
 			if c := buf.At(x, y); c != (buffer.Cell{Grapheme: " "}) {
@@ -168,7 +168,7 @@ func TestPaintOffScreen(t *testing.T) {
 	box := sized(6, 3, one)
 	s := style.ComputedStyle{BorderStyle: style.BorderSingle, Background: color.Color{Kind: color.Literal, RGBA: zinc950}}
 	buf := buffer.New(3, 2)
-	Paint(buf, []scene.Node{scene.New(box, s, "wide text")})
+	Paint(buf, []scene.Node{scene.New(box, s, scene.Sanitize("wide text"))})
 	expect(t, buf, "┌──", "│wi")
 }
 
@@ -194,8 +194,8 @@ func TestTextHostile(t *testing.T) {
 			t.Fatalf("%s: %v", fields[0], err)
 		}
 		buf, clean := buffer.New(60, 4), buffer.New(60, 4)
-		Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, raw.String())})
-		Paint(clean, []scene.Node{scene.New(box, style.ComputedStyle{}, want)})
+		Paint(buf, []scene.Node{scene.New(box, style.ComputedStyle{}, scene.Sanitize(raw.String()))})
+		Paint(clean, []scene.Node{scene.New(box, style.ComputedStyle{}, scene.Sanitize(want))})
 		if got, sanitised := rows(buf), rows(clean); !slices.Equal(got, sanitised) {
 			t.Errorf("%s: painted %q, want the sanitised %q", fields[0], got, sanitised)
 		}

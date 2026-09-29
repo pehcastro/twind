@@ -24,7 +24,19 @@ type Node struct {
 	lines                                  []string
 }
 
-func New(box *layout.Box, s style.ComputedStyle, content string) Node {
+type Text struct{ clean string }
+
+func Sanitize(raw string) Text { return Text{text.Sanitize(raw, text.RemoveBidi)} }
+
+func (t Text) Size(availableWidth int) (width, height int) {
+	lines := text.Wrap(t.clean, availableWidth)
+	for _, line := range lines {
+		width = max(width, text.Width(line))
+	}
+	return width, len(lines)
+}
+
+func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	if s.Visibility == style.Hidden {
 		return Node{Bounds: box.BorderBox, Content: box.ContentBox}
 	}
@@ -48,7 +60,7 @@ func New(box *layout.Box, s style.ComputedStyle, content string) Node {
 		Italic:        s.Italic,
 		Underline:     s.Underline,
 		Strikethrough: s.Strikethrough,
-		lines:         text.Wrap(text.Sanitize(content, text.RemoveBidi), box.ContentBox.W),
+		lines:         text.Wrap(content.clean, box.ContentBox.W),
 	}
 }
 
