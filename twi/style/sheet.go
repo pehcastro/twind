@@ -63,6 +63,15 @@ const (
 	PropVisibility
 	PropCursor
 	PropUserSelect
+	PropShadow
+	PropInsetShadow
+	PropGradient
+	PropGradientFrom
+	PropGradientVia
+	PropGradientTo
+	PropGradientFromPosition
+	PropGradientViaPosition
+	PropGradientToPosition
 )
 
 type Declaration struct {
@@ -83,6 +92,8 @@ type Declaration struct {
 	Visibility  Visibility
 	Cursor      Cursor
 	UserSelect  UserSelect
+	Shadows     []Shadow
+	Line        GradientLine
 }
 
 type State uint8
@@ -101,11 +112,20 @@ type Attr struct {
 	AnyValue bool
 }
 
+type Scheme uint8
+
+const (
+	SchemeAny Scheme = iota
+	SchemeLight
+	SchemeDark
+)
+
 type Condition struct {
 	States    State
 	Attrs     []Attr
 	MinCols   int
 	BelowCols int
+	Scheme    Scheme
 }
 
 type Rule struct {
@@ -132,7 +152,7 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 	}
 	s := Sheet{rules: rules, byClass: map[string][]int{}}
 	for i, r := range rules {
-		unconditional := r.When.States == 0 && len(r.When.Attrs) == 0 && r.When.MinCols == 0 && r.When.BelowCols == 0
+		unconditional := r.When.States == 0 && len(r.When.Attrs) == 0 && r.When.MinCols == 0 && r.When.BelowCols == 0 && r.When.Scheme == SchemeAny
 		switch {
 		case !unconditional:
 		case r.Class == "":
@@ -151,18 +171,23 @@ func (s Sheet) Compute(parent ComputedStyle, classes []string) ComputedStyle {
 	}
 	slices.Sort(matched)
 	out := ComputedStyle{
-		Shrink:        1,
-		AlignItems:    AlignStretch,
-		Basis:         Length{Unit: Auto},
-		Width:         Length{Unit: Auto},
-		Height:        Length{Unit: Auto},
-		MinWidth:      Length{Unit: Auto},
-		MinHeight:     Length{Unit: Auto},
-		MaxWidth:      Length{Unit: None},
-		MaxHeight:     Length{Unit: None},
-		Inset:         Edges{Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}},
-		BorderColor:   color.Color{Kind: color.Current},
-		Opacity:       1,
+		Shrink:      1,
+		AlignItems:  AlignStretch,
+		Basis:       Length{Unit: Auto},
+		Width:       Length{Unit: Auto},
+		Height:      Length{Unit: Auto},
+		MinWidth:    Length{Unit: Auto},
+		MinHeight:   Length{Unit: Auto},
+		MaxWidth:    Length{Unit: None},
+		MaxHeight:   Length{Unit: None},
+		Inset:       Edges{Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}},
+		BorderColor: color.Color{Kind: color.Current},
+		Opacity:     1,
+		Gradient: Gradient{
+			From: GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.FromPosition},
+			Via:  GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.ViaPosition},
+			To:   GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.ToPosition},
+		},
 		Color:         parent.Color,
 		Bold:          parent.Bold,
 		Italic:        parent.Italic,
@@ -290,6 +315,25 @@ func (s *ComputedStyle) apply(d Declaration, parent ComputedStyle) {
 		s.Cursor = d.Cursor
 	case PropUserSelect:
 		s.UserSelect = d.UserSelect
+	case PropShadow:
+		s.Shadows = d.Shadows
+	case PropInsetShadow:
+		s.InsetShadows = d.Shadows
+	case PropGradient:
+		s.Gradient.GradientLine = d.Line
+	case PropGradientFrom:
+		s.Gradient.From.Color = d.Color
+	case PropGradientVia:
+		s.Gradient.Via.Color = d.Color
+		s.Gradient.HasVia = true
+	case PropGradientTo:
+		s.Gradient.To.Color = d.Color
+	case PropGradientFromPosition:
+		s.Gradient.From.Position = d.Number
+	case PropGradientViaPosition:
+		s.Gradient.Via.Position = d.Number
+	case PropGradientToPosition:
+		s.Gradient.To.Position = d.Number
 	default:
 		panic(fmt.Sprintf("style: unknown property %d", d.Property))
 	}

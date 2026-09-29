@@ -75,7 +75,14 @@ func ident(s string) (string, string) {
 
 func media(when style.Condition, prelude string) (style.Condition, string) {
 	query := strings.ReplaceAll(prelude, " ", "")
-	if query == "(hover:hover)" {
+	switch query {
+	case "(hover:hover)":
+		return when, ""
+	case "(prefers-color-scheme:dark)":
+		when.Scheme = style.SchemeDark
+		return when, ""
+	case "(prefers-color-scheme:light)":
+		when.Scheme = style.SchemeLight
 		return when, ""
 	}
 	var bound *int

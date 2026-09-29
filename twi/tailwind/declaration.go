@@ -17,15 +17,20 @@ type decls = []style.Declaration
 
 const noRendering = "no terminal rendering"
 
-func (c *compiler) declaration(prop string, raw []css.Token, locals map[string][]css.Token) (decls, problem) {
-	if prop == "border-radius" {
+func (c *compiler) declaration(prop string, raw []css.Token, v vars) (decls, problem) {
+	switch prop {
+	case "border-radius":
 		if r, p, ok := themedRadius(raw); ok {
 			return decls{{Property: style.PropRadius, Radius: r}}, p
 		}
+	case "box-shadow":
+		return c.boxShadow(raw, v)
+	case "background-image":
+		return c.backgroundImage(raw, v)
 	}
 	var parts [][]css.Token
 	for _, comp := range components(raw) {
-		toks, err := c.resolve(comp, locals, 0)
+		toks, err := c.resolve(comp, v, 0)
 		switch {
 		case errors.Is(err, deferred{}):
 			parts = append(parts, nil)
@@ -59,11 +64,11 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 	case "flex-direction":
 		v, p := pick(parts, map[string]style.Direction{"row": style.Row, "column": style.Column, "row-reverse": style.RowReverse, "column-reverse": style.ColumnReverse})
 		return decls{{Property: style.PropDirection, Direction: v}}, p
-	case "flex-grow", "flex-shrink", "opacity", "z-index":
+	case "flex-grow", "flex-shrink", "opacity", "z-index", "--tw-gradient-from-position", "--tw-gradient-via-position", "--tw-gradient-to-position":
 		if len(parts) != 1 {
 			return nil, problem{Unsupported, "expects one value"}
 		}
-		property := map[string]style.Property{"flex-grow": style.PropGrow, "flex-shrink": style.PropShrink, "opacity": style.PropOpacity, "z-index": style.PropZIndex}[prop]
+		property := map[string]style.Property{"flex-grow": style.PropGrow, "flex-shrink": style.PropShrink, "opacity": style.PropOpacity, "z-index": style.PropZIndex, "--tw-gradient-from-position": style.PropGradientFromPosition, "--tw-gradient-via-position": style.PropGradientViaPosition, "--tw-gradient-to-position": style.PropGradientToPosition}[prop]
 		if prop == "z-index" && strings.EqualFold(text(parts[0]), "auto") {
 			return decls{{Property: property}}, problem{}
 		}
@@ -110,12 +115,12 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 		return out, problem{}
 	case "translate":
 		return translate(parts)
-	case "color", "background-color", "border-color":
+	case "color", "background-color", "border-color", "--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to":
 		if len(parts) != 1 {
 			return nil, problem{Unsupported, "one colour per box"}
 		}
 		v, p := paint(parts[0])
-		property := map[string]style.Property{"color": style.PropColor, "background-color": style.PropBackground, "border-color": style.PropBorderColor}[prop]
+		property := map[string]style.Property{"color": style.PropColor, "background-color": style.PropBackground, "border-color": style.PropBorderColor, "--tw-gradient-from": style.PropGradientFrom, "--tw-gradient-via": style.PropGradientVia, "--tw-gradient-to": style.PropGradientTo}[prop]
 		return decls{{Property: property, Color: v}}, p
 	case "border-style":
 		v, p := pick(parts, borderStyles(), "groove", "ridge", "inset", "outset")

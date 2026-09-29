@@ -16,7 +16,7 @@ type deferred struct{}
 
 func (deferred) Error() string { return "registered property left to the cascade" }
 
-func (c *compiler) resolve(toks []css.Token, locals map[string][]css.Token, depth int) ([]css.Token, error) {
+func (c *compiler) resolve(toks []css.Token, v vars, depth int) ([]css.Token, error) {
 	if depth > konst.MaxVarDepth {
 		return nil, errors.New("var() nested too deep")
 	}
@@ -36,20 +36,23 @@ func (c *compiler) resolve(toks []css.Token, locals map[string][]css.Token, dept
 				break
 			}
 		}
-		value, local := locals[name]
-		themed, inTheme := c.theme[name]
+		value, local := v.local[name]
+		themed, inTheme := v.theme[name]
+		hasInitial, registered := c.initial[name]
 		switch {
 		case local:
 		case inTheme:
 			value = themed
-		case c.registered[name]:
+		case hasInitial:
 			return nil, deferred{}
 		case hasFallback:
 			value = fallback
+		case registered:
+			return nil, deferred{}
 		default:
 			return nil, errors.New("undefined variable " + name)
 		}
-		resolved, err := c.resolve(value, locals, depth+1)
+		resolved, err := c.resolve(value, v, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -97,6 +100,23 @@ func components(toks []css.Token) [][]css.Token {
 		out = append(out, toks[start:])
 	}
 	return out
+}
+
+func commas(toks []css.Token) [][]css.Token {
+	var out [][]css.Token
+	start, depth := 0, 0
+	for i, t := range toks {
+		switch {
+		case t.Kind == css.TokenFunction || t.Kind == css.TokenOpenParen:
+			depth++
+		case t.Kind == css.TokenCloseParen:
+			depth--
+		case t.Kind == css.TokenComma && depth == 0:
+			out = append(out, toks[start:i])
+			start = i + 1
+		}
+	}
+	return append(out, toks[start:])
 }
 
 type quantity struct {

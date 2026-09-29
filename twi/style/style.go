@@ -140,6 +140,58 @@ const (
 	SelectAll
 )
 
+type Shadow struct {
+	X, Y, Blur, Spread int
+	Color              color.Color
+	Inset              bool
+}
+
+type GradientKind uint8
+
+const (
+	GradientNone GradientKind = iota
+	GradientLinear
+)
+
+type GradientDirection uint8
+
+const (
+	ToBottom GradientDirection = iota
+	ToTop
+	ToRight
+	ToLeft
+	ToTopRight
+	ToTopLeft
+	ToBottomRight
+	ToBottomLeft
+	GradientAngle
+)
+
+type ColorSpace uint8
+
+const (
+	OKLab ColorSpace = iota
+	SRGB
+)
+
+type GradientLine struct {
+	Kind      GradientKind
+	Direction GradientDirection
+	Angle     float64
+	Space     ColorSpace
+}
+
+type GradientStop struct {
+	Color    color.Color
+	Position float64
+}
+
+type Gradient struct {
+	GradientLine
+	From, Via, To GradientStop
+	HasVia        bool
+}
+
 type ComputedStyle struct {
 	Display    Display
 	Direction  Direction
@@ -173,7 +225,11 @@ type ComputedStyle struct {
 	BorderColor color.Color
 	Radius      Radius
 	Background  color.Color
+	Gradient    Gradient
 	Opacity     float64
+
+	Shadows      []Shadow
+	InsetShadows []Shadow
 
 	Color         color.Color
 	Bold          bool

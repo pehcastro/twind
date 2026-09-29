@@ -3,6 +3,7 @@ package tailwind
 import (
 	"cmp"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -52,12 +53,16 @@ type ranked struct {
 	rule      style.Rule
 }
 
+type tokens = map[string][]css.Token
+
+type vars struct{ theme, local tokens }
+
 type compiler struct {
-	layers     map[string]int
-	theme      map[string][]css.Token
-	registered map[string]bool
-	rules      []ranked
-	warnings   []Warning
+	layers      map[string]int
+	light, dark tokens
+	initial     map[string]bool
+	rules       []ranked
+	warnings    []Warning
 }
 
 type scope struct {
@@ -73,8 +78,15 @@ func Compile(src string) ([]style.Rule, []Warning, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	c := compiler{layers: map[string]int{}, theme: map[string][]css.Token{}, registered: map[string]bool{}}
-	c.declarations(nodes)
+	c := compiler{layers: map[string]int{}, light: tokens{}, dark: tokens{}, initial: map[string]bool{}}
+	c.declarations(nodes, c.light)
+	if len(c.dark) == 0 {
+		c.dark = nil
+	} else {
+		overrides := c.dark
+		c.dark = maps.Clone(c.light)
+		maps.Copy(c.dark, overrides)
+	}
 	c.walk(nodes, scope{layer: unlayered})
 	slices.SortStableFunc(c.rules, func(a, b ranked) int {
 		return cmp.Or(cmp.Compare(a.rank, b.rank), cmp.Compare(a.seq, b.seq))
@@ -96,7 +108,7 @@ func (c *compiler) rank(layer string) int {
 	return c.layers[layer]
 }
 
-func (c *compiler) declarations(nodes []css.Node) {
+func (c *compiler) declarations(nodes []css.Node, into tokens) {
 	for _, n := range nodes {
 		switch n := n.(type) {
 		case css.AtRule:
@@ -108,15 +120,22 @@ func (c *compiler) declarations(nodes []css.Node) {
 					}
 				}
 				if n.HasBlock && text(n.Prelude) == "theme" {
-					c.declarations(n.Block)
+					c.declarations(n.Block, into)
+				}
+			case "media":
+				if when, reject := media(style.Condition{}, text(n.Prelude)); reject == "" && when.Scheme == style.SchemeDark {
+					c.declarations(n.Block, c.dark)
 				}
 			case "property":
-				c.registered[text(n.Prelude)] = true
+				c.initial[text(n.Prelude)] = slices.ContainsFunc(n.Block, func(d css.Node) bool {
+					decl, ok := d.(css.Declaration)
+					return ok && decl.Property == "initial-value"
+				})
 			}
 		case css.Rule:
 			for _, d := range n.Block {
 				if d, ok := d.(css.Declaration); ok && strings.HasPrefix(d.Property, "--") {
-					c.theme[d.Property] = d.Value
+					into[d.Property] = d.Value
 				}
 			}
 		}
@@ -146,15 +165,15 @@ func (c *compiler) walk(nodes []css.Node, sc scope) {
 }
 
 func (c *compiler) rule(r css.Rule, sc scope) {
-	selectors := strings.Split(r.Selector, ",")
+	selectors := selectorList(r.Selector)
 	if sc.layer == "base" {
-		if slices.ContainsFunc(selectors, func(s string) bool { return strings.TrimSpace(s) == "*" }) {
-			c.emit(sc.layer, style.Rule{}, c.block(r.Block, nil, func(string, problem) {}))
+		if slices.Contains(selectors, "*") {
+			c.emit(sc.layer, style.Rule{}, c.block(r.Block, vars{theme: c.light}, func(string, problem) {}))
 		}
 		return
 	}
 	for _, sel := range selectors {
-		out, reason := selector(strings.TrimSpace(sel), sc.when)
+		out, reason := selector(sel, sc.when)
 		if reason = cmp.Or(reason, sc.reject); reason != "" {
 			c.warnings = append(c.warnings, Warning{Class: out.Class, Property: "selector", Category: Unsupported, Reason: reason})
 			continue
@@ -162,8 +181,35 @@ func (c *compiler) rule(r css.Rule, sc scope) {
 		warn := func(property string, p problem) {
 			c.warnings = append(c.warnings, Warning{Class: out.Class, Property: property, Category: p.category, Reason: p.reason})
 		}
-		c.emit(sc.layer, out, c.block(r.Block, nil, warn))
+		theme := c.light
+		if out.When.Scheme == style.SchemeDark && c.dark != nil {
+			theme = c.dark
+		}
+		decls := c.block(r.Block, vars{theme: theme}, warn)
+		c.emit(sc.layer, out, decls)
+		if out.When.Scheme != style.SchemeAny || c.dark == nil {
+			continue
+		}
+		if dark := c.block(r.Block, vars{theme: c.dark}, func(string, problem) {}); !reflect.DeepEqual(dark, decls) {
+			out.When.Scheme = style.SchemeDark
+			c.emit(sc.layer, out, dark)
+		}
 	}
+}
+
+func selectorList(list string) []string {
+	var out []string
+	start := 0
+	for i := 0; i < len(list); i++ {
+		switch list[i] {
+		case '\\':
+			i++
+		case ',':
+			out = append(out, strings.TrimSpace(list[start:i]))
+			start = i + 1
+		}
+	}
+	return append(out, strings.TrimSpace(list[start:]))
 }
 
 func (c *compiler) emit(layer string, r style.Rule, decls []style.Declaration) {
@@ -174,22 +220,34 @@ func (c *compiler) emit(layer string, r style.Rule, decls []style.Declaration) {
 	c.rules = append(c.rules, ranked{rank: c.rank(layer), seq: len(c.rules), rule: r})
 }
 
-func (c *compiler) block(nodes []css.Node, outer map[string][]css.Token, warn func(string, problem)) []style.Declaration {
-	locals := map[string][]css.Token{}
-	maps.Copy(locals, outer)
-	for _, n := range nodes {
-		if d, ok := n.(css.Declaration); ok && strings.HasPrefix(d.Property, "--") {
-			locals[d.Property] = d.Value
+func (c *compiler) block(nodes []css.Node, outer vars, warn func(string, problem)) []style.Declaration {
+	v := vars{theme: outer.theme, local: tokens{}}
+	maps.Copy(v.local, outer.local)
+	var collect func([]css.Node)
+	collect = func(nodes []css.Node) {
+		for _, n := range nodes {
+			switch n := n.(type) {
+			case css.Declaration:
+				if strings.HasPrefix(n.Property, "--") {
+					v.local[n.Property] = n.Value
+				}
+			case css.AtRule:
+				if n.Name == "supports" {
+					collect(n.Block)
+				}
+			}
 		}
 	}
+	collect(nodes)
 	var out []style.Declaration
 	for _, n := range nodes {
 		switch n := n.(type) {
 		case css.Declaration:
-			if strings.HasPrefix(n.Property, "-") {
+			prop := strings.ToLower(n.Property)
+			if strings.HasPrefix(prop, "-") && !slices.Contains([]string{"--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to", "--tw-gradient-from-position", "--tw-gradient-via-position", "--tw-gradient-to-position"}, prop) {
 				continue
 			}
-			decls, p := c.declaration(strings.ToLower(n.Property), n.Value, locals)
+			decls, p := c.declaration(prop, n.Value, v)
 			if p.reason != "" {
 				warn(n.Property, p)
 			}
@@ -199,7 +257,7 @@ func (c *compiler) block(nodes []css.Node, outer map[string][]css.Token, warn fu
 				warn("@"+n.Name, problem{Unsupported, "at-rule nested in a rule"})
 				continue
 			}
-			out = append(out, c.block(n.Block, locals, warn)...)
+			out = append(out, c.block(n.Block, v, warn)...)
 		case css.Rule:
 			warn(n.Selector, problem{Unsupported, "nested rule"})
 		}

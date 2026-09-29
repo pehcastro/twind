@@ -1,0 +1,11 @@
+Tailwind CSS v4.3.3, .twind/bin/tailwindcss-windows-x64.exe
+SHA-256 e0e260ce048014e9268f6237ff18f8ccf02cef521cbd0ae04e82c2cdf7aa3955
+Captured 2026-09-29 on Windows 10 Pro 10.0.19045.
+
+app/input.css is tailwind.Input with the Twind preset; TestAppFixtureMatchesPreset fails when the preset changes.
+Run from the repository root:
+
+.twind/bin/tailwindcss-windows-x64.exe -i twi/tailwind/testdata/tailwind-4.3.3/app/input.css -o twi/tailwind/testdata/tailwind-4.3.3/app/output.css
+
+SHA-256 of the output:
+cbef48e94b59d11b858922ed620ece92362463606069b4f6450f082e13f22223  app/output.css

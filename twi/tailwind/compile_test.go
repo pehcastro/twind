@@ -2,6 +2,7 @@ package tailwind
 
 import (
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -10,9 +11,11 @@ import (
 	"github.com/twind-dev/twind/twi/style"
 )
 
-func compileFixture(t *testing.T, name string) (style.Sheet, []Warning) {
+const cssFixtures = "../css/testdata/tailwind-4.3.3/"
+
+func compileFixture(t *testing.T, dir string) (style.Sheet, []Warning) {
 	t.Helper()
-	src, err := os.ReadFile("../css/testdata/tailwind-4.3.3/" + name + "/output.css")
+	src, err := os.ReadFile(dir + "/output.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +35,7 @@ func cells(n float64) style.Length { return style.Length{Unit: style.Cells, Valu
 func all(l style.Length) style.Edges { return style.Edges{Top: l, Right: l, Bottom: l, Left: l} }
 
 func TestIntegrationHello(t *testing.T) {
-	sheet, warnings := compileFixture(t, "hello")
+	sheet, warnings := compileFixture(t, cssFixtures+"hello")
 	for _, w := range warnings {
 		t.Errorf("warning: %s", w)
 	}
@@ -64,7 +67,7 @@ func TestIntegrationHello(t *testing.T) {
 }
 
 func TestCascadeSourceOrder(t *testing.T) {
-	sheet, _ := compileFixture(t, "hello")
+	sheet, _ := compileFixture(t, cssFixtures+"hello")
 	for _, classes := range []string{"p-4 p-2", "p-2 p-4"} {
 		got := sheet.Compute(style.ComputedStyle{}, strings.Fields(classes))
 		if got.Padding != all(cells(4)) {
@@ -74,7 +77,7 @@ func TestCascadeSourceOrder(t *testing.T) {
 }
 
 func TestCascadeBaseReset(t *testing.T) {
-	sheet, _ := compileFixture(t, "hello")
+	sheet, _ := compileFixture(t, cssFixtures+"hello")
 	got := sheet.Compute(style.ComputedStyle{}, nil)
 	if got.BorderStyle != style.BorderSingle || got.BorderWidth != all(cells(0)) || got.Padding != all(cells(0)) || got.Margin != all(cells(0)) {
 		t.Errorf("no classes: %+v, want the * reset: border 0 solid, no padding, no margin", got)
@@ -82,7 +85,7 @@ func TestCascadeBaseReset(t *testing.T) {
 }
 
 func TestCascadeInheritance(t *testing.T) {
-	sheet, _ := compileFixture(t, "matrix")
+	sheet, _ := compileFixture(t, cssFixtures+"matrix")
 	parent := sheet.Compute(style.ComputedStyle{}, strings.Fields("text-zinc-100 font-bold italic underline px-2 text-center"))
 	child := sheet.Compute(parent, nil)
 	if child.Color != parent.Color || !child.Bold || !child.Italic || !child.Underline || child.TextAlign != style.TextCenter {
@@ -101,7 +104,7 @@ func TestCascadeInheritance(t *testing.T) {
 }
 
 func TestCascadeMatrix(t *testing.T) {
-	sheet, _ := compileFixture(t, "matrix")
+	sheet, _ := compileFixture(t, cssFixtures+"matrix")
 	got := sheet.Compute(style.ComputedStyle{}, strings.Fields(
 		"flex flex-row grow shrink-0 basis-4 items-center self-end justify-between gap-1 w-10 h-full min-w-0 max-w-80 min-h-1 max-h-10 m-1 absolute inset-0 top-1 right-2 left-3 overflow-hidden overflow-x-auto z-10 opacity-50 translate-x-1 cursor-pointer select-none invisible border-2 border-dashed border-zinc-700 rounded-full hover:bg-zinc-800 data-[selected=true]:bg-zinc-800 md:flex-row"))
 	want := style.ComputedStyle{
@@ -118,8 +121,9 @@ func TestCascadeMatrix(t *testing.T) {
 		BorderColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 63, G: 63, B: 70, A: 255}},
 		Radius:      style.RadiusFull, Opacity: 0.5,
 		Visibility: style.Hidden, Cursor: style.CursorPointer, UserSelect: style.SelectNone,
+		Gradient: style.Gradient{From: style.GradientStop{Color: color.Color{Kind: color.Literal}}, Via: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 0.5}, To: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 1}},
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("matrix classes:\n got %+v\nwant %+v", got, want)
 	}
 	alpha := sheet.Compute(style.ComputedStyle{}, []string{"bg-zinc-950/90"})
@@ -133,13 +137,13 @@ func TestCascadeMatrix(t *testing.T) {
 }
 
 func TestIntegrationMatrixWarnings(t *testing.T) {
-	_, warnings := compileFixture(t, "matrix")
+	_, warnings := compileFixture(t, cssFixtures+"matrix")
 	var got []string
 	for _, w := range warnings {
 		t.Log(w)
-		got = append(got, w.Class+" "+w.Category.String())
+		got = append(got, w.Class+" "+w.Category.String()+" "+w.Reason)
 	}
-	want := []string{"shadow-md unsupported", "blur-sm unsupported", "md:flex-row unsupported"}
+	want := []string{"blur-sm unsupported no terminal rendering", "md:flex-row unsupported breakpoint 48rem is not a whole number of cells", `shadow-md unsupported shadow value "rgb(0 0 0 / 0.1)"`}
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
@@ -175,7 +179,11 @@ func TestCompileRejects(t *testing.T) {
 		"undefined var":  ".p-x { padding: var(--nope); }",
 		"descendant":     ".group:hover .x { color: #fff; }",
 		"unknown value":  ".d-x { display: table; }",
-		"unknown prop":   ".s-x { box-shadow: 0 0 #000; }",
+		"unknown prop":   ".s-x { mask-image: none; }",
+		"percent shadow": ".s-x { box-shadow: 10% 1px #000; }",
+		"two colours":    ".s-x { box-shadow: 1px 1px #000 #fff; }",
+		"none and ring":  ".s-x { box-shadow: none; } .r-x { --tw-ring-shadow: 0 0 0 2px #000; box-shadow: var(--tw-ring-shadow); }",
+		"ring shadow":    ".s-x { --tw-ring-shadow: 0 0 0 2px #000; box-shadow: var(--tw-shadow, 0 0 #0000), var(--tw-ring-shadow); }",
 		"fraction cells": ".p-half { padding: 0.5px; }",
 	}
 	for name, src := range cases {
