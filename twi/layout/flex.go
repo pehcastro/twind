@@ -24,35 +24,104 @@ func Layout(root *Box, width int, height Length) {
 	if _, sized := resolve(s.Height, viewHeight, viewDefinite); sized {
 		mode = fixedHeight
 	}
-	place(root, 0, 0, w, heightOf(root, w, viewHeight, viewDefinite), mode)
+	h := heightOf(root, w, viewHeight, viewDefinite)
+	viewport := Rect{0, 0, width, h}
+	if viewDefinite {
+		viewport.H = viewHeight
+	}
+	screen := container{viewport, viewport}
+	place(root, 0, 0, w, h, mode, viewport, screen, screen)
 }
 
-func place(b *Box, x, y, w, h int, mode heightMode) {
+type container struct{ box, clip Rect }
+
+func place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolute, fixed container) {
 	s := b.Style
 	b.BorderBox = Rect{x, y, w, h}
 	b.PaddingBox = inset(b.BorderBox, s.Border)
 	b.ContentBox = inset(b.PaddingBox, s.Padding)
+	b.Clip = clip
+	if clips(s.Overflow) {
+		clip = intersect(clip, b.PaddingBox)
+	}
+	if s.Position != PositionStatic {
+		absolute = container{b.PaddingBox, clip}
+	}
 	if b.Measure != nil {
 		return
 	}
-	content, fixed := b.ContentBox, mode == fixedHeight
+	content, definite := b.ContentBox, mode == fixedHeight
 	frames, _ := arrange(b, content.W, content.H, mode)
 	for i, c := range b.Children {
-		if !visible(c) {
+		cs := c.Style
+		switch {
+		case !visible(c):
 			hide(c)
-			continue
+		case cs.Position == PositionAbsolute:
+			placeOut(c, content, absolute, fixed)
+		case cs.Position == PositionFixed:
+			placeOut(c, content, fixed, fixed)
+		default:
+			childMode := autoHeight
+			if _, sized := resolve(cs.Height, content.H, definite); sized || definite && (!isRow(s.Direction) || alignOf(s, cs) == AlignStretch) {
+				childMode = fixedHeight
+			}
+			f := frames[i]
+			if cs.Position == PositionRelative {
+				f.X += shift(cs.Inset.Left, cs.Inset.Right, content.W)
+				f.Y += shift(cs.Inset.Top, cs.Inset.Bottom, content.H)
+			}
+			place(c, content.X+f.X, content.Y+f.Y, f.W, f.H, childMode, clip, absolute, fixed)
 		}
-		childMode := autoHeight
-		if _, sized := resolve(c.Style.Height, content.H, fixed); sized || fixed && (!isRow(s.Direction) || alignOf(s, c.Style) == AlignStretch) {
-			childMode = fixedHeight
-		}
-		f := frames[i]
-		place(c, content.X+f.X, content.Y+f.Y, f.W, f.H, childMode)
 	}
 }
 
+func shift(near, far Length, base int) int {
+	if v, ok := resolve(near, base, true); ok {
+		return v
+	}
+	v, _ := resolve(far, base, true)
+	return -v
+}
+
+func placeOut(b *Box, static Rect, cb, fixed container) {
+	s, m, in, area := b.Style, b.Style.Margin, b.Style.Inset, cb.box
+	left, hasLeft := resolve(in.Left, area.W, true)
+	right, hasRight := resolve(in.Right, area.W, true)
+	top, hasTop := resolve(in.Top, area.H, true)
+	bottom, hasBottom := resolve(in.Bottom, area.H, true)
+	w, sized := resolve(s.Width, area.W, true)
+	if avail := area.W - left - right - m.Left - m.Right; !sized && hasLeft && hasRight {
+		w = avail
+	} else if !sized {
+		w = contentWidth(b, avail)
+	}
+	w = limit(s.MinWidth, s.MaxWidth, area.W, true).clamp(w)
+	mode := fixedHeight
+	h, sized := resolve(s.Height, area.H, true)
+	if !sized && hasTop && hasBottom {
+		h = area.H - top - bottom - m.Top - m.Bottom
+	} else if !sized {
+		h, mode = contentHeight(b, w), autoHeight
+	}
+	h = limit(s.MinHeight, s.MaxHeight, area.H, true).clamp(h)
+	x := edge(hasLeft, hasRight, area.X+left+m.Left, area.X+area.W-right-m.Right-w, static.X+m.Left)
+	y := edge(hasTop, hasBottom, area.Y+top+m.Top, area.Y+area.H-bottom-m.Bottom-h, static.Y+m.Top)
+	place(b, x, y, w, h, mode, cb.clip, cb, fixed)
+}
+
+func edge(hasNear, hasFar bool, near, far, static int) int {
+	if hasNear {
+		return near
+	}
+	if hasFar {
+		return far
+	}
+	return static
+}
+
 func hide(b *Box) {
-	b.BorderBox, b.PaddingBox, b.ContentBox = Rect{}, Rect{}, Rect{}
+	b.BorderBox, b.PaddingBox, b.ContentBox, b.Clip = Rect{}, Rect{}, Rect{}, Rect{}
 	for _, c := range b.Children {
 		hide(c)
 	}
@@ -63,7 +132,7 @@ func arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
 	row, fixed := isRow(s.Direction), mode == fixedHeight
 	var shown []int
 	for i, c := range b.Children {
-		if visible(c) {
+		if visible(c) && flowing(c.Style.Position) {
 			shown = append(shown, i)
 		}
 	}
@@ -160,7 +229,7 @@ func contentWidth(b *Box, avail int) int {
 	}
 	row, content, count := isRow(s.Direction), 0, 0
 	for _, c := range b.Children {
-		if !visible(c) {
+		if !visible(c) || !flowing(c.Style.Position) {
 			continue
 		}
 		marginW := c.Style.Margin.Left + c.Style.Margin.Right

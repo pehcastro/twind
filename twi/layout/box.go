@@ -41,6 +41,22 @@ const (
 	AlignStretch
 )
 
+type Position uint8
+
+const (
+	PositionStatic Position = iota
+	PositionRelative
+	PositionAbsolute
+	PositionFixed
+)
+
+type Overflow uint8
+
+const (
+	OverflowVisible Overflow = iota
+	OverflowHidden
+)
+
 type Unit uint8
 
 const (
@@ -56,6 +72,10 @@ type Length struct {
 
 type Edges struct {
 	Top, Right, Bottom, Left int
+}
+
+type Insets struct {
+	Top, Right, Bottom, Left Length
 }
 
 type Style struct {
@@ -78,6 +98,10 @@ type Style struct {
 	Padding    Edges
 	Margin     Edges
 	Border     Edges
+	Position   Position
+	Inset      Insets
+	Overflow   Overflow
+	ZIndex     int
 }
 
 type Measure func(availableWidth int) (width, height int)
@@ -94,6 +118,7 @@ type Box struct {
 	BorderBox  Rect
 	PaddingBox Rect
 	ContentBox Rect
+	Clip       Rect
 }
 
 func visible(b *Box) bool {
@@ -104,6 +129,31 @@ func visible(b *Box) bool {
 		return false
 	}
 	panic(fmt.Sprintf("layout: unknown display %d", b.Style.Display))
+}
+
+func flowing(p Position) bool {
+	switch p {
+	case PositionStatic, PositionRelative:
+		return true
+	case PositionAbsolute, PositionFixed:
+		return false
+	}
+	panic(fmt.Sprintf("layout: unknown position %d", p))
+}
+
+func clips(o Overflow) bool {
+	switch o {
+	case OverflowVisible:
+		return false
+	case OverflowHidden:
+		return true
+	}
+	panic(fmt.Sprintf("layout: unknown overflow %d", o))
+}
+
+func intersect(a, b Rect) Rect {
+	x, y := max(a.X, b.X), max(a.Y, b.Y)
+	return Rect{x, y, max(min(a.X+a.W, b.X+b.W)-x, 0), max(min(a.Y+a.H, b.Y+b.H)-y, 0)}
 }
 
 func isRow(d Direction) bool {
