@@ -11,3 +11,7 @@ func size(uintptr) (width, height int, err error) {
 func EnableVirtualTerminal(*os.File) (restore func() error, err error) {
 	return func() error { return nil }, nil
 }
+
+func openTTY(*os.File, *os.File, Options) (tty, error) {
+	return nil, errNotConsole
+}

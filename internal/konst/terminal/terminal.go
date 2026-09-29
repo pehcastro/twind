@@ -1,5 +1,7 @@
 package terminal
 
+import "time"
+
 const (
 	CSI          = "\x1b["
 	SyncBegin    = CSI + "?2026h"
@@ -20,4 +22,25 @@ const (
 	SGRUnderline = 4
 	SGRInverse   = 7
 	SGRStrike    = 9
+)
+
+const (
+	EnterScreen = CSI + "?1049h" + CSI + "?25l" + CSI + "?2004h" + CSI + "?1004h"
+	LeaveScreen = CSI + "?1004l" + CSI + "?2004l" + CSI + "?25h" + CSI + "?1049l" + Reset
+	MouseOn     = CSI + "?1003h" + CSI + "?1006h"
+	MouseOff    = CSI + "?1006l" + CSI + "?1003l"
+	KittyPush   = CSI + ">1u"
+	KittyPop    = CSI + "<u"
+	Queries     = CSI + "?2026$p" + CSI + "?u" + CSI + "c"
+	SyncMode    = 2026
+	ModeSet     = 1
+	ModeReset   = 2
+)
+
+const (
+	QueryTimeout  = 100 * time.Millisecond
+	EscapeTimeout = 50 * time.Millisecond
+	EventBuffer   = 256
+	ReplyBuffer   = 16
+	ReadBuffer    = 4096
 )
