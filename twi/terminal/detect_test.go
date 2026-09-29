@@ -14,7 +14,11 @@ func TestProfile(t *testing.T) {
 		env      map[string]string
 		want     color.Profile
 	}{
-		{"no color beats force color", true, map[string]string{"NO_COLOR": "1", "FORCE_COLOR": "3", "COLORTERM": "truecolor"}, color.None},
+		{"no color on a terminal keeps attributes", true, map[string]string{"NO_COLOR": "1", "COLORTERM": "truecolor"}, color.Attributes},
+		{"no color beats force color", true, map[string]string{"NO_COLOR": "1", "FORCE_COLOR": "3", "COLORTERM": "truecolor"}, color.Attributes},
+		{"no color on a buffer gets none", false, map[string]string{"NO_COLOR": "1"}, color.None},
+		{"no color with force color on a buffer", false, map[string]string{"NO_COLOR": "1", "FORCE_COLOR": "3"}, color.Attributes},
+		{"no color on a dumb term", true, map[string]string{"NO_COLOR": "1", "TERM": "dumb"}, color.None},
 		{"empty no color is unset", true, map[string]string{"NO_COLOR": "", "COLORTERM": "truecolor"}, color.TrueColor},
 		{"buffer gets none", false, map[string]string{"COLORTERM": "truecolor"}, color.None},
 		{"force color on a buffer", false, map[string]string{"FORCE_COLOR": "1"}, color.ANSI16},

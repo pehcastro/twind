@@ -123,6 +123,27 @@ func TestStatic(t *testing.T) {
 	}
 }
 
+func TestStaticAttributes(t *testing.T) {
+	b := buffer.New(8, 3)
+	put(b, 0, 0, "ab", buffer.Cell{Attr: buffer.Bold | buffer.Inverse, Fg: literal(1, 2, 3), Bg: literal(4, 5, 6)})
+	put(b, 2, 0, "      ", buffer.Cell{Bg: literal(4, 5, 6)})
+	put(b, 0, 1, "c ", buffer.Cell{Fg: literal(250, 2, 1), Bg: literal(4, 5, 6)})
+	b.Set(2, 1, buffer.Cell{Grapheme: " ", Attr: buffer.Inverse})
+	put(b, 0, 2, "d       ", buffer.Cell{Bg: literal(4, 5, 6), Attr: buffer.Inverse})
+	for profile, want := range map[color.Profile]string{
+		color.Attributes: "\x1b[1;7mab\x1b[0m\n" + "c \x1b[7m \x1b[0m\n" + "\x1b[7md       \x1b[0m\n",
+		color.None:       "ab\n" + "c\n" + "d\n",
+	} {
+		var out bytes.Buffer
+		if err := (&Writer{Out: &out, Profile: profile}).Static(b); err != nil {
+			t.Fatal(err)
+		}
+		if out.String() != want {
+			t.Errorf("profile %d:\n got %q\nwant %q", profile, out.String(), want)
+		}
+	}
+}
+
 func TestWideGlyph(t *testing.T) {
 	prev, cur := buffer.New(10, 1), buffer.New(10, 1)
 	cur.Set(0, 0, buffer.Cell{Grapheme: "世", Width: buffer.Wide})

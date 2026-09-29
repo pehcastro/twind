@@ -1,6 +1,7 @@
 package twi_test
 
 import (
+	"bytes"
 	"os"
 	"regexp"
 	"strconv"
@@ -134,9 +135,20 @@ func TestRenderDefaultsOnAPipe(t *testing.T) {
 	if strings.ContainsRune(out, 0x1b) {
 		t.Errorf("a writer that is not a terminal got escapes: %q", out[:min(len(out), 40)])
 	}
-	rows := decode(t, out)
-	if len(rows) != 18 || len(rows[7]) != 80 || rows[7][75].glyph != "╮" {
-		t.Errorf("default width is not 80: %d rows, row 7 is %d cells", len(rows), len(rows[7]))
+	var buf bytes.Buffer
+	if err := twi.Render(&buf, hello.App(), sheet(t)); err != nil || buf.String() != out {
+		t.Errorf("Render to a bytes.Buffer differs from RenderString: %v", err)
+	}
+	longest := 0
+	for line := range strings.Lines(out) {
+		line = strings.TrimSuffix(line, "\n")
+		if strings.HasSuffix(line, " ") {
+			t.Errorf("line ends in a space: %q", line)
+		}
+		longest = max(longest, text.Width(line))
+	}
+	if rows := decode(t, out); len(rows) != 18 || longest != 76 || rows[7][75].glyph != "╮" {
+		t.Errorf("default width is not 80: %d rows, longest line %d columns, want 76", len(rows), longest)
 	}
 	t.Setenv("FORCE_COLOR", "3")
 	if out := twi.RenderString(hello.App(), sheet(t)); !strings.Contains(out, "\x1b[") {
@@ -190,7 +202,7 @@ func TestRenderHostileText(t *testing.T) {
 			}
 			input.WriteString(s)
 		}
-		for _, p := range []color.Profile{color.None, color.TrueColor} {
+		for _, p := range []color.Profile{color.None, color.Attributes, color.TrueColor} {
 			out := twi.RenderString(twi.Text(input.String()), twi.ColorProfile(p))
 			rest := sgr.ReplaceAllString(out, "")
 			if i := strings.IndexFunc(rest, func(r rune) bool { return r == 0x1b || r == 0x9b || r == 0x9d || r == 0x7 }); i >= 0 {

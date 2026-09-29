@@ -27,6 +27,7 @@ type Profile uint8
 
 const (
 	None Profile = iota
+	Attributes
 	ANSI16
 	ANSI256
 	TrueColor

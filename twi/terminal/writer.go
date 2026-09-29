@@ -62,13 +62,13 @@ func (w *Writer) Static(b *buffer.Buffer) error {
 	for y := range b.Height() {
 		row := b.Row(y)
 		end := len(row)
-		for end > 0 && blank(row[end-1]) {
+		for end > 0 && w.blank(row[end-1]) {
 			end--
 		}
 		for _, c := range row[:end] {
 			w.cell(c)
 		}
-		if w.Profile != color.None {
+		if w.pen != (pen{}) {
 			w.buf = append(w.buf, konst.Reset...)
 			w.pen = pen{}
 		}
@@ -78,10 +78,19 @@ func (w *Writer) Static(b *buffer.Buffer) error {
 	return w.flush()
 }
 
-func blank(c buffer.Cell) bool {
-	visible := buffer.Underline | buffer.Strikethrough | buffer.Inverse
-	noBackground := c.Bg.Kind == color.Unset || c.Bg.Kind == color.Literal && c.Bg.RGBA.A == 0
-	return c.Grapheme == " " && c.Attr&visible == 0 && noBackground
+func (w *Writer) blank(c buffer.Cell) bool {
+	space := c.Grapheme == " "
+	visible := c.Attr&(buffer.Underline|buffer.Strikethrough|buffer.Inverse) != 0
+	painted := c.Bg.Kind == color.Current || c.Bg.Kind == color.Literal && c.Bg.RGBA.A != 0
+	switch w.Profile {
+	case color.None:
+		return space
+	case color.Attributes:
+		return space && !visible
+	case color.ANSI16, color.ANSI256, color.TrueColor:
+		return space && !visible && !painted
+	}
+	panic("terminal: unknown colour profile")
 }
 
 func (w *Writer) flush() error {
@@ -179,7 +188,7 @@ func (w *Writer) ink(c color.Color) ink {
 		return ink{set: true, index: c.RGBA.ANSI256()}
 	case color.ANSI16:
 		return ink{set: true, index: c.RGBA.ANSI16()}
-	case color.None:
+	case color.None, color.Attributes:
 		return ink{}
 	}
 	panic("terminal: unknown colour profile")

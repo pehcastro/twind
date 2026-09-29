@@ -24,15 +24,9 @@ func Profile(w io.Writer, env func(string) string) color.Profile {
 }
 
 func profileFor(terminal bool, env func(string) string) color.Profile {
-	if env("NO_COLOR") != "" {
-		return color.None
-	}
 	forced := color.None
 	switch env("FORCE_COLOR") {
 	case "":
-		if !terminal {
-			return color.None
-		}
 	case "0", "false":
 		return color.None
 	case "2":
@@ -44,8 +38,10 @@ func profileFor(terminal bool, env func(string) string) color.Profile {
 	}
 	term := env("TERM")
 	switch {
-	case term == "dumb" && forced == color.None:
+	case forced == color.None && (!terminal || term == "dumb"):
 		return color.None
+	case env("NO_COLOR") != "":
+		return color.Attributes
 	case env("COLORTERM") == "truecolor", env("COLORTERM") == "24bit", env("WT_SESSION") != "":
 		return color.TrueColor
 	case strings.Contains(term, "256color"):
