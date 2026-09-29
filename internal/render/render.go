@@ -24,6 +24,7 @@ type Frame struct {
 	Width    int
 	Height   layout.Length
 	Sanitize func(raw string) scene.Text
+	Look     paint.Look
 }
 
 type styledBox struct {
@@ -43,7 +44,7 @@ func Render(root Node, f Frame) (*buffer.Buffer, error) {
 	}
 	layout.Layout(styled.box, f.Width, f.Height)
 	buf := buffer.New(f.Width, styled.box.BorderBox.H)
-	paint.Paint(buf, styled.scene())
+	paint.Paint(buf, styled.scene(), f.Look)
 	return buf, nil
 }
 

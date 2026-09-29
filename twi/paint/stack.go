@@ -51,7 +51,7 @@ func (ctx *layer) collect(n *scene.Node, into *layer) {
 	}
 }
 
-func (l *layer) paint(buf *buffer.Buffer) {
+func (l *layer) paint(buf *buffer.Buffer, look Look) {
 	if l.opacity <= 0 {
 		return
 	}
@@ -60,18 +60,18 @@ func (l *layer) paint(buf *buffer.Buffer) {
 		target = buffer.New(buf.Width(), buf.Height())
 		target.Fill(buffer.Rect{W: buf.Width(), H: buf.Height()}, buffer.Cell{Grapheme: " ", Bg: color.Color{Kind: color.Literal}})
 	}
-	draw(target, l.flow[0])
+	draw(target, l.flow[0], look)
 	for _, b := range l.below {
-		b.paint(target)
+		b.paint(target, look)
 	}
 	for _, n := range l.flow[1:] {
-		draw(target, n)
+		draw(target, n, look)
 	}
 	for _, c := range l.level {
-		c.paint(target)
+		c.paint(target, look)
 	}
 	for _, a := range l.above {
-		a.paint(target)
+		a.paint(target, look)
 	}
 	if target != buf {
 		fade(buf, target, l.opacity)

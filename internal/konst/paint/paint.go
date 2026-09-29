@@ -6,8 +6,9 @@ const (
 	SquareCorners  = "┌┐└┘"
 	RoundedCorners = "╭╮╰╯"
 	DoubleCorners  = "╔╗╚╝"
-	SingleLines    = "─│"
-	DashedLines    = "┄┆"
-	DottedLines    = "┈┊"
-	DoubleLines    = "═║"
+	SingleLines    = "─│─│"
+	DashedLines    = "┄┆┄┆"
+	DottedLines    = "┈┊┈┊"
+	DoubleLines    = "═║═║"
+	Hairlines      = "▁▏▔▕"
 )

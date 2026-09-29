@@ -31,8 +31,12 @@ func over(src, dst color.Color) color.Color {
 	}}
 }
 
+func visible(buf *buffer.Buffer, clip layout.Rect, x, y int) bool {
+	return x >= max(clip.X, 0) && y >= max(clip.Y, 0) && x < min(clip.X+clip.W, buf.Width()) && y < min(clip.Y+clip.H, buf.Height())
+}
+
 func put(buf *buffer.Buffer, clip layout.Rect, x, y int, src buffer.Cell) {
-	if x < max(clip.X, 0) || y < max(clip.Y, 0) || x >= min(clip.X+clip.W, buf.Width()) || y >= min(clip.Y+clip.H, buf.Height()) {
+	if !visible(buf, clip, x, y) {
 		return
 	}
 	if !translucent(src.Bg) && !translucent(src.Fg) {

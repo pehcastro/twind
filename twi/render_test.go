@@ -119,13 +119,13 @@ func TestRenderHelloTruecolor(t *testing.T) {
 		}
 	}
 	at(4, 4, "Hello Twind")
-	at(4, 7, "╭─")
-	at(74, 7, "─╮")
-	at(4, 8, "│")
-	at(75, 12, "│")
+	at(4, 7, " ▁")
+	at(74, 7, "▁ ")
+	at(4, 8, "▕")
+	at(75, 12, "▏")
 	at(7, 10, "Terminal DOM")
-	at(4, 13, "╰─")
-	at(74, 13, "─╯")
+	at(4, 13, " ▔")
+	at(74, 13, "▔ ")
 }
 
 func TestRenderDefaultsOnAPipe(t *testing.T) {

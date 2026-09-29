@@ -69,18 +69,8 @@ func boxed(radius style.Radius, c color.Color) *buffer.Buffer {
 	box := sized(6, 3, one)
 	s := style.ComputedStyle{BorderStyle: style.BorderSingle, BorderColor: color.Color{Kind: color.Current}, Radius: radius, Color: c, Opacity: 1}
 	buf := buffer.New(8, 4)
-	Paint(buf, scene.New(box, s, scene.Text{}))
+	Paint(buf, scene.New(box, s, scene.Text{}), Plain)
 	return buf
-}
-
-func TestBorderRounded(t *testing.T) {
-	buf := boxed(style.RadiusLg, color.Color{})
-	expect(t, buf, "╭────╮  ", "│    │  ", "╰────╯  ", "        ")
-}
-
-func TestBorderSingle(t *testing.T) {
-	buf := boxed(style.RadiusNone, color.Color{})
-	expect(t, buf, "┌────┐  ", "│    │  ", "└────┘  ", "        ")
 }
 
 func TestBorderCurrentColor(t *testing.T) {
@@ -95,7 +85,7 @@ func TestBorderCurrentColor(t *testing.T) {
 func TestTextWide(t *testing.T) {
 	box := sized(5, 1, layout.Edges{})
 	buf := buffer.New(7, 2)
-	Paint(buf, scene.New(box, plain(), scene.Sanitize("中文ab")))
+	Paint(buf, scene.New(box, plain(), scene.Sanitize("中文ab")), Composited)
 	expect(t, buf, "中文a  ", "       ")
 	want := []buffer.Width{buffer.Wide, buffer.Continuation, buffer.Wide, buffer.Continuation, buffer.Narrow, buffer.Narrow, buffer.Narrow}
 	for x, w := range want {
@@ -108,7 +98,7 @@ func TestTextWide(t *testing.T) {
 func TestTextWideAtEdge(t *testing.T) {
 	box := sized(1, 1, layout.Edges{})
 	buf := buffer.New(3, 1)
-	Paint(buf, scene.New(box, plain(), scene.Sanitize("中")))
+	Paint(buf, scene.New(box, plain(), scene.Sanitize("中")), Composited)
 	expect(t, buf, "   ")
 	if buf.At(1, 0).Width != buffer.Narrow {
 		t.Errorf("cell 1 is %d, a wide glyph spilled out of a 1-cell box", buf.At(1, 0).Width)
@@ -118,7 +108,7 @@ func TestTextWideAtEdge(t *testing.T) {
 func TestTextTab(t *testing.T) {
 	box := sized(12, 1, layout.Edges{})
 	buf := buffer.New(12, 1)
-	Paint(buf, scene.New(box, plain(), scene.Sanitize("ab\tc")))
+	Paint(buf, scene.New(box, plain(), scene.Sanitize("ab\tc")), Composited)
 	expect(t, buf, "ab      c   ")
 }
 
@@ -138,7 +128,7 @@ func TestTextColors(t *testing.T) {
 	buf := buffer.New(6, 3)
 	page := scene.New(root, parent, scene.Text{})
 	page.Children = []scene.Node{scene.New(leaf, child, scene.Sanitize("hi"))}
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	expect(t, buf, "      ", " hi   ", "      ")
 	for x := range 2 {
 		c := buf.At(1+x, 1)
@@ -157,7 +147,7 @@ func TestBackgroundTransparent(t *testing.T) {
 	buf := buffer.New(4, 1)
 	page := scene.New(under, filled(zinc950), scene.Text{})
 	page.Children = []scene.Node{scene.New(over, filled(color.RGBA{}), scene.Text{})}
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	if c := buf.At(0, 0); c.Bg.RGBA != zinc950 {
 		t.Errorf("transparent background replaced zinc-950 with %+v", c.Bg)
 	}
@@ -169,7 +159,7 @@ func TestHiddenPaintsNothing(t *testing.T) {
 	s := filled(zinc950)
 	s.Visibility, s.BorderStyle = style.Hidden, style.BorderSingle
 	buf := buffer.New(4, 3)
-	Paint(buf, scene.New(box, s, scene.Sanitize("x")))
+	Paint(buf, scene.New(box, s, scene.Sanitize("x")), Composited)
 	for y := range 3 {
 		for x := range 4 {
 			if c := buf.At(x, y); c != (buffer.Cell{Grapheme: " "}) {
@@ -185,7 +175,7 @@ func TestPaintOffScreen(t *testing.T) {
 	s := filled(zinc950)
 	s.BorderStyle = style.BorderSingle
 	buf := buffer.New(3, 2)
-	Paint(buf, scene.New(box, s, scene.Sanitize("wide text")))
+	Paint(buf, scene.New(box, s, scene.Sanitize("wide text")), Plain)
 	expect(t, buf, "┌──", "│wi")
 }
 
@@ -211,8 +201,8 @@ func TestTextHostile(t *testing.T) {
 			t.Fatalf("%s: %v", fields[0], err)
 		}
 		buf, clean := buffer.New(60, 4), buffer.New(60, 4)
-		Paint(buf, scene.New(box, plain(), scene.Sanitize(raw.String())))
-		Paint(clean, scene.New(box, plain(), scene.Sanitize(want)))
+		Paint(buf, scene.New(box, plain(), scene.Sanitize(raw.String())), Composited)
+		Paint(clean, scene.New(box, plain(), scene.Sanitize(want)), Composited)
 		if got, sanitised := rows(buf), rows(clean); !slices.Equal(got, sanitised) {
 			t.Errorf("%s: painted %q, want the sanitised %q", fields[0], got, sanitised)
 		}

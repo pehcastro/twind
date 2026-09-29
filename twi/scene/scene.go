@@ -16,6 +16,7 @@ type Border struct {
 
 type Node struct {
 	Bounds                                 layout.Rect
+	Padding                                layout.Rect
 	Content                                layout.Rect
 	Clip                                   layout.Rect
 	Position                               layout.Position
@@ -23,6 +24,7 @@ type Node struct {
 	Opacity                                float64
 	Background                             color.Color
 	Border                                 Border
+	Shadows, InsetShadows                  []style.Shadow
 	Foreground                             color.Color
 	Bold, Italic, Underline, Strikethrough bool
 	Children                               []Node
@@ -44,6 +46,7 @@ func (t Text) Size(availableWidth int) (width, height int) {
 func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	n := Node{
 		Bounds:   box.BorderBox,
+		Padding:  box.PaddingBox,
 		Content:  box.ContentBox,
 		Clip:     box.Clip,
 		Position: box.Style.Position,
@@ -64,6 +67,14 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	n.Border = Border{
 		Style: s.BorderStyle, Radius: s.Radius, Color: own(s.BorderColor),
 		Top: edges.Top > 0, Right: edges.Right > 0, Bottom: edges.Bottom > 0, Left: edges.Left > 0,
+	}
+	for _, sh := range s.Shadows {
+		sh.Color = own(sh.Color)
+		n.Shadows = append(n.Shadows, sh)
+	}
+	for _, sh := range s.InsetShadows {
+		sh.Color = own(sh.Color)
+		n.InsetShadows = append(n.InsetShadows, sh)
 	}
 	n.Foreground = s.Color
 	n.Bold, n.Italic, n.Underline, n.Strikethrough = s.Bold, s.Italic, s.Underline, s.Strikethrough

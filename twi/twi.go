@@ -9,6 +9,7 @@ import (
 	konst "github.com/twind-dev/twind/internal/konst/twi"
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/paint"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/terminal"
 )
@@ -81,7 +82,11 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 	if !cfg.profileSet {
 		cfg.profile = terminal.Profile(w, os.Getenv)
 	}
-	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width})
+	look := paint.Composited
+	if cfg.profile <= color.Attributes {
+		look = paint.Plain
+	}
+	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look})
 	if err != nil {
 		return err
 	}

@@ -27,7 +27,7 @@ func TestBlendKeepsGlyphBeneath(t *testing.T) {
 	page := scene.New(box, s, scene.Sanitize("x"))
 	page.Children = []scene.Node{scene.New(box, filled(color.RGBA{A: 128}), scene.Text{})}
 	buf := buffer.New(3, 1)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	black := color.RGBA{A: 255}
 	c := buf.At(0, 0)
 	if c.Grapheme != "x" {
@@ -48,7 +48,7 @@ func TestBlendOpaqueReplaces(t *testing.T) {
 	page := scene.New(box, s, scene.Sanitize("xy"))
 	page.Children = []scene.Node{scene.New(box, filled(zinc800), scene.Text{})}
 	buf := buffer.New(2, 1)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	if c := buf.At(0, 0); c != (buffer.Cell{Grapheme: " ", Bg: literal(zinc800)}) {
 		t.Errorf("opaque layer left %+v", c)
 	}
@@ -59,7 +59,7 @@ func TestBlendOverTerminalDefault(t *testing.T) {
 	page := scene.New(box, plain(), scene.Sanitize("x"))
 	page.Children = []scene.Node{scene.New(box, filled(color.RGBA{A: 128}), scene.Text{})}
 	buf := buffer.New(2, 1)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	c := buf.At(0, 0)
 	if c.Grapheme != "x" || c.Fg.Kind != color.Unset {
 		t.Errorf("default-coloured x became %+v, want the glyph kept with the default fg", c)
@@ -76,7 +76,7 @@ func TestBlendWideGlyph(t *testing.T) {
 	page := scene.New(box, s, scene.Sanitize("中x"))
 	page.Children = []scene.Node{scene.New(sized(1, 1, layout.Edges{}), filled(color.RGBA{A: 128}), scene.Text{})}
 	buf := buffer.New(4, 1)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	expect(t, buf, "中x ")
 	if buf.At(0, 0).Width != buffer.Wide || buf.At(1, 0).Width != buffer.Continuation {
 		t.Errorf("a translucent cell over half a wide glyph split it: %+v %+v", buf.At(0, 0), buf.At(1, 0))
@@ -95,14 +95,14 @@ func TestOpacityGroup(t *testing.T) {
 	page := scene.New(box, filled(zinc950), scene.Text{})
 	page.Children = []scene.Node{group}
 	got := buffer.New(4, 1)
-	Paint(got, page)
+	Paint(got, page, Composited)
 
 	half := card
 	half.Background.RGBA.A, half.Color.RGBA.A = 128, 128
 	page = scene.New(box, filled(zinc950), scene.Text{})
 	page.Children = []scene.Node{scene.New(box, half, scene.Sanitize("hi"))}
 	want := buffer.New(4, 1)
-	Paint(want, page)
+	Paint(want, page, Composited)
 
 	for x := range 4 {
 		if got.At(x, 0) != want.At(x, 0) {
@@ -123,7 +123,7 @@ func TestOpacityNestedAndZero(t *testing.T) {
 	page := scene.New(box, filled(zinc950), scene.Text{})
 	page.Children = []scene.Node{o, scene.New(box, gone, scene.Sanitize("zz"))}
 	buf := buffer.New(2, 1)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	if want := halfOver(white, zinc950); !near(buf.At(0, 0).Bg, want) {
 		t.Errorf("white group over white at 0.5 gave %+v, want %+v", buf.At(0, 0).Bg, want)
 	}
@@ -146,7 +146,7 @@ func TestStackZIndex(t *testing.T) {
 	page := scene.New(root, filled(zinc950), scene.Text{})
 	page.Children = []scene.Node{scene.New(top, filled(red), scene.Text{}), scene.New(under, filled(blue), scene.Text{})}
 	buf := buffer.New(8, 3)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	if c := buf.At(3, 1).Bg.RGBA; c != red {
 		t.Errorf("overlap %+v, want the z-20 box (red) above the later z-10 box", c)
 	}
@@ -166,7 +166,7 @@ func TestStackHoistsOutOfPositionedWrapper(t *testing.T) {
 	page := scene.New(root, plain(), scene.Text{})
 	page.Children = []scene.Node{w, scene.New(later, filled(blue), scene.Text{})}
 	buf := buffer.New(6, 1)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	if c := buf.At(0, 0).Bg.RGBA; c != red {
 		t.Errorf("z-50 popover inside a z-auto relative wrapper: %+v, want red above the later positioned box", c)
 	}
@@ -180,7 +180,7 @@ func TestStackNegativeZ(t *testing.T) {
 	page := scene.New(root, filled(zinc950), scene.Text{})
 	page.Children = []scene.Node{scene.New(flow, filled(red), scene.Text{}), scene.New(behind, filled(blue), scene.Text{})}
 	buf := buffer.New(4, 1)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	if buf.At(0, 0).Bg.RGBA != red || buf.At(3, 0).Bg.RGBA != blue {
 		t.Errorf("-z-1 box: %+v %+v, want above the root background and below the flow child", buf.At(0, 0).Bg.RGBA, buf.At(3, 0).Bg.RGBA)
 	}
@@ -197,7 +197,7 @@ func TestStackOverflowHiddenClips(t *testing.T) {
 	page := scene.New(root, plain(), scene.Text{})
 	page.Children = []scene.Node{c}
 	buf := buffer.New(10, 3)
-	Paint(buf, page)
+	Paint(buf, page, Composited)
 	expect(t, buf, "abcd      ", "          ", "fixedbox  ")
 	if buf.At(4, 0).Bg.Kind != color.Unset || buf.At(3, 1).Bg.RGBA != blue {
 		t.Errorf("clip edge: %+v inside, %+v outside", buf.At(3, 1).Bg, buf.At(4, 0).Bg)
