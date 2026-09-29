@@ -1,0 +1,16 @@
+*.exe
+*.test
+*.out
+/twind
+
+.local
+CLAUDE.md
+/.claude/
+.mcp.json
+.env
+.env.*
+!.env.example
+
+.twind/bin/
+.twind/cache/
+rtk/

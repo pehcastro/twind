@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.golden binary
+*.twd text eol=lf
+*.png binary
