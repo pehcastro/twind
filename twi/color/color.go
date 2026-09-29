@@ -49,10 +49,15 @@ func Parse(input string) (Color, error) {
 	}
 	var c RGBA
 	var ok bool
-	if hex, isHex := strings.CutPrefix(s, "#"); isHex {
-		c, ok = parseHex(hex)
-	} else if body, isOKLCH := strings.CutPrefix(s, "oklch("); isOKLCH {
+	fn, body, isFunc := strings.Cut(s, "(")
+	switch {
+	case strings.HasPrefix(s, "#"):
+		c, ok = parseHex(s[1:])
+	case !isFunc:
+	case fn == "oklch":
 		c, ok = parseOKLCH(body)
+	case fn == "rgb" || fn == "rgba":
+		c, ok = parseRGB(body)
 	}
 	if !ok {
 		return Color{}, SyntaxError{Input: input}
@@ -111,6 +116,42 @@ func parseOKLCH(body string) (RGBA, bool) {
 	}, true
 }
 
+func parseRGB(body string) (RGBA, bool) {
+	body, closed := strings.CutSuffix(body, ")")
+	channels, alphaText, hasAlpha := strings.Cut(body, "/")
+	fields := strings.Fields(channels)
+	legacy := strings.Contains(body, ",")
+	if legacy {
+		fields = strings.Split(body, ",")
+		for i := range fields {
+			fields[i] = strings.TrimSpace(fields[i])
+		}
+		if hasAlpha = len(fields) == 4; hasAlpha {
+			alphaText, fields = fields[3], fields[:3]
+		}
+	}
+	percents := strings.Count(strings.Join(fields, " "), "%")
+	if !closed || len(fields) != 3 || legacy && (strings.Contains(body, "/") || strings.Contains(body, "none") || percents%3 != 0) {
+		return RGBA{}, false
+	}
+	var rgb [3]uint8
+	for i, f := range fields {
+		n, ok := fraction(f)
+		if !ok {
+			return RGBA{}, false
+		}
+		if !strings.HasSuffix(f, "%") {
+			n /= math.MaxUint8
+		}
+		rgb[i] = channel(n)
+	}
+	alpha, ok := 1.0, true
+	if hasAlpha {
+		alpha, ok = fraction(strings.TrimSpace(alphaText))
+	}
+	return RGBA{rgb[0], rgb[1], rgb[2], channel(alpha)}, ok
+}
+
 func number(s string) (float64, bool) {
 	if s == "none" {
 		return 0, true
@@ -120,7 +161,7 @@ func number(s string) (float64, bool) {
 }
 
 func fraction(s string) (float64, bool) {
-	if pct, isPct := strings.CutSuffix(s, "%"); isPct {
+	if pct, isPct := strings.CutSuffix(s, "%"); isPct && pct != "none" {
 		n, ok := number(pct)
 		return n / 100, ok
 	}

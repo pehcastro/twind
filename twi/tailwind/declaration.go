@@ -115,12 +115,12 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 		return out, problem{}
 	case "translate":
 		return translate(parts)
-	case "color", "background-color", "border-color", "--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to":
+	case "color", "background-color", "border-color", "--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to", "--tw-shadow-color", "--tw-inset-shadow-color":
 		if len(parts) != 1 {
 			return nil, problem{Unsupported, "one colour per box"}
 		}
 		v, p := paint(parts[0])
-		property := map[string]style.Property{"color": style.PropColor, "background-color": style.PropBackground, "border-color": style.PropBorderColor, "--tw-gradient-from": style.PropGradientFrom, "--tw-gradient-via": style.PropGradientVia, "--tw-gradient-to": style.PropGradientTo}[prop]
+		property := map[string]style.Property{"color": style.PropColor, "background-color": style.PropBackground, "border-color": style.PropBorderColor, "--tw-gradient-from": style.PropGradientFrom, "--tw-gradient-via": style.PropGradientVia, "--tw-gradient-to": style.PropGradientTo, "--tw-shadow-color": style.PropShadowColor, "--tw-inset-shadow-color": style.PropInsetShadowColor}[prop]
 		return decls{{Property: property, Color: v}}, p
 	case "border-style":
 		v, p := pick(parts, borderStyles(), "groove", "ridge", "inset", "outset")

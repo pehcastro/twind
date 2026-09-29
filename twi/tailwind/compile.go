@@ -244,7 +244,7 @@ func (c *compiler) block(nodes []css.Node, outer vars, warn func(string, problem
 		switch n := n.(type) {
 		case css.Declaration:
 			prop := strings.ToLower(n.Property)
-			if strings.HasPrefix(prop, "-") && !slices.Contains([]string{"--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to", "--tw-gradient-from-position", "--tw-gradient-via-position", "--tw-gradient-to-position"}, prop) {
+			if strings.HasPrefix(prop, "-") && !slices.Contains([]string{"--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to", "--tw-gradient-from-position", "--tw-gradient-via-position", "--tw-gradient-to-position", "--tw-shadow-color", "--tw-inset-shadow-color"}, prop) {
 				continue
 			}
 			decls, p := c.declaration(prop, n.Value, v)

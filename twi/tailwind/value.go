@@ -284,11 +284,11 @@ func paint(toks []css.Token) (color.Color, problem) {
 		}
 		return c, problem{}
 	}
-	args := strings.Split(strings.TrimSuffix(strings.TrimPrefix(s, "color-mix("), ")"), ",")
-	if len(args) != 3 || strings.TrimSpace(args[2]) != "transparent" {
+	args := commas(toks[1:closing(toks, 0)])
+	if len(args) != 3 || !strings.EqualFold(text(args[2]), "transparent") {
 		return color.Color{}, problem{Unsupported, "color-mix other than with transparent"}
 	}
-	mixed := strings.TrimSpace(args[1])
+	mixed := strings.ToLower(text(args[1]))
 	split := strings.LastIndex(mixed, " ")
 	c, err := color.Parse(mixed[:max(split, 0)])
 	amount, perr := strconv.ParseFloat(strings.TrimSuffix(mixed[split+1:], "%"), 64)

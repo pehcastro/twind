@@ -8,4 +8,4 @@ Run from the repository root:
 .twind/bin/tailwindcss-windows-x64.exe -i twi/tailwind/testdata/tailwind-4.3.3/app/input.css -o twi/tailwind/testdata/tailwind-4.3.3/app/output.css
 
 SHA-256 of the output:
-cbef48e94b59d11b858922ed620ece92362463606069b4f6450f082e13f22223  app/output.css
+7a139bca9e0fa0959020cdd00c9d4854480caa9ef580a5bc63560d48086c88dc  app/output.css

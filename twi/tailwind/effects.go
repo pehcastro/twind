@@ -66,46 +66,52 @@ func (c *compiler) boxShadow(raw []css.Token, v vars) (decls, problem) {
 }
 
 func (c *compiler) shadows(raw []css.Token, v vars) ([]style.Shadow, problem) {
-	toks, err := c.resolve(raw, v, 0)
-	switch {
-	case err != nil:
-		return nil, problem{Unsupported, err.Error()}
-	case strings.EqualFold(text(toks), "none"):
-		return nil, problem{}
-	}
 	var out []style.Shadow
 	var worst problem
-	for _, layer := range commas(toks) {
-		s := style.Shadow{Color: color.Color{Kind: color.Current}}
-		var lengths []int
-		colored := false
-		for _, part := range components(layer) {
-			if strings.EqualFold(text(part), "inset") {
-				s.Inset = true
-				continue
-			}
-			if l, p := length(part); l.Unit == style.Cells && (p.reason == "" || p.category == Approximated) && len(lengths) < 4 {
-				if p.reason != "" {
-					worst = p
-				}
-				lengths = append(lengths, int(l.Value))
-				continue
-			}
-			paintColor, p := paint(part)
-			if p.reason != "" || colored {
-				return nil, problem{Unsupported, "shadow value " + strconv.Quote(text(part))}
-			}
-			s.Color, colored = paintColor, true
-		}
-		if len(lengths) < 2 {
-			return nil, problem{Unsupported, "shadow needs an x and a y offset"}
-		}
-		lengths = append(lengths, 0, 0)
-		s.X, s.Y, s.Blur, s.Spread = lengths[0], lengths[1], lengths[2], lengths[3]
-		if s.Color.Kind == color.Literal && s.Color.RGBA.A == 0 {
+	for _, written := range commas(raw) {
+		tintable := slices.ContainsFunc(components(written), func(part []css.Token) bool {
+			name, ok := tailwindVar(part)
+			return ok && strings.HasSuffix(name, "shadow-color")
+		})
+		toks, err := c.resolve(written, v, 0)
+		switch {
+		case err != nil:
+			return nil, problem{Unsupported, err.Error()}
+		case strings.EqualFold(text(toks), "none"):
 			continue
 		}
-		out = append(out, s)
+		for _, layer := range commas(toks) {
+			s := style.Shadow{Color: color.Color{Kind: color.Current}, Tintable: tintable}
+			var lengths []int
+			colored := false
+			for _, part := range components(layer) {
+				if strings.EqualFold(text(part), "inset") {
+					s.Inset = true
+					continue
+				}
+				if l, p := length(part); l.Unit == style.Cells && (p.reason == "" || p.category == Approximated) && len(lengths) < 4 {
+					if p.reason != "" {
+						worst = p
+					}
+					lengths = append(lengths, int(l.Value))
+					continue
+				}
+				paintColor, p := paint(part)
+				if p.reason != "" || colored {
+					return nil, problem{Unsupported, "shadow value " + strconv.Quote(text(part))}
+				}
+				s.Color, colored = paintColor, true
+			}
+			if len(lengths) < 2 {
+				return nil, problem{Unsupported, "shadow needs an x and a y offset"}
+			}
+			lengths = append(lengths, 0, 0)
+			s.X, s.Y, s.Blur, s.Spread = lengths[0], lengths[1], lengths[2], lengths[3]
+			if s.Color.Kind == color.Literal && s.Color.RGBA.A == 0 {
+				continue
+			}
+			out = append(out, s)
+		}
 	}
 	return out, worst
 }

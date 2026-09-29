@@ -83,12 +83,12 @@ func Styles() (style.Sheet, error) {
 		}},
 		style.Rule{Class: "shadow-md", Decls: []style.Declaration{
 			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
-				style.Shadow{X: 1, Y: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 18}}},
+				style.Shadow{X: 1, Y: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 18}}, Tintable: true},
 			}},
 		}},
 		style.Rule{Class: "inset-shadow-sm", Decls: []style.Declaration{
 			style.Declaration{Property: style.PropInsetShadow, Shadows: []style.Shadow{
-				style.Shadow{Y: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 18}}, Inset: true},
+				style.Shadow{Y: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 18}}, Inset: true, Tintable: true},
 			}},
 		}},
 	})

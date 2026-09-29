@@ -143,7 +143,7 @@ func TestIntegrationMatrixWarnings(t *testing.T) {
 		t.Log(w)
 		got = append(got, w.Class+" "+w.Category.String()+" "+w.Reason)
 	}
-	want := []string{"blur-sm unsupported no terminal rendering", "md:flex-row unsupported breakpoint 48rem is not a whole number of cells", `shadow-md unsupported shadow value "rgb(0 0 0 / 0.1)"`}
+	want := []string{"blur-sm unsupported no terminal rendering", "md:flex-row unsupported breakpoint 48rem is not a whole number of cells"}
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {

@@ -12,6 +12,12 @@ inset-shadow-2xs
 inset-shadow-xs
 inset-shadow-sm
 shadow-inner
+shadow-red-500/50
+shadow-red-500
+inset-shadow-red-500
+shadow-transparent
+shadow-[rgba(255,0,0,0.5)]
+bg-[rgba(255,0,0,0.5)]/50
 ring-2
 bg-linear-to-r
 bg-linear-to-tr

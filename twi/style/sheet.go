@@ -72,6 +72,8 @@ const (
 	PropGradientFromPosition
 	PropGradientViaPosition
 	PropGradientToPosition
+	PropShadowColor
+	PropInsetShadowColor
 )
 
 type Declaration struct {
@@ -203,6 +205,24 @@ func (s Sheet) Compute(parent ComputedStyle, classes []string) ComputedStyle {
 			out.apply(d, parent)
 		}
 	}
+	out.Shadows = tint(out.Shadows, out.ShadowColor)
+	out.InsetShadows = tint(out.InsetShadows, out.InsetShadowColor)
+	return out
+}
+
+func tint(shadows []Shadow, c color.Color) []Shadow {
+	if c.Kind == color.Unset {
+		return shadows
+	}
+	var out []Shadow
+	for _, s := range shadows {
+		if s.Tintable {
+			s.Color = c
+		}
+		if s.Color.Kind != color.Literal || s.Color.RGBA.A > 0 {
+			out = append(out, s)
+		}
+	}
 	return out
 }
 
@@ -319,6 +339,10 @@ func (s *ComputedStyle) apply(d Declaration, parent ComputedStyle) {
 		s.Shadows = d.Shadows
 	case PropInsetShadow:
 		s.InsetShadows = d.Shadows
+	case PropShadowColor:
+		s.ShadowColor = d.Color
+	case PropInsetShadowColor:
+		s.InsetShadowColor = d.Color
 	case PropGradient:
 		s.Gradient.GradientLine = d.Line
 	case PropGradientFrom:

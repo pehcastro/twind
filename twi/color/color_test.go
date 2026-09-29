@@ -94,7 +94,7 @@ func TestParseMalformed(t *testing.T) {
 		"oklch(", "oklch()", "oklch(50%)", "oklch(50% 0.1)", "oklch(50% 0.1 10 20)",
 		"oklch(50% x 10)", "oklch(50%% 0.1 10)", "oklch(50% 0.1 10deg2)", "oklch(50% 0.1% 10)",
 		"oklch(50% 0.1 10%)", "oklch(50% 0.1 10 /)", "oklch(50% 0.1 10 / x)", "oklch(nan 0.1 10)",
-		"oklch(50% inf 10)", "oklch(50% 0.1 10", "oklch 50% 0.1 10)", "rgb(0 0 0)", "red",
+		"oklch(50% inf 10)", "oklch(50% 0.1 10", "oklch 50% 0.1 10)", "oklch(none% 0 0)", "red",
 	} {
 		c, err := Parse(in)
 		if err == nil {
@@ -123,6 +123,45 @@ func TestDowngrade(t *testing.T) {
 		}
 		if got := tc.c.ANSI16(); got != tc.i16 {
 			t.Errorf("%s: ANSI16 = %d, want %d", tc.name, got, tc.i16)
+		}
+	}
+}
+
+func TestRGBForms(t *testing.T) {
+	for in, want := range map[string]RGBA{
+		"rgb(0 0 0 / 0.1)":             {0, 0, 0, 26},
+		"rgb(0 0 0 / 0.07)":            {0, 0, 0, 18},
+		"rgb(255 128 0)":               {255, 128, 0, 255},
+		"RGB(255 128 0 / 50%)":         {255, 128, 0, 128},
+		"rgba(255 128 0)":              {255, 128, 0, 255},
+		"rgb(100% 50% 0%)":             {255, 128, 0, 255},
+		"rgb(100% 128 0)":              {255, 128, 0, 255},
+		"rgb(300 -5 0 / 2)":            {255, 0, 0, 255},
+		"rgb(none 1.4 1.6)":            {0, 1, 2, 255},
+		"rgb(1 2 3 / none)":            {1, 2, 3, 0},
+		"rgba(255,0,0,0.5)":            {255, 0, 0, 128},
+		"rgba( 255 , 0 , 0 , 50% )":    {255, 0, 0, 128},
+		"rgb(255, 0, 0)":               {255, 0, 0, 255},
+		"rgba(100%, 0%, 50%, 1)":       {255, 0, 128, 255},
+		"  rgb(  10   20   30 / .5 ) ": {10, 20, 30, 128},
+	} {
+		c, err := Parse(in)
+		if err != nil || c.Kind != Literal || c.RGBA != want {
+			t.Errorf("%q = %+v %v, want %+v", in, c.RGBA, err, want)
+		}
+	}
+}
+
+func TestRGBMalformed(t *testing.T) {
+	for _, in := range []string{
+		"rgb(", "rgb()", "rgb(0 0)", "rgb(0 0 0 0)", "rgb(0 0 0 /)", "rgb(0 0 0 / 1 1)", "rgb(0 0 0 / x)",
+		"rgb(0px 0 0)", "rgb(0 0 0", "rgb 0 0 0)", "rgbx(0 0 0)", "rgb(nan 0 0)", "rgb(inf 0 0)", "rgb(none% 0 0)",
+		"rgb(0, 0 0)", "rgb(0 0 0, 1)", "rgb(0, 0, 0 / 1)", "rgb(0, 0)", "rgb(0, 0, 0, 1, 1)", "rgb(0, 0, 0,)",
+		"rgb(,0, 0, 0)", "rgb(10%, 0, 0)", "rgb(none, 0, 0)", "rgba(0, 0, 0, none)", "rgb(0 0 0) x",
+	} {
+		c, err := Parse(in)
+		if err == nil {
+			t.Errorf("%q = %+v, want an error", in, c)
 		}
 	}
 }

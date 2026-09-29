@@ -144,6 +144,7 @@ type Shadow struct {
 	X, Y, Blur, Spread int
 	Color              color.Color
 	Inset              bool
+	Tintable           bool
 }
 
 type GradientKind uint8
@@ -228,8 +229,10 @@ type ComputedStyle struct {
 	Gradient    Gradient
 	Opacity     float64
 
-	Shadows      []Shadow
-	InsetShadows []Shadow
+	Shadows          []Shadow
+	InsetShadows     []Shadow
+	ShadowColor      color.Color
+	InsetShadowColor color.Color
 
 	Color         color.Color
 	Bold          bool

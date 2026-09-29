@@ -43,15 +43,15 @@ func TestShadow(t *testing.T) {
 	sheet, _ := compileFixture(t, appFixture)
 	black := func(a uint8) color.Color { return rgba(0, 0, 0, a) }
 	cases := map[string]struct{ outer, inset []style.Shadow }{
-		"shadow-sm":                  {outer: []style.Shadow{{X: 1, Y: 1, Color: black(13)}}},
-		"shadow-md":                  {outer: []style.Shadow{{X: 1, Y: 1, Color: black(18)}}},
-		"shadow-lg":                  {outer: []style.Shadow{{X: 1, Y: 1, Blur: 1, Color: black(26)}}},
-		"shadow-2xl":                 {outer: []style.Shadow{{X: 2, Y: 1, Blur: 2, Color: black(64)}}},
+		"shadow-sm":                  {outer: []style.Shadow{{X: 1, Y: 1, Tintable: true, Color: black(13)}}},
+		"shadow-md":                  {outer: []style.Shadow{{X: 1, Y: 1, Tintable: true, Color: black(18)}}},
+		"shadow-lg":                  {outer: []style.Shadow{{X: 1, Y: 1, Blur: 1, Tintable: true, Color: black(26)}}},
+		"shadow-2xl":                 {outer: []style.Shadow{{X: 2, Y: 1, Blur: 2, Tintable: true, Color: black(64)}}},
 		"shadow-none":                {},
-		"inset-shadow-sm":            {inset: []style.Shadow{{Y: 1, Color: black(18), Inset: true}}},
-		"shadow-inner":               {outer: []style.Shadow{{Y: 1, Color: black(18), Inset: true}}},
-		"shadow-[0_2px_0_-1px_#000]": {outer: []style.Shadow{{Y: 2, Spread: -1, Color: black(255)}}},
-		"shadow-md inset-shadow-sm":  {outer: []style.Shadow{{X: 1, Y: 1, Color: black(18)}}, inset: []style.Shadow{{Y: 1, Color: black(18), Inset: true}}},
+		"inset-shadow-sm":            {inset: []style.Shadow{{Y: 1, Tintable: true, Color: black(18), Inset: true}}},
+		"shadow-inner":               {outer: []style.Shadow{{Y: 1, Tintable: true, Color: black(18), Inset: true}}},
+		"shadow-[0_2px_0_-1px_#000]": {outer: []style.Shadow{{Y: 2, Spread: -1, Tintable: true, Color: black(255)}}},
+		"shadow-md inset-shadow-sm":  {outer: []style.Shadow{{X: 1, Y: 1, Tintable: true, Color: black(18)}}, inset: []style.Shadow{{Y: 1, Tintable: true, Color: black(18), Inset: true}}},
 		"shadow-md shadow-none":      {},
 	}
 	for classes, want := range cases {
@@ -72,6 +72,69 @@ func TestShadow(t *testing.T) {
 	}
 	if warned["ring-2"] != Unsupported {
 		t.Errorf("ring-2: %v, want an unsupported warning", warned)
+	}
+}
+
+func TestShadowColor(t *testing.T) {
+	sheet, _ := compileFixture(t, appFixture)
+	red, err := color.Parse("oklch(63.7% 0.237 25.331)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	halfRed := red
+	halfRed.RGBA.A = 128
+	md := func(c color.Color) []style.Shadow { return []style.Shadow{{X: 1, Y: 1, Color: c, Tintable: true}} }
+	insetSm := func(c color.Color) []style.Shadow {
+		return []style.Shadow{{Y: 1, Color: c, Inset: true, Tintable: true}}
+	}
+	cases := []struct {
+		classes      string
+		outer, inset []style.Shadow
+	}{
+		{"shadow-md shadow-red-500/50", md(halfRed), nil},
+		{"shadow-md", md(rgba(0, 0, 0, 18)), nil},
+		{"shadow-red-500", nil, nil},
+		{"shadow-md shadow-red-500", md(red), nil},
+		{"shadow-md shadow-transparent", nil, nil},
+		{"shadow-md shadow-[rgba(255,0,0,0.5)]", md(rgba(255, 0, 0, 128)), nil},
+		{"shadow-[0_2px_0_-1px_#000] shadow-red-500/50", []style.Shadow{{Y: 2, Spread: -1, Color: halfRed, Tintable: true}}, nil},
+		{"shadow-md inset-shadow-sm inset-shadow-red-500", md(rgba(0, 0, 0, 18)), insetSm(red)},
+		{"shadow-md inset-shadow-sm shadow-red-500", md(red), insetSm(rgba(0, 0, 0, 18))},
+		{"shadow-md", md(rgba(0, 0, 0, 18)), nil},
+	}
+	for _, tc := range cases {
+		got := sheet.Compute(style.ComputedStyle{}, strings.Fields(tc.classes))
+		t.Logf("%s: outer %+v inset %+v", tc.classes, got.Shadows, got.InsetShadows)
+		if len(got.Shadows)+len(tc.outer) > 0 && !reflect.DeepEqual(got.Shadows, tc.outer) {
+			t.Errorf("%s: outer %+v, want %+v", tc.classes, got.Shadows, tc.outer)
+		}
+		if len(got.InsetShadows)+len(tc.inset) > 0 && !reflect.DeepEqual(got.InsetShadows, tc.inset) {
+			t.Errorf("%s: inset %+v, want %+v", tc.classes, got.InsetShadows, tc.inset)
+		}
+	}
+	for class, c := range appWarnings(t, "") {
+		if strings.Contains(class, "shadow") || strings.Contains(class, "rgba") {
+			t.Errorf("%s warned %s", class, c)
+		}
+	}
+	if got := sheet.Compute(style.ComputedStyle{}, []string{"bg-[rgba(255,0,0,0.5)]/50"}).Background; got != rgba(255, 0, 0, 64) {
+		t.Errorf("bg-[rgba(255,0,0,0.5)]/50: %+v, want red at alpha 0.25", got)
+	}
+	rules, warnings, err := Compile("@layer utilities { .s { box-shadow: 1px 1px #000; } .c { --tw-shadow-color: #f00; } }")
+	if err != nil || len(warnings) != 0 {
+		t.Fatal(err, warnings)
+	}
+	literal, err := style.NewSheet(1, rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := literal.Compute(style.ComputedStyle{}, []string{"s", "c"}).Shadows; !reflect.DeepEqual(got, []style.Shadow{{X: 1, Y: 1, Color: rgba(0, 0, 0, 255)}}) {
+		t.Errorf("literal box-shadow recoloured: %+v", got)
+	}
+	matrix, _ := compileFixture(t, cssFixtures+"matrix")
+	stock := rgba(0, 0, 0, 26)
+	if got, want := matrix.Compute(style.ComputedStyle{}, []string{"shadow-md"}).Shadows, []style.Shadow{{Y: 4, Blur: 6, Spread: -1, Color: stock, Tintable: true}, {Y: 2, Blur: 4, Spread: -2, Color: stock, Tintable: true}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("stock shadow-md: %+v, want %+v", got, want)
 	}
 }
 
