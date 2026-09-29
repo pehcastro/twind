@@ -17,10 +17,15 @@ type Border struct {
 type Node struct {
 	Bounds                                 layout.Rect
 	Content                                layout.Rect
+	Clip                                   layout.Rect
+	Position                               layout.Position
+	ZIndex                                 int
+	Opacity                                float64
 	Background                             color.Color
 	Border                                 Border
 	Foreground                             color.Color
 	Bold, Italic, Underline, Strikethrough bool
+	Children                               []Node
 	lines                                  []string
 }
 
@@ -37,8 +42,16 @@ func (t Text) Size(availableWidth int) (width, height int) {
 }
 
 func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
+	n := Node{
+		Bounds:   box.BorderBox,
+		Content:  box.ContentBox,
+		Clip:     box.Clip,
+		Position: box.Style.Position,
+		ZIndex:   box.Style.ZIndex,
+		Opacity:  s.Opacity,
+	}
 	if s.Visibility == style.Hidden {
-		return Node{Bounds: box.BorderBox, Content: box.ContentBox}
+		return n
 	}
 	own := func(c color.Color) color.Color {
 		if c.Kind == color.Current {
@@ -47,21 +60,15 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 		return c
 	}
 	edges := box.Style.Border
-	return Node{
-		Bounds:     box.BorderBox,
-		Content:    box.ContentBox,
-		Background: own(s.Background),
-		Border: Border{
-			Style: s.BorderStyle, Radius: s.Radius, Color: own(s.BorderColor),
-			Top: edges.Top > 0, Right: edges.Right > 0, Bottom: edges.Bottom > 0, Left: edges.Left > 0,
-		},
-		Foreground:    s.Color,
-		Bold:          s.Bold,
-		Italic:        s.Italic,
-		Underline:     s.Underline,
-		Strikethrough: s.Strikethrough,
-		lines:         text.Wrap(content.clean, box.ContentBox.W),
+	n.Background = own(s.Background)
+	n.Border = Border{
+		Style: s.BorderStyle, Radius: s.Radius, Color: own(s.BorderColor),
+		Top: edges.Top > 0, Right: edges.Right > 0, Bottom: edges.Bottom > 0, Left: edges.Left > 0,
 	}
+	n.Foreground = s.Color
+	n.Bold, n.Italic, n.Underline, n.Strikethrough = s.Bold, s.Italic, s.Underline, s.Strikethrough
+	n.lines = text.Wrap(content.clean, box.ContentBox.W)
+	return n
 }
 
 func (n Node) Lines() []string { return n.lines }

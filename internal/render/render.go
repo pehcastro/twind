@@ -30,28 +30,32 @@ type styledBox struct {
 	box      *layout.Box
 	computed style.ComputedStyle
 	text     scene.Text
+	children []*styledBox
 }
 
 func Render(root Node, f Frame) (*buffer.Buffer, error) {
 	if f.Sanitize == nil {
 		f.Sanitize = scene.Sanitize
 	}
-	var styled []styledBox
-	box, err := build(f, style.ComputedStyle{}, root, &styled)
+	styled, err := build(f, style.ComputedStyle{}, root)
 	if err != nil {
 		return nil, err
 	}
-	layout.Layout(box, f.Width, f.Height)
-	nodes := make([]scene.Node, len(styled))
-	for i, s := range styled {
-		nodes[i] = scene.New(s.box, s.computed, s.text)
-	}
-	buf := buffer.New(f.Width, box.BorderBox.H)
-	paint.Paint(buf, nodes)
+	layout.Layout(styled.box, f.Width, f.Height)
+	buf := buffer.New(f.Width, styled.box.BorderBox.H)
+	paint.Paint(buf, styled.scene())
 	return buf, nil
 }
 
-func build(f Frame, parent style.ComputedStyle, n Node, out *[]styledBox) (*layout.Box, error) {
+func (s *styledBox) scene() scene.Node {
+	n := scene.New(s.box, s.computed, s.text)
+	for _, c := range s.children {
+		n.Children = append(n.Children, c.scene())
+	}
+	return n
+}
+
+func build(f Frame, parent style.ComputedStyle, n Node) (*styledBox, error) {
 	computed := f.Sheet.Compute(parent, n.Classes)
 	s, err := boxStyle(computed)
 	if err != nil {
@@ -77,15 +81,16 @@ func build(f Frame, parent style.ComputedStyle, n Node, out *[]styledBox) (*layo
 			return size[0], size[1]
 		}
 	}
-	*out = append(*out, styledBox{box, computed, clean})
+	out := &styledBox{box: box, computed: computed, text: clean}
 	for _, c := range n.Children {
-		child, err := build(f, computed, c, out)
+		child, err := build(f, computed, c)
 		if err != nil {
 			return nil, err
 		}
-		box.Children = append(box.Children, child)
+		box.Children = append(box.Children, child.box)
+		out.children = append(out.children, child)
 	}
-	return box, nil
+	return out, nil
 }
 
 func boxStyle(s style.ComputedStyle) (layout.Style, error) {
@@ -148,6 +153,24 @@ func boxStyle(s style.ComputedStyle) (layout.Style, error) {
 		Padding:    edges("padding", s.Padding),
 		Margin:     edges("margin", s.Margin),
 		Border:     edges("border-width", s.BorderWidth),
+		Inset:      layout.Insets{Top: length(s.Inset.Top), Right: length(s.Inset.Right), Bottom: length(s.Inset.Bottom), Left: length(s.Inset.Left)},
+		ZIndex:     s.ZIndex,
+	}
+	if s.OverflowX != style.OverflowVisible || s.OverflowY != style.OverflowVisible {
+		out.Overflow = layout.OverflowHidden
+	}
+	switch s.Position {
+	case style.PositionStatic:
+	case style.PositionRelative:
+		out.Position = layout.PositionRelative
+	case style.PositionAbsolute:
+		out.Position = layout.PositionAbsolute
+	case style.PositionFixed:
+		out.Position = layout.PositionFixed
+	case style.PositionSticky:
+		unsupported = append(unsupported, "position sticky")
+	default:
+		panic(fmt.Sprintf("render: unknown position %d", s.Position))
 	}
 	if s.BorderStyle == style.BorderNone {
 		out.Border = layout.Edges{}

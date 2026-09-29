@@ -12,23 +12,21 @@ import (
 	"github.com/twind-dev/twind/twi/text"
 )
 
-func Paint(buf *buffer.Buffer, nodes []scene.Node) {
-	for _, n := range nodes {
-		if bg := n.Background; bg.Kind == color.Literal && bg.RGBA.A > 0 {
-			r := n.Bounds
-			buf.Fill(buffer.Rect{X: r.X, Y: r.Y, W: r.W, H: r.H}, buffer.Cell{Grapheme: " ", Bg: bg})
-		}
-		border(buf, n)
-		lines(buf, n)
-	}
+func Paint(buf *buffer.Buffer, root scene.Node) {
+	stack(&root).paint(buf)
 }
 
-func put(buf *buffer.Buffer, x, y int, c buffer.Cell) {
-	if x < 0 || y < 0 || x >= buf.Width() || y >= buf.Height() {
-		return
+func draw(buf *buffer.Buffer, n *scene.Node) {
+	if bg := n.Background; bg.Kind == color.Literal && bg.RGBA.A > 0 {
+		r := n.Bounds
+		for y := r.Y; y < r.Y+r.H; y++ {
+			for x := r.X; x < r.X+r.W; x++ {
+				put(buf, n.Clip, x, y, buffer.Cell{Grapheme: " ", Bg: bg})
+			}
+		}
 	}
-	c.Bg = buf.At(x, y).Bg
-	buf.Set(x, y, c)
+	border(buf, n)
+	lines(buf, n)
 }
 
 func glyphs(b scene.Border) (edges, corners string) {
@@ -51,7 +49,7 @@ func glyphs(b scene.Border) (edges, corners string) {
 	panic(fmt.Sprintf("paint: unknown border style %d", b.Style))
 }
 
-func border(buf *buffer.Buffer, n scene.Node) {
+func border(buf *buffer.Buffer, n *scene.Node) {
 	r, b := n.Bounds, n.Border
 	edgeSet, cornerSet := glyphs(b)
 	if edgeSet == "" || r.W == 0 || r.H == 0 {
@@ -59,7 +57,9 @@ func border(buf *buffer.Buffer, n scene.Node) {
 	}
 	edges, corners := strings.Split(edgeSet, ""), strings.Split(cornerSet, "")
 	right, bottom := r.X+r.W-1, r.Y+r.H-1
-	glyph := func(x, y int, g string) { put(buf, x, y, buffer.Cell{Grapheme: g, Fg: b.Color}) }
+	glyph := func(x, y int, g string) {
+		put(buf, n.Clip, x, y, buffer.Cell{Grapheme: g, Fg: b.Color, Bg: color.Color{Kind: color.Literal}})
+	}
 	for x := r.X; x <= right; x++ {
 		if b.Top {
 			glyph(x, r.Y, edges[0])
@@ -90,7 +90,7 @@ func border(buf *buffer.Buffer, n scene.Node) {
 	}
 }
 
-func lines(buf *buffer.Buffer, n scene.Node) {
+func lines(buf *buffer.Buffer, n *scene.Node) {
 	var attr buffer.Attr
 	if n.Bold {
 		attr |= buffer.Bold
@@ -104,6 +104,7 @@ func lines(buf *buffer.Buffer, n scene.Node) {
 	if n.Strikethrough {
 		attr |= buffer.Strikethrough
 	}
+	ink := buffer.Cell{Grapheme: " ", Fg: n.Foreground, Bg: color.Color{Kind: color.Literal}, Attr: attr}
 	r := n.Content
 	end := r.X + r.W
 	for i, line := range n.Lines()[:min(len(n.Lines()), r.H)] {
@@ -111,7 +112,7 @@ func lines(buf *buffer.Buffer, n scene.Node) {
 		for cluster := range text.Graphemes(line) {
 			if cluster == "\t" {
 				for stop := min(r.X+((x-r.X)/konst.TabStop+1)*konst.TabStop, end); x < stop; x++ {
-					put(buf, x, y, buffer.Cell{Grapheme: " ", Fg: n.Foreground, Attr: attr})
+					put(buf, n.Clip, x, y, ink)
 				}
 				continue
 			}
@@ -122,11 +123,12 @@ func lines(buf *buffer.Buffer, n scene.Node) {
 			if x+w > end {
 				break
 			}
-			cell := buffer.Cell{Grapheme: cluster, Fg: n.Foreground, Attr: attr}
+			cell := ink
+			cell.Grapheme = cluster
 			if w > 1 {
 				cell.Width = buffer.Wide
 			}
-			put(buf, x, y, cell)
+			put(buf, n.Clip, x, y, cell)
 			x += w
 		}
 	}
