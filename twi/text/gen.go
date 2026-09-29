@@ -1,0 +1,149 @@
+//go:build ignore
+
+package main
+
+import (
+	"flag"
+	"fmt"
+	"go/format"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+	"unicode"
+
+	konst "github.com/twind-dev/twind/internal/konst/text"
+)
+
+func main() {
+	version := flag.String("version", "", "Unicode version of the UCD files")
+	flag.Parse()
+	base := "https://www.unicode.org/Public/" + *version + "/ucd/"
+	classNames := []string{"Other", "CR", "LF", "Control", "Extend", "ZWJ", "Regional_Indicator", "Prepend", "SpacingMark", "L", "V", "T", "LV", "LVT"}
+	conjunctNames := []string{"None", "Consonant", "Extend", "Linker"}
+	count := int(unicode.MaxRune) + 1
+	class := make([]byte, count)
+	conjunct := make([]byte, count)
+	wide := make([]bool, count)
+	presentation := make([]bool, count)
+	modifier := make([]bool, count)
+	pictographic := make([]bool, count)
+
+	each(fetch(base+"EastAsianWidth.txt"), func(r rune, fields []string) {
+		wide[r] = fields[0] == "W" || fields[0] == "F"
+	})
+	each(fetch(base+"auxiliary/GraphemeBreakProperty.txt"), func(r rune, fields []string) {
+		class[r] = index(classNames, fields[0])
+	})
+	each(fetch(base+"DerivedCoreProperties.txt"), func(r rune, fields []string) {
+		if fields[0] == "InCB" {
+			conjunct[r] = index(conjunctNames, fields[1])
+		}
+	})
+	each(fetch(base+"emoji/emoji-data.txt"), func(r rune, fields []string) {
+		switch fields[0] {
+		case "Emoji_Presentation":
+			presentation[r] = true
+		case "Emoji_Modifier":
+			modifier[r] = true
+		case "Extended_Pictographic":
+			pictographic[r] = true
+		}
+	})
+
+	records := make([][2]byte, count)
+	for r := range records {
+		width := byte(1)
+		switch classNames[class[r]] {
+		case "CR", "LF", "Control", "ZWJ", "V", "T":
+			width = 0
+		case "Extend":
+			if !modifier[r] {
+				width = 0
+			}
+		}
+		if width == 1 && (wide[r] || presentation[r]) {
+			width = 2
+		}
+		flags := width | conjunct[r]<<konst.ConjunctShift
+		if pictographic[r] {
+			flags |= konst.PictographicBit
+		}
+		records[r] = [2]byte{class[r], flags}
+	}
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "package text\n\nconst UnicodeVersion = %q\n\nconst table = \"\" +\n", *version)
+	start := 0
+	for r, record := range records {
+		if r+1 < count && records[r+1] == record {
+			continue
+		}
+		if record != [2]byte{0, 1} {
+			span := []byte{byte(start >> 16), byte(start >> 8), byte(start), byte(r >> 16), byte(r >> 8), byte(r), record[0], record[1]}
+			fmt.Fprintf(&out, "\t%q +\n", span)
+		}
+		start = r + 1
+	}
+	out.WriteString("\t\"\"\n")
+	src, err := format.Source([]byte(out.String()))
+	must(err)
+	must(os.WriteFile("tables.go", src, 0o644))
+	must(os.WriteFile("testdata/GraphemeBreakTest.txt", []byte(fetch(base+"auxiliary/GraphemeBreakTest.txt")), 0o644))
+}
+
+func fetch(url string) string {
+	resp, err := http.Get(url)
+	must(err)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Fatal(url + ": " + resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	must(err)
+	return string(body)
+}
+
+func each(text string, fn func(r rune, fields []string)) {
+	for line := range strings.Lines(text) {
+		data, _, _ := strings.Cut(strings.TrimPrefix(line, "# @missing:"), "#")
+		codes, rest, ok := strings.Cut(data, ";")
+		if !ok {
+			continue
+		}
+		lo, hi, isRange := strings.Cut(strings.TrimSpace(codes), "..")
+		if !isRange {
+			hi = lo
+		}
+		fields := strings.Split(rest, ";")
+		for i := range fields {
+			fields[i] = strings.TrimSpace(fields[i])
+		}
+		for r, last := hex(lo), hex(hi); r <= last; r++ {
+			fn(r, fields)
+		}
+	}
+}
+
+func hex(s string) rune {
+	v, err := strconv.ParseUint(s, 16, 32)
+	must(err)
+	return rune(v)
+}
+
+func index(names []string, name string) byte {
+	i := slices.Index(names, name)
+	if i < 0 {
+		log.Fatal("unknown property value " + name)
+	}
+	return byte(i)
+}
+
+func must(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
