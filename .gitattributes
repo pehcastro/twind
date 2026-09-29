@@ -2,3 +2,4 @@
 *.golden binary
 *.twd text eol=lf
 *.png binary
+twi/**/testdata/** -text

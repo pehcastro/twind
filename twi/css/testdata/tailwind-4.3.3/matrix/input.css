@@ -1,0 +1,6 @@
+@import "tailwindcss" source(none);
+@source "./classes.txt";
+
+@theme {
+  --spacing: 1px;
+}

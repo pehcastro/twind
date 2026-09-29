@@ -1,0 +1,13 @@
+Tailwind CSS v4.3.3, .twind/bin/tailwindcss-windows-x64.exe
+SHA-256 e0e260ce048014e9268f6237ff18f8ccf02cef521cbd0ae04e82c2cdf7aa3955
+Captured 2026-09-29 on Windows 10 Pro 10.0.19045.
+
+Each fixture directory holds input.css, classes.txt (read through the @source line in input.css) and output.css.
+Run from the repository root, in PowerShell or Git Bash:
+
+.twind/bin/tailwindcss-windows-x64.exe -i twi/css/testdata/tailwind-4.3.3/hello/input.css -o twi/css/testdata/tailwind-4.3.3/hello/output.css
+.twind/bin/tailwindcss-windows-x64.exe -i twi/css/testdata/tailwind-4.3.3/matrix/input.css -o twi/css/testdata/tailwind-4.3.3/matrix/output.css
+
+SHA-256 of the outputs:
+560fc97d1eff2865cd6953b02278dc286108318603a3c31154ab9715cf2c2059  hello/output.css
+c7fe76ad9c9a52c2f549deb9ee0e4cfe967d022b0f9d8987217e2f39487ffda8  matrix/output.css
