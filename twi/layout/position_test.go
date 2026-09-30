@@ -109,3 +109,45 @@ func TestPositionClip(t *testing.T) {
 		}
 	}
 }
+
+func TestShrinkToFitAnchoredMenu(t *testing.T) {
+	for _, position := range []Position{PositionAbsolute, PositionFixed} {
+		label := text("abcdefghijklmnopqrst")
+		menu := box(Style{Position: position, Direction: Column, Inset: Insets{Top: pct(100), Right: cells(0)}}, label)
+		anchor := box(Style{Position: PositionRelative, Width: cells(6), Height: cells(1)}, menu)
+		root := box(Style{Width: cells(40), Height: cells(10)}, anchor)
+		Layout(root, 6, Length{Unit: Cells, Value: 10})
+		if menu.BorderBox.W != 20 || label.BorderBox.W != 20 || menu.BorderBox.X != -14 {
+			t.Errorf("position %d: menu %+v label %+v, want 20 wide ending at 6", position, menu.BorderBox, label.BorderBox)
+		}
+	}
+}
+
+func TestShrinkToFitWrapsAtAvailable(t *testing.T) {
+	for _, position := range []Position{PositionAbsolute, PositionFixed} {
+		paragraph := wrap(30)
+		popover := box(Style{Position: position, Direction: Column, AlignItems: AlignStart}, paragraph)
+		root := box(Style{Position: PositionRelative, Width: cells(12), Height: cells(10)}, popover)
+		Layout(root, 12, Length{Unit: Cells, Value: 10})
+		borders(t, []*Box{popover, paragraph}, Rect{0, 0, 12, 3}, Rect{0, 0, 12, 3})
+	}
+}
+
+func TestShrinkToFitMinContentFloor(t *testing.T) {
+	for _, position := range []Position{PositionAbsolute, PositionFixed} {
+		paragraph, word := wrap(30), text("abcdefghij")
+		popover := box(Style{Position: position, Direction: Column, AlignItems: AlignStart, Padding: Edges{Left: 1, Right: 1}}, paragraph, word)
+		root := box(Style{Position: PositionRelative, Width: cells(4), Height: cells(10)}, popover)
+		Layout(root, 4, Length{Unit: Cells, Value: 10})
+		borders(t, []*Box{popover, paragraph, word}, Rect{0, 0, 12, 4}, Rect{1, 0, 10, 3}, Rect{1, 3, 10, 1})
+	}
+}
+
+func TestShrinkToFitMemoAtMinAndAvailable(t *testing.T) {
+	paragraph, word := wrap(30), text("abcdefgh")
+	line := box(Style{AlignItems: AlignStart}, word, paragraph)
+	popover := box(Style{Position: PositionAbsolute, Direction: Column}, line)
+	root := box(Style{Position: PositionRelative, Width: cells(20), Height: cells(10)}, popover)
+	Layout(root, 20, Length{Unit: Cells, Value: 10})
+	borders(t, []*Box{popover, line, word, paragraph}, Rect{0, 0, 20, 3}, Rect{0, 0, 20, 3}, Rect{0, 0, 8, 1}, Rect{8, 0, 12, 3})
+}

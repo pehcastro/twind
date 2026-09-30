@@ -147,7 +147,7 @@ func (a *arena) placeOut(b *Box, static Rect, cb, fixed container) {
 	if avail := area.W - left - right - m.Left - m.Right; !sized && hasLeft && hasRight {
 		w = avail
 	} else if !sized {
-		w = contentWidth(b, avail)
+		w = min(max(intrinsic(b, minContent), avail), intrinsic(b, maxContent))
 	}
 	w = limit(s.MinWidth, s.MaxWidth, area.W, true).clamp(w)
 	mode := fixedHeight
