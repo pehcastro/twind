@@ -19,6 +19,11 @@ const (
 	Hairlines      = "▁▏▔▕"
 	UpperHalf      = "▀"
 	PillCaps       = "▐▌"
+	LowerBlocks    = "▁▂▃▄▅▆▇"
+	LeftBlocks     = "▏▎▍▌▋▊▉"
+	BlockBytes     = len("▁")
+	CellEighths    = 8
+	RingEighths    = 3
 )
 
 const (

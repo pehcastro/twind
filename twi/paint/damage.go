@@ -197,11 +197,8 @@ func (p *Painter) mark(area layout.Rect, h uint64, wide bool) {
 func mix(h, v uint64) uint64 { return bits.RotateLeft64((h^v)*konst.HashPrime, konst.HashRotate) }
 
 func extent(n *scene.Node) layout.Rect {
-	r := n.Bounds
+	r := outline(n)
 	x0, y0, x1, y1 := r.X, r.Y, r.X+r.W, r.Y+r.H
-	if n.Border.Radius == style.RadiusFull && r.H == 1 {
-		x0, x1 = x0-1, x1+1
-	}
 	for _, s := range n.Shadows {
 		left, top, right, bottom := reach(s)
 		x0, y0, x1, y1 = min(x0, r.X-left), min(y0, r.Y-top), max(x1, r.X+r.W+right), max(y1, r.Y+r.H+bottom)
