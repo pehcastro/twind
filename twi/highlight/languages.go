@@ -5,11 +5,12 @@ import (
 	"strconv"
 )
 
-func mustCompile(d Definition) *Grammar {
-	g, err := Compile(d)
+func mustCompile(states []State, reclassify func(*work)) *Grammar {
+	g, err := Compile(Definition{States: append(states, escapeDigits()...)})
 	if err != nil {
 		panic(err)
 	}
+	g.reclassify = reclassify
 	return g
 }
 
@@ -106,7 +107,7 @@ func Go() *Grammar {
 		{Name: "binary_number", Rules: []Rule{Match(Number, "_", "0", "1"), Match(Number, "i").Leave(), done}},
 		{Name: "octal_number", Rules: []Rule{Match(Number, "_").Range('0', '7'), Match(Number, "i").Leave(), done}},
 	}
-	return mustCompile(Definition{States: append(states, escapeDigits()...)})
+	return mustCompile(states, goPasses)
 }
 
 func JSON() *Grammar {
@@ -142,7 +143,7 @@ func JSON() *Grammar {
 		}},
 		{Name: "escape", Rules: []Rule{Match(Escape, "u").Goto("u1"), Fallback(Escape).Leave()}},
 	}
-	return mustCompile(Definition{States: append(states, escapeDigits()...)})
+	return mustCompile(states, nil)
 }
 
 func TOML() *Grammar {
@@ -259,7 +260,7 @@ func TOML() *Grammar {
 		{Name: "zone", Rules: []Rule{done}},
 		{Name: "offset", Rules: []Rule{Match(Datetime).Digits(), Match(Punctuation, ":"), done}},
 	}
-	return mustCompile(Definition{States: append(states, escapeDigits()...)})
+	return mustCompile(states, nil)
 }
 
 func Bash() *Grammar {
@@ -357,5 +358,5 @@ func Bash() *Grammar {
 		"esac", "coproc", "select", "function"} {
 		words[w] = Keyword
 	}
-	return mustCompile(Definition{States: append(states, escapeDigits()...), Words: words})
+	return mustCompile(states, bashPasses(words))
 }

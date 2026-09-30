@@ -1,8 +1,12 @@
 package highlight_test
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/twind-dev/twind/twi/highlight"
@@ -59,6 +63,36 @@ func TestBreakStopsTheTokenizer(t *testing.T) {
 	}
 	if n != 3 {
 		t.Errorf("%d spans before break, want 3", n)
+	}
+}
+
+func TestGoroutinesShareAGrammar(t *testing.T) {
+	g := highlight.Go()
+	var sources []string
+	for _, name := range []string{"program", "passes", "edges"} {
+		src, err := os.ReadFile(filepath.Join("testdata", "go", name+".txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sources = append(sources, string(src))
+	}
+	want := map[string]string{}
+	for _, src := range sources {
+		want[src] = spansOf(src, g)
+	}
+	var wg sync.WaitGroup
+	var wrong atomic.Int32
+	for i := range 300 {
+		src := sources[i%len(sources)]
+		wg.Go(func() {
+			if spansOf(src, g) != want[src] {
+				wrong.Add(1)
+			}
+		})
+	}
+	wg.Wait()
+	if n := wrong.Load(); n > 0 {
+		t.Errorf("%d of 300 concurrent runs differ from the serial spans", n)
 	}
 }
 

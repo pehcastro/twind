@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+build() {
+  echo "$HOME/$name_2 and ${user} $1abc $@z"
+  local count=$((0xff + 16#ff + 2#1010 + 0x1F + base#1 + 0x0f0f))
+  printf '%s\n' "$for" "$fi" $in$done
+  if [[ $x == y ]]; then done_it; fi
+}
+function deploy () { :; }
+setup ()
+{
+  true
+}
+x=$abc y=$a b
+if (true) then fi
+build

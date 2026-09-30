@@ -20,6 +20,8 @@ func BenchmarkGo2000Lines(b *testing.B) {
 	g := highlight.Go()
 	b.SetBytes(int64(len(src)))
 	b.ReportAllocs()
+	for range highlight.Tokens(src, g) {
+	}
 	spans := 0
 	for b.Loop() {
 		for range highlight.Tokens(src, g) {

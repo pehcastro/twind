@@ -12,7 +12,9 @@ for s := range highlight.Tokens(src, g) {
 }
 ```
 
-`Go`, `Bash`, `JSON` and `TOML` are ports of twinkleplop's grammars for the same languages, and their spans match twinkleplop's `tokenize` for the same input (`testdata/`). Bash also promotes whole identifiers that are reserved words, builtins or booleans, as twinkleplop's `promote_keywords` pass does. The other reclassifier passes are not ported.
+`Go`, `Bash`, `JSON` and `TOML` are ports of twinkleplop's grammars for the same languages, with their reclassifier passes, and their spans match twinkleplop's `tokenize()` at full fidelity for the same input (`testdata/`).
+
+The passes run over the whole file after the grammar, so `Tokens` fills a buffer the grammar reuses before it yields the first span; JSON and TOML have no passes and stream. Go claims, highest first: the name after `package` and an import alias are `Namespace`; parameter names after `func`, including receivers and names that share a type, are `Parameter`; an identifier before `(`, or before `[...](`, is `Function`; an `UPPER_SNAKE` identifier is `Constant`. Bash merges `$` plus the identifier after it into one `Variable`, joins `0xff` and `16#ff` into one `Number`, promotes reserved words, builtins and booleans, and marks `name()` as `Function`. Twinkleplop's Go passes emit no type kind, so neither does this.
 
 Rules are built with the same helpers twinkleplop uses:
 
@@ -26,7 +28,7 @@ Rules are built with the same helpers twinkleplop uses:
 | `enter(s)`, `goto(s)`, `leave()` | `.Enter(s)`, `.Goto(s)`, `.Leave()` |
 | `mode: "probe"`, `fallback: s` | `State{Probe: true, AtEnd: s}` |
 
-`Text` means no token: bytes a rule consumes without a kind, and bytes no rule matches, come out as `Text` spans. `DefaultPalette` maps each kind to a theme token, so the colours follow the runtime theme.
+`Text` means no token: bytes a rule consumes without a kind, and bytes no rule matches, come out as `Text` spans. `DefaultPalette(theme)` maps each kind to a theme token: for each kind it tries a short list of tokens and keeps the first that reaches 4.5:1 against `muted` in that theme, falling back to `foreground`. Call it again when the theme changes.
 
 ## twinkleplop licence
 

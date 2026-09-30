@@ -1,0 +1,61 @@
+package passes
+
+import (
+	"fmt"
+	str "strings"
+	. "math"
+	_ "embed"
+)
+
+import alias "os"
+
+import "sync"
+
+const MAX_BYTES = 1024
+const X = 1
+
+var HTTP_2 = MAX_BYTES + X + Max
+
+type Pair[K comparable, V any] struct {
+	Key K
+	Val V
+}
+
+func (p *Pair[K, V]) Swap(other Pair[K, V], a, b, c int, _ string) (x int, err error) {
+	return 0, nil
+}
+
+func Map[T, U any](xs []T, f func(T) U) []U {
+	out := make([]U, 0, len(xs))
+	for _, x := range xs {
+		out = append(out, f(x))
+	}
+	return out
+}
+
+func variadic(prefix string, args ...any) {}
+
+func unnamed(int, string) {}
+
+func qualified(io.Writer, w io.Writer, r *os.File, m map[string]int, ch <-chan int, arr [4]byte, s []byte, t []T) {}
+
+func (Pair[K, V]) Empty() {}
+
+func shadow(len int, new string) {}
+
+func main() {
+	table := map[string]func(int) int{}
+	table["x"](1)
+	Map[int, string](nil, nil)
+	nested[b[c]](d)
+	plain[i] = 2
+	fmt.Println(str.ToUpper("a"), Sqrt(2), MAX_X(3))
+	handler := func(w http.ResponseWriter, req *http.Request) {}
+	_ = handler
+	callback /* note */ (1)
+	defer func() { recover() }()
+	go worker(1)
+	y := arr[i][j](k)
+}
+
+func open(a, b

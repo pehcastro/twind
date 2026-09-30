@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"sync"
 	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/highlight"
@@ -89,7 +90,6 @@ type State struct {
 
 type Definition struct {
 	States []State
-	Words  map[string]Kind
 }
 
 const (
@@ -127,8 +127,9 @@ type state struct {
 }
 
 type Grammar struct {
-	states []state
-	words  map[string]Kind
+	states     []state
+	reclassify func(*work)
+	works      sync.Pool
 }
 
 func Compile(d Definition) (*Grammar, error) {
@@ -181,7 +182,7 @@ func Compile(d Definition) (*Grammar, error) {
 			}
 		}
 	}
-	g := &Grammar{states: make([]state, len(defs)), words: d.Words}
+	g := &Grammar{states: make([]state, len(defs))}
 	for i, s := range defs {
 		if err := g.states[i].compile(s, index); err != nil {
 			return nil, fmt.Errorf("state %q: %w", s.Name, err)

@@ -6,7 +6,6 @@ import (
 	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/highlight"
-	"github.com/twind-dev/twind/twi/theme"
 )
 
 type Kind uint8
@@ -29,6 +28,9 @@ const (
 	Regex
 	Datetime
 	TableHeader
+	Namespace
+	Parameter
+	Constant
 	kindEnd
 )
 
@@ -38,19 +40,8 @@ func (k Kind) String() string {
 		Comment: "comment", Function: "function", Operator: "operator", Punctuation: "punctuation",
 		Identifier: "identifier", Property: "property", Boolean: "boolean", Variable: "variable",
 		Builtin: "builtin", Regex: "regex", Datetime: "datetime", TableHeader: "array_table_header",
+		Namespace: "namespace", Parameter: "parameter", Constant: "constant",
 	}[k]
-}
-
-type Palette [kindEnd]theme.Token
-
-func DefaultPalette() Palette {
-	return Palette{
-		Text: theme.Foreground, Keyword: theme.Chart4, String: theme.Chart2, Escape: theme.Chart3,
-		Number: theme.Chart5, Comment: theme.MutedForeground, Function: theme.Chart1, Operator: theme.Foreground,
-		Punctuation: theme.MutedForeground, Identifier: theme.Foreground, Property: theme.Chart1,
-		Boolean: theme.Chart5, Variable: theme.Chart3, Builtin: theme.Chart1, Regex: theme.Chart3,
-		Datetime: theme.Chart5, TableHeader: theme.Primary,
-	}
 }
 
 type Span struct {
@@ -69,8 +60,6 @@ type probe struct {
 }
 
 type spans struct {
-	src   string
-	words map[string]Kind
 	yield func(Span) bool
 	last  Span
 }
@@ -88,26 +77,45 @@ func (o *spans) emit(k Kind, start, end int, sealed bool) bool {
 }
 
 func (o *spans) flush(upTo int) bool {
-	if s := o.last; s.End > s.Start {
-		if s.Kind == Identifier {
-			if w, ok := o.words[o.src[s.Start:s.End]]; ok {
-				s.Kind = w
-			}
-		}
-		if !o.yield(s) {
-			return false
-		}
+	if s := o.last; s.End > s.Start && !o.yield(s) {
+		return false
 	}
 	return upTo <= o.last.End || o.yield(Span{Text, o.last.End, upTo})
 }
 
 func Tokens(src string, g *Grammar) iter.Seq[Span] {
 	return func(yield func(Span) bool) {
-		out := spans{src: src, words: g.words, yield: yield}
-		if g.run(src, &out) {
-			out.flush(len(src))
+		if g.reclassify == nil {
+			out := spans{yield: yield}
+			if g.run(src, &out) {
+				out.flush(len(src))
+			}
+			return
+		}
+		g.reclassified(src, yield)
+	}
+}
+
+func (g *Grammar) reclassified(src string, yield func(Span) bool) {
+	w, _ := g.works.Get().(*work)
+	if w == nil {
+		w = &work{}
+	}
+	w.src, w.spans = src, w.spans[:0]
+	out := spans{yield: func(s Span) bool {
+		w.spans = append(w.spans, s)
+		return true
+	}}
+	g.run(src, &out)
+	out.flush(len(src))
+	g.reclassify(w)
+	for _, s := range w.spans {
+		if !yield(s) {
+			break
 		}
 	}
+	w.src = ""
+	g.works.Put(w)
 }
 
 func (g *Grammar) run(src string, out *spans) bool {
