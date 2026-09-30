@@ -137,17 +137,14 @@ func (d *Driver) Resize(width, height int) {
 }
 
 func (d *Driver) Advance(dt time.Duration) {
+	d.settle()
 	until := d.clock.Now().Add(dt)
 	for {
 		t, due := d.clock.advance(until)
 		if !due {
 			return
 		}
-		select {
-		case t.fire <- t.at:
-		case <-d.exited:
-			return
-		}
+		t.fire <- t.at
 		d.settle()
 	}
 }
@@ -180,13 +177,12 @@ func (d *Driver) feed(b []byte) {
 			return
 		}
 	}
-	d.settle()
 	d.Advance(rkonst.FrameInterval)
 }
 
 func (d *Driver) settle() {
 	done := make(chan struct{})
-	d.rt.Dispatch(func() { d.rt.Dispatch(func() { close(done) }) })
+	d.rt.Dispatch(func() { d.rt.Dispatch(func() { d.rt.Dispatch(func() { close(done) }) }) })
 	select {
 	case <-done:
 	case <-d.exited:
@@ -229,7 +225,7 @@ func (c *clock) Now() time.Time {
 func (c *clock) After(d time.Duration) <-chan time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	t := timer{at: c.now.Add(d), fire: make(chan time.Time)}
+	t := timer{at: c.now.Add(d), fire: make(chan time.Time, 1)}
 	c.timers = append(c.timers, t)
 	return t.fire
 }

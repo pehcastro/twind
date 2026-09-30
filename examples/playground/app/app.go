@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/edit"
@@ -19,6 +20,8 @@ import (
 const (
 	pickerRows = 9
 	listRows   = 40
+	cardDelay  = 700 * time.Millisecond
+	cardShown  = 3 * time.Second
 	focusRing  = " focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"
 	pill       = "shrink-0 rounded-full px-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 )
@@ -39,6 +42,7 @@ type state struct {
 	page, count   int
 	theme, cursor int
 	picker, tip   bool
+	card          bool
 	focus         string
 }
 
@@ -130,6 +134,7 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 		st.Set(s)
 	}
 	openPicker := func(s *state) { s.picker, s.cursor = true, s.theme }
+	var later *twi.Timer
 	command := func(s *state, cmd string) {
 		n, err := strconv.Atoi(cmd)
 		switch {
@@ -141,6 +146,15 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 			s.page, s.count = counter, s.count+1
 		case cmd == "-":
 			s.page, s.count = counter, max(s.count-1, 0)
+		case cmd == "later":
+			if later != nil {
+				later.Stop()
+			}
+			s.card = false
+			later = rt.After(cardDelay, func() {
+				update(func(s *state) { s.card = true })
+				later = rt.After(cardShown, func() { update(func(s *state) { s.card = false }) })
+			})
 		case cmd == "q" || cmd == "quit":
 			rt.Quit()
 		default:
@@ -153,7 +167,7 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 	}
 	field := twi.NewInput(rt)
 	field.Insert(value)
-	field.Placeholder = "Ask twind: a page name or number, theme, +, - or quit"
+	field.Placeholder = "Ask twind: a page name or number, theme, later, +, - or quit"
 	field.CursorClass, field.SelectionClass, field.PlaceholderClass = "bg-foreground text-background", "bg-primary text-primary-foreground", "text-muted-foreground"
 	return func() twi.Node {
 		c := controls{state: st.Get(), update: update, auto: auto}
@@ -210,6 +224,14 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 				twi.Text("focus "+s.focus),
 				twi.Text(all[s.page].name),
 			),
+		}
+		if s.card {
+			root = append(root, el("fixed inset-0 z-50 flex items-center justify-center",
+				el("w-44 flex flex-col px-1 border rounded-lg shadow-lg bg-popover text-popover-foreground",
+					txt("font-bold", "Later"),
+					txt("text-muted-foreground", "shown 700 ms after Enter, gone 3 s later"),
+				),
+			))
 		}
 		if s.picker {
 			root = append(root, picker(themes, c, func(s *state) {

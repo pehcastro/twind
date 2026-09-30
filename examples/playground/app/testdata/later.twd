@@ -1,0 +1,11 @@
+size 100x30
+type later
+press enter
+wait 682.333334ms
+frame 1-at-699ms
+wait 1ms
+frame 2-at-700ms
+wait 2999ms
+frame 3-at-3699ms
+wait 1ms
+frame 4-at-3700ms

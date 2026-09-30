@@ -96,9 +96,9 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 		cursorGrapheme string
 	}{
 		{func() { d.Type("hello") }, "hello", "input", 5, nbsp},
-		{func() { d.Press("ctrl+w") }, "Ask twind: a page name or number, theme, +, - or quit", "input", 0, nbsp},
+		{func() { d.Press("ctrl+w") }, "Ask twind: a page name or number, theme, later, +, - or quit", "input", 0, nbsp},
 		{func() { d.Type("world") }, "world", "input", 5, nbsp},
-		{func() { d.Press("ctrl+z") }, "Ask twind: a page name or number, theme, +, - or quit", "input", 0, nbsp},
+		{func() { d.Press("ctrl+z") }, "Ask twind: a page name or number, theme, later, +, - or quit", "input", 0, nbsp},
 		{func() { d.Press("ctrl+z") }, "hello", "input", 5, nbsp},
 		{func() { d.Type(" 中b"); press(d, "left", "left") }, "hello" + nbsp + "中b", "input", 6, "中"},
 		{func() { d.Press("right") }, "hello" + nbsp + "中b", "input", 8, "b"},
@@ -139,7 +139,7 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 func TestPages(t *testing.T) {
 	d := open(t)
 	run(d, "layout")
-	if got := status(d); !strings.HasSuffix(got, "layout") || inputLine(d) != "Ask twind: a page name or number, theme, +, - or quit" {
+	if got := status(d); !strings.HasSuffix(got, "layout") || inputLine(d) != "Ask twind: a page name or number, theme, later, +, - or quit" {
 		t.Errorf("layout, enter: status %q, input %q", got, inputLine(d))
 	}
 	press(d, "tab", "enter")

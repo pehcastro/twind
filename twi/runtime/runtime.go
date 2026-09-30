@@ -64,6 +64,9 @@ type Runtime struct {
 	mu      sync.Mutex
 	queue   []func()
 	running []func()
+	timers  []*Timer
+	now     time.Time
+	awake   bool
 
 	app           func() Tree
 	dirty         bool
@@ -153,10 +156,20 @@ func (r *Runtime) loop(b Backend) error {
 	}
 	r.dirty = true
 	events := b.Events()
-	var throttle <-chan time.Time
+	var ev input.Event
+	var alarm <-chan time.Time
+	var alarmAt time.Time
 	for {
 		now := r.cfg.Clock.Now()
+		r.mu.Lock()
+		r.now, r.awake = now, true
+		r.mu.Unlock()
+		if ev != nil {
+			r.handle(ev)
+			ev = nil
+		}
 		r.drain()
+		r.expire(now)
 		if r.quitting.Load() {
 			r.drain()
 			return nil
@@ -164,22 +177,35 @@ func (r *Runtime) loop(b Backend) error {
 		if r.changed.Swap(false) {
 			r.dirty = true
 		}
-		if (r.dirty || r.pointer.moved) && throttle == nil {
-			if wait := r.lastFrame.Add(konst.FrameInterval).Sub(now); wait > 0 {
-				throttle = r.cfg.Clock.After(wait)
-			} else if err := r.draw(b, now); err != nil {
-				return err
+		var frameAt time.Time
+		if r.dirty || r.pointer.moved {
+			if frameAt = r.lastFrame.Add(konst.FrameInterval); !frameAt.After(now) {
+				frameAt = time.Time{}
+				if err := r.draw(b, now); err != nil {
+					return err
+				}
 			}
 		}
+		next := r.sleep()
+		if next.IsZero() || !frameAt.IsZero() && frameAt.Before(next) {
+			next = frameAt
+		}
+		switch {
+		case next.IsZero():
+		case !next.After(now):
+			r.wakeUp()
+		case alarm == nil || next.Before(alarmAt):
+			alarm, alarmAt = r.cfg.Clock.After(next.Sub(now)), next
+		}
 		select {
-		case ev, ok := <-events:
+		case e, ok := <-events:
 			if !ok {
 				return errors.New("runtime: input closed")
 			}
-			r.handle(ev)
+			ev = e
 		case <-r.wake:
-		case <-throttle:
-			throttle = nil
+		case <-alarm:
+			alarm = nil
 		}
 	}
 }
@@ -223,6 +249,7 @@ func (r *Runtime) handle(ev input.Event) {
 }
 
 func (r *Runtime) refocused() {
+	r.doc.moved(&r.focus)
 	if current, _ := r.focus.Current(); current != r.revealed {
 		r.dirty = true
 	}

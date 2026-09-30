@@ -68,6 +68,16 @@ func (disabled) apply(n *Node) {
 
 func Disabled() NodeOption { return disabled{} }
 
-func FocusScope() NodeOption { return behaviour(func(n *runtime.Node) { n.Scope = true }) }
+func FocusScope() NodeOption {
+	return behaviour(func(n *runtime.Node) { n.Scope = runtime.ModalScope })
+}
+
+func NonModalFocusScope() NodeOption {
+	return behaviour(func(n *runtime.Node) { n.Scope = runtime.NonModalScope })
+}
+
+func OnFocusOutside(handler func()) NodeOption {
+	return behaviour(func(n *runtime.Node) { n.FocusOutside = append(n.FocusOutside, handler) })
+}
 
 func Key(key string) NodeOption { return behaviour(func(n *runtime.Node) { n.Key = key }) }

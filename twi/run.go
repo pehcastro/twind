@@ -22,6 +22,8 @@ func Backend(b runtime.Backend, c runtime.Clock) RenderOption {
 	return func(cfg *renderConfig) { cfg.backend, cfg.clock = b, c }
 }
 
+type Timer = runtime.Timer
+
 type Runtime struct {
 	*runtime.Runtime
 	cfg   renderConfig

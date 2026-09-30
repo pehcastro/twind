@@ -8,15 +8,23 @@ import (
 	"github.com/twind-dev/twind/twi/style"
 )
 
+type Scope uint8
+
+const (
+	NoScope Scope = iota
+	ModalScope
+	NonModalScope
+)
+
 type Node struct {
-	Key                  string
-	At                   []int
-	Focusable, Disabled  bool
-	Scope, AutoFocus     bool
-	KeyDown, Focus, Blur []events.Listener[*Elem]
-	Click, Enter, Leave  []events.Listener[*Elem]
-	PointerDownOutside   []func()
-	Children             []Node
+	Key                              string
+	At                               []int
+	Focusable, Disabled, AutoFocus   bool
+	Scope                            Scope
+	KeyDown, Focus, Blur             []events.Listener[*Elem]
+	Click, Enter, Leave              []events.Listener[*Elem]
+	PointerDownOutside, FocusOutside []func()
+	Children                         []Node
 }
 
 type Elem struct {
@@ -27,12 +35,17 @@ type Elem struct {
 }
 
 type document struct {
-	root   *Elem
-	frame  uint64
-	scopes []*Elem
-	opened []*Elem
-	autos  []*Elem
+	root    *Elem
+	frame   uint64
+	scopes  []*Elem
+	opened  []*Elem
+	loose   []*Elem
+	entered []entered
+	autos   []*Elem
+	focused *Elem
 }
+
+type entered struct{ scope, previous *Elem }
 
 func (d *document) Root() *Elem                  { return d.root }
 func (d *document) Parent(e *Elem) (*Elem, bool) { return e.parent, e.parent != nil }
@@ -63,7 +76,7 @@ func (d *document) Listeners(e *Elem, t events.Type) []events.Listener[*Elem] {
 
 func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	d.frame++
-	d.scopes, d.autos = d.scopes[:0], d.autos[:0]
+	d.scopes, d.loose, d.autos = d.scopes[:0], d.loose[:0], d.autos[:0]
 	if d.root == nil {
 		d.root = &Elem{}
 	}
@@ -71,6 +84,16 @@ func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	for len(d.opened) > 0 && slices.ContainsFunc(d.opened, d.gone) {
 		focus.Close(d)
 		d.opened = d.opened[:len(d.opened)-1]
+	}
+	for i := len(d.entered) - 1; i >= 0; i-- {
+		e := d.entered[i]
+		if !d.gone(e.scope) {
+			continue
+		}
+		d.entered = slices.Delete(d.entered, i, i+1)
+		if current, ok := focus.Current(); e.previous != nil && (!ok || e.scope.holds(current)) {
+			focus.Set(d, e.previous)
+		}
 	}
 	if current, ok := focus.Current(); ok && d.gone(current) {
 		*focus, d.opened = events.FocusManager[*Elem]{}, nil
@@ -81,8 +104,49 @@ func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 			d.opened = append(d.opened, s)
 		}
 	}
+	for _, s := range d.loose {
+		if slices.ContainsFunc(d.entered, func(e entered) bool { return e.scope == s }) {
+			continue
+		}
+		e := entered{scope: s}
+		if current, ok := focus.Current(); ok {
+			e.previous = current
+		}
+		d.entered = append(d.entered, e)
+		if first := d.first(s); first != nil {
+			focus.Set(d, first)
+		}
+	}
 	if _, ok := focus.Current(); !ok && len(d.autos) > 0 {
 		focus.Set(d, d.autos[0])
+	}
+	d.moved(focus)
+}
+
+func (d *document) first(e *Elem) *Elem {
+	if d.Focusable(e) && !d.Disabled(e) {
+		return e
+	}
+	for _, c := range e.children {
+		if f := d.first(c); f != nil {
+			return f
+		}
+	}
+	return nil
+}
+
+func (d *document) moved(focus *events.FocusManager[*Elem]) {
+	current, ok := focus.Current()
+	if !ok || current == d.focused {
+		return
+	}
+	d.focused = current
+	for _, e := range d.entered {
+		if !e.scope.holds(current) {
+			for _, f := range e.scope.node.FocusOutside {
+				f()
+			}
+		}
 	}
 }
 
@@ -132,8 +196,14 @@ func (e *Elem) holds(n *Elem) bool {
 func (d *document) attach(e *Elem, n Node) {
 	fresh := e.frame == 0
 	e.node, e.frame = n, d.frame
-	if n.Scope {
+	switch n.Scope {
+	case NoScope:
+	case ModalScope:
 		d.scopes = append(d.scopes, e)
+	case NonModalScope:
+		d.loose = append(d.loose, e)
+	default:
+		panic("runtime: unknown focus scope")
 	}
 	if fresh && n.AutoFocus {
 		d.autos = append(d.autos, e)
