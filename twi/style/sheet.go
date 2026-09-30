@@ -95,6 +95,18 @@ const (
 	PropAnimationEasing
 	PropAnimationIterations
 	PropWrap
+	PropGridColumns
+	PropGridRows
+	PropGridAutoColumns
+	PropGridAutoRows
+	PropGridColumnStart
+	PropGridColumnEnd
+	PropGridRowStart
+	PropGridRowEnd
+	PropGridFlow
+	PropJustifyItems
+	PropJustifySelf
+	PropAlignContent
 )
 
 type Declaration struct {
@@ -126,6 +138,9 @@ type Declaration struct {
 	Keyframes    Keyframes
 	Duration     time.Duration
 	Easing       Easing
+	Tracks       []Track
+	GridLine     GridLine
+	Flow         GridFlow
 }
 
 type State uint8
@@ -278,18 +293,21 @@ func (s Sheet) ComputeState(parent ComputedStyle, classes []string, node NodeSta
 	slices.Sort(matched)
 	ease := Easing{X1: konst.EaseX1, Y1: konst.EaseY1, X2: konst.EaseX2, Y2: konst.EaseY2}
 	out := ComputedStyle{
-		Shrink:      1,
-		AlignItems:  AlignStretch,
-		Basis:       Length{Unit: Auto},
-		Width:       Length{Unit: Auto},
-		Height:      Length{Unit: Auto},
-		MinWidth:    Length{Unit: Auto},
-		MinHeight:   Length{Unit: Auto},
-		MaxWidth:    Length{Unit: None},
-		MaxHeight:   Length{Unit: None},
-		Inset:       Edges{Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}},
-		BorderColor: color.Color{Kind: color.Current},
-		Opacity:     1,
+		Shrink:       1,
+		AlignItems:   AlignStretch,
+		JustifyItems: AlignStretch,
+		Justify:      JustifyStretch,
+		AlignContent: JustifyStretch,
+		Basis:        Length{Unit: Auto},
+		Width:        Length{Unit: Auto},
+		Height:       Length{Unit: Auto},
+		MinWidth:     Length{Unit: Auto},
+		MinHeight:    Length{Unit: Auto},
+		MaxWidth:     Length{Unit: None},
+		MaxHeight:    Length{Unit: None},
+		Inset:        Edges{Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}},
+		BorderColor:  color.Color{Kind: color.Current},
+		Opacity:      1,
 		Gradient: Gradient{
 			From: GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.FromPosition},
 			Via:  GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.ViaPosition},
@@ -417,6 +435,30 @@ func (s *ComputedStyle) apply(d *Declaration, inherited color.Color) {
 		s.AlignSelf = d.Align
 	case PropJustify:
 		s.Justify = d.Justify
+	case PropAlignContent:
+		s.AlignContent = d.Justify
+	case PropJustifyItems:
+		s.JustifyItems = d.Align
+	case PropJustifySelf:
+		s.JustifySelf = d.Align
+	case PropGridColumns:
+		s.GridColumns = d.Tracks
+	case PropGridRows:
+		s.GridRows = d.Tracks
+	case PropGridAutoColumns:
+		s.GridAutoColumns = d.Tracks
+	case PropGridAutoRows:
+		s.GridAutoRows = d.Tracks
+	case PropGridColumnStart:
+		s.GridColumn.Start = d.GridLine
+	case PropGridColumnEnd:
+		s.GridColumn.End = d.GridLine
+	case PropGridRowStart:
+		s.GridRow.Start = d.GridLine
+	case PropGridRowEnd:
+		s.GridRow.End = d.GridLine
+	case PropGridFlow:
+		s.GridFlow = d.Flow
 	case PropRowGap:
 		s.RowGap = d.Length
 	case PropColumnGap:

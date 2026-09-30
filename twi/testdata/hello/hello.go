@@ -28,8 +28,6 @@ func App() twi.Node {
 	)
 }
 
-func Grid() twi.Node { return twi.Element(twi.Class("grid")) }
-
 func Borderless() twi.Node { return twi.Element(twi.Class("border border-none p-2"), twi.Text("x")) }
 
 func Card() twi.Node { return twi.Element(twi.Class("bg-card text-card-foreground"), twi.Text("card")) }

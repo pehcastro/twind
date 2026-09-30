@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	lkonst "github.com/twind-dev/twind/internal/konst/layout"
 	skonst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/layout"
@@ -200,7 +201,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		if err != nil {
 			return nil, err
 		}
-		if prev == nil || ls != s.box.Style {
+		if prev == nil || !reflect.DeepEqual(ls, s.box.Style) {
 			s.box.Style, t.relayout = ls, true
 		}
 		if reverse := reversed(computed); reverse != s.reverse {
@@ -319,33 +320,55 @@ func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, er
 			style.AlignCenter:  layout.AlignCenter,
 		}[a]
 	}
-	out := layout.Style{
-		Justify: [...]layout.Justify{
+	justify := func(j style.Justify) layout.Justify {
+		return [...]layout.Justify{
 			style.JustifyStart:   layout.JustifyStart,
 			style.JustifyEnd:     layout.JustifyEnd,
 			style.JustifyCenter:  layout.JustifyCenter,
 			style.JustifyBetween: layout.JustifyBetween,
 			style.JustifyAround:  layout.JustifyAround,
 			style.JustifyEvenly:  layout.JustifyEvenly,
-		}[s.Justify],
-		AlignItems: align("align-items", s.AlignItems),
-		AlignSelf:  align("align-self", s.AlignSelf),
-		Grow:       int(math.Round(s.Grow)),
-		Shrink:     int(math.Round(s.Shrink)),
-		Basis:      length(s.Basis),
-		Width:      length(s.Width),
-		Height:     length(s.Height),
-		MinWidth:   length(s.MinWidth),
-		MinHeight:  length(s.MinHeight),
-		MaxWidth:   length(s.MaxWidth),
-		MaxHeight:  length(s.MaxHeight),
-		RowGap:     cells("row-gap", s.RowGap),
-		ColumnGap:  cells("column-gap", s.ColumnGap),
-		Padding:    edges("padding", s.Padding),
-		Margin:     edges("margin", s.Margin),
-		Border:     edges("border-width", s.BorderWidth),
-		Inset:      layout.Insets{Top: length(s.Inset.Top), Right: length(s.Inset.Right), Bottom: length(s.Inset.Bottom), Left: length(s.Inset.Left)},
-		ZIndex:     s.ZIndex,
+			style.JustifyStretch: layout.JustifyStretch,
+		}[j]
+	}
+	placement := func(p style.GridPlacement) layout.Placement {
+		return layout.Placement{Start: layout.Line{Index: p.Start.Line, Span: p.Start.Span}, End: layout.Line{Index: p.End.Line, Span: p.End.Span}}
+	}
+	out := layout.Style{
+		Justify:      justify(s.Justify),
+		AlignContent: justify(s.AlignContent),
+		AlignItems:   align("align-items", s.AlignItems),
+		AlignSelf:    align("align-self", s.AlignSelf),
+		JustifyItems: align("justify-items", s.JustifyItems),
+		JustifySelf:  align("justify-self", s.JustifySelf),
+		Columns:      tracks(s.GridColumns),
+		Rows:         tracks(s.GridRows),
+		AutoColumns:  tracks(s.GridAutoColumns),
+		AutoRows:     tracks(s.GridAutoRows),
+		Column:       placement(s.GridColumn),
+		Row:          placement(s.GridRow),
+		Flow: [...]layout.Flow{
+			style.FlowRow:         layout.FlowRow,
+			style.FlowColumn:      layout.FlowColumn,
+			style.FlowRowDense:    layout.FlowRowDense,
+			style.FlowColumnDense: layout.FlowColumnDense,
+		}[s.GridFlow],
+		Grow:      int(math.Round(s.Grow)),
+		Shrink:    int(math.Round(s.Shrink)),
+		Basis:     length(s.Basis),
+		Width:     length(s.Width),
+		Height:    length(s.Height),
+		MinWidth:  length(s.MinWidth),
+		MinHeight: length(s.MinHeight),
+		MaxWidth:  length(s.MaxWidth),
+		MaxHeight: length(s.MaxHeight),
+		RowGap:    cells("row-gap", s.RowGap),
+		ColumnGap: cells("column-gap", s.ColumnGap),
+		Padding:   edges("padding", s.Padding),
+		Margin:    edges("margin", s.Margin),
+		Border:    edges("border-width", s.BorderWidth),
+		Inset:     layout.Insets{Top: length(s.Inset.Top), Right: length(s.Inset.Right), Bottom: length(s.Inset.Bottom), Left: length(s.Inset.Left)},
+		ZIndex:    s.ZIndex,
 	}
 	switch {
 	case scrolls(s.OverflowX) || scrolls(s.OverflowY):
@@ -382,14 +405,27 @@ func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, er
 		precision := cell.X * cell.Y
 		out.Aspect = layout.Ratio{W: int(math.Round(s.AspectRatio * float64(cell.Y*precision))), H: cell.X * precision}
 	}
+	stretches := func(self, items style.Align) bool {
+		return self == style.AlignStretch || self == style.AlignAuto && (items == style.AlignAuto || items == style.AlignStretch)
+	}
+	stretched := stretches(s.AlignSelf, parent.AlignItems)
 	column := parent.Display != style.DisplayFlex || parent.Direction == style.Column || parent.Direction == style.ColumnReverse
-	stretched := s.AlignSelf == style.AlignStretch || s.AlignSelf == style.AlignAuto && (parent.AlignItems == style.AlignAuto || parent.AlignItems == style.AlignStretch)
-	if stretched && (column && s.Width.Unit == style.FitContent || !column && s.Height.Unit == style.FitContent) {
+	switch {
+	case parent.Display == style.DisplayGrid:
+		if stretches(s.JustifySelf, parent.JustifyItems) && s.Width.Unit == style.FitContent {
+			out.JustifySelf = layout.AlignStart
+		}
+		if stretched && s.Height.Unit == style.FitContent {
+			out.AlignSelf = layout.AlignStart
+		}
+	case stretched && (column && s.Width.Unit == style.FitContent || !column && s.Height.Unit == style.FitContent):
 		out.AlignSelf = layout.AlignStart
 	}
 	switch {
 	case s.Display == style.DisplayNone:
 		out.Display = layout.DisplayNone
+	case s.Display == style.DisplayGrid:
+		out.Display = layout.DisplayGrid
 	case s.Display == style.DisplayBlock:
 		out.Direction = layout.Column
 	case s.Display != style.DisplayFlex:
@@ -397,12 +433,15 @@ func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, er
 	case s.Direction == style.Column || s.Direction == style.ColumnReverse:
 		out.Direction = layout.Column
 	}
+	if s.Display == style.DisplayFlex && s.Wrap != style.NoWrap && s.AlignContent != style.JustifyStretch {
+		unsupported = append(unsupported, "align-content in a wrapping flex container")
+	}
 	if reversed(s) {
 		if s.Wrap != style.NoWrap {
 			unsupported = append(unsupported, "flex-wrap in a reversed direction")
 		}
 		switch out.Justify {
-		case layout.JustifyStart:
+		case layout.JustifyStart, layout.JustifyStretch:
 			out.Justify = layout.JustifyEnd
 		case layout.JustifyEnd:
 			out.Justify = layout.JustifyStart
@@ -412,6 +451,34 @@ func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, er
 		return layout.Style{}, fmt.Errorf("twi: layout does not support this %s yet", strings.Join(slices.Compact(unsupported), ", "))
 	}
 	return out, nil
+}
+
+func tracks(ts []style.Track) []layout.Track {
+	if ts == nil {
+		return nil
+	}
+	breadth := func(b style.Breadth) layout.Breadth {
+		switch b.Kind {
+		case style.SizeAuto:
+			return layout.Breadth{}
+		case style.SizeCells:
+			return layout.Breadth{Kind: layout.SizeCells, Value: int(math.Round(b.Value))}
+		case style.SizePercent:
+			return layout.Breadth{Kind: layout.SizePercent, Value: int(math.Round(b.Value))}
+		case style.SizeFr:
+			return layout.Breadth{Kind: layout.SizeFr, Value: int(math.Round(b.Value * lkonst.FrUnit))}
+		case style.SizeMinContent:
+			return layout.Breadth{Kind: layout.SizeMinContent}
+		case style.SizeMaxContent:
+			return layout.Breadth{Kind: layout.SizeMaxContent}
+		}
+		panic(fmt.Sprintf("render: unknown track size %d", b.Kind))
+	}
+	out := make([]layout.Track, len(ts))
+	for i, t := range ts {
+		out[i] = layout.Track{Min: breadth(t.Min), Max: breadth(t.Max)}
+	}
+	return out
 }
 
 func reversed(s style.ComputedStyle) bool {

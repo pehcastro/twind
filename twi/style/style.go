@@ -71,6 +71,38 @@ const (
 	JustifyBetween
 	JustifyAround
 	JustifyEvenly
+	JustifyStretch
+)
+
+type TrackSize uint8
+
+const (
+	SizeAuto TrackSize = iota
+	SizeCells
+	SizePercent
+	SizeFr
+	SizeMinContent
+	SizeMaxContent
+)
+
+type Breadth struct {
+	Kind  TrackSize
+	Value float64
+}
+
+type Track struct{ Min, Max Breadth }
+
+type GridLine struct{ Line, Span int }
+
+type GridPlacement struct{ Start, End GridLine }
+
+type GridFlow uint8
+
+const (
+	FlowRow GridFlow = iota
+	FlowColumn
+	FlowRowDense
+	FlowColumnDense
 )
 
 type Position uint8
@@ -284,6 +316,17 @@ type ComputedStyle struct {
 	Justify    Justify
 	RowGap     Length
 	ColumnGap  Length
+
+	GridColumns     []Track
+	GridRows        []Track
+	GridAutoColumns []Track
+	GridAutoRows    []Track
+	GridColumn      GridPlacement
+	GridRow         GridPlacement
+	GridFlow        GridFlow
+	JustifyItems    Align
+	JustifySelf     Align
+	AlignContent    Justify
 
 	Width     Length
 	Height    Length

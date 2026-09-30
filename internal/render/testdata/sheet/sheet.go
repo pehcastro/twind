@@ -27,4 +27,14 @@ const (
 	Leftward = "flex flex-row-reverse w-10 gap-x-1"
 	Wrapped  = "flex flex-row-reverse flex-wrap"
 	Middle   = "justify-center"
+
+	Card            = "flex flex-col gap-1 rounded-xl border bg-card py-1 text-card-foreground"
+	CardHeader      = "grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 grid-cols-[1fr_auto]"
+	CardTitle       = "leading-none font-semibold"
+	CardDescription = "text-sm text-muted-foreground"
+	CardAction      = "col-start-2 row-span-2 row-start-1 self-start justify-self-end"
+	CardButton      = "rounded-md border bg-primary px-3 text-primary-foreground"
+	CardContent     = "px-6"
+	Cells           = "grid grid-cols-3 gap-2"
+	Wide            = "col-span-2"
 )

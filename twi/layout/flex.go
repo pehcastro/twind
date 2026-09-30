@@ -11,9 +11,11 @@ const (
 )
 
 type arena struct {
-	ints  []int
-	rects []Rect
-	items []flexItem
+	ints   []int
+	rects  []Rect
+	items  []flexItem
+	tracks []track
+	cells  []gridItem
 }
 
 func grab[T any](stack *[]T, n int) []T {
@@ -37,7 +39,7 @@ func Layout(root *Box, width int, height Length) {
 		root.arena = &arena{}
 	}
 	a := root.arena
-	a.ints, a.rects, a.items = a.ints[:0], a.rects[:0], a.items[:0]
+	a.ints, a.rects, a.items, a.tracks, a.cells = a.ints[:0], a.rects[:0], a.items[:0], a.tracks[:0], a.cells[:0]
 	s := root.Style
 	w, ok := resolve(s.Width, width, true)
 	if !ok {
@@ -99,8 +101,8 @@ func (a *arena) place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolu
 		case cs.Position == PositionFixed:
 			a.placeOut(c, content, fixed, fixed)
 		default:
-			childMode := autoHeight
-			if _, sized := resolve(cs.Height, content.H, definite); sized || definite && (!isRow(s.Direction) || alignOf(s, cs) == AlignStretch) {
+			childMode, known := autoHeight, definite || s.Display == DisplayGrid
+			if _, sized := resolve(cs.Height, content.H, known); sized || known && (!isRow(s.Direction) || alignOf(s, cs) == AlignStretch) {
 				childMode = fixedHeight
 			}
 			f := frames[i]
@@ -147,7 +149,7 @@ func (a *arena) placeOut(b *Box, static Rect, cb, fixed container) {
 	if avail := area.W - left - right - m.Left - m.Right; !sized && hasLeft && hasRight {
 		w = avail
 	} else if !sized {
-		w = min(max(intrinsic(b, minContent), avail), intrinsic(b, maxContent))
+		w = min(max(a.intrinsic(b, minContent), avail), a.intrinsic(b, maxContent))
 	}
 	w = limit(s.MinWidth, s.MaxWidth, area.W, true).clamp(w)
 	mode := fixedHeight
@@ -181,6 +183,9 @@ func hide(b *Box) {
 }
 
 func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
+	if b.Style.Display == DisplayGrid {
+		return a.arrangeGrid(b, innerW, innerH, mode)
+	}
 	ints, flexItems := len(a.ints), len(a.items)
 	defer func() { a.ints, a.items = a.ints[:ints], a.items[:flexItems] }()
 	s := &b.Style
@@ -207,16 +212,16 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 				items[k].basis, items[k].content = w, false
 			}
 			if items[k].content {
-				items[k].basis = intrinsic(c, maxContent)
+				items[k].basis = a.intrinsic(c, maxContent)
 			} else {
-				items[k].min = autoMin(c, items[k], innerW)
+				items[k].min = a.autoMin(c, items[k], innerW)
 			}
 		} else {
 			al, avail := alignOf(s, cs), innerW-m.Left-m.Right
 			if al == AlignStretch && cs.Width.Unit == Auto {
 				frames[i].W = limit(cs.MinWidth, cs.MaxWidth, innerW, true).clamp(avail)
 			} else {
-				frames[i].W = fitWidth(c, avail)
+				frames[i].W = a.fitWidth(c, avail)
 			}
 			frames[i].X = m.Left + offset(al, avail-frames[i].W)
 			items[k] = newItem(cs, cs.Height, cs.MinHeight, cs.MaxHeight, innerH, fixed)
@@ -262,7 +267,7 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 		if row && used > space {
 			for k, it := range group {
 				if it.content && it.shrink > 0 {
-					group[k].min = autoMin(b.Children[shown[first+k]], it, innerW)
+					group[k].min = a.autoMin(b.Children[shown[first+k]], it, innerW)
 				}
 			}
 		}
@@ -315,7 +320,7 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 	return frames, cross
 }
 
-func fitWidth(b *Box, avail int) int {
+func (a *arena) fitWidth(b *Box, avail int) int {
 	s := &b.Style
 	bounds := limit(s.MinWidth, s.MaxWidth, avail, true)
 	if w, ok := resolve(s.Width, avail, true); ok {
@@ -324,15 +329,15 @@ func fitWidth(b *Box, avail int) int {
 	if w, ok := aspectWidth(s, 0, false); ok {
 		return bounds.clamp(w)
 	}
-	return bounds.clamp(contentWidth(b, avail))
+	return bounds.clamp(a.contentWidth(b, avail))
 }
 
-func autoMin(c *Box, it flexItem, innerW int) int {
+func (a *arena) autoMin(c *Box, it flexItem, innerW int) int {
 	cs := &c.Style
 	if cs.MinWidth.Unit != Auto || clips(cs.Overflow) {
 		return it.min
 	}
-	least := intrinsic(c, minContent)
+	least := a.intrinsic(c, minContent)
 	if w, sized := resolve(cs.Width, innerW, true); sized {
 		least = min(least, w)
 	}
@@ -358,7 +363,7 @@ const (
 	maxContent
 )
 
-func intrinsic(b *Box, mode sizing) int {
+func (a *arena) intrinsic(b *Box, mode sizing) int {
 	m := &b.memo
 	if m.intrinsicKnown[mode] {
 		return m.intrinsic[mode]
@@ -366,13 +371,16 @@ func intrinsic(b *Box, mode sizing) int {
 	s := &b.Style
 	frameW, _ := frame(s)
 	content := 0
-	if b.Measure != nil {
+	switch {
+	case b.Measure != nil:
 		avail := 0
 		if mode == maxContent {
 			avail = math.MaxInt
 		}
 		content, _ = b.Measure(avail)
-	} else {
+	case s.Display == DisplayGrid:
+		content = a.gridWidth(b, mode)
+	default:
 		row := isRow(s.Direction)
 		sums, count := row && (mode == maxContent || s.Wrap == NoWrap), 0
 		for _, c := range b.Children {
@@ -389,7 +397,7 @@ func intrinsic(b *Box, mode sizing) int {
 				if row && cs.Shrink == 0 {
 					childMode = maxContent
 				}
-				w = intrinsic(c, childMode)
+				w = a.intrinsic(c, childMode)
 			}
 			w = limit(cs.MinWidth, cs.MaxWidth, 0, false).clamp(w) + cs.Margin.Left + cs.Margin.Right
 			if sums {
@@ -407,7 +415,7 @@ func intrinsic(b *Box, mode sizing) int {
 	return m.intrinsic[mode]
 }
 
-func contentWidth(b *Box, avail int) int {
+func (a *arena) contentWidth(b *Box, avail int) int {
 	m := &b.memo
 	if m.widthKnown && m.widthAvail == avail {
 		return m.width
@@ -416,16 +424,19 @@ func contentWidth(b *Box, avail int) int {
 	frameW, _ := frame(s)
 	inner := max(avail-frameW, 0)
 	content := 0
-	if b.Measure != nil {
+	switch {
+	case b.Measure != nil:
 		content, _ = b.Measure(inner)
-	} else {
+	case s.Display == DisplayGrid:
+		content = a.intrinsic(b, maxContent) - frameW
+	default:
 		row, count := isRow(s.Direction), 0
 		for _, c := range b.Children {
 			if !visible(c) || !flowing(c.Style.Position) {
 				continue
 			}
 			marginW := c.Style.Margin.Left + c.Style.Margin.Right
-			w := fitWidth(c, inner-marginW) + marginW
+			w := a.fitWidth(c, inner-marginW) + marginW
 			if row {
 				content += w
 			} else {

@@ -23,3 +23,24 @@ func BenchmarkLayout1000(b *testing.B) {
 		Layout(root, 80, Length{})
 	}
 }
+
+func BenchmarkGrid1000(b *testing.B) {
+	root := box(Style{Direction: Column, RowGap: 1, Padding: Edges{1, 2, 1, 2}})
+	for range 50 {
+		action := box(Style{Column: Placement{Start: Line{Index: 2}}, Row: Placement{Start: Line{Index: 1}, End: Line{Span: 2}}, AlignSelf: AlignStart, JustifySelf: AlignEnd}, text("Button"))
+		header := grid(Style{Columns: []Track{flexTrack, autoTrack}, Rows: []Track{autoTrack, autoTrack}, AutoRows: []Track{minTrack}, AlignItems: AlignStart, RowGap: 2, ColumnGap: 2}, text("Card Title"), wrap(120), action)
+		body := grid(Style{Columns: repeat(3, shareTrack), RowGap: 1, ColumnGap: 2})
+		for i := range 13 {
+			cell := wrap(10 + 7*i)
+			if i%4 == 0 {
+				cell.Style.Column = Placement{Start: Line{Span: 2}, End: Line{Span: 2}}
+			}
+			body.Children = append(body.Children, cell)
+		}
+		root.Children = append(root.Children, box(Style{Direction: Column, Border: Edges{1, 1, 1, 1}, Padding: Edges{Left: 1, Right: 1}}, header, body))
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		Layout(root, 80, Length{})
+	}
+}

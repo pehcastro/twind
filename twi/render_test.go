@@ -184,13 +184,6 @@ func TestRenderBorderNoneTakesNoSpace(t *testing.T) {
 	}
 }
 
-func TestRenderUnsupportedDisplayFails(t *testing.T) {
-	err := twi.Render(&strings.Builder{}, hello.Grid(), sheet(t))
-	if err == nil || !strings.Contains(err.Error(), "display") {
-		t.Errorf("display grid rendered without an error: %v", err)
-	}
-}
-
 func TestRenderHostileText(t *testing.T) {
 	corpus, err := os.ReadFile("text/testdata/hostile.txt")
 	if err != nil {

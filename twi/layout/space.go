@@ -133,7 +133,7 @@ func (a *arena) even(amount, n int) []int {
 func (a *arena) justify(j Justify, free, n int) (int, []int) {
 	extra := grab(&a.ints, n)
 	switch j {
-	case JustifyStart:
+	case JustifyStart, JustifyStretch:
 		return 0, extra
 	case JustifyEnd:
 		return free, extra

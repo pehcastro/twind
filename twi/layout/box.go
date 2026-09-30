@@ -10,6 +10,7 @@ type Display uint8
 
 const (
 	DisplayFlex Display = iota
+	DisplayGrid
 	DisplayNone
 )
 
@@ -23,7 +24,8 @@ const (
 type Justify uint8
 
 const (
-	JustifyStart Justify = iota
+	JustifyStretch Justify = iota
+	JustifyStart
 	JustifyEnd
 	JustifyCenter
 	JustifyBetween
@@ -115,6 +117,17 @@ type Style struct {
 	Inset      Insets
 	Overflow   Overflow
 	ZIndex     int
+
+	Columns      []Track
+	Rows         []Track
+	AutoColumns  []Track
+	AutoRows     []Track
+	Column       Placement
+	Row          Placement
+	Flow         Flow
+	JustifyItems Align
+	JustifySelf  Align
+	AlignContent Justify
 }
 
 type Measure func(availableWidth int) (width, height int)
@@ -150,13 +163,10 @@ type memo struct {
 }
 
 func visible(b *Box) bool {
-	switch b.Style.Display {
-	case DisplayFlex:
-		return true
-	case DisplayNone:
-		return false
+	if b.Style.Display > DisplayNone {
+		panic(fmt.Sprintf("layout: unknown display %d", b.Style.Display))
 	}
-	panic(fmt.Sprintf("layout: unknown display %d", b.Style.Display))
+	return b.Style.Display != DisplayNone
 }
 
 func flowing(p Position) bool {

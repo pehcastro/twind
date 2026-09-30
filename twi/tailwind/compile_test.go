@@ -110,6 +110,7 @@ func TestCascadeMatrix(t *testing.T) {
 	want := style.ComputedStyle{
 		Display: style.DisplayFlex, Direction: style.Row, Grow: 1, Shrink: 0, Basis: cells(4),
 		AlignItems: style.AlignCenter, AlignSelf: style.AlignEnd, Justify: style.JustifyBetween,
+		JustifyItems: style.AlignStretch, AlignContent: style.JustifyStretch,
 		RowGap: cells(1), ColumnGap: cells(1),
 		Width: cells(10), Height: style.Length{Unit: style.Percent, Value: 100},
 		MinWidth: cells(0), MaxWidth: cells(80), MinHeight: cells(1), MaxHeight: cells(10),

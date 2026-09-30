@@ -23,6 +23,7 @@ const (
 	RingOffsetWhite = 255
 	MatchedRules    = 64
 	ShadeEntries    = 1024
+	MaxGridTracks   = 1000
 )
 
 const PresetTheme = `@theme {

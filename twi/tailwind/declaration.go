@@ -95,16 +95,27 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 		return decls{{Property: property, Length: l}}, p
 	case "gap":
 		return edge([4]style.Property{style.PropRowGap, style.PropColumnGap}, []int{0, 1}, parts)
-	case "align-items", "align-self":
-		v, p := pick(parts, map[string]style.Align{"auto": style.AlignAuto, "normal": style.AlignStretch, "stretch": style.AlignStretch, "start": style.AlignStart, "flex-start": style.AlignStart, "self-start": style.AlignStart, "end": style.AlignEnd, "flex-end": style.AlignEnd, "self-end": style.AlignEnd, "center": style.AlignCenter, "baseline": style.AlignBaseline})
-		property := style.PropAlignItems
-		if prop == "align-self" {
-			property = style.PropAlignSelf
-		}
+	case "align-items", "align-self", "justify-items", "justify-self":
+		v, p := pick(parts, aligns())
+		property := map[string]style.Property{"align-items": style.PropAlignItems, "align-self": style.PropAlignSelf, "justify-items": style.PropJustifyItems, "justify-self": style.PropJustifySelf}[prop]
 		return decls{{Property: property, Align: v}}, p
-	case "justify-content":
-		v, p := pick(parts, map[string]style.Justify{"normal": style.JustifyStart, "start": style.JustifyStart, "flex-start": style.JustifyStart, "left": style.JustifyStart, "end": style.JustifyEnd, "flex-end": style.JustifyEnd, "right": style.JustifyEnd, "center": style.JustifyCenter, "space-between": style.JustifyBetween, "space-around": style.JustifyAround, "space-evenly": style.JustifyEvenly})
-		return decls{{Property: style.PropJustify, Justify: v}}, p
+	case "justify-content", "align-content":
+		v, p := pick(parts, justifies())
+		property := style.PropJustify
+		if prop == "align-content" {
+			property = style.PropAlignContent
+		}
+		return decls{{Property: property, Justify: v}}, p
+	case "place-content", "place-items", "place-self":
+		return place(prop, parts)
+	case "grid-template-columns", "grid-template-rows", "grid-auto-columns", "grid-auto-rows":
+		t, p := tracks(parts)
+		property := map[string]style.Property{"grid-template-columns": style.PropGridColumns, "grid-template-rows": style.PropGridRows, "grid-auto-columns": style.PropGridAutoColumns, "grid-auto-rows": style.PropGridAutoRows}[prop]
+		return decls{{Property: property, Tracks: t}}, p
+	case "grid-column", "grid-row", "grid-column-start", "grid-column-end", "grid-row-start", "grid-row-end":
+		return placement(prop, parts)
+	case "grid-auto-flow":
+		return flow(parts)
 	case "position":
 		v, p := pick(parts, map[string]style.Position{"static": style.PositionStatic, "relative": style.PositionRelative, "absolute": style.PositionAbsolute, "fixed": style.PositionFixed, "sticky": style.PositionSticky})
 		return decls{{Property: style.PropPosition, Position: v}}, p
