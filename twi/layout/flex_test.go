@@ -100,6 +100,39 @@ func TestFlexShrink(t *testing.T) {
 	borders(t, root.Children, Rect{0, 0, 3, 0})
 }
 
+func TestFlexColumnAutoMin(t *testing.T) {
+	shrink := func(s string, style Style) *Box {
+		style.Shrink = 1
+		return &Box{Style: style, Measure: text(s).Measure}
+	}
+	rows := []*Box{shrink("title", Style{}), shrink("row 1", Style{}), shrink("row 2", Style{}), shrink("row 3", Style{}), shrink("row 4", Style{})}
+	column := box(Style{Direction: Column, Height: cells(4), Overflow: OverflowHidden}, rows...)
+	Layout(column, 10, Length{})
+	borders(t, rows, Rect{0, 0, 10, 1}, Rect{0, 1, 10, 1}, Rect{0, 2, 10, 1}, Rect{0, 3, 10, 1}, Rect{0, 4, 10, 1})
+
+	column.Style.Border, column.Style.Padding = Edges{1, 1, 1, 1}, Edges{Left: 1, Right: 1}
+	Layout(column, 10, Length{})
+	borders(t, rows, Rect{2, 1, 6, 1}, Rect{2, 2, 6, 1}, Rect{2, 3, 6, 1}, Rect{2, 4, 6, 1}, Rect{2, 5, 6, 1})
+
+	hidden := box(Style{Direction: Column, Shrink: 1, Overflow: OverflowHidden}, text("a"), text("b"), text("c"))
+	column = box(Style{Direction: Column, Height: cells(3)}, shrink("x", Style{}), hidden)
+	Layout(column, 5, Length{})
+	borders(t, column.Children, Rect{0, 0, 5, 1}, Rect{0, 1, 5, 2})
+
+	column = box(Style{Direction: Column, Height: cells(1)}, shrink("b", Style{}), shrink("a", Style{MinHeight: cells(0)}))
+	Layout(column, 5, Length{})
+	borders(t, column.Children, Rect{0, 0, 5, 1}, Rect{0, 1, 5, 0})
+
+	sized := box(Style{Direction: Column, Height: cells(1), Shrink: 1}, text("a"), text("b"))
+	column = box(Style{Direction: Column, Height: cells(1)}, sized, shrink("z", Style{}))
+	Layout(column, 5, Length{})
+	borders(t, column.Children, Rect{0, 0, 5, 1}, Rect{0, 1, 5, 1})
+
+	row := box(Style{Width: cells(4)}, shrink("abcd", Style{}), shrink("efgh", Style{}))
+	Layout(row, 4, Length{})
+	borders(t, row.Children, Rect{0, 0, 2, 1}, Rect{2, 0, 2, 1})
+}
+
 func TestFlexBasis(t *testing.T) {
 	root := box(Style{},
 		box(Style{Basis: cells(6), Width: cells(2)}),

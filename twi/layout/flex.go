@@ -164,8 +164,18 @@ func arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
 			}
 			frames[i].X = m.Left + offset(a, avail-frames[i].W)
 			items[k], content = newItem(cs, cs.Height, cs.MinHeight, cs.MaxHeight, innerH, fixed)
-			if content {
-				items[k].basis = contentHeight(c, frames[i].W)
+			automatic := cs.MinHeight.Unit == Auto && !clips(cs.Overflow)
+			if content || automatic {
+				natural := contentHeight(c, frames[i].W)
+				if content {
+					items[k].basis = natural
+				}
+				if h, sized := resolve(cs.Height, innerH, fixed); sized {
+					natural = min(natural, h)
+				}
+				if automatic {
+					items[k].min = min(natural, items[k].max)
+				}
 			}
 		}
 		sizes[k] = items[k].clamp(items[k].basis)
