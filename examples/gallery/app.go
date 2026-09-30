@@ -3,115 +3,124 @@ package main
 import (
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/ui"
 )
 
-func el(class string, children ...twi.Node) twi.Node {
-	opts := []twi.NodeOption{twi.Class(class)}
-	for _, c := range children {
-		opts = append(opts, c)
-	}
-	return twi.Element(opts...)
+const focusRing = "focus-visible:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
+
+type page uint8
+
+const (
+	dashboard page = iota
+	forms
+	overlays
+	settings
+)
+
+func pages() []page { return []page{dashboard, forms, overlays, settings} }
+
+func (p page) String() string {
+	return [...]string{dashboard: "Dashboard", forms: "Forms", overlays: "Overlays", settings: "Settings"}[p]
+}
+
+func el(class string, children ...twi.NodeOption) twi.Node {
+	return twi.Element(append([]twi.NodeOption{twi.Class(class)}, children...)...)
 }
 
 func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 
-func diffRow(class, num, sign, indent, code string) twi.Node {
-	return el("flex flex-row px-1 "+class,
-		txt("w-6 text-muted-foreground", num),
-		txt("w-2 font-bold", sign),
-		txt(indent, code),
-	)
+func onKeys(rt *twi.Runtime, handle func(input.KeyEvent) bool) twi.NodeOption {
+	return twi.OnKeyDown(func(e *twi.Event) {
+		if !e.Key.Release && handle(e.Key) {
+			e.PreventDefault()
+			e.StopPropagation()
+			rt.Invalidate()
+		}
+	})
 }
 
-func card(title string, rows ...twi.Node) twi.Node {
-	return el("flex-1 flex flex-col px-2 border rounded-lg shadow-md bg-card text-card-foreground",
-		append([]twi.Node{txt("font-bold pb-1", title)}, rows...)...,
-	)
+func pressed(k input.KeyEvent) bool {
+	return k.Key == input.KeyEnter || k.Key == input.KeyRune && k.Rune == ' '
 }
 
-func tip(key, label string) twi.Node {
-	return el("flex flex-row gap-1 text-muted-foreground", txt("font-bold text-indigo-500", key), twi.Text(label))
-}
-
-func session(name, when string) twi.Node {
-	return el("flex flex-row", txt("grow", name), txt("w-10 text-right text-muted-foreground", when))
-}
-
-func gallery(rt *twi.Runtime) func() twi.Node {
-	onKey := func(k input.KeyEvent) {
-		if !k.Release && k.Key == input.KeyRune && k.Rune == 'q' {
+func gallery(rt *twi.Runtime, s start) func() twi.Node {
+	current, cursor, navFocused := s.page, s.page, false
+	overlayView, modal := newOverlays(rt, s.open)
+	views := [...]func() twi.Node{dashboard: newDashboard(rt), forms: newForms(rt), overlays: overlayView, settings: newSettings(rt, s.theme)}
+	quit := twi.OnKeyDown(func(e *twi.Event) {
+		if k := e.Key; !k.Release && k.Key == input.KeyRune && k.Rune == 'q' && k.Modifiers == 0 && !modal() {
 			rt.Quit()
 		}
+	})
+	focus := func(on bool) func() {
+		return func() {
+			navFocused = on
+			rt.Invalidate()
+		}
+	}
+	navKeys := onKeys(rt, func(k input.KeyEvent) bool {
+		switch {
+		case k.Key == input.KeyArrowDown:
+			cursor = min(cursor+1, settings)
+		case k.Key == input.KeyArrowUp:
+			cursor = max(cursor, 1) - 1
+		case k.Key == input.KeyHome:
+			cursor = dashboard
+		case k.Key == input.KeyEnd:
+			cursor = settings
+		case pressed(k):
+			current = cursor
+		default:
+			return false
+		}
+		return true
+	})
+	muted := func(glyph, s string) twi.Node {
+		return el("flex flex-row items-center gap-1 px-1 text-muted-foreground", txt("w-1", glyph), twi.Text(s))
+	}
+	hint := func(key, s string) twi.Node {
+		return el("flex flex-row items-center gap-1", ui.Kbd(twi.Text(key)), txt("text-muted-foreground", s))
 	}
 	return func() twi.Node {
-		var menu []twi.Node
-		for i, item := range [][2]string{{"👎", ":thumbsdown:"}, {"👍", ":thumbsup:"}, {"🎉", ":tada:"}} {
-			class, mark := "flex flex-row gap-1 px-1", el("w-1")
-			if i == 1 {
-				class, mark = class+" bg-indigo-500/10 text-indigo-600 font-bold", txt("w-1", "❯")
+		nav := []twi.NodeOption{twi.Focusable(), twi.AutoFocus(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)), navKeys}
+		for _, p := range pages() {
+			class := "flex flex-row items-center gap-1 px-1 rounded-md"
+			if p == current {
+				class += " bg-accent text-accent-foreground font-medium"
 			}
-			menu = append(menu, el(class, mark, twi.Text(item[0]), twi.Text(item[1])))
+			if navFocused && p == cursor {
+				class += " shadow-[0_0_0_1px_var(--color-ring)]"
+			}
+			nav = append(nav, el(class, txt("w-1 text-muted-foreground", [...]string{"▦", "≡", "▣", "◎"}[p]), twi.Text(p.String())))
 		}
-		return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"), twi.OnKey(onKey),
-			el("grow flex flex-col px-2 pt-1 pb-1",
-				el("flex flex-row gap-1",
-					txt("rounded-sm bg-indigo-600 text-white", "●"),
-					txt("font-bold", "Edit"),
-					txt("text-muted-foreground", "src/agent/loop.ts:6720"),
-					txt("ml-3 px-2 bg-green-500/15 text-green-600", "+1 -1"),
+		return el("flex flex-row h-full bg-background text-foreground", quit,
+			el("flex flex-col w-20 shrink-0 border-r bg-muted/40 lg:w-26",
+				el("flex flex-row items-center gap-1 px-2 pt-1 border-b",
+					txt("px-1 rounded-md bg-primary text-primary-foreground font-bold", "◆"), txt("font-semibold", "Acme Inc.")),
+				el("flex flex-col grow gap-1 px-1 pt-1",
+					txt("px-1 text-muted-foreground", "Platform"),
+					el("flex flex-col", nav...),
+					txt("px-1 pt-1 text-muted-foreground", "Documents"),
+					el("flex flex-col", muted("◫", "Data Library"), muted("◩", "Reports"), muted("◪", "Assistant")),
+					el("grow"),
+					el("flex flex-col gap-1 px-1", hint("↑↓", "move"), hint("⏎", "open"), hint("tab", "focus"), hint("q", "quit")),
 				),
-				el("flex flex-col mr-2",
-					diffRow("bg-muted", "6718", "", "pl-2", "});"),
-					diffRow("bg-muted", "6719", "", "", ""),
-					diffRow("bg-red-500/15", "6720", "-", "pl-2", "it.each(["),
-					diffRow("bg-green-500/15", "6720", "+", "pl-2", "it.each<{ preserves: boolean; expected: string[] }>(["),
-					diffRow("bg-muted", "6721", "", "pl-4", `{ preserves: false, expected: ["execute"] },`),
-				),
-				txt("pt-1 pb-1 font-bold", "Welcome back!"),
-				el("flex flex-row gap-5 px-1",
-					card("Tips",
-						tip("#", "prompt actions"),
-						tip("/", "commands"),
-						tip("!", "run bash"),
-						txt("pt-1 text-muted-foreground", "Use /tan to fork into a background agent"),
-					),
-					card("Recent sessions",
-						session("Raft Consensus Partitions", "just now"),
-						session("clone repo and run release.ts", "30m ago"),
-						session("Debug: Show FPS", "3h ago"),
-						session("Fix Conflicts", "3h ago"),
-					),
-				),
-				el("flex flex-row gap-1 pt-2",
-					txt("text-indigo-500", "❯"),
-					twi.Text("Using a mermaid diagram explain how partitions work under raft"),
-				),
-				el("flex flex-row items-center gap-2 pt-1 pl-2",
-					el("w-50 h-1 rounded-full bg-linear-to-r from-indigo-500 via-fuchsia-500 to-pink-600"),
-					txt("text-muted-foreground", "64%"),
-				),
-				el("grow"),
-				el("relative flex flex-row px-2 border rounded-md bg-background",
-					txt("pr-1 text-indigo-500", "❯"),
-					twi.Text(":thumbs"),
-					txt("text-indigo-500", "▏"),
-					el("absolute bottom-2 left-6 z-10 w-36 flex flex-col border rounded-md shadow-lg bg-popover text-popover-foreground", menu...),
-					el("absolute bottom-2 right-2 z-10 flex flex-col items-end gap-1",
-						el("flex flex-row gap-1 px-1 border rounded-md shadow-sm bg-card text-card-foreground",
-							twi.Text("95 lines up"), txt("text-muted-foreground", "⌄")),
-						txt("px-1 text-muted-foreground", "59.5 tok/s"),
-					),
+				el("flex flex-row items-center gap-1 px-2 py-1 border-t",
+					ui.Avatar(ui.SizeSM, ui.AvatarFallback(twi.Text("CN"))),
+					el("flex flex-col min-w-0", txt("font-medium", "shadcn"), txt("text-muted-foreground truncate", "m@example.com")),
 				),
 			),
-			el("flex flex-row items-center gap-4 pr-4 bg-muted text-muted-foreground",
-				txt("rounded-full px-3 bg-indigo-600 text-white font-bold", "omp"),
-				el("flex flex-row gap-1", txt("text-indigo-500", "✧"), twi.Text("GPT-6 Luna")),
-				el("flex flex-row gap-1",
-					el("w-4 rounded-sm bg-border", el("w-3 h-1 rounded-sm bg-foreground")),
-					twi.Text("off"),
+			el("flex flex-col grow min-w-0",
+				el("flex flex-row items-center shrink-0 gap-2 px-2 pt-1 border-b lg:px-4",
+					ui.Breadcrumb(ui.BreadcrumbList(
+						ui.BreadcrumbItem(ui.BreadcrumbLink(twi.Text("Acme"))), ui.BreadcrumbSeparator(),
+						ui.BreadcrumbItem(ui.BreadcrumbPage(twi.Text(current.String()))),
+					)),
+					el("grow"),
+					txt("text-muted-foreground", "Twind gallery"),
+					ui.Badge(ui.Outline, twi.Text("v0.7")),
 				),
-				el("grow"),
-				twi.Text("2% of 872K · $ 0.01"),
+				el("flex flex-col grow min-h-0 px-2 py-1 lg:px-4", views[current]()),
 			),
 		)
 	}
