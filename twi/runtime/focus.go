@@ -20,9 +20,10 @@ type Node struct {
 	Key                              string
 	At                               []int
 	Focusable, Disabled, AutoFocus   bool
+	TopLayer                         bool
 	Scope                            Scope
 	KeyDown, Focus, Blur             []events.Listener[*Elem]
-	Click, Enter, Leave              []events.Listener[*Elem]
+	Click, Enter, Leave, PointerDown []events.Listener[*Elem]
 	PointerDownOutside, FocusOutside []func()
 	Children                         []Node
 }
@@ -42,6 +43,7 @@ type document struct {
 	loose   []*Elem
 	entered []entered
 	autos   []*Elem
+	layers  []*Elem
 	focused *Elem
 }
 
@@ -68,7 +70,9 @@ func (d *document) Listeners(e *Elem, t events.Type) []events.Listener[*Elem] {
 		return e.node.Enter
 	case events.PointerLeave:
 		return e.node.Leave
-	case events.KeyUp, events.PointerDown, events.PointerUp, events.PointerOver, events.PointerOut:
+	case events.PointerDown:
+		return e.node.PointerDown
+	case events.KeyUp, events.PointerUp, events.PointerOver, events.PointerOut:
 		return nil
 	}
 	panic("runtime: unknown event type")
@@ -76,7 +80,7 @@ func (d *document) Listeners(e *Elem, t events.Type) []events.Listener[*Elem] {
 
 func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	d.frame++
-	d.scopes, d.loose, d.autos = d.scopes[:0], d.loose[:0], d.autos[:0]
+	d.scopes, d.loose, d.autos, d.layers = d.scopes[:0], d.loose[:0], d.autos[:0], d.layers[:0]
 	if d.root == nil {
 		d.root = &Elem{}
 	}
@@ -207,6 +211,9 @@ func (d *document) attach(e *Elem, n Node) {
 	}
 	if fresh && n.AutoFocus {
 		d.autos = append(d.autos, e)
+	}
+	if n.TopLayer {
+		d.layers = append(d.layers, e)
 	}
 	kept := len(e.children) == len(n.Children)
 	for i := 0; kept && i < len(n.Children); i++ {

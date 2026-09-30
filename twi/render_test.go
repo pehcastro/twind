@@ -11,6 +11,7 @@ import (
 	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
+	entering "github.com/twind-dev/twind/twi/runtime/testdata/frames"
 	"github.com/twind-dev/twind/twi/tailwind"
 	"github.com/twind-dev/twind/twi/testdata/hello"
 	"github.com/twind-dev/twind/twi/text"
@@ -19,6 +20,17 @@ import (
 type cell struct {
 	glyph  string
 	fg, bg string
+}
+
+func TestStaticRenderDrawsTheFinalState(t *testing.T) {
+	sheet, err := entering.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := twi.RenderString(entering.Entering(), twi.Styles(sheet), twi.Width(12), twi.ColorProfile(color.TrueColor))
+	if !strings.Contains(out, "entered") {
+		t.Errorf("a fade-in rendered statically wrote %q, want the text at rest", out)
+	}
 }
 
 func decode(t *testing.T, out string) [][]cell {

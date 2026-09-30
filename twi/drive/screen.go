@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"image"
 	"strconv"
 	"strings"
 	"unicode"
@@ -21,6 +22,8 @@ type screen struct {
 	x, y      int
 	pen       buffer.Cell
 	clipboard string
+	widths    text.Widths
+	cell      image.Point
 }
 
 func (s *screen) Write(p []byte) (int, error) {
@@ -72,7 +75,7 @@ func (s *screen) print(run string) error {
 	for g := range text.Graphemes(run) {
 		c := s.pen
 		c.Grapheme = g
-		if text.Width(g) == 2 {
+		if s.widths.Width(g) == 2 {
 			c.Width = buffer.Wide
 		}
 		s.cells.Set(s.x, s.y, c)

@@ -83,18 +83,32 @@ func (s *selecting) copied(want string) {
 	}
 }
 
-func TestSelectionStaysInItsCard(t *testing.T) {
+func TestSelectionWidensOnlyWhenTheDragLeavesItsCard(t *testing.T) {
 	s := startSelecting(t)
 	x, y := s.at("bravo", 2)
 	s.d.Down(x, y)
-	mx, my := s.at("mike", 2)
-	s.d.Move(mx, my)
-	s.d.Up(mx, my)
+	bx, by := s.at("▏", 0)
+	s.d.Move(bx, by+2)
 	s.highlighted(map[string]string{
 		"alpha": ".....", "bravo": "..###", "charlie": "#######", "delta": "#####", "foxtrot": "#######",
-		"golf": "....", "nosel": ".....", "whole": ".....", "india": ".....", "lima": "....", "mike": "....",
+		"golf": "####", "hotel": "#####", "whole": ".....", "india": ".....", "lima": "....", "mike": "....",
 	})
-	s.copied("avo charlie delta echo foxtrot")
+	mx, my := s.at("mike", 2)
+	s.d.Move(mx, my)
+	s.highlighted(map[string]string{
+		"alpha": ".....", "bravo": "..###", "foxtrot": "#######", "golf": "####", "nosel": ".....", "whole": "#####",
+		"india": "#####", "juliet": "######", "lima": "####", "mike": "###.",
+	})
+	fx, fy := s.at("foxtrot", 3)
+	s.d.Move(fx, fy)
+	s.d.Up(fx, fy)
+	s.highlighted(map[string]string{"bravo": "..###", "foxtrot": "####...", "golf": "....", "india": ".....", "lima": "...."})
+	s.copied("avo charlie delta echo foxt")
+	s.d.Advance(time.Second)
+	s.d.Down(x, y)
+	s.d.Move(mx, my)
+	s.d.Up(mx, my)
+	s.copied("avo charlie delta echo foxtrot\ngolf hotel\nwhole thing\nindia juliet kilo\nlima mik")
 	s.d.Press("escape")
 	if err := s.d.Err(); err != nil {
 		t.Errorf("ctrl+c with a selection quit the app: %v", err)

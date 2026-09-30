@@ -81,6 +81,15 @@ func (t tag) apply(n *Node) { n.tree.Element = style.Element(t) }
 
 func Tag(element style.Element) NodeOption { return tag(element) }
 
+type at image.Point
+
+func (p at) apply(n *Node) {
+	cell := image.Point(p)
+	n.tree.At = &cell
+}
+
+func At(x, y int) NodeOption { return at{X: x, Y: y} }
+
 func Data(name, value string) NodeOption { return attribute{Name: "data-" + name, Value: value} }
 
 func Element(options ...NodeOption) Node {
@@ -181,16 +190,17 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 		}
 		defer func() { err = errors.Join(err, restore()) }()
 	}
+	var caps terminal.Capabilities
 	if ok && sizeErr == nil && cfg.profile >= color.ANSI256 && cfg.width <= termWidth && (cfg.graphics == nil || *cfg.graphics != terminal.GraphicsNone) {
-		caps, cursor, err := terminal.Query(os.Stdin, f)
-		if err != nil {
+		var cursor image.Point
+		if caps, cursor, err = terminal.Query(os.Stdin, f); err != nil {
 			return err
 		}
 		if pixels, err := inline(f, node, cfg, caps, cursor, termHeight); pixels || err != nil {
 			return err
 		}
 	}
-	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile)})
+	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile), Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
 	if err != nil {
 		return err
 	}
@@ -204,7 +214,7 @@ func inline(out io.Writer, node Node, cfg renderConfig, caps terminal.Capabiliti
 	if caps.Graphics == terminal.GraphicsNone || caps.CellPixels.X <= 0 || caps.CellPixels.Y <= 0 {
 		return false, nil
 	}
-	root, err := render.Scene(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width})
+	root, err := render.Scene(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
 	rows := root.Bounds.H
 	if err != nil || rows >= screenRows {
 		return false, err
@@ -220,7 +230,7 @@ func inline(out io.Writer, node Node, cfg renderConfig, caps terminal.Capabiliti
 	}
 	buf.WriteString(strings.Repeat("\n", lead))
 	fmt.Fprintf(&buf, "%s%d;%dr%s", termkonst.CSI, top+1, top+rows, termkonst.OriginOn)
-	screen := present.Screen{Out: &buf, Profile: cfg.profile, Graphics: caps.Graphics, Cell: caps.CellPixels}
+	screen := present.Screen{Out: &buf, Profile: cfg.profile, Graphics: caps.Graphics, Cell: caps.CellPixels, Widths: caps.Widths, Workers: 1}
 	if err := screen.Frame(root, cfg.width, rows); err != nil {
 		return false, err
 	}

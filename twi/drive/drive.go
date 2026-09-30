@@ -3,6 +3,7 @@ package drive
 import (
 	"errors"
 	"fmt"
+	"image"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,8 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 type App func(rt *twi.Runtime) func() twi.Node
@@ -26,11 +29,17 @@ type Option func(*config)
 type config struct {
 	width, height int
 	sheet         style.Sheet
+	widths        text.Widths
+	cell          image.Point
 }
 
 func Size(width, height int) Option {
 	return func(c *config) { c.width, c.height = width, height }
 }
+
+func Widths(w text.Widths) Option { return func(c *config) { c.widths = w } }
+
+func CellPixels(size image.Point) Option { return func(c *config) { c.cell = size } }
 
 func Styles(sheet style.Sheet) Option { return func(c *config) { c.sheet = sheet } }
 
@@ -43,7 +52,7 @@ type Driver struct {
 	exited  chan struct{}
 	runErr  error
 	err     error
-	held    bool
+	held    input.MouseButton
 }
 
 func New(app App, opts ...Option) *Driver {
@@ -54,7 +63,7 @@ func New(app App, opts ...Option) *Driver {
 	d := &Driver{
 		clock:  &clock{now: time.Unix(konst.EpochUnix, 0).UTC()},
 		events: make(chan input.Event),
-		screen: &screen{cells: buffer.New(cfg.width, cfg.height)},
+		screen: &screen{cells: buffer.New(cfg.width, cfg.height), widths: cfg.widths, cell: cfg.cell},
 		exited: make(chan struct{}),
 	}
 	d.rt = twi.New(twi.Backend(&backend{d.screen, d.events}, d.clock), twi.Styles(cfg.sheet), twi.ColorProfile(color.TrueColor))
@@ -96,25 +105,43 @@ func (d *Driver) Wheel(x, y, notches int) {
 
 func (d *Driver) Move(x, y int) {
 	button := ikonst.MouseMotion | ikonst.MouseNoButton
-	if d.held {
-		button = ikonst.MouseMotion
+	if d.held != input.MouseNone {
+		button = ikonst.MouseMotion | int(d.held-input.MouseLeft)
 	}
 	d.report("move", x, y, button, 'M')
 }
 
-func (d *Driver) Down(x, y int) {
-	d.held = true
-	d.report("down", x, y, 0, 'M')
+func (d *Driver) Down(x, y int) { d.DownWith(input.MouseLeft, x, y) }
+
+func (d *Driver) Up(x, y int) { d.UpWith(input.MouseLeft, x, y) }
+
+func (d *Driver) Click(x, y int) { d.ClickWith(input.MouseLeft, x, y) }
+
+func (d *Driver) DownWith(b input.MouseButton, x, y int) {
+	if d.button("down", b) {
+		d.held = b
+		d.report("down", x, y, int(b-input.MouseLeft), 'M')
+	}
 }
 
-func (d *Driver) Up(x, y int) {
-	d.held = false
-	d.report("up", x, y, 0, 'm')
+func (d *Driver) UpWith(b input.MouseButton, x, y int) {
+	if d.button("up", b) {
+		d.held = input.MouseNone
+		d.report("up", x, y, int(b-input.MouseLeft), 'm')
+	}
 }
 
-func (d *Driver) Click(x, y int) {
-	d.Down(x, y)
-	d.Up(x, y)
+func (d *Driver) ClickWith(b input.MouseButton, x, y int) {
+	d.DownWith(b, x, y)
+	d.UpWith(b, x, y)
+}
+
+func (d *Driver) button(verb string, b input.MouseButton) bool {
+	if b != input.MouseLeft && b != input.MouseMiddle && b != input.MouseRight {
+		d.fail(fmt.Errorf("drive: %s takes the left, middle or right button, got %d", verb, b))
+		return false
+	}
+	return true
 }
 
 func (d *Driver) report(verb string, x, y, button int, final byte) {
@@ -204,6 +231,10 @@ func (b *backend) Size() (width, height int, err error) {
 }
 
 func (b *backend) Sync() bool { return true }
+
+func (b *backend) Capabilities() terminal.Capabilities {
+	return terminal.Capabilities{Sync: true, Widths: b.widths, CellPixels: b.cell}
+}
 
 func (b *backend) Exit() error { return nil }
 

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -74,6 +76,7 @@ func TestPressKeys(t *testing.T) {
 		{"f12", input.KeyEvent{Key: input.KeyF12}},
 		{"alt+x", input.KeyEvent{Rune: 'x', Modifiers: input.ModAlt}},
 		{"shift+tab", input.KeyEvent{Key: input.KeyTab, Modifiers: input.ModShift}},
+		{"shift+f10", input.KeyEvent{Key: input.KeyF10, Modifiers: input.ModShift}},
 		{"shift+enter", input.KeyEvent{Key: input.KeyEnter, Modifiers: input.ModShift}},
 		{"ctrl+up", input.KeyEvent{Key: input.KeyArrowUp, Modifiers: input.ModCtrl}},
 		{"shift+delete", input.KeyEvent{Key: input.KeyDelete, Modifiers: input.ModShift}},
@@ -261,6 +264,33 @@ func TestPointerVerbs(t *testing.T) {
 	}
 }
 
+func TestScriptWidthsAndButtons(t *testing.T) {
+	var seen []string
+	app := func(rt *twi.Runtime) func() twi.Node {
+		return func() twi.Node {
+			return twi.Element(
+				twi.OnPointerDown(func(e *twi.Event) { seen = append(seen, fmt.Sprintf("%d@%d,%d", e.Mouse.Button, e.Mouse.X, e.Mouse.Y)) }),
+				twi.Text(fmt.Sprint(rt.Widths())),
+			)
+		}
+	}
+	out := t.TempDir()
+	script := "widths flag=1 keycap=1\nsize 12x2\nclick right 3 0\ndown middle 1 0\nup middle 1 0\nclick left 2 0\nclick 4 0\nframe f\n"
+	if err := drive.RunScript(strings.NewReader(script), app, out); err != nil {
+		t.Fatal(err)
+	}
+	if got := files(t, out)["f.txt"]; got != "[1 0 0 0 1]\n\n" {
+		t.Errorf("the app saw widths %q, want [1 0 0 0 1]", got)
+	}
+	want := []string{
+		fmt.Sprintf("%d@3,0", input.MouseRight), fmt.Sprintf("%d@1,0", input.MouseMiddle),
+		fmt.Sprintf("%d@2,0", input.MouseLeft), fmt.Sprintf("%d@4,0", input.MouseLeft),
+	}
+	if !slices.Equal(seen, want) {
+		t.Errorf("pointer downs %v, want %v", seen, want)
+	}
+}
+
 func TestScriptErrors(t *testing.T) {
 	cases := []struct{ script, want string }{
 		{"size 20x3\npress +\nfly away\n", "line 3: drive: unknown verb \"fly\""},
@@ -278,6 +308,12 @@ func TestScriptErrors(t *testing.T) {
 		{"move 1\n", "line 1: drive: move \"1\" is not X Y"},
 		{"click 1 y\n", "line 1: drive: click \"1 y\" is not X Y"},
 		{"size 20x3\nclick 0 3\n", "line 2: drive: down at 0,3 is off the 20x3 screen"},
+		{"click up 1 1\n", "line 1: drive: click \"up 1 1\" is not X Y"},
+		{"down right 1\n", "line 1: drive: down \"1\" is not X Y"},
+		{"widths flag=0\n", "line 1: drive: widths \"flag=0\" is not CLASS=CELLS"},
+		{"widths emoji=1\n", "line 1: drive: widths \"emoji=1\""},
+		{"widths flag\n", "line 1: drive: widths \"flag\""},
+		{"press +\nwidths flag=1\n", "line 2: drive: widths comes before"},
 	}
 	for _, c := range cases {
 		err := drive.RunScript(strings.NewReader(c.script), counter.New, t.TempDir())

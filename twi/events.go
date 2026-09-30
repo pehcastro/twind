@@ -39,6 +39,12 @@ func OnClick(handler func(*Event)) NodeOption {
 	})
 }
 
+func OnPointerDown(handler func(*Event)) NodeOption {
+	return behaviour(func(n *runtime.Node) {
+		n.PointerDown = append(n.PointerDown, events.Listener[*runtime.Elem]{Handle: handler})
+	})
+}
+
 func OnPointerEnter(handler func()) NodeOption {
 	return behaviour(func(n *runtime.Node) {
 		n.Enter = append(n.Enter, events.Listener[*runtime.Elem]{Handle: func(*Event) { handler() }})
@@ -58,6 +64,15 @@ func OnPointerDownOutside(handler func()) NodeOption {
 func Focusable() NodeOption { return behaviour(func(n *runtime.Node) { n.Focusable = true }) }
 
 func AutoFocus() NodeOption { return behaviour(func(n *runtime.Node) { n.AutoFocus = true }) }
+
+type topLayer struct{}
+
+func (topLayer) apply(n *Node) {
+	behaviour(func(n *runtime.Node) { n.TopLayer = true }).apply(n)
+	n.tree.TopLayer = 1
+}
+
+func TopLayer() NodeOption { return topLayer{} }
 
 type disabled struct{}
 

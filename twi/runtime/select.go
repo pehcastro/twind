@@ -37,7 +37,7 @@ type selectable struct {
 
 type selection struct {
 	active, shown, dragging bool
-	root                    []int
+	root, home              []int
 	bounds                  layout.Rect
 	anchor, focus           spot
 	press                   input.MouseEvent
@@ -90,7 +90,7 @@ func (r *Runtime) pick(ev input.MouseEvent, refused bool) {
 	if !ok || st.UserSelect == style.SelectNone {
 		return
 	}
-	s.active, s.root = true, append(s.root[:0], path[:root]...)
+	s.active, s.root, s.home = true, append(s.root[:0], path[:root]...), append(s.home[:0], path[:root]...)
 	r.flow()
 	if len(s.glyphs) == 0 {
 		s.clear()
@@ -147,11 +147,40 @@ func (r *Runtime) extend() {
 		return
 	}
 	at := r.pointer.at
+	r.widen(at.X, at.Y)
+	if !s.dragging {
+		return
+	}
 	focus := s.glyphs[s.near(at.X, at.Y)].spot
 	shown := s.shown || at.X != s.press.X || at.Y != s.press.Y
 	if focus != s.focus || shown != s.shown {
 		s.focus, s.shown, r.dirty = focus, shown, true
 	}
+}
+
+func (r *Runtime) widen(x, y int) {
+	s := &r.sel
+	depth, n := 0, &r.scene
+	for d, i := range s.home {
+		if i >= len(n.Children) {
+			break
+		}
+		if n = &n.Children[i]; contains(n.Bounds, x, y) {
+			depth = d + 1
+		}
+	}
+	if depth == len(s.root) {
+		return
+	}
+	anchor := s.anchor
+	path := s.texts[anchor.node].path
+	s.root, s.anchor, s.focus = append(s.root[:0], s.home[:depth]...), spot{}, spot{}
+	r.flow()
+	if anchor.node = slices.IndexFunc(s.texts, func(t selectable) bool { return slices.Equal(t.path, path) }); anchor.node < 0 {
+		s.clear()
+		return
+	}
+	s.anchor = anchor
 }
 
 func (r *Runtime) descend(path []int, visit func(depth int, n *scene.Node, st style.ComputedStyle)) (*scene.Node, render.Node, style.ComputedStyle, bool) {
@@ -208,7 +237,7 @@ func (r *Runtime) flow() {
 				s.texts = append(s.texts, t)
 			}
 			pos := 0
-			for g := range paint.Placed(n, text.Widths{}, n.Content) {
+			for g := range paint.Placed(n, r.caps.Widths, n.Content) {
 				for pos < len(t.clean) && !strings.HasPrefix(t.clean[pos:], g.Cluster) && (t.clean[pos] == ' ' || t.clean[pos] == '\n') {
 					pos++
 				}

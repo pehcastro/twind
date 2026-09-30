@@ -6,6 +6,7 @@ import (
 	"image"
 	"io"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 type Backend interface {
@@ -88,6 +90,16 @@ type Runtime struct {
 	lastFrame     time.Time
 	texts, stale  map[string]scene.Text
 	sanitize      func(string) scene.Text
+	caps          terminal.Capabilities
+	layers, shut  []layer
+	opened        int
+	start         time.Time
+	motionAt      time.Time
+}
+
+type layer struct {
+	elem  *Elem
+	order int
 }
 
 func New(cfg Config) *Runtime {
@@ -157,7 +169,7 @@ func (r *Runtime) loop(b Backend) error {
 	if r.width, r.height, err = b.Size(); err != nil {
 		return err
 	}
-	r.dirty, r.out = true, b
+	r.dirty, r.out, r.start = true, b, r.cfg.Clock.Now()
 	events := b.Events()
 	var ev input.Event
 	var alarm <-chan time.Time
@@ -179,7 +191,7 @@ func (r *Runtime) loop(b Backend) error {
 			r.drain()
 			return nil
 		}
-		if r.changed.Swap(false) {
+		if r.changed.Swap(false) || !r.motionAt.IsZero() && !r.motionAt.After(now) {
 			r.dirty = true
 		}
 		var frameAt time.Time
@@ -194,6 +206,14 @@ func (r *Runtime) loop(b Backend) error {
 		next := r.sleep()
 		if next.IsZero() || !frameAt.IsZero() && frameAt.Before(next) {
 			next = frameAt
+		}
+		if paced := r.lastFrame.Add(konst.FrameInterval); !r.motionAt.IsZero() {
+			if r.motionAt.After(paced) {
+				paced = r.motionAt
+			}
+			if next.IsZero() || paced.Before(next) {
+				next = paced
+			}
 		}
 		switch {
 		case next.IsZero():
@@ -298,7 +318,10 @@ func (r *Runtime) draw(b Backend, now time.Time) error {
 	return nil
 }
 
+func (r *Runtime) Widths() text.Widths { return r.caps.Widths }
+
 func (r *Runtime) frame(b Backend, now time.Time) error {
+	r.caps = capabilities(b)
 	tree := r.app()
 	r.doc.update(tree.Events, &r.focus)
 	if r.changed.Swap(false) {
@@ -311,7 +334,11 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		Width:    r.width,
 		Height:   layout.Length{Unit: layout.Cells, Value: r.height},
 		Sanitize: r.sanitize,
+		Cell:     r.caps.CellPixels,
+		Widths:   r.caps.Widths,
+		Now:      now.Sub(r.start),
 	}
+	tree.Root = r.number(tree.Root)
 	r.nodes = tree.Root
 	current, ok := r.focus.Current()
 	if current != r.revealed {
@@ -343,23 +370,54 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		}
 	}
 	r.scene = root
+	r.motionAt = time.Time{}
+	if at, moving := r.tree.Wake(); moving {
+		r.motionAt = r.start.Add(at)
+	}
 	r.texts, r.stale = r.stale, r.texts
 	clear(r.texts)
-	caps := capabilities(b)
-	graphics, cell := r.surface(caps)
+	graphics, cell := r.surface(r.caps)
 	if r.screen == nil {
-		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync(), Margins: caps.Margins}
+		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync(), Margins: r.caps.Margins}
 	}
-	r.screen.Cell = cell
+	r.screen.Cell, r.screen.Widths = cell, r.caps.Widths
 	r.flow()
 	if err := r.screen.Frame(r.highlight(root), r.width, r.height); err != nil {
 		return err
 	}
 	r.dirty, r.lastFrame = false, now
-	if _, after := r.surface(capabilities(b)); after != cell {
+	if capabilities(b) != r.caps {
 		r.Invalidate()
 	}
 	return nil
+}
+
+func (r *Runtime) number(root render.Node) render.Node {
+	open := r.shut[:0]
+	for _, e := range r.doc.layers {
+		if i := slices.IndexFunc(r.layers, func(l layer) bool { return l.elem == e }); i >= 0 {
+			open = append(open, r.layers[i])
+		} else {
+			r.opened++
+			open = append(open, layer{e, r.opened})
+		}
+		root = lift(root, e.path(), open[len(open)-1].order)
+	}
+	if len(open) == 0 {
+		r.opened = 0
+	}
+	r.layers, r.shut = open, r.layers
+	return root
+}
+
+func lift(n render.Node, path []int, order int) render.Node {
+	if len(path) == 0 {
+		n.TopLayer = order
+		return n
+	}
+	n.Children = slices.Clone(n.Children)
+	n.Children[path[0]] = lift(n.Children[path[0]], path[1:], order)
+	return n
 }
 
 func capabilities(b Backend) terminal.Capabilities {

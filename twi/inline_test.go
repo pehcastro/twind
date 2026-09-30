@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image"
 	"regexp"
+	"runtime"
+	"runtime/metrics"
 	"strconv"
 	"strings"
 	"testing"
@@ -78,5 +80,24 @@ func TestRenderInline(t *testing.T) {
 				t.Errorf("%s: cursor moved to row %d of a %d row region", tc.name, row, rows)
 			}
 		}
+	}
+}
+
+func TestRenderInlineStartsNoGoroutine(t *testing.T) {
+	if runtime.GOMAXPROCS(0) < 2 {
+		t.Skip("one processor: present starts no worker either")
+	}
+	created := func() uint64 {
+		sample := []metrics.Sample{{Name: "/sched/goroutines-created:goroutines"}}
+		metrics.Read(sample)
+		return sample[0].Value.Uint64()
+	}
+	caps := terminal.Capabilities{Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
+	var out writes
+	runtime.GC()
+	before := created()
+	pixels, err := twi.RenderInline(&out, hello.App(), caps, image.Pt(0, 2), 40, sheet(t), twi.Width(80), twi.ColorProfile(color.TrueColor))
+	if started := created() - before; err != nil || !pixels || started != 0 {
+		t.Errorf("static render with Sixel: pixels %v, err %v, %d goroutines started, want pixels and none", pixels, err, started)
 	}
 }

@@ -132,7 +132,7 @@ func (r *Runtime) send(target *Elem, t events.Type) *events.Event[*Elem] {
 func (r *Runtime) hit(x, y int) []int {
 	var top *scene.Node
 	scene.Walk(&r.scene, func(n *scene.Node) {
-		if contains(n.Bounds, x, y) && contains(n.Clip, x, y) {
+		if contains(n.Bounds, x, y) && contains(n.Clip, x, y) && n.Visibility == style.Visible && n.PointerEvents != style.PointerNone {
 			top = n
 		}
 	}, func(_ *scene.Node, inside func()) { inside() })

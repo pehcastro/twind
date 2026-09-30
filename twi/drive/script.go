@@ -7,9 +7,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {
@@ -28,7 +32,7 @@ func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {
 		if verb == "" {
 			continue
 		}
-		if d == nil && verb != "size" {
+		if d == nil && verb != "size" && verb != "widths" {
 			d = New(app, opts...)
 		}
 		switch verb {
@@ -39,6 +43,13 @@ func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {
 				err = errors.New("drive: size comes before every action, use resize")
 			}
 			opts = append(opts, Size(w, h))
+		case "widths":
+			var w text.Widths
+			w, err = parseWidths(arg)
+			if d != nil {
+				err = errors.New("drive: widths comes before every action")
+			}
+			opts = append(opts, Widths(w))
 		case "press":
 			d.Press(arg)
 		case "type":
@@ -58,10 +69,20 @@ func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {
 			if notches, x, y, err = parseWheel(arg); err == nil {
 				d.Wheel(x, y, notches)
 			}
-		case "move", "down", "up", "click":
+		case "move":
 			var x, y int
 			if x, y, err = parsePoint(verb, arg); err == nil {
-				map[string]func(int, int){"move": d.Move, "down": d.Down, "up": d.Up, "click": d.Click}[verb](x, y)
+				d.Move(x, y)
+			}
+		case "down", "up", "click":
+			name, point, _ := strings.Cut(arg, " ")
+			button, named := map[string]input.MouseButton{"left": input.MouseLeft, "middle": input.MouseMiddle, "right": input.MouseRight}[name]
+			if !named {
+				button, point = input.MouseLeft, arg
+			}
+			var x, y int
+			if x, y, err = parsePoint(verb, point); err == nil {
+				map[string]func(input.MouseButton, int, int){"down": d.DownWith, "up": d.UpWith, "click": d.ClickWith}[verb](button, x, y)
 			}
 		case "frame":
 			err = writeFrame(d.Frame(), out, arg)
@@ -86,6 +107,21 @@ func parseSize(arg string) (width, height int, err error) {
 		return 0, 0, fmt.Errorf("drive: size %q is not WIDTHxHEIGHT", arg)
 	}
 	return width, height, nil
+}
+
+func parseWidths(arg string) (text.Widths, error) {
+	var w text.Widths
+	names := [text.Classes]string{text.Flag: "flag", text.ZWJ: "zwj", text.VS16: "vs16", text.Modifier: "modifier", text.Keycap: "keycap"}
+	for _, field := range strings.Fields(arg) {
+		name, value, _ := strings.Cut(field, "=")
+		class := slices.Index(names[:], name)
+		cells, err := strconv.Atoi(value)
+		if class < 0 || err != nil || cells < 1 {
+			return w, fmt.Errorf("drive: widths %q is not CLASS=CELLS, CLASS one of %s", field, strings.Join(names[:], ", "))
+		}
+		w[class] = cells
+	}
+	return w, nil
 }
 
 func parseWheel(arg string) (notches, x, y int, err error) {

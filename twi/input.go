@@ -20,6 +20,7 @@ type Input struct {
 func NewInput(rt *Runtime) *Input { return &Input{owner: rt.Runtime} }
 
 func (in *Input) Node(options ...NodeOption) Node {
+	in.Widths = in.owner.Widths()
 	value := in.Value()
 	start, end := in.Selection()
 	unbroken := func(s string) Node { return Text(strings.ReplaceAll(s, " ", " ")) }
