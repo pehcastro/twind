@@ -32,6 +32,7 @@ const (
 	KeyF10
 	KeyF11
 	KeyF12
+	KeyMenu
 )
 
 type Modifiers uint8

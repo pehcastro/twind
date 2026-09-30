@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	konst "github.com/twind-dev/twind/internal/konst/edit"
 	"github.com/twind-dev/twind/twi/input"
@@ -251,6 +252,58 @@ func TestUndoDepthBounded(t *testing.T) {
 	if steps-1 != konst.UndoDepth {
 		t.Fatalf("%d undo steps, want %d", steps-1, konst.UndoDepth)
 	}
+}
+
+func TestUndoTypeOverIsOneStep(t *testing.T) {
+	var b Buffer
+	typeText(t, &b, "hello world")
+	press(t, &b, with(left, input.ModCtrl), with(end, input.ModShift))
+	typeText(t, &b, "there")
+	want(t, &b, "hello there", 11, 11)
+	press(t, &b, ctrl('z'))
+	want(t, &b, "hello world", 6, 11)
+	press(t, &b, ctrl('z'))
+	want(t, &b, "", 0, 0)
+	press(t, &b, ctrl('y'), ctrl('y'))
+	want(t, &b, "hello there", 11, 11)
+}
+
+func TestUndoRedoCtrlShiftZ(t *testing.T) {
+	for _, r := range []rune{'Z', 'z'} {
+		var b Buffer
+		typeText(t, &b, "ab")
+		press(t, &b, ctrl('z'))
+		want(t, &b, "", 0, 0)
+		press(t, &b, with(ctrl(r), input.ModShift))
+		want(t, &b, "ab", 2, 2)
+	}
+}
+
+func TestUndoPauseEndsStep(t *testing.T) {
+	now := time.Unix(0, 0)
+	b := Buffer{Now: func() time.Time { return now }}
+	typeText(t, &b, "ab")
+	now = now.Add(konst.UndoPause - 1)
+	typeText(t, &b, "c")
+	now = now.Add(konst.UndoPause)
+	typeText(t, &b, "de")
+	press(t, &b, backspace)
+	now = now.Add(konst.UndoPause)
+	press(t, &b, backspace)
+	for _, value := range []string{"abcd", "abcde", "abc", ""} {
+		press(t, &b, ctrl('z'))
+		want(t, &b, value, len(value), len(value))
+	}
+}
+
+func TestUndoClockBackwardKeepsStep(t *testing.T) {
+	now := time.Unix(100, 0)
+	b := Buffer{Now: func() time.Time { return now }}
+	typeText(t, &b, "a")
+	now = time.Unix(0, 0)
+	typeText(t, &b, "b")
+	press(t, &b, ctrl('z'))
+	want(t, &b, "", 0, 0)
 }
 
 func TestMultilineNewline(t *testing.T) {

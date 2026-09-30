@@ -123,9 +123,33 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+func TestDecodeMenu(t *testing.T) {
+	menu := KeyEvent{Key: KeyMenu}
+	shifted := KeyEvent{Key: KeyMenu, Modifiers: ModShift}
+	for _, c := range []struct {
+		writes []string
+		want   []Event
+	}{
+		{[]string{"\x1b[29~"}, []Event{menu}},
+		{[]string{"\x1b[2", "9~"}, []Event{menu}},
+		{[]string{"\x1b[29;2~"}, []Event{shifted}},
+		{[]string{"\x1b[57363u"}, []Event{menu}},
+		{[]string{"\x1b[57363;2u"}, []Event{shifted}},
+		{[]string{"\x1b[25~\x1b[26~\x1b[28~\x1b[30~"}, nil},
+	} {
+		var d Decoder
+		if got := append(run(&d, c.writes...), d.Quiet()...); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("writes %q\n got %#v\nwant %#v", c.writes, got, c.want)
+		}
+	}
+	if got := string(Encode(menu)); got != "\x1b[29~" {
+		t.Errorf("Encode(menu) = %q", got)
+	}
+}
+
 func TestDecodeEncoded(t *testing.T) {
 	keys := []KeyEvent{{Rune: 'a'}, {Rune: '中'}, {Rune: ' '}, {Rune: 'A'}, {Rune: '['}, {Rune: 'O'}}
-	for k := KeyEnter; k <= KeyF12; k++ {
+	for k := KeyEnter; k <= KeyMenu; k++ {
 		keys = append(keys, KeyEvent{Key: k})
 	}
 	var all []KeyEvent

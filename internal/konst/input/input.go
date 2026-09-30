@@ -36,6 +36,7 @@ const (
 	KittyModifierMask = 0x0f
 	KittyMeta         = 0x20
 	KittyKeypadFirst  = 57399
+	KittyMenu         = 57363
 	EventPress        = 1
 	EventRepeat       = 2
 	EventRelease      = 3

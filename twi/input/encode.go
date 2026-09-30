@@ -20,12 +20,12 @@ func finals() [10]final {
 	}
 }
 
-func tildeKeys() [25]Key {
-	return [25]Key{
+func tildeKeys() [30]Key {
+	return [30]Key{
 		1: KeyHome, 2: KeyInsert, 3: KeyDelete, 4: KeyEnd, 5: KeyPageUp, 6: KeyPageDown, 7: KeyHome, 8: KeyEnd,
 		11: KeyF1, 12: KeyF2, 13: KeyF3, 14: KeyF4, 15: KeyF5,
 		17: KeyF6, 18: KeyF7, 19: KeyF8, 20: KeyF9, 21: KeyF10,
-		23: KeyF11, 24: KeyF12,
+		23: KeyF11, 24: KeyF12, 29: KeyMenu,
 	}
 }
 

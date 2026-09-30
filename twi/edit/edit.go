@@ -2,6 +2,7 @@ package edit
 
 import (
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -34,9 +35,11 @@ type state struct {
 type Buffer struct {
 	Mode   Mode
 	Widths text.Widths
+	Now    func() time.Time
 	state
 	undo, redo []state
 	last       step
+	edited     time.Time
 	goal       int
 }
 
@@ -60,6 +63,7 @@ func (b *Buffer) Apply(k input.KeyEvent) bool {
 	shift := k.Modifiers&input.ModShift != 0
 	word := k.Modifiers&(input.ModCtrl|input.ModAlt) != 0
 	ctrl := k.Key == input.KeyRune && k.Modifiers == input.ModCtrl
+	redo := k.Key == input.KeyRune && k.Modifiers == input.ModCtrl|input.ModShift && unicode.ToLower(k.Rune) == 'z'
 	multi := b.Mode == MultiLine
 	start, end := b.Selection()
 	switch {
@@ -71,7 +75,7 @@ func (b *Buffer) Apply(k input.KeyEvent) bool {
 		b.erase(b.wordLeft(), b.cursor, stepOther)
 	case ctrl && k.Rune == 'z':
 		b.restore(&b.undo, &b.redo)
-	case ctrl && k.Rune == 'y':
+	case ctrl && k.Rune == 'y', redo:
 		b.restore(&b.redo, &b.undo)
 	case k.Key == input.KeyEnter && shift && multi:
 		b.insert("\n", stepOther)
@@ -119,7 +123,7 @@ func (b *Buffer) insert(s string, kind step) {
 	}
 	start, end := b.Selection()
 	if start != end {
-		kind = stepOther
+		b.last = stepOther
 	}
 	b.replace(start, end, s, kind)
 }
@@ -134,6 +138,13 @@ func (b *Buffer) erase(from, to int, kind step) {
 func (b *Buffer) replace(start, end int, s string, kind step) {
 	if start == end && s == "" {
 		return
+	}
+	if b.Now != nil {
+		now := b.Now()
+		if now.Sub(b.edited) >= konst.UndoPause {
+			b.last = stepOther
+		}
+		b.edited = now
 	}
 	if kind == stepOther || kind != b.last {
 		b.undo = append(b.undo, b.state)

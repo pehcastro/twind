@@ -172,6 +172,8 @@ func codeKey(n int) (KeyEvent, bool) {
 		return KeyEvent{Key: KeyEscape}, true
 	case konst.BS, konst.DEL:
 		return KeyEvent{Key: KeyBackspace}, true
+	case konst.KittyMenu:
+		return KeyEvent{Key: KeyMenu}, true
 	}
 	keypad := [...]KeyEvent{
 		{Rune: '0'}, {Rune: '1'}, {Rune: '2'}, {Rune: '3'}, {Rune: '4'},

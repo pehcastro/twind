@@ -1,3 +1,8 @@
 package edit
 
-const UndoDepth = 100
+import "time"
+
+const (
+	UndoDepth = 100
+	UndoPause = 500 * time.Millisecond
+)
