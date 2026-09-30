@@ -74,6 +74,9 @@ type Runtime struct {
 	focus         events.FocusManager[*Elem]
 	screen        *present.Screen
 	tree          render.Tree
+	scene         scene.Node
+	hitPath       []int
+	revealed      *Elem
 	lastFrame     time.Time
 	texts, stale  map[string]scene.Text
 	sanitize      func(string) scene.Text
@@ -189,15 +192,24 @@ func (r *Runtime) handle(ev input.Event) {
 			r.quitting = true
 			return
 		}
-		if r.focus.Key(&r.doc, ev).DefaultPrevented() {
+		prevented := r.focus.Key(&r.doc, ev).DefaultPrevented()
+		if current, _ := r.focus.Current(); current != r.revealed {
+			r.dirty = true
+		}
+		if prevented {
 			return
 		}
 		for _, h := range r.keys {
 			h(ev)
 		}
+		r.scrollKey(ev)
+	case input.MouseEvent:
+		if ev.Action == input.MouseScroll {
+			r.wheel(ev)
+		}
 	case input.ResizeEvent:
 		r.width, r.height, r.dirty = ev.Width, ev.Height, true
-	case input.MouseEvent, input.PasteEvent, input.FocusEvent, input.ReplyEvent:
+	case input.PasteEvent, input.FocusEvent, input.ReplyEvent:
 	default:
 		panic(fmt.Sprintf("runtime: unknown event %T", ev))
 	}
@@ -211,38 +223,51 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		r.doc.update(tree.Events, &r.focus)
 	}
 	r.keys = tree.Keys
-	root, err := r.tree.Scene(tree.Root, render.Frame{
+	frame := render.Frame{
 		Sheet:    r.cfg.Sheet,
 		Width:    r.width,
 		Height:   layout.Length{Unit: layout.Cells, Value: r.height},
 		Sanitize: r.sanitize,
-	})
+	}
+	root, err := r.tree.Scene(tree.Root, frame)
 	if err != nil {
 		return err
 	}
+	if current, _ := r.focus.Current(); current != r.revealed {
+		r.revealed = current
+		if current != nil && r.tree.ScrollIntoView(current.path()) {
+			if root, err = r.tree.Scene(tree.Root, frame); err != nil {
+				return err
+			}
+		}
+	}
+	r.scene = root
 	r.texts, r.stale = r.stale, r.texts
 	clear(r.texts)
-	graphics, cell := r.surface(b)
+	caps := capabilities(b)
+	graphics, cell := r.surface(caps)
 	if r.screen == nil {
-		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync()}
+		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync(), Margins: caps.Margins}
 	}
 	r.screen.Cell = cell
 	if err := r.screen.Frame(root, r.width, r.height); err != nil {
 		return err
 	}
 	r.dirty, r.lastFrame = false, now
-	if _, after := r.surface(b); after != cell {
+	if _, after := r.surface(capabilities(b)); after != cell {
 		r.Invalidate()
 	}
 	return nil
 }
 
-func (r *Runtime) surface(b Backend) (terminal.Graphics, image.Point) {
-	reporter, ok := b.(interface{ Capabilities() terminal.Capabilities })
-	if !ok {
-		return terminal.GraphicsNone, image.Point{}
+func capabilities(b Backend) terminal.Capabilities {
+	if reporter, ok := b.(interface{ Capabilities() terminal.Capabilities }); ok {
+		return reporter.Capabilities()
 	}
-	caps := reporter.Capabilities()
+	return terminal.Capabilities{}
+}
+
+func (r *Runtime) surface(caps terminal.Capabilities) (terminal.Graphics, image.Point) {
 	if r.cfg.Graphics != nil {
 		caps.Graphics = *r.cfg.Graphics
 	}

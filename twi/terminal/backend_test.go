@@ -282,7 +282,7 @@ func TestCellPixelsAfterResize(t *testing.T) {
 
 func TestEvents(t *testing.T) {
 	term := newFake("\x1b[?2026;1$y", "x", "\x1b[?62c")
-	b, err := enter(term, term.tty, Options{Mouse: true}, offer{})
+	b, err := enter(term, term.tty, Options{}, offer{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,6 +318,65 @@ func TestEvents(t *testing.T) {
 	}
 	if !strings.HasSuffix(out, konst.MouseOff+konst.LeaveScreen) || !strings.Contains(out, konst.MouseOn) {
 		t.Errorf("mouse on and off missing from %q", out)
+	}
+}
+
+func TestMouseCaptureIsTheDefault(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		opt   Options
+		mouse bool
+	}{{"zero options", Options{}, true}, {"no mouse", Options{NoMouse: true}, false}} {
+		term := newFake("\x1b[?62c")
+		b, err := enter(term, term.tty, tc.opt, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+		out := term.written.String()
+		if on, off := strings.Contains(out, konst.MouseOn), strings.HasSuffix(out, konst.MouseOff+konst.LeaveScreen); on != tc.mouse || off != tc.mouse {
+			t.Errorf("%s: mouse on %v, off before leaving %v, want %v", tc.name, on, off, tc.mouse)
+		}
+	}
+	term := newFake("\x1b[1;1R\x1b[?62c")
+	if _, _, err := query(term, term.tty, offer{}); err != nil {
+		t.Fatal(err)
+	}
+	if out := term.written.String(); strings.Contains(out, konst.MouseOn) || strings.Contains(out, konst.MouseOff) {
+		t.Errorf("the inline query touched mouse reporting: %q", out)
+	}
+}
+
+func TestMargins(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		answers []string
+		margins bool
+	}{
+		{"windows terminal answers reset", []string{"\x1b[?69;2$y\x1b[?61;4c"}, true},
+		{"set", []string{"\x1b[?69;1$y\x1b[?62c"}, true},
+		{"unknown", []string{"\x1b[?69;0$y\x1b[?62c"}, false},
+		{"permanently reset", []string{"\x1b[?69;4$y\x1b[?62c"}, false},
+		{"another mode set", []string{"\x1b[?2026;1$y\x1b[?62c"}, false},
+		{"split over reads", []string{"\x1b[?6", "9;2$y\x1b[?62c"}, true},
+		{"no answer", []string{"\x1b[?62c"}, false},
+	} {
+		term := newFake(tc.answers...)
+		b, err := enter(term, term.tty, Options{}, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Capabilities.Margins != tc.margins {
+			t.Errorf("%s: margins %v, want %v", tc.name, b.Capabilities.Margins, tc.margins)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+		if out := term.written.String(); !strings.Contains(out, konst.MarginsQuery) || strings.Index(out, konst.MarginsQuery) > strings.LastIndex(out, "\x1b[c") {
+			t.Errorf("%s: the ?69 query is missing or after the fence in %q", tc.name, out)
+		}
 	}
 }
 

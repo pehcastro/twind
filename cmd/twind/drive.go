@@ -22,7 +22,8 @@ The package, main or not, declares in its source or its in-package tests
 and has the Styles function twirgen generates. twind adds a test through go test -overlay
 that passes App and Styles to drive.RunScript; nothing is written into the package.
 
-Script verbs: size WxH, press KEY, type TEXT, wait DURATION, resize WxH, frame NAME.`
+Script verbs: size WxH, press KEY, type TEXT, wheel up|down X Y (one notch at column X,
+row Y, from 0), wait DURATION, resize WxH, frame NAME.`
 
 const harness = `package %s
 

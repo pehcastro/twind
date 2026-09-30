@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 
 const (
 	pickerRows = 9
+	listRows   = 40
 	focusRing  = " shadow-[0_0_0_1px_var(--color-ring)]"
 )
 
@@ -75,7 +77,7 @@ type page struct {
 }
 
 func pages() []page {
-	return []page{{"surfaces", surfaces}, {"text", textPage}, {"layout", layoutPage}, {"counter", counterPage}}
+	return []page{{"surfaces", surfaces}, {"text", textPage}, {"layout", layoutPage}, {"counter", counterPage}, {"list", listPage}}
 }
 
 func themeName(t theme.Theme) string {
@@ -104,6 +106,7 @@ func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 func playground(rt *twi.Runtime, env env, start state, value string) func() twi.Node {
 	themes := theme.Builtin()
 	all := pages()
+	counter := slices.IndexFunc(all, func(p page) bool { return p.name == "counter" })
 	auto := start.focus
 	start.cursor, start.focus = start.theme, ""
 	st := twi.NewSignal(rt, start)
@@ -122,9 +125,9 @@ func playground(rt *twi.Runtime, env env, start state, value string) func() twi.
 		case cmd == "t" || cmd == "theme":
 			openPicker(s)
 		case cmd == "+":
-			s.page, s.count = len(all)-1, s.count+1
+			s.page, s.count = counter, s.count+1
 		case cmd == "-":
-			s.page, s.count = len(all)-1, max(s.count-1, 0)
+			s.page, s.count = counter, max(s.count-1, 0)
 		case cmd == "q" || cmd == "quit":
 			rt.Quit()
 		default:

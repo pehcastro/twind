@@ -14,7 +14,7 @@ import (
 //go:generate go run github.com/twind-dev/twind/internal/twirgen
 
 func main() {
-	page := flag.Int("page", 1, "page to open on, 1 to 4")
+	page := flag.Int("page", 1, "page to open on, 1 to 5")
 	themeName := flag.String("theme", "zinc-dark", "theme to open with, name-scheme")
 	picker := flag.Bool("picker", false, "open with the theme picker showing")
 	graphicsName := flag.String("graphics", "", "surface protocol, none, sixel, kitty or iterm2; empty detects it")

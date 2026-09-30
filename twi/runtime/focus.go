@@ -8,6 +8,7 @@ import (
 
 type Node struct {
 	Key                  string
+	At                   []int
 	Focusable, Disabled  bool
 	Scope, AutoFocus     bool
 	KeyDown, Focus, Blur []events.Listener[*Elem]

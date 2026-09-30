@@ -17,7 +17,7 @@ import (
 	"github.com/twind-dev/twind/twi/text"
 )
 
-type Options struct{ Mouse bool }
+type Options struct{ NoMouse bool }
 
 type Graphics uint8
 
@@ -34,6 +34,7 @@ type Capabilities struct {
 	Graphics      Graphics
 	CellPixels    image.Point
 	Graphemes     bool
+	Margins       bool
 	Widths        text.Widths
 }
 
@@ -88,7 +89,7 @@ func Query(in, out *os.File) (Capabilities, image.Point, error) {
 	if err != nil || o == (offer{GraphicsNone, true}) {
 		return Capabilities{}, image.Point{}, err
 	}
-	t, err := openTTY(in, out, Options{})
+	t, err := openTTY(in, out, Options{NoMouse: true})
 	if err != nil {
 		return Capabilities{}, image.Point{}, nil
 	}
@@ -97,7 +98,7 @@ func Query(in, out *os.File) (Capabilities, image.Point, error) {
 
 func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
 	events := make(chan input.Event, konst.EventBuffer)
-	b := &Backend{Events: events, out: out, tty: t, answers: make(chan answer, konst.ReplyBuffer)}
+	b := &Backend{Events: events, out: out, tty: t, opt: Options{NoMouse: true}, answers: make(chan answer, konst.ReplyBuffer)}
 	go b.read(events)
 	raw, replies, err := b.ask(konst.Probes + konst.InlineQueries)
 	if err != nil {
@@ -143,7 +144,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	}
 	go b.read(events)
 	seq := konst.EnterScreen
-	if opt.Mouse {
+	if !opt.NoMouse {
 		seq += konst.MouseOn
 	}
 	raw, replies, err := b.ask(seq + konst.CursorHome + konst.GraphemesOn + konst.Probes + konst.Queries)
@@ -198,6 +199,7 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 			mode, state := r.Params[0], r.Params[1]
 			caps.Sync = caps.Sync || mode == konst.SyncMode && (state == konst.ModeSet || state == konst.ModeReset)
 			caps.Graphemes = caps.Graphemes || mode == konst.GraphemeMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
+			caps.Margins = caps.Margins || mode == konst.MarginMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
 		case input.ReplyKeyboardFlags:
 			caps.KittyKeyboard = true
 		case input.ReplyPrimaryAttributes:
@@ -331,7 +333,7 @@ func (b *Backend) Exit() error {
 	}
 	b.exited = true
 	seq := b.leave
-	if b.opt.Mouse {
+	if !b.opt.NoMouse {
 		seq = konst.MouseOff + seq
 	}
 	if b.Capabilities.KittyKeyboard {

@@ -11,6 +11,7 @@ import (
 	konst "github.com/twind-dev/twind/internal/konst/drive"
 	ikonst "github.com/twind-dev/twind/internal/konst/input"
 	rkonst "github.com/twind-dev/twind/internal/konst/runtime"
+	tkonst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
@@ -80,6 +81,20 @@ func (d *Driver) Type(s string) {
 		return
 	}
 	d.feed([]byte(s))
+}
+
+func (d *Driver) Wheel(x, y, notches int) {
+	if x < 0 || y < 0 || x >= d.screen.cells.Width() || y >= d.screen.cells.Height() {
+		d.fail(fmt.Errorf("drive: wheel at %d,%d is off the %dx%d screen", x, y, d.screen.cells.Width(), d.screen.cells.Height()))
+		return
+	}
+	button := tkonst.WheelDownReport
+	if notches < 0 {
+		button, notches = tkonst.WheelUpReport, -notches
+	}
+	for range notches {
+		d.feed(fmt.Appendf(nil, "%s<%d;%d;%dM", ikonst.CSI, button, x+1, y+1))
+	}
 }
 
 func (d *Driver) Resize(width, height int) {

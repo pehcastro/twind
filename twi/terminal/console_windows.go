@@ -114,7 +114,7 @@ func openConsole(c console, in, out windows.Handle, opt Options) (tty, error) {
 	}
 	t.cancelled = cancelled
 	mode := uint32(windows.ENABLE_VIRTUAL_TERMINAL_INPUT | windows.ENABLE_WINDOW_INPUT | windows.ENABLE_EXTENDED_FLAGS)
-	if !opt.Mouse {
+	if opt.NoMouse {
 		mode |= t.inMode & windows.ENABLE_QUICK_EDIT_MODE
 	}
 	err = errors.Join(c.setMode(out, t.outMode|windows.ENABLE_PROCESSED_OUTPUT|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING), c.setMode(in, mode))

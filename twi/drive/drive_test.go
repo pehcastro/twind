@@ -255,6 +255,9 @@ func TestScriptErrors(t *testing.T) {
 		{"frame ../x\n", "line 1: drive: frame name"},
 		{"frame a/b\n", "line 1: drive: frame name"},
 		{"resize 0x3\n", "line 1: drive: size"},
+		{"wheel left 1 1\n", "line 1: drive: wheel \"left 1 1\" is not up|down X Y"},
+		{"wheel down 1\n", "line 1: drive: wheel"},
+		{"size 20x3\nwheel up 20 0\n", "line 2: drive: wheel at 20,0 is off the 20x3 screen"},
 	}
 	for _, c := range cases {
 		err := drive.RunScript(strings.NewReader(c.script), counter.New, t.TempDir())

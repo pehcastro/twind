@@ -1,0 +1,19 @@
+size 100x30
+type list
+press enter
+press tab
+press tab
+press tab
+press tab
+press tab
+press tab
+press tab
+frame 1-row-1
+wheel down 20 15
+wheel down 20 15
+wheel down 20 15
+frame 2-three-notches
+wheel down 70 15
+frame 3-wheel-beside
+press pagedown
+frame 4-pagedown

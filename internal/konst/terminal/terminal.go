@@ -34,8 +34,9 @@ const (
 	CellQuery     = CSI + "16t" + CSI + "14t" + CSI + "c"
 	KittyQuery    = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 	KittyOK       = "\x1b_Gi=31;OK\x1b\\"
-	Queries       = KittyQuery + CSI + "?2026$p" + CSI + "?2027$p" + CSI + "?u" + CellQuery
-	InlineQueries = KittyQuery + CSI + "?2026$p" + CellQuery
+	MarginsQuery  = CSI + "?69$p"
+	Queries       = KittyQuery + CSI + "?2026$p" + CSI + "?2027$p" + MarginsQuery + CSI + "?u" + CellQuery
+	InlineQueries = KittyQuery + CSI + "?2026$p" + MarginsQuery + CellQuery
 	CursorHome    = CSI + "H"
 	CursorQuery   = CSI + "6n"
 	GraphemesOn   = CSI + "?2027h"
@@ -52,7 +53,14 @@ const (
 		ProbeEnd
 	OriginOn       = CSI + "?6h"
 	OriginOff      = CSI + "?6l"
-	RegionReset    = CSI + "r"
+	RegionRows     = "r"
+	RegionColumns  = "s"
+	RegionReset    = CSI + RegionRows
+	MarginsOn      = CSI + "?69h"
+	MarginsOff     = CSI + "?69l"
+	ScrollUp       = "S"
+	ScrollDown     = "T"
+	MarginMode     = 69
 	CellReport     = "6"
 	WindowReport   = "4"
 	SixelAttribute = 4
@@ -64,9 +72,13 @@ const (
 )
 
 const (
-	QueryTimeout  = 100 * time.Millisecond
-	EscapeTimeout = 50 * time.Millisecond
-	EventBuffer   = 256
-	ReplyBuffer   = 16
-	ReadBuffer    = 4096
+	QueryTimeout    = 100 * time.Millisecond
+	EscapeTimeout   = 50 * time.Millisecond
+	EventBuffer     = 256
+	ReplyBuffer     = 16
+	ReadBuffer      = 4096
+	WheelLines      = 3
+	WheelUpReport   = 64
+	WheelDownReport = 65
+	ArrowLines      = 1
 )

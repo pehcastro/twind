@@ -115,6 +115,30 @@ func layoutPage(controls) twi.Node {
 	)
 }
 
+func listPage(c controls) twi.Node {
+	words := []string{"apricot", "blueberry", "cherry", "damson", "elderberry", "fig", "gooseberry", "huckleberry"}
+	rows := make([]twi.Node, listRows)
+	for i := range rows {
+		name := "row " + strconv.Itoa(i+1)
+		class := "px-1"
+		if c.state.focus == name {
+			class = "px-1 bg-accent text-accent-foreground"
+		}
+		rows[i] = twi.Element(append(c.focusable(name), twi.Class(class), twi.Text(name+" "+words[i%len(words)]))...)
+	}
+	return el("flex flex-col gap-1",
+		heading("List", "the wheel, PageUp, PageDown, Home, End and Tab scroll the card"),
+		el("flex flex-row gap-2",
+			el("w-44 h-12 shrink-0 flex flex-col border rounded-lg bg-card text-card-foreground overflow-y-auto", rows...),
+			el("flex-1 flex flex-col px-1 border rounded-lg bg-card text-card-foreground",
+				txt("font-bold", "Fixed beside the list"),
+				twi.Text("This card does not scroll. A wheel over it does nothing; a wheel over the list moves only the list."),
+				txt("text-muted-foreground pt-1", "Three rows per notch, a page per PageDown, and the focused row is always brought into view."),
+			),
+		),
+	)
+}
+
 func counterPage(c controls) twi.Node {
 	font := map[rune][3]string{
 		'0': {"█▀█", "█ █", "▀▀▀"}, '1': {"▀█ ", " █ ", "▀▀▀"}, '2': {"▀▀█", "█▀▀", "▀▀▀"},

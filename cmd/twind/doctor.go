@@ -49,8 +49,8 @@ func doctor(args []string, stdout io.Writer) error {
 		}
 		widths = append(widths, name+" "+measured)
 	}
-	_, err = fmt.Fprintf(stdout, "size       %dx%d cells\ncolour     %s\nsync       %t\ngraphemes  %t\nemoji      %s\nkeyboard   %s\ngraphics   %s\ncell       %s\ndetected   in %s\n",
-		width, height, profileName(terminal.Profile(os.Stdout, os.Getenv)), caps.Sync, caps.Graphemes, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell, took.Round(time.Millisecond))
+	_, err = fmt.Fprintf(stdout, "size       %dx%d cells\ncolour     %s\nsync       %t\ngraphemes  %t\nmargins    %t\nemoji      %s\nkeyboard   %s\ngraphics   %s\ncell       %s\ndetected   in %s\n",
+		width, height, profileName(terminal.Profile(os.Stdout, os.Getenv)), caps.Sync, caps.Graphemes, caps.Margins, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell, took.Round(time.Millisecond))
 	return err
 }
 

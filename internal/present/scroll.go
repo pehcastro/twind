@@ -25,21 +25,21 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 	}
 	s.out.WriteString(termkonst.Reset)
 	if s.Margins {
-		s.out.WriteString(termkonst.CSI + konst.MarginsOn)
+		s.out.WriteString(termkonst.MarginsOn)
 	}
-	fmt.Fprintf(&s.out, "%s%d;%d%s", termkonst.CSI, area.Min.Y+1, area.Max.Y, konst.Rows)
+	fmt.Fprintf(&s.out, "%s%d;%d%s", termkonst.CSI, area.Min.Y+1, area.Max.Y, termkonst.RegionRows)
 	if s.Margins {
-		fmt.Fprintf(&s.out, "%s%d;%d%s", termkonst.CSI, area.Min.X+1, area.Max.X, konst.Columns)
+		fmt.Fprintf(&s.out, "%s%d;%d%s", termkonst.CSI, area.Min.X+1, area.Max.X, termkonst.RegionColumns)
 	}
-	way, count := konst.ScrollDown, lines
+	way, count := termkonst.ScrollDown, lines
 	if lines < 0 {
-		way, count = konst.ScrollUp, -lines
+		way, count = termkonst.ScrollUp, -lines
 	}
 	fmt.Fprintf(&s.out, "%s%d%s", termkonst.CSI, count, way)
 	if s.Margins {
-		s.out.WriteString(termkonst.CSI + konst.MarginsOff)
+		s.out.WriteString(termkonst.MarginsOff)
 	}
-	s.out.WriteString(termkonst.CSI + konst.Rows)
+	s.out.WriteString(termkonst.RegionReset)
 	s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
 	cells := func(y int) (int, int) { return y*s.cols + area.Min.X, y*s.cols + area.Max.X }
 	slide(area.Min.Y, area.Max.Y, lines, func(dst, src int) {

@@ -34,13 +34,18 @@ type Node struct {
 type NodeOption interface{ apply(*Node) }
 
 func (n Node) apply(parent *Node) {
+	at := len(parent.tree.Children)
 	parent.tree.Children = append(parent.tree.Children, n.tree)
 	parent.keys = append(parent.keys, n.keys...)
 	if n.behaves {
+		n.events.At = []int{at}
 		parent.events.Children = append(parent.events.Children, n.events)
 		return
 	}
-	parent.events.Children = append(parent.events.Children, n.events.Children...)
+	for _, c := range n.events.Children {
+		c.At = append([]int{at}, c.At...)
+		parent.events.Children = append(parent.events.Children, c)
+	}
 }
 
 type onKey func(input.KeyEvent)

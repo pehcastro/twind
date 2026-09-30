@@ -53,6 +53,11 @@ func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {
 			if w, h, err = parseSize(arg); err == nil {
 				d.Resize(w, h)
 			}
+		case "wheel":
+			var notches, x, y int
+			if notches, x, y, err = parseWheel(arg); err == nil {
+				d.Wheel(x, y, notches)
+			}
 		case "frame":
 			err = writeFrame(d.Frame(), out, arg)
 		default:
@@ -76,6 +81,20 @@ func parseSize(arg string) (width, height int, err error) {
 		return 0, 0, fmt.Errorf("drive: size %q is not WIDTHxHEIGHT", arg)
 	}
 	return width, height, nil
+}
+
+func parseWheel(arg string) (notches, x, y int, err error) {
+	fields := strings.Fields(arg)
+	if len(fields) == 3 {
+		notches = map[string]int{"up": -1, "down": 1}[fields[0]]
+		var xerr, yerr error
+		x, xerr = strconv.Atoi(fields[1])
+		y, yerr = strconv.Atoi(fields[2])
+		if notches != 0 && xerr == nil && yerr == nil {
+			return notches, x, y, nil
+		}
+	}
+	return 0, 0, 0, fmt.Errorf("drive: wheel %q is not up|down X Y", arg)
 }
 
 func writeFrame(f Frame, dir, name string) error {

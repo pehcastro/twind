@@ -68,11 +68,11 @@ func TestConsoleModesRestored(t *testing.T) {
 		var raw map[windows.Handle]uint32
 		func() {
 			defer func() { _ = recover() }()
-			con, err := openConsole(c, fakeIn, fakeOut, Options{Mouse: mouse})
+			con, err := openConsole(c, fakeIn, fakeOut, Options{NoMouse: !mouse})
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, err := enter(io.Discard, con, Options{Mouse: mouse}, offer{})
+			b, err := enter(io.Discard, con, Options{NoMouse: !mouse}, offer{})
 			if err != nil {
 				t.Fatal(err)
 			}
