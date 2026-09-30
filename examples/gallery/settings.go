@@ -2,23 +2,34 @@ package main
 
 import (
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/theme"
 	"github.com/twind-dev/twind/twi/ui"
 )
 
-func newSettings(rt *twi.Runtime, start theme.Theme) func() twi.Node {
+func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster) func() twi.Node {
 	palette, dark := ui.NewRadioGroup(rt), ui.NewSwitch(rt)
 	palette.Value, dark.Checked = start.Name, start.Scheme == theme.Dark
-	apply := func() {
+	preview := func(name string) {
 		for _, t := range theme.Builtin() {
-			if t.Name == palette.Value && (t.Scheme == theme.Dark) == dark.Checked {
+			if t.Name == name && (t.Scheme == theme.Dark) == dark.Checked {
 				rt.SetTheme(t)
 			}
 		}
 	}
+	apply := func() { preview(palette.Value) }
 	palette.OnChange = func(string) { apply() }
 	dark.OnChange = func(bool) { apply() }
 	apply()
+	opened := palette.Value
+	restore := onKeys(rt, func(k input.KeyEvent) bool {
+		if k.Key != input.KeyEscape || palette.Value == opened {
+			return false
+		}
+		palette.Value = opened
+		apply()
+		return true
+	})
 	var names []string
 	for _, t := range theme.Builtin() {
 		if t.Scheme == theme.Light {
@@ -28,16 +39,19 @@ func newSettings(rt *twi.Runtime, start theme.Theme) func() twi.Node {
 	swatch := func(class, label string) twi.Node {
 		return el("flex flex-col items-center gap-0", el("w-6 h-2 rounded-md shadow-[0_0_0_1px_var(--color-border)] "+class), txt("text-muted-foreground", label))
 	}
+	sample := func(v ui.Variant, label string) twi.Node {
+		return ui.Button(v, ui.SizeDefault, clicked(rt, func() { toaster.Show(label+" pressed", "A sample of the "+label+" button.", ui.ToastAction{}) }), twi.Text(label))
+	}
 	return func() twi.Node {
-		var items []twi.NodeOption
+		items := []twi.NodeOption{twi.OnFocus(func() { opened = palette.Value }), twi.OnPointerLeave(apply), restore}
 		for _, n := range names {
-			items = append(items, palette.Item(n, ui.Label(twi.Text(n))))
+			items = append(items, palette.Item(n, twi.OnPointerEnter(func() { preview(n) }), ui.Label(twi.Text(n))))
 		}
 		scheme := map[bool]string{false: "Light", true: "Dark"}[dark.Checked]
 		return ui.Card(twi.Class("py-1"),
 			ui.CardHeader(
 				ui.CardTitle(twi.Text("Appearance")),
-				ui.CardDescription(twi.Text("Every shadcn palette the runtime ships, light and dark. Applied as you choose.")),
+				ui.CardDescription(twi.Text("Every shadcn palette the runtime ships, light and dark. A hover previews, Escape goes back.")),
 			),
 			ui.CardContent(el("flex flex-row gap-4",
 				ui.FieldSet(twi.Class("w-20 shrink-0"), ui.FieldLegend(twi.Text("Palette")), palette.Node(items...)),
@@ -50,9 +64,7 @@ func newSettings(rt *twi.Runtime, start theme.Theme) func() twi.Node {
 						swatch("bg-muted", "muted"), swatch("bg-destructive", "danger"), swatch("bg-card", "card"),
 					),
 					el("flex flex-row items-center gap-2",
-						ui.Button(ui.Default, ui.SizeDefault, twi.Text("Primary")),
-						ui.Button(ui.Secondary, ui.SizeDefault, twi.Text("Secondary")),
-						ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Outline")),
+						sample(ui.Default, "Primary"), sample(ui.Secondary, "Secondary"), sample(ui.Outline, "Outline"),
 						ui.Badge(ui.Default, twi.Text("Badge")),
 						ui.Badge(ui.Destructive, twi.Text("Error")),
 					),

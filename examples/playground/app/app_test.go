@@ -1,14 +1,19 @@
 package app
 
 import (
+	"slices"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
+	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
+	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/tailwind"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 func TestStylesFresh(t *testing.T) {
@@ -103,7 +108,7 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 		{func() { d.Type(" 中b"); press(d, "left", "left") }, "hello" + nbsp + "中b", "input", 6, "中"},
 		{func() { d.Press("right") }, "hello" + nbsp + "中b", "input", 8, "b"},
 		{func() { d.Press("ctrl+a") }, "hello" + nbsp + "中b", "input", -1, ""},
-		{func() { press(d, "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab") }, "hello" + nbsp + "中b", "theme", -1, ""},
+		{func() { press(d, "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab") }, "hello" + nbsp + "中b", "theme", -1, ""},
 	}
 	for i, s := range steps {
 		s.act()
@@ -119,7 +124,7 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 	}
 	t.Logf("focus on the theme button:\n%s", d.Frame().Text())
 	press(d, "enter")
-	if text := d.Frame().Text(); !strings.Contains(text, "Enter applies") || !strings.HasSuffix(status(d), "focus themes surfaces") {
+	if text := d.Frame().Text(); !strings.Contains(text, "Enter keeps") || !strings.HasSuffix(status(d), "focus themes surfaces") {
 		t.Fatalf("enter on the theme button did not open the picker with focus on the list:\n%s", text)
 	}
 	for _, want := range []string{"close", "themes", "close"} {
@@ -130,7 +135,7 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 	}
 	t.Logf("picker open, focus on close:\n%s", d.Frame().Text())
 	press(d, "shift+tab", "4", "escape")
-	if text := d.Frame().Text(); strings.Contains(text, "Enter applies") || status(d) != "● fullscreen headless truecolor zinc-dark focus theme surfaces" {
+	if text := d.Frame().Text(); strings.Contains(text, "Enter keeps") || status(d) != "● fullscreen headless truecolor zinc-dark focus theme surfaces" {
 		t.Errorf("escape: want the picker closed, focus back on the theme button and no key leaked, status %q:\n%s", status(d), text)
 	}
 	t.Logf("after escape:\n%s", d.Frame().Text())
@@ -164,7 +169,7 @@ func TestPickerOwnsKeys(t *testing.T) {
 	}
 	run(d, "t")
 	press(d, "down", "enter")
-	if got := status(d); !strings.Contains(got, "slate-light") || strings.Contains(d.Frame().Text(), "Enter applies") {
+	if got := status(d); !strings.Contains(got, "slate-light") || strings.Contains(d.Frame().Text(), "Enter keeps") {
 		t.Errorf("down, enter: want slate-light applied and the picker closed, status %q", got)
 	}
 	run(d, "t")
@@ -179,6 +184,69 @@ func TestPickerOwnsKeys(t *testing.T) {
 	if text := d.Frame().Text(); !strings.Contains(text, "violet-dark") {
 		t.Errorf("cursor wrapped past the first theme to violet-dark but the list does not show it:\n%s", text)
 	}
+}
+
+func spot(t *testing.T, d *drive.Driver, s string) (int, int) {
+	t.Helper()
+	for y, line := range lines(d) {
+		if before, _, ok := strings.Cut(line, s); ok {
+			return utf8.RuneCountInString(before), y
+		}
+	}
+	t.Fatalf("no %q in the frame:\n%s", s, d.Frame().Text())
+	return 0, 0
+}
+
+func cellAt(t *testing.T, d *drive.Driver, s string) buffer.Cell {
+	t.Helper()
+	x, y := spot(t, d, s)
+	return d.Frame().Cells().Row(y)[x]
+}
+
+func TestPickerPreviews(t *testing.T) {
+	d := open(t)
+	themes := theme.Builtin()
+	from := themeIndex("zinc-dark")
+	run(d, "t")
+	for step := 1; step <= 3; step++ {
+		press(d, "down")
+		want := themes[(from+step)%len(themes)]
+		if got := cellAt(t, d, "Theme").Bg.RGBA; got != want.Tokens[theme.Popover].RGBA {
+			t.Errorf("down %d: the picker is drawn in %v, want %s's popover %v", step, got, themeName(want), want.Tokens[theme.Popover].RGBA)
+		}
+		if got := cellAt(t, d, themeName(want)).Bg.RGBA; got != want.Tokens[theme.Accent].RGBA {
+			t.Errorf("down %d: the highlighted row is %v, want %s's accent %v", step, got, themeName(want), want.Tokens[theme.Accent].RGBA)
+		}
+		t.Logf("down %d, previewing %s:\n%s", step, themeName(want), d.Frame().Text())
+	}
+	press(d, "escape")
+	if got, want := cellAt(t, d, "fullscreen").Bg.RGBA, themes[from].Tokens[theme.Background].RGBA; got != want || !strings.Contains(status(d), "zinc-dark") {
+		t.Errorf("escape: the page is drawn in %v, want zinc-dark's background %v back, status %q", got, want, status(d))
+	}
+	t.Logf("after escape:\n%s", d.Frame().Text())
+}
+
+func BenchmarkThemePreview(b *testing.B) {
+	sheet, err := Styles()
+	if err != nil {
+		b.Fatal(err)
+	}
+	d := drive.New(App, drive.Size(100, 30), drive.Styles(sheet))
+	run(d, "t")
+	samples := make([]time.Duration, 0, b.N)
+	b.ResetTimer()
+	for range b.N {
+		start := time.Now()
+		d.Press("down")
+		samples = append(samples, time.Since(start))
+	}
+	b.StopTimer()
+	if err := d.Close(); err != nil {
+		b.Fatal(err)
+	}
+	slices.Sort(samples)
+	b.ReportMetric(float64(samples[len(samples)/2].Microseconds())/1000, "p50-ms")
+	b.ReportMetric(float64(samples[len(samples)*95/100].Microseconds())/1000, "p95-ms")
 }
 
 func TestCounter(t *testing.T) {

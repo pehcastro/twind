@@ -39,6 +39,13 @@ func onKeys(rt *twi.Runtime, handle func(input.KeyEvent) bool) twi.NodeOption {
 	})
 }
 
+func clicked(rt *twi.Runtime, act func()) twi.NodeOption {
+	return twi.OnClick(func(*twi.Event) {
+		act()
+		rt.Invalidate()
+	})
+}
+
 func pressed(k input.KeyEvent) bool {
 	return k.Key == input.KeyEnter || k.Key == input.KeyRune && k.Rune == ' '
 }
@@ -46,7 +53,8 @@ func pressed(k input.KeyEvent) bool {
 func gallery(rt *twi.Runtime, s start) func() twi.Node {
 	current, cursor, navFocused := s.page, s.page, false
 	overlayView, modal := newOverlays(rt, s.open)
-	views := [...]func() twi.Node{dashboard: newDashboard(rt), forms: newForms(rt), overlays: overlayView, settings: newSettings(rt, s.theme)}
+	toaster := ui.NewToaster(rt)
+	views := [...]func() twi.Node{dashboard: newDashboard(rt), forms: newForms(rt), overlays: overlayView, settings: newSettings(rt, s.theme, toaster)}
 	quit := twi.OnKeyDown(func(e *twi.Event) {
 		if k := e.Key; !k.Release && k.Key == input.KeyRune && k.Rune == 'q' && k.Modifiers == 0 && !modal() {
 			rt.Quit()
@@ -75,8 +83,11 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 		}
 		return true
 	})
-	muted := func(glyph, s string) twi.Node {
-		return el("flex flex-row items-center gap-1 px-1 text-muted-foreground", txt("w-1", glyph), twi.Text(s))
+	open := func(p page) twi.NodeOption { return clicked(rt, func() { current, cursor = p, p }) }
+	doc := func(glyph, s string) twi.Node {
+		return el("flex flex-row items-center gap-1 px-1 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+			clicked(rt, func() { toaster.Show(s+" opens in the full app", "The gallery shows four pages.", ui.ToastAction{}) }),
+			txt("w-1", glyph), twi.Text(s))
 	}
 	hint := func(key, s string) twi.Node {
 		return el("flex flex-row items-center gap-1", ui.Kbd(twi.Text(key)), txt("text-muted-foreground", s))
@@ -84,14 +95,14 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 	return func() twi.Node {
 		nav := []twi.NodeOption{twi.Focusable(), twi.AutoFocus(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)), navKeys}
 		for _, p := range pages() {
-			class := "flex flex-row items-center gap-1 px-1 rounded-md"
+			class, label := "flex flex-row items-center gap-1 px-1 rounded-md hover:bg-accent hover:text-accent-foreground", ""
 			if p == current {
 				class += " bg-accent text-accent-foreground font-medium"
 			}
 			if navFocused && p == cursor {
-				class += " shadow-[0_0_0_1px_var(--color-ring)]"
+				label = "underline"
 			}
-			nav = append(nav, el(class, txt("w-1 text-muted-foreground", [...]string{"▦", "≡", "▣", "◎"}[p]), twi.Text(p.String())))
+			nav = append(nav, el(class, open(p), txt("w-1 text-muted-foreground", [...]string{"▦", "≡", "▣", "◎"}[p]), txt(label, p.String())))
 		}
 		return el("flex flex-row h-full bg-background text-foreground", quit,
 			el("flex flex-col w-20 shrink-0 border-r bg-muted/40 lg:w-26",
@@ -101,7 +112,7 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 					txt("px-1 text-muted-foreground", "Platform"),
 					el("flex flex-col", nav...),
 					txt("px-1 pt-1 text-muted-foreground", "Documents"),
-					el("flex flex-col", muted("◫", "Data Library"), muted("◩", "Reports"), muted("◪", "Assistant")),
+					el("flex flex-col", doc("◫", "Data Library"), doc("◩", "Reports"), doc("◪", "Assistant")),
 					el("grow"),
 					el("flex flex-col gap-1 px-1", hint("↑↓", "move"), hint("⏎", "open"), hint("tab", "focus"), hint("q", "quit")),
 				),
@@ -113,7 +124,7 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 			el("flex flex-col grow min-w-0",
 				el("flex flex-row items-center shrink-0 gap-2 px-2 pt-1 border-b lg:px-4",
 					ui.Breadcrumb(ui.BreadcrumbList(
-						ui.BreadcrumbItem(ui.BreadcrumbLink(twi.Text("Acme"))), ui.BreadcrumbSeparator(),
+						ui.BreadcrumbItem(ui.BreadcrumbLink(open(dashboard), twi.Text("Acme"))), ui.BreadcrumbSeparator(),
 						ui.BreadcrumbItem(ui.BreadcrumbPage(twi.Text(current.String()))),
 					)),
 					el("grow"),
@@ -122,6 +133,7 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 				),
 				el("flex flex-col grow min-h-0 px-2 py-1 lg:px-4", views[current]()),
 			),
+			toaster.Node(),
 		)
 	}
 }

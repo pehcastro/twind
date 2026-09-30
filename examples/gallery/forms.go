@@ -25,10 +25,6 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 	volume.Value = 50
 	code := ui.NewInputOTP(rt, 6)
 	saved := false
-	save := twi.OnClick(func(*twi.Event) {
-		saved = true
-		rt.Invalidate()
-	})
 	field := func(label string, children ...twi.NodeOption) twi.Node {
 		return ui.Field(ui.Vertical, append([]twi.NodeOption{ui.FieldLabel(twi.Text(label))}, children...)...)
 	}
@@ -72,8 +68,8 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 			ui.CardFooter(twi.Class("gap-2 pt-1 border-t"),
 				status,
 				el("grow"),
-				ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Cancel")),
-				ui.Button(ui.Default, ui.SizeDefault, save, twi.Text("Save changes")),
+				ui.Button(ui.Outline, ui.SizeDefault, clicked(rt, func() { saved = false }), twi.Text("Cancel")),
+				ui.Button(ui.Default, ui.SizeDefault, clicked(rt, func() { saved = true }), twi.Text("Save changes")),
 			),
 		)
 	}

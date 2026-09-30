@@ -2,15 +2,18 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/tailwind"
 	"github.com/twind-dev/twind/twi/theme"
@@ -104,6 +107,126 @@ func TestTour(t *testing.T) {
 				t.Errorf("frame %s: background %s present is %t, want %t", c.frame, seq, !want, want)
 			}
 		}
+	}
+}
+
+func find(t *testing.T, d *drive.Driver, s string, from, to int) (int, int) {
+	t.Helper()
+	for y, line := range strings.Split(d.Frame().Text(), "\n") {
+		r := []rune(line)
+		if before, _, ok := strings.Cut(string(r[min(from, len(r)):min(to, len(r))]), s); ok {
+			return from + utf8.RuneCountInString(before), y
+		}
+	}
+	t.Fatalf("no %q in columns %d to %d:\n%s", s, from, to, d.Frame().Text())
+	return 0, 0
+}
+
+func inSidebar(t *testing.T, d *drive.Driver, s string) (int, int) {
+	t.Helper()
+	return find(t, d, s, 0, sidebarWidth)
+}
+
+func inMain(t *testing.T, d *drive.Driver, s string) (int, int) {
+	t.Helper()
+	return find(t, d, s, sidebarWidth, math.MaxInt)
+}
+
+func sidebarClean(t *testing.T, d *drive.Driver, what string) {
+	t.Helper()
+	_, top := inSidebar(t, d, "Dashboard")
+	_, bottom := inSidebar(t, d, "Settings")
+	rows := strings.Split(d.Frame().Text(), "\n")
+	for y := top - 1; y <= bottom+1; y++ {
+		if nav := string([]rune(rows[y])[:sidebarWidth]); strings.ContainsAny(nav, "▁▔▕▏") {
+			t.Errorf("%s: a highlight paints on row %d of the sidebar: %q", what, y, nav)
+		}
+	}
+}
+
+const sidebarWidth = 19
+
+func TestClicks(t *testing.T) {
+	a, opts := app(t)
+	d := drive.New(a, opts...)
+	defer func() {
+		if err := d.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	d.Press("down")
+	sidebarClean(t, d, "down from Dashboard")
+	t.Logf("keyboard cursor on Forms:\n%s", d.Frame().Text())
+	for _, name := range []string{"Settings", "Overlays", "Forms", "Dashboard"} {
+		d.Click(inSidebar(t, d, name))
+		if text := d.Frame().Text(); !strings.Contains(text, "Acme › "+name) {
+			t.Errorf("a click on %s did not open it:\n%s", name, text)
+		}
+		sidebarClean(t, d, "a click on "+name)
+	}
+	t.Logf("after the clicks, back on Dashboard:\n%s", d.Frame().Text())
+	for _, doc := range []string{"Data Library", "Reports", "Assistant"} {
+		d.Click(inSidebar(t, d, doc))
+		if text := d.Frame().Text(); !strings.Contains(text, doc+" opens in the full app") {
+			t.Errorf("a click on %s showed nothing:\n%s", doc, text)
+		}
+	}
+	d.Press("escape")
+	d.Press("escape")
+	d.Press("escape")
+	x, y := inMain(t, d, "Previous")
+	d.Click(x+slices.Index([]rune(strings.Split(d.Frame().Text(), "\n")[y])[x:], '2'), y)
+	if text := d.Frame().Text(); !strings.Contains(text, "Page 2 of 3") || !strings.Contains(text, "Capabilities") {
+		t.Errorf("a click on page 2 did not turn the table:\n%s", text)
+	}
+	d.Click(inMain(t, d, "3m"))
+	if text := d.Frame().Text(); !strings.Contains(text, "Last 3 months") {
+		t.Errorf("a click on the card action 3m did not change the chart:\n%s", text)
+	}
+	x, y = inMain(t, d, "Capabilities")
+	d.Click(x, y)
+	d.Move(0, 0)
+	light, _ := builtin("zinc-light")
+	if got, want := d.Frame().Cells().Row(y)[x+len("Capabilities")+1].Bg.RGBA, light.Tokens[theme.Muted].RGBA; got != want {
+		t.Errorf("a click on a row did not select it: background %v, want muted %v", got, want)
+	}
+	t.Logf("page 2, 3m and the Capabilities row selected:\n%s", d.Frame().Text())
+}
+
+func TestSettingsPreview(t *testing.T) {
+	a, opts := app(t)
+	d := drive.New(a, opts...)
+	defer func() {
+		if err := d.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	page := func() color.RGBA {
+		x, y := inMain(t, d, "Primary")
+		return d.Frame().Cells().Row(y)[x].Bg.RGBA
+	}
+	shows := func(name string) color.RGBA {
+		th, _ := builtin(name)
+		return th.Tokens[theme.Primary].RGBA
+	}
+	d.Click(inSidebar(t, d, "Settings"))
+	d.Move(inMain(t, d, "violet"))
+	if got := page(); got != shows("violet-light") {
+		t.Errorf("hovering violet: the page is %v, want violet-light's %v", got, shows("violet-light"))
+	}
+	d.Move(inMain(t, d, "Twind gallery"))
+	if got := page(); got != shows("zinc-light") {
+		t.Errorf("leaving the palette: the page is %v, want zinc-light's %v back", got, shows("zinc-light"))
+	}
+	d.Press("tab")
+	d.Press("down")
+	d.Press("down")
+	if text := d.Frame().Text(); !strings.Contains(text, "Preview: stone Light") {
+		t.Errorf("down twice from zinc did not choose stone:\n%s", text)
+	}
+	d.Press("escape")
+	if text := d.Frame().Text(); !strings.Contains(text, "Preview: zinc Light") || page() != shows("zinc-light") {
+		t.Errorf("escape did not bring zinc back:\n%s", text)
 	}
 }
 
