@@ -26,13 +26,16 @@ func moves(st *style.ComputedStyle) bool {
 func (t *Tree) animate(s *styledBox, prev, next *style.ComputedStyle) {
 	moving := t.motion.Frame(s.key, prev, next, t.now, &t.overlay)
 	pose := motion.Pose{Scale: 1}
-	if moving {
+	if t.graphics {
+		pose.Turn = t.overlay.Pose.Turn
+	}
+	if moving = moving || pose.Turn != 0; moving {
 		if s.shown == nil {
 			s.shown = new(style.ComputedStyle)
 		}
 		*s.shown = *next
 		t.motion.Overlay(&t.overlay, s.shown)
-		pose = motion.Pose{Scale: t.overlay.Pose.Scale, TranslateX: t.overlay.Pose.TranslateX, TranslateY: t.overlay.Pose.TranslateY}
+		pose.Scale, pose.TranslateX, pose.TranslateY = t.overlay.Pose.Scale, t.overlay.Pose.TranslateX, t.overlay.Pose.TranslateY
 	}
 	s.painted = s.painted && !moving && !s.animated
 	s.animated, s.pose = moving, pose

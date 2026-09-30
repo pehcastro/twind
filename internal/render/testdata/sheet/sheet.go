@@ -86,4 +86,10 @@ const (
 	PanelHead = "flex flex-col text-center sm:text-left"
 	PanelFoot = "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
 	PanelBtn  = "rounded-md bg-primary px-2 text-primary-foreground"
+
+	Spinning  = "size-4 bg-zinc-800 animate-spin"
+	Invisible = "invisible"
+	Hidden    = "hidden"
+	Empty     = "max-w-0"
+	Vanishing = "size-0 animate-out fade-out-0"
 )

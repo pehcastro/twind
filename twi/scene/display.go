@@ -89,6 +89,15 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 	if len(f.ops) == start {
 		return visual, false
 	}
+	if n.Turn != 0 {
+		sin, cos := math.Sincos(n.Turn * 2 * math.Pi)
+		cx, cy := shape.X+shape.W/2, shape.Y+shape.H/2
+		x, y := float64(visual.Min.X+visual.Max.X)/2-cx, float64(visual.Min.Y+visual.Max.Y)/2-cy
+		x, y = cx+x*cos-y*sin, cy+x*sin+y*cos
+		w, h := float64(visual.Dx())/2, float64(visual.Dy())/2
+		reachX, reachY := w*math.Abs(cos)+h*math.Abs(sin), w*math.Abs(sin)+h*math.Abs(cos)
+		visual = image.Rect(int(math.Floor(x-reachX)), int(math.Floor(y-reachY)), int(math.Ceil(x+reachX)), int(math.Ceil(y+reachY)))
+	}
 	return f.clip(start, visual, f.pixels(n.Clip), layerClip, origin, round)
 }
 

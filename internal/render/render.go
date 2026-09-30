@@ -42,6 +42,7 @@ type Frame struct {
 	Widths        text.Widths
 	Now           time.Duration
 	ReducedMotion bool
+	Graphics      bool
 }
 
 type styledBox struct {
@@ -108,6 +109,7 @@ type Tree struct {
 	free             []motion.Key
 	now              time.Duration
 	presenting       bool
+	graphics         bool
 }
 
 func (t *Tree) Restyle() { t.restyle = true }
@@ -126,14 +128,14 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	t.restyle = t.restyle || f.Cell != t.cell
 	t.crossed = band != t.band
 	t.ancestors = t.ancestors[:0]
-	t.now, t.motion.Reduced, t.presenting = f.Now, f.ReducedMotion, false
+	t.now, t.motion.Reduced, t.presenting, t.graphics = f.Now, f.ReducedMotion, false, f.Graphics
 	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root, style.PlaceOf(0, 1), nil)
 	t.root, t.cell, t.band, t.restyle = styled, f.Cell, band, false
 	if err != nil {
 		return scene.Node{}, err
 	}
 	layout.Layout(styled.box, f.Width, f.Height)
-	return styled.scene(reclip{viewport: styled.box.Clip}), nil
+	return t.scene(styled, reclip{viewport: styled.box.Clip}), nil
 }
 
 func (t *Tree) ScrollBy(path []int, dx, dy int) bool {
@@ -207,7 +209,7 @@ type reclip struct {
 	flow, absolute, viewport layout.Rect
 }
 
-func (s *styledBox) scene(r reclip) scene.Node {
+func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 	if s.painted && !s.box.Moved && r == s.reclip {
 		return s.node
 	}
@@ -244,7 +246,7 @@ func (s *styledBox) scene(r reclip) scene.Node {
 			if c.box.Style.Display == layout.DisplayNone {
 				inner.on, inner.viewport = false, layout.Rect{}
 			}
-			n.Children = append(n.Children, c.scene(inner))
+			n.Children = append(n.Children, t.scene(c, inner))
 		}
 	}
 	n.Opacity *= s.lift.Opacity
@@ -253,6 +255,10 @@ func (s *styledBox) scene(r reclip) scene.Node {
 	sx, sy := st.ScaleX*s.lift.Scale*s.pose.Scale, st.ScaleY*s.lift.Scale*s.pose.Scale
 	if dx != 0 || dy != 0 || sx != 1 || sy != 1 {
 		transform(&n, dx, dy, sx, sy)
+	}
+	n.Turn = s.pose.Turn
+	if k := s.computed.Animation.Keyframes; k != style.KeyframesNone && k != style.KeyframesExit {
+		t.motion.Unseen(s.key, n.Visibility == style.Hidden || n.Bounds.W <= 0 || n.Bounds.H <= 0 || k == style.KeyframesSpin && !t.graphics)
 	}
 	s.node, s.painted = n, true
 	return n

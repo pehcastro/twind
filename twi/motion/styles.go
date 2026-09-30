@@ -55,6 +55,7 @@ type entry struct {
 	live      uint16
 	animation style.Animation
 	began     time.Duration
+	unseen    bool
 	tracks    [propCount]track
 	shadows   [2]shadowTrack
 }
@@ -164,6 +165,12 @@ func (s *Styles) Drop(key Key) {
 
 func (s *Styles) Holds(key Key) bool { return int(key) < len(s.index) && s.index[key] != 0 }
 
+func (s *Styles) Unseen(key Key, unseen bool) {
+	if s.Holds(key) {
+		s.entries[s.index[key]-1].unseen = unseen
+	}
+}
+
 func (s *Styles) Closing(key Key) bool {
 	if s.Reduced || !s.Holds(key) {
 		return false
@@ -181,7 +188,7 @@ func (s *Styles) Wake() (time.Duration, bool) {
 	at, moving := time.Duration(math.MaxInt64), false
 	for i := range s.entries {
 		e := &s.entries[i]
-		if start := e.began + e.animation.Delay; !s.Reduced && e.running(s.now) {
+		if start := e.began + e.animation.Delay; !s.Reduced && !e.unseen && e.running(s.now) {
 			if s.now >= start {
 				return s.now, true
 			}

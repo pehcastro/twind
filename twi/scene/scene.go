@@ -27,6 +27,7 @@ type Node struct {
 	Visibility                             style.Visibility
 	PointerEvents                          style.PointerEvents
 	Opacity                                float64
+	Turn                                   float64
 	Scroll                                 bool
 	HidesOverflow                          bool
 	ScrollContent                          layout.Rect
