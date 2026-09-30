@@ -43,6 +43,7 @@ type Driver struct {
 	exited  chan struct{}
 	runErr  error
 	err     error
+	held    bool
 }
 
 func New(app App, opts ...Option) *Driver {
@@ -84,17 +85,44 @@ func (d *Driver) Type(s string) {
 }
 
 func (d *Driver) Wheel(x, y, notches int) {
-	if x < 0 || y < 0 || x >= d.screen.cells.Width() || y >= d.screen.cells.Height() {
-		d.fail(fmt.Errorf("drive: wheel at %d,%d is off the %dx%d screen", x, y, d.screen.cells.Width(), d.screen.cells.Height()))
-		return
-	}
 	button := tkonst.WheelDownReport
 	if notches < 0 {
 		button, notches = tkonst.WheelUpReport, -notches
 	}
 	for range notches {
-		d.feed(fmt.Appendf(nil, "%s<%d;%d;%dM", ikonst.CSI, button, x+1, y+1))
+		d.report("wheel", x, y, button, 'M')
 	}
+}
+
+func (d *Driver) Move(x, y int) {
+	button := ikonst.MouseMotion | ikonst.MouseNoButton
+	if d.held {
+		button = ikonst.MouseMotion
+	}
+	d.report("move", x, y, button, 'M')
+}
+
+func (d *Driver) Down(x, y int) {
+	d.held = true
+	d.report("down", x, y, 0, 'M')
+}
+
+func (d *Driver) Up(x, y int) {
+	d.held = false
+	d.report("up", x, y, 0, 'm')
+}
+
+func (d *Driver) Click(x, y int) {
+	d.Down(x, y)
+	d.Up(x, y)
+}
+
+func (d *Driver) report(verb string, x, y, button int, final byte) {
+	if x < 0 || y < 0 || x >= d.screen.cells.Width() || y >= d.screen.cells.Height() {
+		d.fail(fmt.Errorf("drive: %s at %d,%d is off the %dx%d screen", verb, x, y, d.screen.cells.Width(), d.screen.cells.Height()))
+		return
+	}
+	d.feed(fmt.Appendf(nil, "%s<%d;%d;%d%c", ikonst.CSI, button, x+1, y+1, final))
 }
 
 func (d *Driver) Resize(width, height int) {

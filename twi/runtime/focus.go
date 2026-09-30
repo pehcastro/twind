@@ -14,6 +14,8 @@ type Node struct {
 	Focusable, Disabled  bool
 	Scope, AutoFocus     bool
 	KeyDown, Focus, Blur []events.Listener[*Elem]
+	Click, Enter, Leave  []events.Listener[*Elem]
+	PointerDownOutside   []func()
 	Children             []Node
 }
 
@@ -47,7 +49,13 @@ func (d *document) Listeners(e *Elem, t events.Type) []events.Listener[*Elem] {
 		return e.node.Focus
 	case events.Blur:
 		return e.node.Blur
-	case events.KeyUp, events.MouseDown, events.MouseUp, events.MouseMove, events.Click:
+	case events.Click:
+		return e.node.Click
+	case events.PointerEnter:
+		return e.node.Enter
+	case events.PointerLeave:
+		return e.node.Leave
+	case events.KeyUp, events.PointerDown, events.PointerUp, events.PointerOver, events.PointerOut:
 		return nil
 	}
 	panic("runtime: unknown event type")
@@ -78,20 +86,47 @@ func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	}
 }
 
-func focused(n render.Node, path []int) render.Node {
+func mark(n render.Node, path []int, at, along style.State) render.Node {
 	state := style.NodeState{}
 	if n.State != nil {
 		state = *n.State
 	}
-	state.States |= style.StateFocusWithin
 	if len(path) == 0 {
-		state.States |= style.StateFocus | style.StateFocusVisible
+		state.States |= at
 	} else {
-		n.Children = slices.Clone(n.Children)
-		n.Children[path[0]] = focused(n.Children[path[0]], path[1:])
+		state.States |= along
+		if path[0] < len(n.Children) {
+			n.Children = slices.Clone(n.Children)
+			n.Children[path[0]] = mark(n.Children[path[0]], path[1:], at, along)
+		}
 	}
 	n.State = &state
 	return n
+}
+
+func (d *document) at(path []int) *Elem {
+	e := d.root
+	if path == nil || e == nil {
+		return nil
+	}
+	for {
+		i := slices.IndexFunc(e.children, func(c *Elem) bool {
+			return len(c.node.At) <= len(path) && slices.Equal(c.node.At, path[:len(c.node.At)])
+		})
+		if i < 0 {
+			return e
+		}
+		path, e = path[len(e.children[i].node.At):], e.children[i]
+	}
+}
+
+func (e *Elem) holds(n *Elem) bool {
+	for ; n != nil; n = n.parent {
+		if n == e {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *document) attach(e *Elem, n Node) {

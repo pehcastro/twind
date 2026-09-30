@@ -14,6 +14,7 @@ import (
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/runtime/testdata/hover"
 	"github.com/twind-dev/twind/twi/testdata/counter"
 	"github.com/twind-dev/twind/twi/testdata/hello"
 )
@@ -244,6 +245,22 @@ func TestNoTerminal(t *testing.T) {
 	}
 }
 
+func TestPointerVerbs(t *testing.T) {
+	s, err := hover.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace := &hover.Trace{}
+	script := "size 30x8\nmove 2 1\ndown 2 1\nmove 9 1\nup 9 1\nclick 9 1\n"
+	if err := drive.RunScript(strings.NewReader(script), trace.App, t.TempDir(), drive.Styles(s)); err != nil {
+		t.Fatal(err)
+	}
+	want := "enter row, enter one, leave one, enter two, click two, click row"
+	if got := strings.Join(trace.Events, ", "); got != want {
+		t.Errorf("events %q, want %q", got, want)
+	}
+}
+
 func TestScriptErrors(t *testing.T) {
 	cases := []struct{ script, want string }{
 		{"size 20x3\npress +\nfly away\n", "line 3: drive: unknown verb \"fly\""},
@@ -258,6 +275,9 @@ func TestScriptErrors(t *testing.T) {
 		{"wheel left 1 1\n", "line 1: drive: wheel \"left 1 1\" is not up|down X Y"},
 		{"wheel down 1\n", "line 1: drive: wheel"},
 		{"size 20x3\nwheel up 20 0\n", "line 2: drive: wheel at 20,0 is off the 20x3 screen"},
+		{"move 1\n", "line 1: drive: move \"1\" is not X Y"},
+		{"click 1 y\n", "line 1: drive: click \"1 y\" is not X Y"},
+		{"size 20x3\nclick 0 3\n", "line 2: drive: down at 0,3 is off the 20x3 screen"},
 	}
 	for _, c := range cases {
 		err := drive.RunScript(strings.NewReader(c.script), counter.New, t.TempDir())

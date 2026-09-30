@@ -58,6 +58,11 @@ func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {
 			if notches, x, y, err = parseWheel(arg); err == nil {
 				d.Wheel(x, y, notches)
 			}
+		case "move", "down", "up", "click":
+			var x, y int
+			if x, y, err = parsePoint(verb, arg); err == nil {
+				map[string]func(int, int){"move": d.Move, "down": d.Down, "up": d.Up, "click": d.Click}[verb](x, y)
+			}
 		case "frame":
 			err = writeFrame(d.Frame(), out, arg)
 		default:
@@ -84,17 +89,25 @@ func parseSize(arg string) (width, height int, err error) {
 }
 
 func parseWheel(arg string) (notches, x, y int, err error) {
+	direction, point, _ := strings.Cut(arg, " ")
+	notches = map[string]int{"up": -1, "down": 1}[direction]
+	if x, y, err = parsePoint("wheel", point); notches == 0 || err != nil {
+		return 0, 0, 0, fmt.Errorf("drive: wheel %q is not up|down X Y", arg)
+	}
+	return notches, x, y, nil
+}
+
+func parsePoint(verb, arg string) (x, y int, err error) {
 	fields := strings.Fields(arg)
-	if len(fields) == 3 {
-		notches = map[string]int{"up": -1, "down": 1}[fields[0]]
+	if len(fields) == 2 {
 		var xerr, yerr error
-		x, xerr = strconv.Atoi(fields[1])
-		y, yerr = strconv.Atoi(fields[2])
-		if notches != 0 && xerr == nil && yerr == nil {
-			return notches, x, y, nil
+		x, xerr = strconv.Atoi(fields[0])
+		y, yerr = strconv.Atoi(fields[1])
+		if xerr == nil && yerr == nil {
+			return x, y, nil
 		}
 	}
-	return 0, 0, 0, fmt.Errorf("drive: wheel %q is not up|down X Y", arg)
+	return 0, 0, fmt.Errorf("drive: %s %q is not X Y", verb, arg)
 }
 
 func writeFrame(f Frame, dir, name string) error {

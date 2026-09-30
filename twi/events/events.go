@@ -7,10 +7,13 @@ type Type uint8
 const (
 	KeyDown Type = iota
 	KeyUp
-	MouseDown
-	MouseUp
-	MouseMove
+	PointerDown
+	PointerUp
 	Click
+	PointerOver
+	PointerOut
+	PointerEnter
+	PointerLeave
 	Focus
 	Blur
 )
@@ -58,9 +61,9 @@ func (e *Event[N]) StopPropagation()       { e.stopped = true }
 
 func (k Type) bubbles() bool {
 	switch k {
-	case KeyDown, KeyUp, MouseDown, MouseUp, MouseMove, Click:
+	case KeyDown, KeyUp, PointerDown, PointerUp, Click, PointerOver, PointerOut:
 		return true
-	case Focus, Blur:
+	case PointerEnter, PointerLeave, Focus, Blur:
 		return false
 	}
 	panic("events: unknown type")

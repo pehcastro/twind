@@ -30,23 +30,25 @@ func (r *Runtime) wheel(ev input.MouseEvent) {
 	default:
 		panic("runtime: unknown mouse button")
 	}
-	var under []scroller
-	hit(&r.scene, ev.X, ev.Y, &r.hitPath, &under)
-	r.scrollFirst(under, func(*scene.Node) (int, int) { return dx, dy })
+	if r.pointer.hovered != nil {
+		r.scrollFirst(r.scrollers(r.pointer.hovered), func(*scene.Node) (int, int) { return dx, dy })
+	}
 }
 
-func hit(n *scene.Node, x, y int, path *[]int, under *[]scroller) bool {
-	inside := false
-	for i := len(n.Children) - 1; i >= 0 && !inside; i-- {
-		*path = append(*path, i)
-		inside = hit(&n.Children[i], x, y, path, under)
-		*path = (*path)[:len(*path)-1]
+func (r *Runtime) scrollers(path []int) []scroller {
+	var around []scroller
+	n := &r.scene
+	for i := 0; ; i++ {
+		if n.Scroll {
+			around = append(around, scroller{path[:i], n})
+		}
+		if i == len(path) || path[i] >= len(n.Children) {
+			break
+		}
+		n = &n.Children[path[i]]
 	}
-	inside = inside || contains(n.Bounds, x, y) && contains(n.Clip, x, y)
-	if inside && n.Scroll {
-		*under = append(*under, scroller{slices.Clone(*path), n})
-	}
-	return inside
+	slices.Reverse(around)
+	return around
 }
 
 func contains(r layout.Rect, x, y int) bool {
@@ -59,22 +61,8 @@ func (r *Runtime) scrollKey(ev input.KeyEvent) {
 		return
 	}
 	path := current.path()
-	var around []scroller
-	n := &r.scene
-	for i, child := range path {
-		if n.Scroll {
-			around = append(around, scroller{path[:i], n})
-		}
-		if child >= len(n.Children) {
-			return
-		}
-		n = &n.Children[child]
-	}
-	arrows := n.Scroll
-	if arrows {
-		around = append(around, scroller{path, n})
-	}
-	slices.Reverse(around)
+	around := r.scrollers(path)
+	arrows := len(around) > 0 && len(around[0].path) == len(path)
 	var delta func(*scene.Node) (int, int)
 	switch ev.Key {
 	case input.KeyPageUp:

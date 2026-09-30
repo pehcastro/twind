@@ -35,14 +35,23 @@ func NewDropdownMenu(rt *twi.Runtime) *DropdownMenu {
 }
 
 func (m *DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
+	open := func() {
+		m.active = 0
+		m.close(&m.menuLevel)
+		m.set(true)
+	}
 	return m.trigger(v, s, func(k input.KeyEvent) bool {
 		opens := press(k) || k.Key == input.KeyArrowDown
 		if opens {
-			m.active = 0
-			m.close(&m.menuLevel)
-			m.set(true)
+			open()
 		}
 		return opens
+	}, func() {
+		if m.Open {
+			m.dismiss()
+			return
+		}
+		open()
 	}, children)
 }
 
@@ -126,11 +135,25 @@ func (l *menuLevel) opened() bool {
 }
 
 func (l *menuLevel) add(it menuItem, classes string, children []twi.NodeOption) twi.Node {
-	if it.sub != nil && it.sub.Open || len(l.built) == l.active && !l.opened() {
+	at := len(l.built)
+	if it.sub != nil && it.sub.Open || at == l.active && !l.opened() {
 		classes += " bg-accent text-accent-foreground"
 	}
 	l.built = append(l.built, it)
-	return part("relative flex flex-row items-center rounded-sm px-2 select-none "+classes, append([]twi.NodeOption{part("grow", []twi.NodeOption{twi.Text(it.text)})}, children...))
+	m := l.root
+	highlight := twi.OnPointerEnter(func() {
+		if l.active == at && l.opened() == (it.sub != nil) {
+			return
+		}
+		l.active = at
+		m.close(l)
+		if it.sub != nil {
+			it.sub.Open, it.sub.active = true, 0
+		}
+		m.rt.Invalidate()
+	})
+	choose := m.click(func() { l.choose(it) })
+	return part("relative flex flex-row items-center rounded-sm px-2 select-none "+classes, append([]twi.NodeOption{highlight, choose, part("grow", []twi.NodeOption{twi.Text(it.text)})}, children...))
 }
 
 func (l *menuLevel) Item(text string, children ...twi.NodeOption) twi.Node {

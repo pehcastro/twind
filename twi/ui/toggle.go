@@ -27,7 +27,7 @@ type Toggle struct {
 func NewToggle(rt *twi.Runtime) *Toggle { return &Toggle{control: control{rt: rt}} }
 
 func (t *Toggle) Node(options ...twi.NodeOption) twi.Node {
-	return part(toggle(&t.control, t.Variant, t.Size, t.Pressed, onSelf), slices.Concat(t.behave(flip(&t.Pressed, t.OnChange, press)), options))
+	return part(toggle(&t.control, t.Variant, t.Size, t.Pressed, onSelf), slices.Concat(t.pressable(press, flip(&t.Pressed, t.OnChange)), options))
 }
 
 type ToggleGroup struct {
@@ -44,9 +44,13 @@ type ToggleGroup struct {
 func NewToggleGroup(rt *twi.Runtime) *ToggleGroup { return &ToggleGroup{control: control{rt: rt}} }
 
 func (g *ToggleGroup) Item(value string, options ...twi.NodeOption) twi.Node {
-	here := len(g.built) == g.active
+	at := len(g.built)
 	g.built = append(g.built, value)
-	return part(toggle(&g.control, g.Variant, g.Size, slices.Contains(g.Value, value), onItem), append([]twi.NodeOption{g.dataActive(here)}, options...))
+	pick := g.click(func() {
+		g.active = at
+		g.flip(value)
+	})
+	return part(toggle(&g.control, g.Variant, g.Size, slices.Contains(g.Value, value), onItem), append([]twi.NodeOption{g.dataActive(at == g.active), pick}, options...))
 }
 
 func (g *ToggleGroup) Node(options ...twi.NodeOption) twi.Node {
@@ -69,16 +73,19 @@ func (g *ToggleGroup) key(k input.KeyEvent) bool {
 	case !press(k):
 		return false
 	default:
-		v := g.items[g.active]
-		switch {
-		case slices.Contains(g.Value, v):
-			g.Value = slices.DeleteFunc(slices.Clone(g.Value), func(s string) bool { return s == v })
-		case g.Multiple:
-			g.Value = append(slices.Clone(g.Value), v)
-		default:
-			g.Value = []string{v}
-		}
-		notify(g.OnChange, g.Value)
+		g.flip(g.items[g.active])
 	}
 	return true
+}
+
+func (g *ToggleGroup) flip(v string) {
+	switch {
+	case slices.Contains(g.Value, v):
+		g.Value = slices.DeleteFunc(slices.Clone(g.Value), func(s string) bool { return s == v })
+	case g.Multiple:
+		g.Value = append(slices.Clone(g.Value), v)
+	default:
+		g.Value = []string{v}
+	}
+	notify(g.OnChange, g.Value)
 }

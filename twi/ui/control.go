@@ -96,13 +96,28 @@ func arrow(k input.KeyEvent) int {
 	return 0
 }
 
-func flip(on *bool, onChange func(bool), accept func(input.KeyEvent) bool) func(input.KeyEvent) bool {
-	return func(k input.KeyEvent) bool {
-		if !accept(k) {
-			return false
+func (c *control) click(act func()) twi.NodeOption {
+	return twi.OnClick(func(*twi.Event) {
+		if !c.Disabled {
+			act()
+			c.rt.Invalidate()
 		}
+	})
+}
+
+func (c *control) pressable(accept func(input.KeyEvent) bool, act func()) []twi.NodeOption {
+	return append(c.behave(func(k input.KeyEvent) bool {
+		ok := accept(k)
+		if ok {
+			act()
+		}
+		return ok
+	}), c.click(act))
+}
+
+func flip(on *bool, onChange func(bool)) func() {
+	return func() {
 		*on = !*on
 		notify(onChange, *on)
-		return true
 	}
 }

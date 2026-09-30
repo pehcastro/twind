@@ -24,7 +24,7 @@ func (g *RadioGroup) Item(value string, options ...twi.NodeOption) twi.Node {
 		dot = []twi.NodeOption{twi.Text("●")}
 	}
 	circle := part("flex flex-row w-2 h-1 shrink-0 items-center justify-center rounded-full text-primary dark:bg-input/30 "+g.ring(inputRing, onItem), append(dot, g.dataActive(active)))
-	return part("flex flex-row items-center gap-3", append([]twi.NodeOption{circle}, options...))
+	return part("flex flex-row items-center gap-3", append([]twi.NodeOption{circle, g.click(func() { g.choose(value) })}, options...))
 }
 
 func (g *RadioGroup) Node(options ...twi.NodeOption) twi.Node {
@@ -43,9 +43,13 @@ func (g *RadioGroup) key(k input.KeyEvent) bool {
 	case !space(k):
 		return false
 	}
-	if g.Value != g.items[i] {
-		g.Value = g.items[i]
-		notify(g.OnChange, g.Value)
-	}
+	g.choose(g.items[i])
 	return true
+}
+
+func (g *RadioGroup) choose(value string) {
+	if g.Value != value {
+		g.Value = value
+		notify(g.OnChange, value)
+	}
 }

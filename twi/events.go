@@ -33,6 +33,28 @@ func OnBlur(handler func()) NodeOption {
 	})
 }
 
+func OnClick(handler func(*Event)) NodeOption {
+	return behaviour(func(n *runtime.Node) {
+		n.Click = append(n.Click, events.Listener[*runtime.Elem]{Handle: handler})
+	})
+}
+
+func OnPointerEnter(handler func()) NodeOption {
+	return behaviour(func(n *runtime.Node) {
+		n.Enter = append(n.Enter, events.Listener[*runtime.Elem]{Handle: func(*Event) { handler() }})
+	})
+}
+
+func OnPointerLeave(handler func()) NodeOption {
+	return behaviour(func(n *runtime.Node) {
+		n.Leave = append(n.Leave, events.Listener[*runtime.Elem]{Handle: func(*Event) { handler() }})
+	})
+}
+
+func OnPointerDownOutside(handler func()) NodeOption {
+	return behaviour(func(n *runtime.Node) { n.PointerDownOutside = append(n.PointerDownOutside, handler) })
+}
+
 func Focusable() NodeOption { return behaviour(func(n *runtime.Node) { n.Focusable = true }) }
 
 func AutoFocus() NodeOption { return behaviour(func(n *runtime.Node) { n.AutoFocus = true }) }

@@ -163,8 +163,8 @@ func counterPage(c controls) twi.Node {
 			txt("text-muted-foreground pt-1", "count"),
 		),
 		el("flex flex-row gap-3 pt-1",
-			c.button("decrement", "rounded-full px-1 bg-secondary text-secondary-foreground disabled:opacity-50", "- decrement", func(s *state) { s.count = max(s.count-1, 0) }, disabled...),
-			c.button("increment", "rounded-full px-1 bg-primary text-primary-foreground", "+ increment", func(s *state) { s.count++ }),
+			c.button("decrement", "rounded-full px-1 bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50", "- decrement", func(s *state) { s.count = max(s.count-1, 0) }, disabled...),
+			c.button("increment", "rounded-full px-1 bg-primary text-primary-foreground hover:bg-primary/90", "+ increment", func(s *state) { s.count++ }),
 		),
 	)
 }

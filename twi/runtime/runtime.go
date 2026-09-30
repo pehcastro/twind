@@ -73,8 +73,11 @@ type Runtime struct {
 	focus         events.FocusManager[*Elem]
 	screen        *present.Screen
 	tree          render.Tree
+	nodes         render.Node
 	scene         scene.Node
-	hitPath       []int
+	pointer       pointer
+	pointed       bool
+	ringless      bool
 	revealed      *Elem
 	lastFrame     time.Time
 	texts, stale  map[string]scene.Text
@@ -161,10 +164,10 @@ func (r *Runtime) loop(b Backend) error {
 		if r.changed.Swap(false) {
 			r.dirty = true
 		}
-		if r.dirty && throttle == nil {
+		if (r.dirty || r.pointer.moved) && throttle == nil {
 			if wait := r.lastFrame.Add(konst.FrameInterval).Sub(now); wait > 0 {
 				throttle = r.cfg.Clock.After(wait)
-			} else if err := r.frame(b, now); err != nil {
+			} else if err := r.draw(b, now); err != nil {
 				return err
 			}
 		}
@@ -198,10 +201,9 @@ func (r *Runtime) handle(ev input.Event) {
 			r.quitting.Store(true)
 			return
 		}
+		r.pointed = false
 		prevented := r.focus.Key(&r.doc, ev).DefaultPrevented()
-		if current, _ := r.focus.Current(); current != r.revealed {
-			r.dirty = true
-		}
+		r.refocused()
 		if prevented {
 			return
 		}
@@ -210,15 +212,41 @@ func (r *Runtime) handle(ev input.Event) {
 		}
 		r.scrollKey(ev)
 	case input.MouseEvent:
-		if ev.Action == input.MouseScroll {
-			r.wheel(ev)
-		}
+		r.point(ev)
+		r.refocused()
 	case input.ResizeEvent:
 		r.width, r.height, r.dirty = ev.Width, ev.Height, true
 	case input.PasteEvent, input.FocusEvent, input.ReplyEvent:
 	default:
 		panic(fmt.Sprintf("runtime: unknown event %T", ev))
 	}
+}
+
+func (r *Runtime) refocused() {
+	if current, _ := r.focus.Current(); current != r.revealed {
+		r.dirty = true
+	}
+}
+
+func (r *Runtime) draw(b Backend, now time.Time) error {
+	if r.pointer.moved {
+		r.hover()
+		r.dirty = r.changed.Swap(false) || r.dirty
+	}
+	if !r.dirty {
+		return nil
+	}
+	if err := r.frame(b, now); err != nil {
+		return err
+	}
+	if !r.pointer.seen {
+		return nil
+	}
+	r.hover()
+	if r.dirty {
+		r.wakeUp()
+	}
+	return nil
 }
 
 func (r *Runtime) frame(b Backend, now time.Time) error {
@@ -235,9 +263,23 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		Height:   layout.Length{Unit: layout.Cells, Value: r.height},
 		Sanitize: r.sanitize,
 	}
+	r.nodes = tree.Root
 	current, ok := r.focus.Current()
+	if current != r.revealed {
+		r.ringless = r.pointed
+	}
 	if ok {
-		tree.Root = focused(tree.Root, current.path())
+		at := style.StateFocus | style.StateFocusWithin
+		if !r.ringless {
+			at |= style.StateFocusVisible
+		}
+		tree.Root = mark(tree.Root, current.path(), at, style.StateFocusWithin)
+	}
+	if r.pointer.hovered != nil {
+		tree.Root = mark(tree.Root, r.pointer.hovered, style.StateHover, style.StateHover)
+	}
+	if r.pointer.pressed != nil {
+		tree.Root = mark(tree.Root, r.pointer.pressed, style.StateActive, style.StateActive)
 	}
 	root, err := r.tree.Scene(tree.Root, frame)
 	if err != nil {

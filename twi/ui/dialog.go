@@ -37,6 +37,9 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	if d.kind == modal || d.kind == sheet {
 		children = append(children, d.close("absolute top-1 right-2 rounded-xs opacity-70", "", []twi.NodeOption{twi.Text("✕")}))
 	}
+	if d.kind != alert {
+		children = append(children, twi.OnPointerDownOutside(func() { d.set(false) }))
+	}
 	if d.kind == drawer && d.side == Bottom {
 		children = append([]twi.NodeOption{part("self-center mt-1 h-1 w-12 shrink-0 rounded-full bg-muted", nil)}, children...)
 	}
@@ -89,7 +92,7 @@ func (d *Dialog) close(classes, ring string, children []twi.NodeOption) twi.Node
 		}
 	}
 	return part(classes+" "+ring+" "+focusRing, append([]twi.NodeOption{
-		twi.Focusable(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)),
+		twi.Focusable(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)), d.click(func() { d.set(false) }),
 		keyDown(d.rt, func(k input.KeyEvent) bool {
 			if press(k) {
 				d.set(false)

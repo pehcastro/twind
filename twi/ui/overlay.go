@@ -44,11 +44,11 @@ func (o *overlay) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Nod
 			o.set(true)
 		}
 		return press(k)
-	}, children)
+	}, func() { o.set(!o.Open) }, children)
 }
 
-func (o *overlay) trigger(v Variant, s Size, keys func(input.KeyEvent) bool, children []twi.NodeOption) twi.Node {
-	return part(button(v, s, o.ring(idleRing(v), onSelf)), slices.Concat(o.behave(keys), children))
+func (o *overlay) trigger(v Variant, s Size, keys func(input.KeyEvent) bool, click func(), children []twi.NodeOption) twi.Node {
+	return part(button(v, s, o.ring(idleRing(v), onSelf)), slices.Concat(o.behave(keys), []twi.NodeOption{o.click(click)}, children))
 }
 
 func (o *overlay) dismissable(classes string, children []twi.NodeOption) twi.Node {
@@ -71,7 +71,7 @@ type anchored struct {
 }
 
 func (a *anchored) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex w-fit h-fit", children)
+	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.OnPointerDownOutside(func() { a.set(false) })}, children...))
 }
 
 func (a *anchored) place(content twi.Node) twi.Node {
@@ -101,6 +101,10 @@ func (p *Popover) Content(children ...twi.NodeOption) twi.Node {
 }
 
 type hint struct{ anchored }
+
+func (h *hint) Node(children ...twi.NodeOption) twi.Node {
+	return h.anchored.Node(append([]twi.NodeOption{twi.OnPointerEnter(func() { h.set(true) }), twi.OnPointerLeave(func() { h.set(false) })}, children...)...)
+}
 
 func (h *hint) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 	show := func(on bool) func() {

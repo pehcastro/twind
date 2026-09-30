@@ -20,6 +20,7 @@ const (
 	pickerRows = 9
 	listRows   = 40
 	focusRing  = " focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"
+	pill       = "shrink-0 rounded-full px-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 )
 
 type Env struct {
@@ -37,7 +38,7 @@ type Start struct {
 type state struct {
 	page, count   int
 	theme, cursor int
-	picker        bool
+	picker, tip   bool
 	focus         string
 }
 
@@ -71,7 +72,7 @@ func (c controls) button(name, class, label string, press func(*state), extra ..
 		if e.Key.Key == input.KeyEnter || e.Key.Key == input.KeyRune && e.Key.Rune == ' ' {
 			c.update(press)
 		}
-	}))...)
+	}), twi.OnClick(func(*twi.Event) { c.update(press) }))...)
 }
 
 type page struct {
@@ -164,10 +165,17 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 		}
 		for i, p := range all {
 			tab := twi.Data("state", map[bool]string{true: "active", false: "inactive"}[i == s.page])
-			tabs = append(tabs, c.button(p.name, "shrink-0 rounded-full px-1 text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold", p.name, func(s *state) { s.page = i }, tab))
+			tabs = append(tabs, c.button(p.name, pill+" data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold", p.name, func(s *state) { s.page = i }, tab))
 		}
 		bar := "mx-2 flex flex-row items-center gap-1 px-1 border rounded-lg bg-card text-muted-foreground focus-within:border-ring"
-		tabs = append(tabs, el("grow"), c.button("theme", "shrink-0 rounded-full px-1 text-muted-foreground", "theme "+name, openPicker))
+		themeButton := []twi.NodeOption{c.button("theme", pill, "theme "+name, openPicker)}
+		if s.tip {
+			themeButton = append(themeButton, txt("absolute top-full right-0 z-50 whitespace-nowrap rounded-md px-1 bg-foreground text-background", "t or a click opens the picker"))
+		}
+		tabs = append(tabs, el("grow"), twi.Element(append(themeButton, twi.Class("relative flex shrink-0"),
+			twi.OnPointerEnter(func() { update(func(s *state) { s.tip = true }) }),
+			twi.OnPointerLeave(func() { update(func(s *state) { s.tip = false }) }),
+		)...))
 		root := []twi.NodeOption{
 			twi.Class("flex flex-col h-full bg-background text-foreground"),
 			twi.OnKeyDown(func(e *twi.Event) {
@@ -233,7 +241,10 @@ func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 		if i == s.theme {
 			mark = "● "
 		}
-		list = append(list, txt(class, mark+themeName(themes[i])))
+		list = append(list, twi.Element(twi.Class(class), twi.Text(mark+themeName(themes[i])),
+			twi.OnPointerEnter(func() { c.update(func(s *state) { s.cursor = i }) }),
+			twi.OnClick(func(*twi.Event) { c.update(apply) }),
+		))
 	}
 	closePicker := func(s *state) { s.picker = false }
 	return twi.Element(twi.Key("picker"), twi.FocusScope(), twi.Class("fixed inset-0 z-50 bg-black/50 flex items-center justify-center"),
@@ -243,13 +254,14 @@ func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 			}
 			e.StopPropagation()
 		}),
-		el("w-44 flex flex-col gap-1 px-1 border rounded-lg shadow-lg bg-popover text-popover-foreground",
+		twi.Element(twi.Class("w-44 flex flex-col gap-1 px-1 border rounded-lg shadow-lg bg-popover text-popover-foreground"),
+			twi.OnPointerDownOutside(func() { c.update(closePicker) }),
 			el("flex flex-col",
 				txt("px-1 font-bold", "Theme"),
 				txt("px-1 text-muted-foreground", "↑ ↓ move, Enter applies, Tab, Esc closes"),
 			),
 			twi.Element(list...),
-			c.button("close", "self-end rounded-full px-1 bg-secondary text-secondary-foreground", "close", closePicker),
+			c.button("close", "self-end rounded-full px-1 bg-secondary text-secondary-foreground hover:bg-secondary/80", "close", closePicker),
 		),
 	)
 }
