@@ -69,6 +69,7 @@ type styledBox struct {
 	exiting  []*styledBox
 	node     scene.Node
 	painted  bool
+	reclip   reclip
 	key      motion.Key
 	born     time.Duration
 	enter    *motion.Presence
@@ -94,21 +95,19 @@ func Render(root Node, f Frame) (*buffer.Buffer, error) {
 }
 
 type Tree struct {
-	root                       *styledBox
-	width                      int
-	height                     layout.Length
-	cell                       image.Point
-	band                       int
-	restyle, relayout, crossed bool
-	cascades                   int
-	ancestors                  []*styledBox
-	related                    []int
-	motion                     motion.Styles
-	overlay                    motion.Animated
-	keys                       motion.Key
-	free                       []motion.Key
-	now                        time.Duration
-	presenting                 bool
+	root             *styledBox
+	cell             image.Point
+	band             int
+	restyle, crossed bool
+	cascades         int
+	ancestors        []*styledBox
+	related          []int
+	motion           motion.Styles
+	overlay          motion.Animated
+	keys             motion.Key
+	free             []motion.Key
+	now              time.Duration
+	presenting       bool
 }
 
 func (t *Tree) Restyle() { t.restyle = true }
@@ -124,22 +123,17 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	}
 	f.Sheet = f.Sheet.WithColumns(f.Width)
 	band := f.Sheet.Band(f.Width)
-	t.relayout = t.relayout || t.root == nil || f.Width != t.width || f.Height != t.height
 	t.restyle = t.restyle || f.Cell != t.cell
 	t.crossed = band != t.band
 	t.ancestors = t.ancestors[:0]
 	t.now, t.motion.Reduced, t.presenting = f.Now, f.ReducedMotion, false
 	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root, nil)
-	t.root, t.width, t.height, t.cell, t.band, t.restyle = styled, f.Width, f.Height, f.Cell, band, false
+	t.root, t.cell, t.band, t.restyle = styled, f.Cell, band, false
 	if err != nil {
 		return scene.Node{}, err
 	}
-	moved := t.relayout
-	if moved {
-		layout.Layout(styled.box, f.Width, f.Height)
-	}
-	t.relayout = false
-	return styled.scene(moved, reclip{viewport: styled.box.Clip}), nil
+	layout.Layout(styled.box, f.Width, f.Height)
+	return styled.scene(reclip{viewport: styled.box.Clip}), nil
 }
 
 func (t *Tree) ScrollBy(path []int, dx, dy int) bool {
@@ -203,7 +197,8 @@ func (t *Tree) scrollTo(b *layout.Box, x, y int) bool {
 	if x == b.ScrollX && y == b.ScrollY {
 		return false
 	}
-	b.ScrollX, b.ScrollY, t.relayout = x, y, true
+	b.ScrollX, b.ScrollY = x, y
+	b.Invalidate()
 	return true
 }
 
@@ -212,10 +207,11 @@ type reclip struct {
 	flow, absolute, viewport layout.Rect
 }
 
-func (s *styledBox) scene(moved bool, r reclip) scene.Node {
-	if s.painted && !moved {
+func (s *styledBox) scene(r reclip) scene.Node {
+	if s.painted && !s.box.Moved && r == s.reclip {
 		return s.node
 	}
+	s.reclip, s.box.Moved = r, false
 	st := &s.computed
 	if s.animated {
 		st = s.shown
@@ -248,7 +244,7 @@ func (s *styledBox) scene(moved bool, r reclip) scene.Node {
 			if c.box.Style.Display == layout.DisplayNone {
 				inner.on, inner.viewport = false, layout.Rect{}
 			}
-			n.Children = append(n.Children, c.scene(moved, inner))
+			n.Children = append(n.Children, c.scene(inner))
 		}
 	}
 	n.Opacity *= s.lift.Opacity
@@ -271,7 +267,6 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 	s := prev
 	if s == nil {
 		s = &styledBox{box: &layout.Box{}, key: t.key(), born: t.now, lift: motion.Still(), pose: motion.Pose{Scale: 1}}
-		t.relayout = true
 	}
 	s.enter, s.exit = n.Enter, n.Exit
 	changed, animating := false, false
@@ -310,10 +305,12 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 			return nil, err
 		}
 		if prev == nil || !reflect.DeepEqual(ls, s.box.Style) {
-			s.box.Style, t.relayout = ls, true
+			s.box.Style = ls
+			s.box.Invalidate()
 		}
 		if reverse := reversed(computed); reverse != s.reverse {
-			s.reverse, t.relayout = reverse, true
+			s.reverse = reverse
+			s.box.Invalidate()
 		}
 		if animating = moves(&computed) || s.animated || t.motion.Holds(s.key); animating {
 			before := &s.computed
@@ -329,8 +326,9 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		wrapping := scene.Wrapping(&computed)
 		wrapping.Widths = s.wrapping.Widths
 		if nowrap != s.nowrap || wrapping != s.wrapping {
-			s.nowrap, s.wrapping, t.relayout = nowrap, wrapping, true
+			s.nowrap, s.wrapping = nowrap, wrapping
 			clear(s.sizes)
+			s.box.Invalidate()
 		}
 		ellipsis := computed.TextOverflow == style.TextOverflowEllipsis || len(n.Classes) == 0 && parent.TextOverflow == style.TextOverflowEllipsis
 		if truncate := ellipsis && s.nowrap; truncate != s.truncate {
@@ -349,19 +347,20 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		s.lift, s.painted = lift, false
 	}
 	if n.TopLayer != s.top {
-		s.top, t.relayout = n.TopLayer, true
+		s.top, s.painted = n.TopLayer, false
 	}
 	if (n.Text != s.raw || n.Text != "" && f.Widths != s.wrapping.Widths) && s.retext(f, n.Text) {
-		t.relayout = true
+		s.box.Invalidate()
 	}
 	old := s.children
 	if len(old) != len(n.Children) {
 		for _, gone := range old[min(len(old), len(n.Children)):] {
-			gone.born, t.relayout = t.now, true
+			gone.born = t.now
 			s.exiting = append(s.exiting, gone)
 		}
 		s.children, s.box.Children = make([]*styledBox, len(n.Children)), make([]*layout.Box, len(n.Children))
 		s.painted = false
+		s.box.Invalidate()
 	}
 	if len(s.exiting) > 0 {
 		t.exits(s)

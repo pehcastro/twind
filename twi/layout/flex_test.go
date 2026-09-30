@@ -111,6 +111,7 @@ func TestFlexColumnAutoMin(t *testing.T) {
 	borders(t, rows, Rect{0, 0, 10, 1}, Rect{0, 1, 10, 1}, Rect{0, 2, 10, 1}, Rect{0, 3, 10, 1}, Rect{0, 4, 10, 1})
 
 	column.Style.Border, column.Style.Padding = Edges{1, 1, 1, 1}, Edges{Left: 1, Right: 1}
+	column.Invalidate()
 	Layout(column, 10, Length{})
 	borders(t, rows, Rect{2, 1, 6, 1}, Rect{2, 2, 6, 1}, Rect{2, 3, 6, 1}, Rect{2, 4, 6, 1}, Rect{2, 5, 6, 1})
 

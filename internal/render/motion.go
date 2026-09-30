@@ -73,7 +73,7 @@ func (t *Tree) exits(s *styledBox) {
 			continue
 		}
 		t.release(e)
-		t.relayout = true
+		s.box.Invalidate()
 	}
 	clear(s.exiting[len(kept):])
 	s.exiting = kept

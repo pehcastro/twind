@@ -141,6 +141,10 @@ type Box struct {
 	Measure  Measure
 	Children []*Box
 
+	parent                   *Box
+	current, prepared, stale bool
+	spot                     spot
+
 	BorderBox  Rect
 	PaddingBox Rect
 	ContentBox Rect
@@ -148,9 +152,11 @@ type Box struct {
 
 	ScrollX, ScrollY          int
 	ScrollWidth, ScrollHeight int
+	Moved                     bool
 
-	memo  memo
-	arena *arena
+	memo   memo
+	frames []Rect
+	arena  *arena
 }
 
 type memo struct {
@@ -160,36 +166,64 @@ type memo struct {
 	widthKnown          bool
 	heightWidth, height int
 	heightKnown         bool
-	frames              []Rect
 	framesW, framesH    int
+	framesMode          heightMode
 	framesKnown         bool
 }
 
-func (m *memo) keep(frames []Rect, w, h int) {
-	m.frames, m.framesW, m.framesH, m.framesKnown = frames, w, h, true
+type placing uint8
+
+const (
+	placed placing = iota + 1
+	hidden
+)
+
+type spot struct {
+	absolute container
+	mode     heightMode
+	state    placing
 }
 
-func prepare(b *Box) {
-	s := &b.Style
-	switch {
-	case s.Display > DisplayNone:
-		panic(fmt.Sprintf("layout: unknown display %d", s.Display))
-	case s.Direction > Column:
-		panic(fmt.Sprintf("layout: unknown direction %d", s.Direction))
-	case s.Position > PositionFixed:
-		panic(fmt.Sprintf("layout: unknown position %d", s.Position))
-	case s.Overflow > OverflowScroll:
-		panic(fmt.Sprintf("layout: unknown overflow %d", s.Overflow))
+func (b *Box) Invalidate() {
+	b.current = false
+	for p := b; p != nil && p.prepared; p = p.parent {
+		p.prepared = false
 	}
-	if a := max(s.AlignItems, s.AlignSelf, s.JustifyItems, s.JustifySelf); a > AlignStretch {
-		panic(fmt.Sprintf("layout: unknown align %d", a))
+}
+
+func prepare(b *Box) bool {
+	if b.prepared {
+		return false
 	}
-	checkUnit(max(s.Basis.Unit, s.Width.Unit, s.Height.Unit, s.MinWidth.Unit, s.MinHeight.Unit, s.MaxWidth.Unit, s.MaxHeight.Unit,
-		s.Inset.Top.Unit, s.Inset.Right.Unit, s.Inset.Bottom.Unit, s.Inset.Left.Unit))
-	b.memo = memo{}
+	s, changed := &b.Style, !b.current
+	if changed {
+		switch {
+		case s.Display > DisplayNone:
+			panic(fmt.Sprintf("layout: unknown display %d", s.Display))
+		case s.Direction > Column:
+			panic(fmt.Sprintf("layout: unknown direction %d", s.Direction))
+		case s.Position > PositionFixed:
+			panic(fmt.Sprintf("layout: unknown position %d", s.Position))
+		case s.Overflow > OverflowScroll:
+			panic(fmt.Sprintf("layout: unknown overflow %d", s.Overflow))
+		}
+		if a := max(s.AlignItems, s.AlignSelf, s.JustifyItems, s.JustifySelf); a > AlignStretch {
+			panic(fmt.Sprintf("layout: unknown align %d", a))
+		}
+		checkUnit(max(s.Basis.Unit, s.Width.Unit, s.Height.Unit, s.MinWidth.Unit, s.MinHeight.Unit, s.MaxWidth.Unit, s.MaxHeight.Unit,
+			s.Inset.Top.Unit, s.Inset.Right.Unit, s.Inset.Bottom.Unit, s.Inset.Left.Unit))
+		b.memo = memo{}
+	}
+	inner := changed
 	for _, c := range b.Children {
-		prepare(c)
+		c.parent = b
+		if prepare(c) && !inner {
+			inner, b.memo = true, memo{}
+		}
 	}
+	b.current, b.prepared, b.stale = true, true, true
+	contained := s.Width.Unit == Cells && s.Height.Unit == Cells && clips(s.Overflow)
+	return changed || inner && !contained
 }
 
 func checkUnit(u Unit) {

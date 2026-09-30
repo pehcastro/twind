@@ -73,10 +73,9 @@ func (b Breadth) contentBased() bool {
 	panic(fmt.Sprintf("layout: unknown track size %d", b.Kind))
 }
 
-func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
+func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) int {
 	ints, tracks, cells := len(a.ints), len(a.tracks), len(a.cells)
-	s := &b.Style
-	frames := grab(&a.rects, len(b.Children))
+	s, frames := &b.Style, b.frames
 	items, counts := a.placeItems(b)
 	cols := a.initTracks(s.Columns, s.AutoColumns, counts[across], innerW, true)
 	a.contributeWidths(items, cols)
@@ -116,12 +115,8 @@ func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) ([]Rect
 		availW := extent(cols, it.area[across]) - m.Left - m.Right
 		frames[it.index] = Rect{x + m.Left + offset(justifyOf(s, cs), availW-it.width), y + m.Top + offset(al, availH-h), it.width, h}
 	}
-	used := total(rows, s.RowGap)
 	a.ints, a.tracks, a.cells = a.ints[:ints], a.tracks[:tracks], a.cells[:cells]
-	if mode == measuring {
-		b.memo.keep(frames, innerW, used)
-	}
-	return frames, used
+	return total(rows, s.RowGap)
 }
 
 func (a *arena) gridWidth(b *Box, mode sizing) int {

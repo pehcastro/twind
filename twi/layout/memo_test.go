@@ -12,11 +12,12 @@ func TestMemoKeepsEachWidth(t *testing.T) {
 	borders(t, []*Box{row, square, paragraph}, Rect{0, 0, 20, 4}, Rect{0, 0, 8, 4}, Rect{8, 0, 12, 3})
 }
 
-func TestMemoForgetsBetweenPasses(t *testing.T) {
+func TestMemoForgetsAnInvalidatedBox(t *testing.T) {
 	label := box(Style{}, text("abc"))
 	root := box(Style{Direction: Column, AlignItems: AlignStart}, label)
 	Layout(root, 20, Length{})
 	label.Style.Padding.Left = 2
+	label.Invalidate()
 	Layout(root, 20, Length{})
 	borders(t, []*Box{label}, Rect{0, 0, 5, 1})
 }

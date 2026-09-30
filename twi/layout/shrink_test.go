@@ -23,6 +23,7 @@ func TestFlexShrinkZeroKeepsGap(t *testing.T) {
 	borders(t, []*Box{badges.Children[1].Children[0]}, Rect{12, 0, 9, 1})
 
 	column.Style.Width = Length{}
+	column.Invalidate()
 	Layout(root, 40, Length{})
 	borders(t, root.Children, Rect{0, 0, 37, 1}, Rect{37, 0, 3, 1})
 }
@@ -78,6 +79,7 @@ func TestFlexWrap(t *testing.T) {
 	borders(t, append([]*Box{root}, root.Children...), Rect{0, 0, 10, 3}, Rect{0, 0, 4, 1}, Rect{5, 0, 4, 1}, Rect{0, 2, 4, 1})
 
 	root.Style.Wrap = WrapReverse
+	root.Invalidate()
 	Layout(root, 10, Length{})
 	borders(t, root.Children, Rect{0, 2, 4, 1}, Rect{5, 2, 4, 1}, Rect{0, 0, 4, 1})
 

@@ -169,17 +169,29 @@ func boxesHash(root *Box) uint64 {
 	return h.Sum64()
 }
 
-func laidOut(root *Box, width int, height Length) (hash string) {
+func invalidate(b *Box) {
+	b.current, b.prepared = false, false
+	for _, c := range b.Children {
+		invalidate(c)
+	}
+}
+
+func full(root *Box, width int, height Length) {
+	invalidate(root)
+	Layout(root, width, height)
+}
+
+func laidOut(lay func(*Box, int, Length), root *Box, width int, height Length) (hash string) {
 	defer func() {
 		if recover() != nil {
 			hash = "panic"
 		}
 	}()
-	Layout(root, width, height)
+	lay(root, width, height)
 	return fmt.Sprintf("%016x", boxesHash(root))
 }
 
-func treeHashes() []string {
+func treeHashes(lay func(*Box, int, Length)) []string {
 	var out []string
 	sizes := []struct {
 		width  int
@@ -187,7 +199,7 @@ func treeHashes() []string {
 	}{{80, Length{}}, {37, cells(20)}, {120, cells(9)}, {3, Length{}}}
 	for _, root := range []*Box{cardsTree(), gridTree()} {
 		for _, size := range sizes {
-			out = append(out, laidOut(root, size.width, size.height))
+			out = append(out, laidOut(lay, root, size.width, size.height))
 		}
 	}
 	for i := range 1000 {
@@ -199,7 +211,7 @@ func treeHashes() []string {
 			if r.IntN(2) == 0 {
 				height = cells(r.IntN(50))
 			}
-			line += laidOut(root, r.IntN(100), height) + " "
+			line += laidOut(lay, root, r.IntN(100), height) + " "
 		}
 		out = append(out, strings.TrimSpace(line))
 	}
@@ -220,13 +232,15 @@ func TestSameBoxesAsBefore(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Split(strings.TrimSpace(string(data)), "\n")
-	got := treeHashes()
-	if len(got) != len(want) {
-		t.Fatalf("%d trees, fixture has %d", len(got), len(want))
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("tree %d: %s, want %s", i, got[i], want[i])
+	for name, lay := range map[string]func(*Box, int, Length){"full": full, "incremental": Layout} {
+		got := treeHashes(lay)
+		if len(got) != len(want) {
+			t.Fatalf("%s: %d trees, fixture has %d", name, len(got), len(want))
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Errorf("%s: tree %d: %s, want %s", name, i, got[i], want[i])
+			}
 		}
 	}
 }

@@ -252,7 +252,7 @@ func TestGridRandomTreesDoNotPanic(t *testing.T) {
 		if r.IntN(2) == 0 {
 			height = cells(r.IntN(50))
 		}
-		if laidOut(root, r.IntN(100), height) == "panic" {
+		if laidOut(Layout, root, r.IntN(100), height) == "panic" {
 			t.Fatalf("tree %d panics", i)
 		}
 	}
