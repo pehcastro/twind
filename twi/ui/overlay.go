@@ -24,11 +24,79 @@ const (
 	End
 )
 
+const (
+	fadeMotion = "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+	popMotion  = fadeMotion + " data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+)
+
+type phase uint8
+
+const (
+	gone phase = iota
+	opened
+	closing
+)
+
+func (p phase) state() twi.NodeOption {
+	switch p {
+	case opened:
+		return twi.Data("state", "open")
+	case closing:
+		return twi.Data("state", "closed")
+	case gone:
+	}
+	panic("ui: a gone overlay has no state")
+}
+
+func (p phase) trap(rt *twi.Runtime, keys func(input.KeyEvent) bool) []twi.NodeOption {
+	if p == closing {
+		return []twi.NodeOption{twi.Key("closing")}
+	}
+	return []twi.NodeOption{twi.FocusScope(), keyDown(rt, keys)}
+}
+
+func (p phase) holding(content func() twi.Node) []twi.NodeOption {
+	if p == gone {
+		return nil
+	}
+	return []twi.NodeOption{content()}
+}
+
+type presence struct {
+	shown, closing bool
+	closes         int
+}
+
+func (p *presence) next(rt *twi.Runtime, open bool) phase {
+	switch {
+	case open:
+		p.shown, p.closing = true, false
+		return opened
+	case p.shown:
+		p.shown, p.closing = false, true
+		p.closes++
+		this := p.closes
+		rt.Dispatch(func() {
+			if p.closing && p.closes == this {
+				p.closing = false
+				rt.Invalidate()
+			}
+		})
+		return closing
+	case p.closing:
+		return closing
+	}
+	return gone
+}
+
 type overlay struct {
 	control
+	presence
 	Open         bool
 	OnOpenChange func(bool)
 }
+
+func (o *overlay) phase() phase { return o.next(o.rt, o.Open) }
 
 func (o *overlay) set(open bool) {
 	if o.Open != open {
@@ -51,13 +119,13 @@ func (o *overlay) trigger(v Variant, s Size, keys func(input.KeyEvent) bool, cli
 	return part(button(v, s, o.ring(idleRing(v), onSelf)), slices.Concat(o.behave(keys), []twi.NodeOption{o.click(click)}, children))
 }
 
-func (o *overlay) dismissable(classes string, children []twi.NodeOption) twi.Node {
-	return part(classes, append([]twi.NodeOption{twi.FocusScope(), keyDown(o.rt, func(k input.KeyEvent) bool {
+func (o *overlay) dismissable(classes string, at phase, children []twi.NodeOption) twi.Node {
+	return part(classes, slices.Concat([]twi.NodeOption{at.state()}, at.trap(o.rt, func(k input.KeyEvent) bool {
 		if escape(k) {
 			o.set(false)
 		}
 		return escape(k)
-	})}, children...))
+	}), children))
 }
 
 func escape(k input.KeyEvent) bool { return k.Key == input.KeyEscape }
@@ -74,7 +142,7 @@ func (a *anchored) Node(children ...twi.NodeOption) twi.Node {
 	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.OnPointerDownOutside(func() { a.set(false) })}, children...))
 }
 
-func (a *anchored) place(content twi.Node) twi.Node {
+func (a *anchored) place(at phase, content func() twi.Node) twi.Node {
 	across := map[Alignment]string{Start: "justify-start", Center: "justify-center", End: "justify-end"}
 	if a.Side == Right || a.Side == Left {
 		across = map[Alignment]string{Start: "items-start", Center: "items-center", End: "items-end"}
@@ -84,7 +152,7 @@ func (a *anchored) place(content twi.Node) twi.Node {
 		Top:    "bottom-full inset-x-0",
 		Right:  "left-full inset-y-0 ml-1",
 		Left:   "right-full inset-y-0 mr-1 justify-end",
-	})+" "+pick("align", a.Align, across), []twi.NodeOption{content})
+	})+" "+pick("align", a.Align, across), at.holding(content))
 }
 
 type Popover struct{ anchored }
@@ -94,10 +162,10 @@ func NewPopover(rt *twi.Runtime) *Popover {
 }
 
 func (p *Popover) Content(children ...twi.NodeOption) twi.Node {
-	if !p.Open {
-		return closed()
-	}
-	return p.place(p.dismissable("flex flex-col w-36 shrink-0 rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md", children))
+	at := p.phase()
+	return p.place(at, func() twi.Node {
+		return p.dismissable("flex flex-col w-36 shrink-0 rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md "+popMotion, at, children)
+	})
 }
 
 type hint struct{ anchored }
@@ -127,10 +195,8 @@ func (h *hint) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 }
 
 func (h *hint) content(classes string, children []twi.NodeOption) twi.Node {
-	if !h.Open {
-		return closed()
-	}
-	return h.place(part("shrink-0 "+classes, children))
+	at := h.phase()
+	return h.place(at, func() twi.Node { return part("shrink-0 "+classes, append([]twi.NodeOption{at.state()}, children...)) })
 }
 
 type Tooltip struct{ hint }
@@ -140,7 +206,7 @@ func NewTooltip(rt *twi.Runtime) *Tooltip {
 }
 
 func (t *Tooltip) Content(children ...twi.NodeOption) twi.Node {
-	return t.content("w-fit rounded-md bg-foreground px-2 text-background", children)
+	return t.content("w-fit animate-in rounded-md bg-foreground px-2 text-background fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95", children)
 }
 
 type HoverCard struct{ hint }
@@ -150,5 +216,5 @@ func NewHoverCard(rt *twi.Runtime) *HoverCard {
 }
 
 func (c *HoverCard) Content(children ...twi.NodeOption) twi.Node {
-	return c.content("flex flex-col w-32 rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md", children)
+	return c.content("flex flex-col w-32 rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md "+popMotion, children)
 }

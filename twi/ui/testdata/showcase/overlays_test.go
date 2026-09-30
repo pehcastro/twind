@@ -31,6 +31,7 @@ func TestOverlaysKeys(t *testing.T) {
 	press := func(key string, times int) {
 		for range times {
 			d.Press(key)
+			d.Advance(settleTime)
 		}
 	}
 
@@ -84,6 +85,7 @@ func BenchmarkMenuKeyToFrame(b *testing.B) {
 		samples = append(samples, time.Since(start))
 		b.StopTimer()
 		d.Press("escape")
+		d.Advance(settleTime)
 		b.StartTimer()
 	}
 	b.StopTimer()

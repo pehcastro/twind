@@ -5,14 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
-)
-
-const (
-	toastDuration = 4 * time.Second
-	toastTick     = 100 * time.Millisecond
-	visibleToasts = 3
 )
 
 type ToastKind uint8
@@ -45,7 +40,7 @@ type Toaster struct {
 	hovered  bool
 }
 
-func NewToaster(rt *twi.Runtime) *Toaster { return &Toaster{Duration: toastDuration, rt: rt} }
+func NewToaster(rt *twi.Runtime) *Toaster { return &Toaster{Duration: konst.ToastDuration, rt: rt} }
 
 func (t *Toaster) Show(title, description string, action ToastAction) {
 	t.add(ToastDefault, title, description, action)
@@ -70,8 +65,8 @@ func (t *Toaster) add(kind ToastKind, title, description string, action ToastAct
 }
 
 func (t *Toaster) run(s *toast) {
-	s.tick = t.rt.After(toastTick, func() {
-		if s.left -= toastTick; s.left > 0 {
+	s.tick = t.rt.After(konst.ToastTick, func() {
+		if s.left -= konst.ToastTick; s.left > 0 {
 			t.run(s)
 			return
 		}
@@ -118,7 +113,7 @@ func (t *Toaster) Node() twi.Node {
 		}
 	})
 	children := []twi.NodeOption{newest, twi.OnPointerEnter(func() { t.hover(true) }), twi.OnPointerLeave(func() { t.hover(false) })}
-	shown := t.toasts[max(len(t.toasts)-visibleToasts, 0):]
+	shown := t.toasts[max(len(t.toasts)-konst.VisibleToasts, 0):]
 	for i, s := range shown {
 		depth := len(shown) - 1 - i
 		if t.hovered || depth == 0 {

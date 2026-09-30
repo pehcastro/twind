@@ -13,6 +13,8 @@ import (
 	"github.com/twind-dev/twind/twi/theme"
 )
 
+const settleTime = time.Second
+
 func zinc(scheme theme.Scheme) theme.Theme {
 	for _, th := range theme.Builtin() {
 		if th.Name == "zinc" && th.Scheme == scheme {
@@ -27,7 +29,7 @@ func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return drive.New(func(rt *twi.Runtime) func() twi.Node {
+	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(zinc(scheme))
 		body, ok := page(rt, name, "", "")
 		if !ok {
@@ -35,6 +37,8 @@ func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
 		}
 		return func() twi.Node { return screen(twi.Class(""), body()) }
 	}, drive.Size(150, 45), drive.Styles(sheet))
+	d.Advance(settleTime)
+	return d
 }
 
 func TestDrivenFrame(t *testing.T) {
@@ -50,6 +54,7 @@ func TestDrivenFrame(t *testing.T) {
 		"overlays":      {"Edit Profile", "Show Dialog", "Open Drawer", "Open popover", "Hover", "@nextjs", "Selected: nothing yet", "Team Members"},
 		"tabs":          {"Account", "Password", "Make changes to your account here.", "@peduarte", "Save changes", "Select a fruit", "Coordinated Universal Time"},
 		"wave3b":        {"Product Information", "Our flagship product", "Return Policy", "@radix-ui/primitives", "Show Toast", "Suggestions", "⌘S", "Chosen: nothing yet"},
+		"shell":         {"Acme Inc", "Platform", "Playground", "History", "Sales & Marketing", "shadcn", "Data Fetching", "File", "Profiles", "Right click here", "Tags", "v1.2.0-beta.50", "Chosen: nothing yet"},
 	} {
 		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
 			d := driven(t, name, scheme)

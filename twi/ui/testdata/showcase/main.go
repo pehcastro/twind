@@ -15,9 +15,9 @@ import (
 
 func main() {
 	scheme := flag.String("scheme", "light", "zinc scheme, light or dark")
-	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields, form, overlays, tabs or wave3b")
+	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields, form, overlays, tabs, wave3b or shell")
 	focus := flag.String("focus", "", "on the form page, the control focused at start: email, textarea, checkbox, radio, toggles or otp")
-	open := flag.String("open", "", "the overlay open at start: on the overlays page dialog, alert, sheet, drawer, menu, menu-sub, popover, tooltip or hovercard, on the tabs page select, on the wave3b page collapsible, toasts or command=search")
+	open := flag.String("open", "", "the overlay open at start: on the overlays page dialog, alert, sheet, drawer, menu, menu-sub, popover, tooltip or hovercard, on the tabs page select, on the wave3b page collapsible, toasts or command=search, on the shell page menubar, context or collapsed")
 	flag.Parse()
 	sheet, err := Styles()
 	if err != nil {
@@ -78,6 +78,8 @@ func page(rt *twi.Runtime, name, focus, open string) (func() twi.Node, bool) {
 		return tabsPage(rt, open), true
 	case "wave3b":
 		return wave3b(rt, open), true
+	case "shell":
+		return shell(rt, open), true
 	case "wave1":
 		n = wave1()
 	case "tables":

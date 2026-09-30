@@ -150,6 +150,10 @@ func (c *Collapsible) Trigger(v Variant, s Size, children ...twi.NodeOption) twi
 	}, toggle, append([]twi.NodeOption{openState(c.Open)}, children...))
 }
 
+func (c *Collapsible) AsTrigger() twi.NodeOption {
+	return c.click(func() { c.set(!c.Open) })
+}
+
 func (c *Collapsible) Content(children ...twi.NodeOption) twi.Node {
 	if !c.Open {
 		return closed()

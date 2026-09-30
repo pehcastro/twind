@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"image"
 	"slices"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
 )
+
+const menuContent = "flex flex-col min-w-16 shrink-0 rounded-md border bg-popover px-1 text-popover-foreground shadow-md " + popMotion
 
 type menuItem struct {
 	text    string
@@ -25,6 +28,7 @@ type DropdownMenu struct {
 	menuLevel
 	OnSelect func(string)
 	subs     []*DropdownMenuSub
+	bar      *Menubar
 }
 
 func NewDropdownMenu(rt *twi.Runtime) *DropdownMenu {
@@ -33,16 +37,15 @@ func NewDropdownMenu(rt *twi.Runtime) *DropdownMenu {
 	return m
 }
 
+func (m *DropdownMenu) Node(children ...twi.NodeOption) twi.Node {
+	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.OnPointerDownOutside(m.dismiss)}, children...))
+}
+
 func (m *DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
-	open := func() {
-		m.active = 0
-		m.close(&m.menuLevel)
-		m.set(true)
-	}
 	return m.trigger(v, s, func(k input.KeyEvent) bool {
 		opens := press(k) || k.Key == input.KeyArrowDown
 		if opens {
-			open()
+			m.show(0)
 		}
 		return opens
 	}, func() {
@@ -50,22 +53,32 @@ func (m *DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) tw
 			m.dismiss()
 			return
 		}
-		open()
+		m.show(0)
 	}, children)
 }
 
 func (m *DropdownMenu) Content(children ...twi.NodeOption) twi.Node {
+	return m.menu(m.place, menuContent, children)
+}
+
+func (m *DropdownMenu) menu(place func(phase, func() twi.Node) twi.Node, classes string, children []twi.NodeOption) twi.Node {
 	m.settle()
-	if !m.Open {
-		return closed()
-	}
-	return m.place(m.content("flex flex-col min-w-16 shrink-0 rounded-md border bg-popover px-1 text-popover-foreground shadow-md", func(k input.KeyEvent) bool {
-		if escape(k) {
-			m.dismiss()
-			return true
-		}
-		return m.key(k)
-	}, children))
+	at := m.phase()
+	return place(at, func() twi.Node {
+		return m.content(classes, at, func(k input.KeyEvent) bool {
+			if escape(k) {
+				m.dismiss()
+				return true
+			}
+			return m.key(k)
+		}, children)
+	})
+}
+
+func (m *DropdownMenu) show(item int) {
+	m.active = item
+	m.close(&m.menuLevel)
+	m.set(true)
 }
 
 func (m *DropdownMenu) dismiss() {
@@ -82,8 +95,64 @@ func (m *DropdownMenu) close(l *menuLevel) {
 	}
 }
 
+func (m *DropdownMenu) deepest() (*menuLevel, *DropdownMenuSub) {
+	l, sub := &m.menuLevel, (*DropdownMenuSub)(nil)
+	for {
+		i := slices.IndexFunc(m.subs, func(s *DropdownMenuSub) bool { return s.parent == l && s.Open })
+		if i < 0 {
+			return l, sub
+		}
+		sub = m.subs[i]
+		l = &sub.menuLevel
+	}
+}
+
+type ContextMenu struct {
+	DropdownMenu
+	pointer *image.Point
+}
+
+func NewContextMenu(rt *twi.Runtime) *ContextMenu {
+	c := &ContextMenu{}
+	c.rt, c.root = rt, &c.DropdownMenu
+	return c
+}
+
+func (c *ContextMenu) Node(children ...twi.NodeOption) twi.Node {
+	return part("relative flex flex-col", append([]twi.NodeOption{twi.OnPointerDownOutside(c.dismiss)}, children...))
+}
+
+func (c *ContextMenu) Trigger(children ...twi.NodeOption) twi.Node {
+	keys := c.behave(func(k input.KeyEvent) bool {
+		opens := k.Key == input.KeyF10 && k.Modifiers == input.ModShift
+		if opens {
+			c.pointer = nil
+			c.show(0)
+		}
+		return opens
+	})
+	right := twi.OnPointerDown(func(e *twi.Event) {
+		if e.Mouse.Button == input.MouseRight && !c.Disabled {
+			c.pointer = &image.Point{X: e.Mouse.X, Y: e.Mouse.Y}
+			c.show(0)
+			c.rt.Invalidate()
+		}
+	})
+	return part("flex flex-col "+focusRing, slices.Concat(keys, []twi.NodeOption{right}, children))
+}
+
+func (c *ContextMenu) Content(children ...twi.NodeOption) twi.Node {
+	return c.menu(func(at phase, content func() twi.Node) twi.Node {
+		if c.pointer == nil {
+			return part("absolute top-0 left-0 z-50 flex", at.holding(content))
+		}
+		return part("fixed z-50 flex", append([]twi.NodeOption{twi.At(c.pointer.X, c.pointer.Y)}, at.holding(content)...))
+	}, menuContent, children)
+}
+
 type DropdownMenuSub struct {
 	menuLevel
+	presence
 	Open   bool
 	parent *menuLevel
 }
@@ -104,17 +173,17 @@ func (s *DropdownMenuSub) Trigger(text string, children ...twi.NodeOption) twi.N
 
 func (s *DropdownMenuSub) Content(children ...twi.NodeOption) twi.Node {
 	s.settle()
-	if !s.Open {
-		return closed()
-	}
-	return s.content("absolute left-full -top-1 ml-1 z-50 flex flex-col min-w-16 rounded-md border bg-popover px-1 text-popover-foreground shadow-lg", func(k input.KeyEvent) bool {
-		if k.Key == input.KeyArrowLeft {
-			s.Open = false
-			s.root.close(&s.menuLevel)
-			return true
-		}
-		return s.key(k)
-	}, children)
+	at := s.next(s.root.rt, s.Open)
+	return part("absolute left-full -top-1 ml-1 z-50 flex", at.holding(func() twi.Node {
+		return s.content("flex flex-col min-w-16 rounded-md whitespace-nowrap border bg-popover px-1 text-popover-foreground shadow-lg "+popMotion, at, func(k input.KeyEvent) bool {
+			if k.Key == input.KeyArrowLeft {
+				s.Open = false
+				s.root.close(&s.menuLevel)
+				return true
+			}
+			return s.key(k)
+		}, children)
+	}))
 }
 
 func (l *menuLevel) settle() {
@@ -125,8 +194,12 @@ func (l *menuLevel) settle() {
 	}
 }
 
-func (l *menuLevel) content(classes string, keys func(input.KeyEvent) bool, children []twi.NodeOption) twi.Node {
-	return part(classes, append([]twi.NodeOption{twi.FocusScope(), twi.Focusable(), keyDown(l.root.rt, keys)}, children...))
+func (l *menuLevel) content(classes string, at phase, keys func(input.KeyEvent) bool, children []twi.NodeOption) twi.Node {
+	options := []twi.NodeOption{at.state()}
+	if l.root.bar == nil {
+		options = append(append(options, twi.Focusable()), at.trap(l.root.rt, keys)...)
+	}
+	return part(classes, append(options, children...))
 }
 
 func (l *menuLevel) opened() bool {

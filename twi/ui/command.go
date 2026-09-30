@@ -6,13 +6,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
-)
-
-const (
-	commandRows = 10
-	matchBase   = 1000
 )
 
 type CommandItem struct {
@@ -156,8 +152,8 @@ func (c *Command) List(groups ...CommandGroup) twi.Node {
 			c.offset--
 		}
 	}
-	c.offset = min(max(c.offset, at-commandRows+1), max(len(rows)-commandRows, 0))
-	shown := rows[c.offset:min(c.offset+commandRows, len(rows))]
+	c.offset = min(max(c.offset, at-konst.CommandRows+1), max(len(rows)-konst.CommandRows, 0))
+	shown := rows[c.offset:min(c.offset+konst.CommandRows, len(rows))]
 	window := make([]twi.NodeOption, 0, len(shown))
 	for _, r := range shown {
 		window = append(window, c.row(r))
@@ -227,7 +223,7 @@ func score(value, search string) int {
 	at := 0
 	for i := range value {
 		if foldPrefix(value[i:], search) {
-			return 2*matchBase - min(at, matchBase-1)
+			return 2*konst.MatchBase - min(at, konst.MatchBase-1)
 		}
 		at++
 	}
@@ -249,7 +245,7 @@ func score(value, search string) int {
 	if next != "" {
 		return 0
 	}
-	return max(matchBase-(last-first), 1)
+	return max(konst.MatchBase-(last-first), 1)
 }
 
 func foldPrefix(s, prefix string) bool {
@@ -266,8 +262,8 @@ func foldPrefix(s, prefix string) bool {
 type CommandDialog struct {
 	*Dialog
 	*Command
-	Hotkey rune
-	shown  bool
+	Hotkey  rune
+	wasOpen bool
 }
 
 func NewCommandDialog(rt *twi.Runtime) *CommandDialog {
@@ -277,14 +273,14 @@ func NewCommandDialog(rt *twi.Runtime) *CommandDialog {
 }
 
 func (d *CommandDialog) Node(children ...twi.NodeOption) twi.Node {
-	if d.shown && !d.Open {
+	if d.wasOpen && !d.Open {
 		d.Search("")
 	}
-	d.shown = d.Open
+	d.wasOpen = d.Open
 	hotkey := twi.OnKey(func(k input.KeyEvent) {
 		if !k.Release && k.Key == input.KeyRune && k.Rune == d.Hotkey && k.Modifiers == input.ModCtrl {
 			d.set(!d.Open)
 		}
 	})
-	return d.content([]twi.NodeOption{hotkey}, []twi.NodeOption{d.Command.Node(children...)})
+	return part("absolute", []twi.NodeOption{hotkey, d.Content(d.Command.Node(children...))})
 }

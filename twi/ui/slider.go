@@ -4,11 +4,10 @@ import (
 	"slices"
 	"strings"
 
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
 )
-
-const pageSteps = 10
 
 type Slider struct {
 	control
@@ -17,7 +16,7 @@ type Slider struct {
 }
 
 func NewSlider(rt *twi.Runtime) *Slider {
-	return &Slider{control: control{rt: rt}, Max: 100, Step: 1}
+	return &Slider{control: control{rt: rt}, Max: konst.SliderMax, Step: 1}
 }
 
 func (s *Slider) Node(options ...twi.NodeOption) twi.Node {
@@ -33,9 +32,9 @@ func (s *Slider) Node(options ...twi.NodeOption) twi.Node {
 		case input.KeyArrowLeft, input.KeyArrowDown:
 			v -= s.Step
 		case input.KeyPageUp:
-			v += pageSteps * s.Step
+			v += konst.PageSteps * s.Step
 		case input.KeyPageDown:
-			v -= pageSteps * s.Step
+			v -= konst.PageSteps * s.Step
 		case input.KeyHome:
 			v = s.Min
 		case input.KeyEnd:

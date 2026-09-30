@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/theme"
@@ -91,19 +92,19 @@ func TestCommandFilterAndChoose(t *testing.T) {
 	}
 	selectedRow := func() string { return line(d, palette.selected) }
 	expect("closed at first", !palette.Open && !has("Suggestions"))
-	d.Press("ctrl+k")
+	settledPress(d, "ctrl+k")
 	t.Logf("open, 100x30, zinc light:\n%s", d.Frame().Text())
 	expect("ctrl+k opens the dialog with both groups, the separator and the shortcuts", palette.Open && has("Suggestions") && has("Settings") && has("⌘P") && has("Type a command or search..."))
 	expect("the first item is selected", palette.selected == "Calendar")
-	d.Press("down")
-	d.Press("down")
-	d.Press("down")
+	settledPress(d, "down")
+	settledPress(d, "down")
+	settledPress(d, "down")
 	expect("down moves across the group boundary", palette.selected == "Profile" && strings.Contains(selectedRow(), "⌘P"))
-	d.Press("up")
+	settledPress(d, "up")
 	expect("up moves back", palette.selected == "Calculator")
-	d.Press("up")
-	d.Press("up")
-	d.Press("up")
+	settledPress(d, "up")
+	settledPress(d, "up")
+	settledPress(d, "up")
 	expect("up stops at the first item", palette.selected == "Calendar")
 	separator := strings.Count(d.Frame().Text(), "▁")
 	d.Type("R")
@@ -115,28 +116,28 @@ func TestCommandFilterAndChoose(t *testing.T) {
 	_, calendar, _ := at(d.Frame(), "Calendar")
 	expect("the group holding the better match moves up, and an earlier match ranks first within a group", settings < suggestions && emoji < calendar)
 	expect("separators hide while searching", strings.Count(d.Frame().Text(), "▁") < separator)
-	d.Press("backspace")
+	settledPress(d, "backspace")
 	d.Type("stg")
 	expect("a subsequence matches: stg finds Settings", palette.selected == "Settings" && slices.Equal(palette.visible, []string{"Settings"}))
 	d.Type("zz")
 	expect("no match shows the empty state and hides every group", has("No results found.") && !has("Suggestions") && !has("Settings "))
-	d.Press("enter")
+	settledPress(d, "enter")
 	expect("enter with no match chooses nothing", len(*chosen) == 0 && palette.Open)
 	for range 5 {
-		d.Press("backspace")
+		settledPress(d, "backspace")
 	}
 	d.Type("bil")
-	d.Press("enter")
+	settledPress(d, "enter")
 	expect("enter chooses the selected match once and closes the dialog", slices.Equal(*chosen, []string{"Billing"}) && !palette.Open)
-	d.Press("ctrl+k")
+	settledPress(d, "ctrl+k")
 	expect("a reopened dialog starts with an empty search", palette.input.Value() == "" && has("Calendar") && palette.selected == "Calendar")
 	x, y, _ := at(d.Frame(), "Search Emoji")
-	d.Move(x, y)
+	settledMove(d, x, y)
 	expect("hovering an item selects it", palette.selected == "Search Emoji")
-	d.Click(x, y)
+	settledClick(d, x, y)
 	expect("a click chooses it and closes", slices.Equal(*chosen, []string{"Billing", "Search Emoji"}) && !palette.Open)
-	d.Press("ctrl+k")
-	d.Press("escape")
+	settledPress(d, "ctrl+k")
+	settledPress(d, "escape")
 	expect("escape closes it without choosing", !palette.Open && len(*chosen) == 2)
 }
 
@@ -150,24 +151,24 @@ func TestCommandWindow(t *testing.T) {
 		}
 	}
 	visible := func(s string) bool { return strings.Contains(d.Frame().Text(), s) }
-	d.Press("ctrl+k")
+	settledPress(d, "ctrl+k")
 	expect("the list shows a window of rows, the later items are below it", visible("Suggestions") && !visible("Item Ab"))
 	for range 7 {
-		d.Press("down")
+		settledPress(d, "down")
 	}
 	expect("the window follows the selection down", visible("Item Ab") && palette.selected == "Item Ab" && !visible("Suggestions"))
 	for range 60 {
-		d.Press("down")
+		settledPress(d, "down")
 	}
-	expect("it stops at the last item and never runs past the end", palette.selected == "Item Bn" && visible("Item Bn") && palette.offset == len(palette.visible)+4-commandRows)
+	expect("it stops at the last item and never runs past the end", palette.selected == "Item Bn" && visible("Item Bn") && palette.offset == len(palette.visible)+4-konst.CommandRows)
 	rt.Dispatch(func() {
 		extra = 30
 		rt.Invalidate()
 	})
 	d.Advance(20 * time.Millisecond)
-	expect("when the app drops ten items above the window, it stays full instead of running past the end", palette.selected == "Item Bn" && visible("Item Bf") && palette.offset == len(palette.visible)+4-commandRows)
+	expect("when the app drops ten items above the window, it stays full instead of running past the end", palette.selected == "Item Bn" && visible("Item Bf") && palette.offset == len(palette.visible)+4-konst.CommandRows)
 	for range 60 {
-		d.Press("up")
+		settledPress(d, "up")
 	}
 	expect("back at the top the heading of the first group shows again", palette.selected == "Calendar" && visible("Suggestions") && palette.offset == 0)
 	d.Type("item b")

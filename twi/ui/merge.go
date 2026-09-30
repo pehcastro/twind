@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 	"strings"
+
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 )
 
 type classKey struct {
@@ -12,7 +14,7 @@ type classKey struct {
 }
 
 func Merge(classes ...string) string {
-	tokens := make([]string, 0, 32)
+	tokens := make([]string, 0, konst.MergeTokens)
 	for _, c := range classes {
 		for token := range strings.FieldsSeq(c) {
 			tokens = append(tokens, token)

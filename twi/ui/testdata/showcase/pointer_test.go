@@ -52,44 +52,52 @@ func TestOverlaysPointer(t *testing.T) {
 		x, y := at(anchor, s)
 		return d.Frame().Cells().At(x, y).Bg.RGBA
 	}
+	move := func(x, y int) {
+		d.Move(x, y)
+		d.Advance(settleTime)
+	}
+	click := func(x, y int) {
+		d.Click(x, y)
+		d.Advance(settleTime)
+	}
 
 	expect("Edit Profile rests on the background", bg("Dialog", "Edit Profile") == background)
-	d.Move(at("Dialog", "Edit Profile"))
+	move(at("Dialog", "Edit Profile"))
 	expect("hover paints Edit Profile with hover:bg-accent", bg("Dialog", "Edit Profile") == accent)
 	t.Logf("hover on Edit Profile, zinc light, 150x45:\n%s", d.Frame().ANSI())
-	d.Move(at("Dropdown menu", "Selected"))
+	move(at("Dropdown menu", "Selected"))
 	expect("leaving Edit Profile drops the hover colour", bg("Dialog", "Edit Profile") == background)
 
-	d.Click(at("Dropdown menu", "Open"))
+	click(at("Dropdown menu", "Open"))
 	expect("a click on Open opens the menu", has("My Account") && has("Billing"))
-	d.Move(at("My Account", "Invite users"))
+	move(at("My Account", "Invite users"))
 	expect("hovering Invite users opens its sub menu", has("Email") && has("Message"))
-	d.Move(at("My Account", "Billing"))
+	move(at("My Account", "Billing"))
 	expect("hovering Billing closes the sub menu", !has("Message"))
 	t.Logf("menu opened by click, pointer on Billing:\n%s", d.Frame().Text())
-	d.Click(at("My Account", "Billing"))
+	click(at("My Account", "Billing"))
 	expect("a click on Billing chooses it and closes the menu", !has("My Account") && has("Selected: Billing"))
 	expect("focus back on the menu trigger shows no ring after a click", len(ringRows(d.Frame(), ring)) == 0)
 
-	d.Click(at("Popover", "Open popover"))
+	click(at("Popover", "Open popover"))
 	expect("a click on Open popover opens it", has("Dimensions"))
-	d.Click(at("Team Members", "Team Members"))
+	click(at("Team Members", "Team Members"))
 	expect("a click outside the popover closes it", !has("Dimensions"))
 
-	d.Move(at("Tooltip", "Hover"))
+	move(at("Tooltip", "Hover"))
 	expect("hovering the tooltip trigger shows the tooltip", has("Add to library"))
-	d.Move(at("Team Members", "Team Members"))
+	move(at("Team Members", "Team Members"))
 	expect("leaving the trigger hides the tooltip", !has("Add to library"))
 
-	d.Click(at("Dialog", "Edit Profile"))
+	click(at("Dialog", "Edit Profile"))
 	expect("a click on Edit Profile opens the dialog", has("Edit profile") && has("Save changes"))
-	d.Click(at("Edit profile", "✕"))
+	click(at("Edit profile", "✕"))
 	expect("a click on the X closes the dialog", !has("Save changes"))
 	expect("focus back on Edit Profile without focus-visible", len(ringRows(d.Frame(), ring)) == 0)
 	t.Logf("after the X, focus back on Edit Profile:\n%s", d.Frame().Text())
 	d.Press("enter")
 	expect("Enter on the restored focus opens the dialog again", has("Save changes"))
-	d.Click(1, 1)
+	click(1, 1)
 	expect("a click on the dimmed page closes the dialog", !has("Save changes"))
 	if err := d.Err(); err != nil {
 		t.Fatal(err)

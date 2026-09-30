@@ -34,9 +34,7 @@ func NewSheet(rt *twi.Runtime, side Side) *Dialog { return newDialog(rt, sheet, 
 
 func NewDrawer(rt *twi.Runtime, side Side) *Dialog { return newDialog(rt, drawer, side) }
 
-func (d *Dialog) Content(children ...twi.NodeOption) twi.Node { return d.content(nil, children) }
-
-func (d *Dialog) content(always, children []twi.NodeOption) twi.Node {
+func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	switch d.kind {
 	case modal, sheet:
 		children = append(children, d.close("absolute top-1 right-2 rounded-xs opacity-70", "", []twi.NodeOption{icon("✕", "")}))
@@ -46,15 +44,16 @@ func (d *Dialog) content(always, children []twi.NodeOption) twi.Node {
 	default:
 		panic("ui: unknown dialog kind")
 	}
-	if d.kind != alert {
+	at := d.phase()
+	if d.kind != alert && at == opened {
 		children = append(children, twi.OnPointerDownOutside(func() { d.set(false) }))
 	}
 	if d.kind == drawer && d.side == Bottom {
 		children = append([]twi.NodeOption{part("self-center mt-1 h-1 w-12 shrink-0 rounded-full bg-muted", nil)}, children...)
 	}
 	d.closes = 0
-	if !d.Open {
-		return part("hidden", append([]twi.NodeOption{twi.Key("closed")}, always...))
+	if at == gone {
+		return part("absolute", nil)
 	}
 	edge := pick("sheet", d.side, map[Side]string{
 		Right:  "h-full w-3/4 max-w-48 border-l",
@@ -62,26 +61,35 @@ func (d *Dialog) content(always, children []twi.NodeOption) twi.Node {
 		Top:    "w-full border-b",
 		Bottom: "w-full border-t",
 	})
-	backdrop := "flex-col items-center justify-center"
+	centre := "flex-col items-center justify-center"
 	if d.kind == sheet || d.kind == drawer {
-		backdrop = pick("sheet", d.side, map[Side]string{
+		centre = pick("sheet", d.side, map[Side]string{
 			Right:  "flex-row justify-end",
 			Left:   "flex-row",
 			Top:    "flex-col",
 			Bottom: "flex-col justify-end",
 		})
 	}
-	boxed := "w-full max-w-64 gap-1 rounded-lg border px-3 py-1 shadow-lg"
+	boxed := "w-full max-w-64 gap-1 rounded-lg border px-3 py-1 shadow-lg duration-200 " + popMotion
+	slide := "transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500 " + pick("sheet", d.side, map[Side]string{
+		Right:  "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+		Left:   "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+		Top:    "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+		Bottom: "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+	})
 	panel := pick("dialog", d.kind, map[dialogKind]string{
 		modal:   boxed,
 		alert:   boxed,
-		palette: "w-full max-w-64 overflow-hidden rounded-lg border shadow-lg",
-		sheet:   "gap-1 shadow-lg " + edge,
-		drawer:  edge + pick("drawer", d.side, map[Side]string{Bottom: " max-h-[80%]", Top: " max-h-[80%]", Right: "", Left: ""}),
+		palette: "w-full max-w-64 overflow-hidden rounded-lg border shadow-lg duration-200 " + popMotion,
+		sheet:   "gap-1 shadow-lg " + edge + " " + slide,
+		drawer:  edge + " " + slide + pick("drawer", d.side, map[Side]string{Bottom: " max-h-[80%]", Top: " max-h-[80%]", Right: "", Left: ""}),
 	})
-	return part("fixed inset-0 z-50 flex bg-black/50 "+backdrop, append([]twi.NodeOption{
-		d.dismissable("relative flex flex-col bg-background text-foreground "+panel, children),
-	}, always...))
+	return part("absolute", []twi.NodeOption{part("fixed inset-0 z-50", []twi.NodeOption{
+		part("absolute inset-0 bg-black/50 "+fadeMotion, []twi.NodeOption{at.state()}),
+		part("absolute inset-0 flex "+centre, []twi.NodeOption{
+			d.dismissable("relative flex flex-col bg-background text-foreground "+panel, at, children),
+		}),
+	})})
 }
 
 func (d *Dialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node {

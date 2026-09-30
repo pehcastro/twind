@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
@@ -20,6 +22,7 @@ func overlayDriver(t *testing.T, width, height int, app drive.App) *drive.Driver
 		t.Fatal(err)
 	}
 	d := drive.New(app, drive.Size(width, height), drive.Styles(sheet))
+	d.Advance(settleTime)
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
 			t.Error(err)
@@ -31,13 +34,31 @@ func overlayDriver(t *testing.T, width, height int, app drive.App) *drive.Driver
 	return d
 }
 
+const settleTime = time.Second
+
+func settledPress(d *drive.Driver, key string) {
+	d.Press(key)
+	d.Advance(settleTime)
+}
+
+func settledClick(d *drive.Driver, x, y int) {
+	d.Click(x, y)
+	d.Advance(settleTime)
+}
+
+func settledMove(d *drive.Driver, x, y int) {
+	d.Move(x, y)
+	d.Advance(settleTime)
+}
+
 func hit(d *drive.Driver, keys string) {
 	for k := range strings.FieldsSeq(keys) {
 		if typed, ok := strings.CutPrefix(k, "type:"); ok {
 			d.Type(typed)
-			continue
+		} else {
+			d.Press(k)
 		}
-		d.Press(k)
+		d.Advance(settleTime)
 	}
 }
 
@@ -187,7 +208,7 @@ func TestDialogKinds(t *testing.T) {
 		if got := strings.Contains(f.Text(), "✕"); got != c.x {
 			t.Errorf("%s: an X close shown %v, want %v", c.name, got, c.x)
 		}
-		d.Press("escape")
+		hit(d, "escape")
 		if dlg.Open || strings.Contains(d.Frame().Text(), "Title") {
 			t.Errorf("%s: escape did not close it:\n%s", c.name, d.Frame().Text())
 		}
@@ -421,15 +442,22 @@ func TestOverlayStates(t *testing.T) {
 		return tt.Node(tt.Trigger(Ghost, SizeDefault, twi.Text("t")), tt.Content(twi.Text("tip")))
 	}
 	checkParts(t, []partCase{
-		{"dialog backdrop: fixed inset-0 z-50 bg-black/50", light, dialog(NewDialog, true), nil, func(s style.ComputedStyle) bool {
+		{"dialog layer: fixed inset-0 z-50, no colour of its own", light, dialog(NewDialog, true), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Position == style.PositionFixed && s.ZIndex == 50 && s.Inset.Top == cells(0) && s.Inset.Left == cells(0) && s.Inset.Right == cells(0) && s.Inset.Bottom == cells(0) &&
-				s.Background.RGBA.R == 0 && s.Background.RGBA.A >= 127 && s.Background.RGBA.A <= 128
+				s.Background.Kind == color.Unset
 		}},
-		{"dialog content: bg-background rounded-lg border shadow-lg, 64 cells at most", light, dialog(NewDialog, true), []int{0}, func(s style.ComputedStyle) bool {
-			return s.Background == light.Tokens[theme.Background] && s.Radius == style.RadiusLg && s.BorderWidth.Top == cells(1) && shadowed(s) && s.MaxWidth == cells(64)
+		{"dialog overlay: bg-black/50 over the whole layer, beside the panel", light, dialog(NewDialog, true), []int{0, 0}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionAbsolute && s.Inset.Top == cells(0) && s.Inset.Bottom == cells(0) && s.Background.RGBA.R == 0 && s.Background.RGBA.A >= 127 && s.Background.RGBA.A <= 128 &&
+				s.Animation.Keyframes == style.KeyframesEnter && s.Animation.Enter.Opacity == 0 && s.Animation.Enter.Scale == 1
 		}},
-		{"dialog closed: nothing laid out", light, dialog(NewDialog, false), nil, func(s style.ComputedStyle) bool { return s.Display == style.DisplayNone }},
-		{"sheet from the right: full height, three quarters wide, border on the left only", light, dialog(sheet, true), []int{0}, func(s style.ComputedStyle) bool {
+		{"dialog centring wrapper: no colour, not animated", light, dialog(NewDialog, true), []int{0, 1}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionAbsolute && s.Background.Kind == color.Unset && s.Animation.Keyframes == style.KeyframesNone
+		}},
+		{"dialog content: bg-background rounded-lg border shadow-lg, 64 cells at most, fades and zooms in over 200 ms", light, dialog(NewDialog, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
+			return s.Background == light.Tokens[theme.Background] && s.Radius == style.RadiusLg && s.BorderWidth.Top == cells(1) && shadowed(s) && s.MaxWidth == cells(64) &&
+				s.Animation.Keyframes == style.KeyframesEnter && s.Animation.Enter.Opacity == 0 && s.Animation.Enter.Scale == 0.95 && s.Animation.Duration == 200*time.Millisecond
+		}},
+		{"sheet from the right: full height, three quarters wide, border on the left only", light, dialog(sheet, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
 			return s.Height == percent(100) && s.Width == percent(75) && s.BorderWidth.Left == cells(1) && s.BorderWidth.Right == cells(0) && shadowed(s)
 		}},
 		{"menu positioner: absolute z-50 below the trigger", light, menu(0, false), []int{1}, func(s style.ComputedStyle) bool {
@@ -446,24 +474,30 @@ func TestOverlayStates(t *testing.T) {
 			return s.Background == light.Tokens[theme.Accent]
 		}},
 		{"root highlight gives way to the open sub trigger", light, menu(0, true), []int{1, 0, 0}, func(s style.ComputedStyle) bool { return s.Background.Kind == color.Unset }},
-		{"sub content: absolute right of its trigger, shadow-lg", light, menu(0, true), []int{1, 0, 1, 1}, func(s style.ComputedStyle) bool {
-			return s.Position == style.PositionAbsolute && s.Inset.Left == percent(100) && s.ZIndex == 50 && shadowed(s) && s.Background == light.Tokens[theme.Popover]
+		{"sub content holder: absolute right of its trigger", light, menu(0, true), []int{1, 0, 1, 1}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionAbsolute && s.Inset.Left == percent(100) && s.ZIndex == 50
+		}},
+		{"sub content: bg-popover shadow-lg", light, menu(0, true), []int{1, 0, 1, 1, 0}, func(s style.ComputedStyle) bool {
+			return shadowed(s) && s.Background == light.Tokens[theme.Popover]
 		}},
 		{"outline trigger idle: the button's border ring", light, trigger, nil, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
 		{"tooltip: bg-foreground text-background above the trigger", light, tip(), []int{1, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Foreground] && s.Color == light.Tokens[theme.Background]
 		}},
 	})
+	if n := reflect.ValueOf(dialog(NewDialog, false)).FieldByName("tree").FieldByName("Children").Len(); n != 0 {
+		t.Errorf("a closed dialog's holder has %d children, want none", n)
+	}
 	checkFocused(t, []focusCase{
 		{"outline trigger focused: the focus ring replaces the border ring on the button itself", light, trigger, []int{}, nil, func(s style.ComputedStyle) bool {
 			return halo(s, light.Tokens[theme.Ring], scaled(light, theme.Ring, 0.5)) && s.Background == light.Tokens[theme.Background]
 		}},
-		{"focused Close: the focus ring on its button", light, closes(), []int{0, 0, 0}, []int{0, 0, 0}, func(s style.ComputedStyle) bool {
+		{"focused Close: the focus ring on its button", light, closes(), []int{0, 1, 0, 0, 0}, []int{0, 1, 0, 0, 0}, func(s style.ComputedStyle) bool {
 			return halo(s, light.Tokens[theme.Ring], scaled(light, theme.Ring, 0.5))
 		}},
-		{"the other Close keeps its own look", light, closes(), []int{0, 0, 0}, []int{0, 0, 1}, func(s style.ComputedStyle) bool {
+		{"the other Close keeps its own look", light, closes(), []int{0, 1, 0, 0, 0}, []int{0, 1, 0, 0, 1}, func(s style.ComputedStyle) bool {
 			return len(s.Shadows) == 0 && s.Background == light.Tokens[theme.Primary]
 		}},
-		{"Close not focused: the outline button's border ring", light, closes(), []int{0, 0, 1}, []int{0, 0, 0}, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
+		{"Close not focused: the outline button's border ring", light, closes(), []int{0, 1, 0, 0, 1}, []int{0, 1, 0, 0, 0}, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
 	})
 }

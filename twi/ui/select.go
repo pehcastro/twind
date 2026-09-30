@@ -56,12 +56,11 @@ func (s *Select) Content(children ...twi.NodeOption) twi.Node {
 	if s.label() != s.shown {
 		s.rt.Invalidate()
 	}
-	if !s.Open {
-		return closed()
-	}
-	return s.place(part("flex flex-col min-w-full shrink-0 rounded-md border bg-popover px-1 text-popover-foreground shadow-md", append([]twi.NodeOption{
-		twi.FocusScope(), twi.Focusable(), keyDown(s.rt, s.key),
-	}, children...)))
+	at := s.phase()
+	return s.place(at, func() twi.Node {
+		return part("flex flex-col min-w-full shrink-0 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion,
+			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(s.rt, s.key), children))
+	})
 }
 
 func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node {
