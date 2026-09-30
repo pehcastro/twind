@@ -16,6 +16,8 @@ const (
 	Ghost
 	Link
 	Icon
+	Muted
+	Image
 )
 
 type Size uint8

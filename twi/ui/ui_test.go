@@ -60,31 +60,46 @@ func TestStylesFresh(t *testing.T) {
 	}
 }
 
+func token(th theme.Theme, tok theme.Token, alpha uint8) color.Color {
+	c := th.Tokens[tok]
+	c.RGBA.A = alpha
+	return c
+}
+
+func ring(s style.ComputedStyle, c color.Color) bool {
+	return len(s.Shadows) == 1 && len(s.InsetShadows) == 0 && s.Shadows[0].Spread == 1 && s.Shadows[0].Blur == 0 && s.Shadows[0].X == 0 && s.Shadows[0].Y == 0 && s.Shadows[0].Color == c
+}
+
+func cells(n float64) style.Length { return style.Length{Unit: style.Cells, Value: n} }
+
+func percent(n float64) style.Length { return style.Length{Unit: style.Percent, Value: n} }
+
+type partCase struct {
+	name string
+	th   theme.Theme
+	node twi.Node
+	path []int
+	want func(style.ComputedStyle) bool
+}
+
+func checkParts(t *testing.T, cases []partCase) {
+	t.Helper()
+	for _, c := range cases {
+		if s := computed(t, c.th, c.node, c.path...); !c.want(s) {
+			t.Errorf("%s: computed %+v", c.name, s)
+		}
+	}
+}
+
 func TestParts(t *testing.T) {
 	light, dark := zinc(t, theme.Light), zinc(t, theme.Dark)
-	token := func(th theme.Theme, tok theme.Token, alpha uint8) color.Color {
-		c := th.Tokens[tok]
-		c.RGBA.A = alpha
-		return c
-	}
-	ring := func(s style.ComputedStyle, c color.Color) bool {
-		return len(s.Shadows) == 1 && len(s.InsetShadows) == 0 && s.Shadows[0].Spread == 1 && s.Shadows[0].Blur == 0 && s.Shadows[0].X == 0 && s.Shadows[0].Y == 0 && s.Shadows[0].Color == c
-	}
 	white := color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}
-	cells := func(n float64) style.Length { return style.Length{Unit: style.Cells, Value: n} }
-	percent := func(n float64) style.Length { return style.Length{Unit: style.Percent, Value: n} }
 	card := Card(
 		CardHeader(CardTitle(twi.Text("Title")), CardDescription(twi.Text("Description")), CardAction(twi.Text("Action"))),
 		CardContent(twi.Text("Content")),
 		CardFooter(twi.Text("Footer")),
 	)
-	for _, c := range []struct {
-		name string
-		th   theme.Theme
-		node twi.Node
-		path []int
-		want func(style.ComputedStyle) bool
-	}{
+	checkParts(t, []partCase{
 		{"button default: bg-primary text-primary-foreground rounded-md", light, Button(Default, SizeDefault, twi.Text("Button")), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Primary] && s.Color == light.Tokens[theme.PrimaryForeground] && s.Radius == style.RadiusMd && s.Padding.Left == cells(2)
 		}},
@@ -181,20 +196,192 @@ func TestParts(t *testing.T) {
 		{"avatar fallback: bg-muted text-muted-foreground", light, Avatar(SizeSM, AvatarFallback(twi.Text("CN"))), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Muted] && s.Color == light.Tokens[theme.MutedForeground] && s.AlignItems == style.AlignCenter
 		}},
-	} {
-		if s := computed(t, c.th, c.node, c.path...); !c.want(s) {
-			t.Errorf("%s: computed %+v", c.name, s)
-		}
-	}
+	})
+}
+
+func TestPartsWave1b(t *testing.T) {
+	light, dark := zinc(t, theme.Light), zinc(t, theme.Dark)
+	text := twi.Text
+	invoices := Table(
+		TableHeader(TableRow(TableHead(twi.Class("flex-none w-12"), text("Invoice")), TableHead(text("Amount")))),
+		TableBody(TableRow(TableCell(text("INV001")), TableCell(text("$250.00")))),
+		TableFooter(TableRow(TableCell(text("Total")))),
+		TableCaption(text("A list of your recent invoices.")),
+	)
+	crumbs := Breadcrumb(BreadcrumbList(
+		BreadcrumbItem(BreadcrumbLink(text("Home"))),
+		BreadcrumbSeparator(),
+		BreadcrumbItem(BreadcrumbEllipsis()),
+		BreadcrumbSeparator(text("/")),
+		BreadcrumbItem(BreadcrumbPage(text("Breadcrumb"))),
+	))
+	pages := Pagination(PaginationContent(
+		PaginationItem(PaginationPrevious()),
+		PaginationItem(PaginationLink(false, text("1"))),
+		PaginationItem(PaginationLink(true, text("2"))),
+		PaginationItem(PaginationEllipsis()),
+		PaginationItem(PaginationNext()),
+	))
+	item := Item(Outline, SizeDefault,
+		ItemMedia(Icon, text("◆")),
+		ItemContent(ItemTitle(text("Basic Item")), ItemDescription(text("A simple item with title and description."))),
+		ItemActions(Button(Outline, SizeSM, text("Action"))),
+	)
+	field := FieldSet(
+		FieldLegend(text("Payment Method")),
+		FieldGroup(
+			Field(Vertical, FieldLabel(text("Name on Card")), FieldDescription(text("As printed.")), FieldError(text("Required."))),
+			FieldSeparator(text("Or")),
+			Field(Horizontal, FieldLabel(text("Same as shipping"))),
+		),
+	)
+	checkParts(t, []partCase{
+		{"Table: a w-full box that scrolls sideways", light, invoices, nil, func(s style.ComputedStyle) bool {
+			return s.Width == percent(100) && s.OverflowX == style.OverflowAuto && s.Position == style.PositionRelative
+		}},
+		{"Table: a full-width column of sections", light, invoices, []int{0}, func(s style.ComputedStyle) bool {
+			return s.Display == style.DisplayFlex && s.Direction == style.Column && s.Width == percent(100)
+		}},
+		{"TableHeader: a column of rows", light, invoices, []int{0, 0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Column
+		}},
+		{"TableRow: a row with one bottom line, no ring", light, invoices, []int{0, 0, 0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.BorderWidth == style.Edges{Top: cells(0), Right: cells(0), Bottom: cells(1), Left: cells(0)}
+		}},
+		{"TableHead: font-medium text-foreground px-2, an equal share of the row", light, invoices, []int{0, 0, 0, 1}, func(s style.ComputedStyle) bool {
+			return s.Color == light.Tokens[theme.Foreground] && s.Padding.Left == cells(1) && s.Grow == 1 && s.Basis == percent(0) && s.TextAlign == style.TextLeft
+		}},
+		{"TableHead: a caller's flex-none w-12 fixes the column", light, invoices, []int{0, 0, 0, 0}, func(s style.ComputedStyle) bool {
+			return s.Grow == 0 && s.Shrink == 0 && s.Width == cells(12)
+		}},
+		{"TableCell: p-2, an equal share of the row", light, invoices, []int{0, 1, 0, 1}, func(s style.ComputedStyle) bool {
+			return s.Padding.Left == cells(1) && s.Padding.Right == cells(1) && s.Grow == 1 && s.Basis == percent(0)
+		}},
+		{"TableFooter: bg-muted/50, no second line on top", light, invoices, []int{0, 2}, func(s style.ComputedStyle) bool {
+			return s.Background == token(light, theme.Muted, 128) && s.BorderWidth.Top == cells(0) && s.Direction == style.Column
+		}},
+		{"TableCaption: mt-4 text-muted-foreground", light, invoices, []int{0, 3}, func(s style.ComputedStyle) bool {
+			return s.Color == light.Tokens[theme.MutedForeground] && s.Margin.Top == cells(1) && s.TextAlign == style.TextCenter
+		}},
+		{"breadcrumb list: a muted row, a six pixel gap as one cell", light, crumbs, []int{0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.ColumnGap == cells(1) && s.Color == light.Tokens[theme.MutedForeground]
+		}},
+		{"breadcrumb item: an inline row", light, crumbs, []int{0, 0}, func(s style.ComputedStyle) bool {
+			return s.Display == style.DisplayFlex && s.Direction == style.Row && s.ColumnGap == cells(1)
+		}},
+		{"breadcrumb ellipsis: a centred three-cell box", light, crumbs, []int{0, 2, 0}, func(s style.ComputedStyle) bool {
+			return s.Width == cells(3) && s.Justify == style.JustifyCenter && s.AlignItems == style.AlignCenter
+		}},
+		{"breadcrumb page: text-foreground", light, crumbs, []int{0, 4, 0}, func(s style.ComputedStyle) bool {
+			return s.Color == light.Tokens[theme.Foreground] && !s.Bold
+		}},
+		{"pagination: centred across the width", light, pages, nil, func(s style.ComputedStyle) bool {
+			return s.Display == style.DisplayFlex && s.Direction == style.Row && s.Justify == style.JustifyCenter && s.Width == percent(100)
+		}},
+		{"pagination content: a row, gap-1", light, pages, []int{0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.ColumnGap == cells(1)
+		}},
+		{"pagination link: ghost, icon size", light, pages, []int{0, 1, 0}, func(s style.ComputedStyle) bool {
+			return s.Background.Kind == color.Unset && len(s.Shadows) == 0 && s.Width == cells(3) && s.Radius == style.RadiusMd
+		}},
+		{"pagination link active: outline, icon size", light, pages, []int{0, 2, 0}, func(s style.ComputedStyle) bool {
+			return s.Background == light.Tokens[theme.Background] && ring(s, light.Tokens[theme.Border]) && s.Width == cells(3)
+		}},
+		{"pagination previous: ghost, ten pixels of padding as one cell", light, pages, []int{0, 0, 0}, func(s style.ComputedStyle) bool {
+			return s.Background.Kind == color.Unset && s.Padding.Left == cells(1) && s.ColumnGap == cells(1)
+		}},
+		{"pagination ellipsis: a centred three-cell box", light, pages, []int{0, 3, 0}, func(s style.ComputedStyle) bool {
+			return s.Width == cells(3) && s.Justify == style.JustifyCenter
+		}},
+		{"item outline: rounded-md border-border, p-4 as the border row and one cell", light, item, nil, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.Radius == style.RadiusMd && s.BorderWidth.Top == cells(1) && s.BorderColor == light.Tokens[theme.Border] && s.Padding.Left == cells(1) && s.ColumnGap == cells(2)
+		}},
+		{"item default: a transparent border of the same size", light, Item(Default, SizeDefault), nil, func(s style.ComputedStyle) bool {
+			return s.BorderWidth.Top == cells(1) && s.BorderColor.RGBA.A == 0 && s.Background.RGBA.A == 0
+		}},
+		{"item muted: bg-muted/50", light, Item(Muted, SizeDefault), nil, func(s style.ComputedStyle) bool {
+			return s.Background == token(light, theme.Muted, 128) && s.BorderColor.RGBA.A == 0
+		}},
+		{"item sm: a ten pixel gap as one cell", light, Item(Default, SizeSM), nil, func(s style.ComputedStyle) bool { return s.ColumnGap == cells(1) }},
+		{"item media icon: a one-row muted tile with a ring, no layout border", light, item, []int{0}, func(s style.ComputedStyle) bool {
+			return s.Height == cells(1) && s.Width == cells(3) && s.Background == light.Tokens[theme.Muted] && s.Radius == style.RadiusSm && ring(s, light.Tokens[theme.Border]) && s.BorderWidth == style.Edges{} && s.Shrink == 0
+		}},
+		{"item media image: size-10 overflow-hidden rounded-sm", light, ItemMedia(Image), nil, func(s style.ComputedStyle) bool {
+			return s.Height == cells(3) && s.Width == cells(5) && s.OverflowX == style.OverflowHidden && s.Radius == style.RadiusSm
+		}},
+		{"item content: flex-1 column", light, item, []int{1}, func(s style.ComputedStyle) bool {
+			return s.Grow == 1 && s.Direction == style.Column
+		}},
+		{"item title: font-medium row", light, item, []int{1, 0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.AlignItems == style.AlignCenter
+		}},
+		{"item description: text-muted-foreground", light, item, []int{1, 1}, func(s style.ComputedStyle) bool {
+			return s.Color == light.Tokens[theme.MutedForeground]
+		}},
+		{"item actions: a row, gap-2", light, item, []int{2}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.ColumnGap == cells(1)
+		}},
+		{"item group: a column", light, ItemGroup(item, ItemSeparator(), item), nil, func(s style.ComputedStyle) bool { return s.Direction == style.Column }},
+		{"item separator: a horizontal hairline", light, ItemSeparator(), nil, func(s style.ComputedStyle) bool {
+			return s.BorderWidth.Top == cells(1) && s.Width == percent(100)
+		}},
+		{"button group horizontal: a row, no gap, stretched", light, ButtonGroup(Horizontal, Button(Outline, SizeDefault)), nil, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.ColumnGap == cells(0) && s.AlignItems == style.AlignStretch
+		}},
+		{"button group vertical: a column", light, ButtonGroup(Vertical), nil, func(s style.ComputedStyle) bool { return s.Direction == style.Column }},
+		{"button group separator, dark: bg-input as a vertical hairline", dark, ButtonGroupSeparator(Vertical), nil, func(s style.ComputedStyle) bool {
+			return s.BorderWidth.Left == cells(1) && s.BorderWidth.Top == cells(0) && s.BorderColor == dark.Tokens[theme.Input] && s.AlignSelf == style.AlignStretch
+		}},
+		{"button group separator horizontal: a top hairline", light, ButtonGroupSeparator(Horizontal), nil, func(s style.ComputedStyle) bool {
+			return s.BorderWidth.Top == cells(1) && s.BorderWidth.Left == cells(0)
+		}},
+		{"button group text: bg-muted rounded-md, a ring instead of a layout border", light, ButtonGroupText(text("https://")), nil, func(s style.ComputedStyle) bool {
+			return s.Background == light.Tokens[theme.Muted] && s.Radius == style.RadiusMd && ring(s, light.Tokens[theme.Border]) && s.BorderWidth == style.Edges{} && s.Padding.Left == cells(2)
+		}},
+		{"field set: a column, gap-6", light, field, nil, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Column && s.RowGap == cells(1)
+		}},
+		{"field legend: mb-3", light, field, []int{0}, func(s style.ComputedStyle) bool { return s.Margin.Bottom == cells(1) }},
+		{"field group: a full-width column, gap-7", light, field, []int{1}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Column && s.Width == percent(100) && s.RowGap == cells(1)
+		}},
+		{"field vertical: label over control", light, field, []int{1, 0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Column && s.Width == percent(100)
+		}},
+		{"field label: a select-none row", light, field, []int{1, 0, 0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.UserSelect == style.SelectNone
+		}},
+		{"field description: text-muted-foreground", light, field, []int{1, 0, 1}, func(s style.ComputedStyle) bool {
+			return s.Color == light.Tokens[theme.MutedForeground]
+		}},
+		{"field error: text-destructive", light, field, []int{1, 0, 2}, func(s style.ComputedStyle) bool {
+			return s.Color == light.Tokens[theme.Destructive]
+		}},
+		{"field separator: one row holding the line and its label", light, field, []int{1, 1}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionRelative && s.Height == cells(1) && s.Justify == style.JustifyCenter
+		}},
+		{"field separator line: an absolute top hairline across", light, field, []int{1, 1, 0}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionAbsolute && s.BorderWidth.Top == cells(1) && s.Inset.Left == cells(0) && s.Inset.Right == cells(0)
+		}},
+		{"field separator label: bg-background over the line", light, field, []int{1, 1, 1}, func(s style.ComputedStyle) bool {
+			return s.Background == light.Tokens[theme.Background] && s.Color == light.Tokens[theme.MutedForeground] && s.Position == style.PositionRelative && s.Padding.Left == cells(1)
+		}},
+		{"field horizontal: label beside control", light, field, []int{1, 2}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.ColumnGap == cells(1)
+		}},
+	})
 }
 
 func TestUnknownVariantPanics(t *testing.T) {
 	for name, build := range map[string]func(){
-		"alert outline":    func() { Alert(Outline) },
-		"badge icon":       func() { Badge(Icon) },
-		"button size icon": func() { Button(Icon, SizeDefault) },
-		"avatar size icon": func() { Avatar(SizeIcon) },
-		"empty media link": func() { EmptyMedia(Link) },
+		"alert outline":      func() { Alert(Outline) },
+		"badge icon":         func() { Badge(Icon) },
+		"button size icon":   func() { Button(Icon, SizeDefault) },
+		"avatar size icon":   func() { Avatar(SizeIcon) },
+		"empty media link":   func() { EmptyMedia(Link) },
+		"item destructive":   func() { Item(Destructive, SizeDefault) },
+		"item size lg":       func() { Item(Default, SizeLG) },
+		"item media outline": func() { ItemMedia(Outline) },
 	} {
 		func() {
 			defer func() {
@@ -251,4 +438,84 @@ func TestRendersOneRowControls(t *testing.T) {
 			t.Errorf("button variant %d renders %d rows, want one row holding its label:\n%s", v, rows, out)
 		}
 	}
+	for name, c := range map[string]struct {
+		node twi.Node
+		rows int
+	}{
+		"button group with text":  {ButtonGroup(Horizontal, ButtonGroupText(twi.Text("https://")), Button(Outline, SizeDefault, twi.Text("Go"))), 1},
+		"item with a description": {Item(Outline, SizeDefault, ItemMedia(Icon, twi.Text("◆")), ItemContent(ItemTitle(twi.Text("Title")), ItemDescription(twi.Text("Body")))), 4},
+	} {
+		out := twi.RenderString(c.node, twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(30), twi.ColorProfile(color.None))
+		if rows := strings.Count(out, "\n"); rows != c.rows {
+			t.Errorf("%s renders %d rows, want %d:\n%s", name, rows, c.rows, out)
+		}
+	}
+}
+
+func TestRendersWave1b(t *testing.T) {
+	sheet, err := styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := twi.Text
+	row := func(invoice, status, amount string) twi.Node {
+		return TableRow(TableCell(twi.Class("flex-none w-10"), text(invoice)), TableCell(text(status)), TableCell(twi.Class("text-right"), text(amount)))
+	}
+	every := twi.Element(twi.Class("flex flex-col gap-1 w-60"),
+		Table(
+			TableHeader(TableRow(TableHead(twi.Class("flex-none w-10"), text("Invoice")), TableHead(text("Status")), TableHead(twi.Class("text-right"), text("Amount")))),
+			TableBody(row("INV001", "Paid", "$250.00"), row("INV002", "Pending", "$150.00")),
+			TableFooter(TableRow(TableCell(twi.Class("flex-none w-10"), text("Total")), TableCell(), TableCell(twi.Class("text-right"), text("$400.00")))),
+			TableCaption(text("A list of your recent invoices.")),
+		),
+		Breadcrumb(BreadcrumbList(
+			BreadcrumbItem(BreadcrumbLink(text("Home"))), BreadcrumbSeparator(),
+			BreadcrumbItem(BreadcrumbEllipsis()), BreadcrumbSeparator(text("/")),
+			BreadcrumbItem(BreadcrumbPage(text("Breadcrumb"))),
+		)),
+		Pagination(PaginationContent(
+			PaginationItem(PaginationPrevious()), PaginationItem(PaginationLink(false, text("1"))), PaginationItem(PaginationLink(true, text("2"))),
+			PaginationItem(PaginationEllipsis()), PaginationItem(PaginationNext()),
+		)),
+		FieldSeparator(text("Or continue with")),
+	)
+	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
+		rt.SetTheme(zinc(t, theme.Dark))
+		return func() twi.Node { return every }
+	}, drive.Size(60, 30), drive.Styles(sheet))
+	frame := d.Frame().Text()
+	if err := d.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("driven, zinc dark, 60x30:\n%s", frame)
+	lines := strings.Split(frame, "\n")
+	find := func(s string) (int, int) {
+		for i, l := range lines {
+			if at := strings.Index(l, s); at >= 0 {
+				return i, len([]rune(l[:at]))
+			}
+		}
+		t.Errorf("no %q in the frame", s)
+		return -1, -1
+	}
+	head, statusHead := find("Status")
+	_, status := find("Pending")
+	_, amountEnd := find("Amount")
+	_, valueEnd := find("$150.00")
+	total, _ := find("Total")
+	if statusHead != status || amountEnd+len("Amount") != valueEnd+len("$150.00") {
+		t.Errorf("columns do not line up: Status at %d, Pending at %d; Amount ends at %d, $150.00 at %d", statusHead, status, amountEnd+len("Amount"), valueEnd+len("$150.00"))
+	}
+	if total-head != 6 {
+		t.Errorf("the footer is %d rows below the header, want 6: three text rows, each with one line under it", total-head)
+	}
+	crumbs, _ := find("Home")
+	if l := lines[max(crumbs, 0)]; !strings.Contains(l, "Home ›  …  / Breadcrumb") {
+		t.Errorf("breadcrumb reads %q, want the chevron by default, the given separator, and the ellipsis", l)
+	}
+	pages, _ := find("Previous")
+	if l := lines[max(pages, 0)]; !strings.Contains(l, "‹ Previous") || !strings.Contains(l, "Next ›") || !strings.Contains(l, "…") {
+		t.Errorf("pagination reads %q", l)
+	}
+	find("Or continue with")
 }

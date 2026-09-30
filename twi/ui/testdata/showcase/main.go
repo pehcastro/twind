@@ -15,7 +15,12 @@ import (
 
 func main() {
 	scheme := flag.String("scheme", "light", "zinc scheme, light or dark")
+	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups or fields")
 	flag.Parse()
+	body, ok := page(*name)
+	if !ok {
+		fail(fmt.Errorf("no page %q", *name))
+	}
 	sheet, err := Styles()
 	if err != nil {
 		fail(err)
@@ -32,7 +37,7 @@ func main() {
 			rt.Quit()
 		}
 	})
-	if err := rt.Run(func() twi.Node { return showcase(quit) }); err != nil {
+	if err := rt.Run(func() twi.Node { return screen(quit, body) }); err != nil {
 		fail(err)
 	}
 }
@@ -56,9 +61,34 @@ func row(children ...twi.NodeOption) twi.Node {
 	return el("flex flex-row items-center gap-2", children...)
 }
 
-func showcase(quit twi.NodeOption) twi.Node {
-	label := twi.Text
-	return el("flex flex-row h-full gap-4 px-3 py-1 bg-background text-foreground", quit,
+func screen(quit twi.NodeOption, body twi.Node) twi.Node {
+	return el("flex flex-row h-full gap-4 px-3 py-1 bg-background text-foreground", quit, body)
+}
+
+func page(name string) (twi.Node, bool) {
+	switch name {
+	case "wave1":
+		return wave1(), true
+	case "tables":
+		return tables(), true
+	case "breadcrumbs":
+		return breadcrumbs(), true
+	case "pagination":
+		return pagination(), true
+	case "items":
+		return items(), true
+	case "button-groups":
+		return buttonGroups(), true
+	case "fields":
+		return fields(), true
+	}
+	return twi.Node{}, false
+}
+
+func label(s string) twi.Node { return twi.Text(s) }
+
+func wave1() twi.Node {
+	return el("flex flex-row grow gap-4",
 		el("flex flex-col gap-1 w-46",
 			section("Button, variants",
 				row(ui.Button(ui.Default, ui.SizeDefault, label("Default")), ui.Button(ui.Destructive, ui.SizeDefault, label("Destructive")), ui.Button(ui.Outline, ui.SizeDefault, label("Outline"))),
@@ -111,6 +141,173 @@ func showcase(quit twi.NodeOption) twi.Node {
 					ui.EmptyHeader(ui.EmptyMedia(ui.Icon, label("▣")), ui.EmptyTitle(label("No Projects Yet")), ui.EmptyDescription(label("You haven't created any projects yet. Get started by creating your first project."))),
 					ui.EmptyContent(row(ui.Button(ui.Default, ui.SizeDefault, label("Create Project")), ui.Button(ui.Outline, ui.SizeDefault, label("Import Project")))),
 				),
+			),
+		),
+	)
+}
+
+func tables() twi.Node {
+	invoice := twi.Class("flex-none w-12")
+	right := twi.Class("text-right")
+	var body []twi.NodeOption
+	for _, v := range [][4]string{
+		{"INV001", "Paid", "Credit Card", "$250.00"},
+		{"INV002", "Pending", "PayPal", "$150.00"},
+		{"INV003", "Unpaid", "Bank Transfer", "$350.00"},
+		{"INV004", "Paid", "Credit Card", "$450.00"},
+		{"INV005", "Paid", "PayPal", "$550.00"},
+		{"INV006", "Pending", "Bank Transfer", "$200.00"},
+		{"INV007", "Unpaid", "Credit Card", "$300.00"},
+	} {
+		body = append(body, ui.TableRow(ui.TableCell(invoice, twi.Class("font-medium"), label(v[0])), ui.TableCell(label(v[1])), ui.TableCell(label(v[2])), ui.TableCell(right, label(v[3]))))
+	}
+	return section("Table",
+		el("w-90", ui.Table(
+			ui.TableHeader(ui.TableRow(ui.TableHead(invoice, label("Invoice")), ui.TableHead(label("Status")), ui.TableHead(label("Method")), ui.TableHead(right, label("Amount")))),
+			ui.TableBody(body...),
+			ui.TableFooter(ui.TableRow(ui.TableCell(label("Total")), ui.TableCell(right, label("$2,500.00")))),
+			ui.TableCaption(label("A list of your recent invoices.")),
+		)),
+	)
+}
+
+func breadcrumbs() twi.Node {
+	return el("flex flex-col gap-2",
+		section("Breadcrumb",
+			ui.Breadcrumb(ui.BreadcrumbList(
+				ui.BreadcrumbItem(ui.BreadcrumbLink(label("Home"))), ui.BreadcrumbSeparator(),
+				ui.BreadcrumbItem(ui.BreadcrumbEllipsis()), ui.BreadcrumbSeparator(),
+				ui.BreadcrumbItem(ui.BreadcrumbLink(label("Components"))), ui.BreadcrumbSeparator(),
+				ui.BreadcrumbItem(ui.BreadcrumbPage(label("Breadcrumb"))),
+			)),
+		),
+		section("Custom separator",
+			ui.Breadcrumb(ui.BreadcrumbList(
+				ui.BreadcrumbItem(ui.BreadcrumbLink(label("Home"))), ui.BreadcrumbSeparator(label("/")),
+				ui.BreadcrumbItem(ui.BreadcrumbLink(label("Components"))), ui.BreadcrumbSeparator(label("/")),
+				ui.BreadcrumbItem(ui.BreadcrumbPage(label("Breadcrumb"))),
+			)),
+		),
+	)
+}
+
+func pagination() twi.Node {
+	return section("Pagination",
+		el("w-60", ui.Pagination(ui.PaginationContent(
+			ui.PaginationItem(ui.PaginationPrevious()),
+			ui.PaginationItem(ui.PaginationLink(false, label("1"))),
+			ui.PaginationItem(ui.PaginationLink(true, label("2"))),
+			ui.PaginationItem(ui.PaginationLink(false, label("3"))),
+			ui.PaginationItem(ui.PaginationEllipsis()),
+			ui.PaginationItem(ui.PaginationNext()),
+		))),
+	)
+}
+
+func items() twi.Node {
+	open := ui.ItemActions(ui.Button(ui.Outline, ui.SizeSM, label("Open")))
+	var people []twi.NodeOption
+	for i, p := range [][2]string{{"shadcn", "shadcn@vercel.com"}, {"maxleiter", "maxleiter@vercel.com"}, {"evilrabbit", "evilrabbit@vercel.com"}} {
+		if i > 0 {
+			people = append(people, ui.ItemSeparator())
+		}
+		people = append(people, ui.Item(ui.Default, ui.SizeDefault,
+			ui.ItemMedia(ui.Default, ui.Avatar(ui.SizeSM, ui.AvatarFallback(label(p[0][:1])))),
+			ui.ItemContent(ui.ItemTitle(label(p[0])), ui.ItemDescription(label(p[1]))),
+			ui.ItemActions(ui.Button(ui.Ghost, ui.SizeIcon, label("+"))),
+		))
+	}
+	return el("flex flex-row grow gap-4",
+		el("flex flex-col gap-1 w-56",
+			section("Item",
+				ui.Item(ui.Outline, ui.SizeDefault,
+					ui.ItemContent(ui.ItemTitle(label("Basic Item")), ui.ItemDescription(label("A simple item with title and description."))),
+					ui.ItemActions(ui.Button(ui.Outline, ui.SizeSM, label("Action"))),
+				),
+				ui.Item(ui.Outline, ui.SizeSM,
+					ui.ItemMedia(ui.Default, label("✓")),
+					ui.ItemContent(ui.ItemTitle(label("Your profile has been verified."))),
+					ui.ItemActions(label("›")),
+				),
+			),
+			section("Icon media",
+				ui.Item(ui.Outline, ui.SizeDefault,
+					ui.ItemMedia(ui.Icon, label("!")),
+					ui.ItemContent(ui.ItemTitle(label("Security Alert")), ui.ItemDescription(label("New login detected from unknown device."))),
+					ui.ItemActions(ui.Button(ui.Outline, ui.SizeSM, label("Review"))),
+				),
+			),
+		),
+		el("flex flex-col gap-1 w-56",
+			section("Variants",
+				ui.Item(ui.Default, ui.SizeDefault, ui.ItemContent(ui.ItemTitle(label("Default Variant")), ui.ItemDescription(label("Standard styling with subtle background and borders."))), open),
+				ui.Item(ui.Outline, ui.SizeDefault, ui.ItemContent(ui.ItemTitle(label("Outline Variant")), ui.ItemDescription(label("Outlined style with clear borders and transparent background."))), open),
+				ui.Item(ui.Muted, ui.SizeDefault, ui.ItemContent(ui.ItemTitle(label("Muted Variant")), ui.ItemDescription(label("Subdued appearance with muted colors for secondary content."))), open),
+			),
+		),
+		el("flex flex-col gap-1 w-50",
+			section("Group", ui.ItemGroup(people...)),
+		),
+	)
+}
+
+func buttonGroups() twi.Node {
+	outlined := func(s string) twi.Node { return ui.Button(ui.Outline, ui.SizeDefault, label(s)) }
+	return el("flex flex-col gap-2",
+		section("Button group",
+			ui.ButtonGroup(ui.Horizontal, twi.Class("gap-2"),
+				ui.ButtonGroup(ui.Horizontal, ui.Button(ui.Outline, ui.SizeIcon, label("←"))),
+				ui.ButtonGroup(ui.Horizontal, outlined("Archive"), outlined("Report")),
+				ui.ButtonGroup(ui.Horizontal, outlined("Snooze"), ui.Button(ui.Outline, ui.SizeIcon, label("…"))),
+			),
+		),
+		section("Orientation",
+			row(ui.ButtonGroup(ui.Vertical, ui.Button(ui.Outline, ui.SizeIcon, label("+")), ui.Button(ui.Outline, ui.SizeIcon, label("-")))),
+		),
+		section("Separator",
+			row(ui.ButtonGroup(ui.Horizontal, ui.Button(ui.Secondary, ui.SizeSM, label("Copy")), ui.ButtonGroupSeparator(ui.Vertical), ui.Button(ui.Secondary, ui.SizeSM, label("Paste")))),
+		),
+		section("Text",
+			row(ui.ButtonGroup(ui.Horizontal, ui.ButtonGroupText(label("https://")), outlined("example.com"), ui.Button(ui.Default, ui.SizeDefault, label("Go")))),
+		),
+	)
+}
+
+func fields() twi.Node {
+	input := func(placeholder string) twi.Node {
+		return text("h-1 px-1 rounded-md text-muted-foreground shadow-[0_0_0_1px_var(--color-input)] dark:bg-input/30", placeholder)
+	}
+	return el("flex flex-row grow gap-6",
+		el("flex flex-col w-56",
+			ui.FieldGroup(
+				ui.FieldSet(
+					ui.FieldLegend(label("Payment Method")),
+					ui.FieldDescription(label("All transactions are secure and encrypted")),
+					ui.FieldGroup(
+						ui.Field(ui.Vertical, ui.FieldLabel(label("Name on Card")), input("Evil Rabbit")),
+						ui.Field(ui.Vertical, ui.FieldLabel(label("Card Number")), input("1234 5678 9012 3456"), ui.FieldDescription(label("Enter your 16-digit card number"))),
+						el("flex flex-row gap-2",
+							ui.Field(ui.Vertical, ui.FieldLabel(label("Month")), input("MM")),
+							ui.Field(ui.Vertical, ui.FieldLabel(label("Year")), input("YYYY")),
+							ui.Field(ui.Vertical, ui.FieldLabel(label("CVV")), input("123")),
+						),
+					),
+				),
+				ui.FieldSeparator(),
+				ui.FieldSet(
+					ui.FieldLegend(label("Billing Address")),
+					ui.FieldDescription(label("The billing address associated with your payment method")),
+					ui.Field(ui.Horizontal, text("flex w-2 justify-center rounded-sm bg-primary text-primary-foreground", "✓"), ui.FieldLabel(label("Same as shipping address"))),
+				),
+				ui.Field(ui.Horizontal, ui.Button(ui.Default, ui.SizeDefault, label("Submit")), ui.Button(ui.Outline, ui.SizeDefault, label("Cancel"))),
+			),
+		),
+		el("flex flex-col gap-2 w-50",
+			section("Error",
+				ui.Field(ui.Vertical, ui.FieldLabel(label("Email")), input("m@example.com"), ui.FieldError(label("Enter a valid email address."))),
+			),
+			section("Separator with a label",
+				ui.FieldSeparator(label("Or continue with")),
 			),
 		),
 	)
