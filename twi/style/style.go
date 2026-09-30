@@ -1,6 +1,11 @@
 package style
 
-import "github.com/twind-dev/twind/twi/color"
+import (
+	"time"
+
+	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/theme"
+)
 
 type Unit uint8
 
@@ -9,6 +14,7 @@ const (
 	Percent
 	Auto
 	None
+	FitContent
 )
 
 type Length struct {
@@ -147,6 +153,69 @@ type Shadow struct {
 	Color              color.Color
 	Inset              bool
 	Tintable           bool
+	Token              theme.Token
+	Mix                float64
+}
+
+type Ring struct {
+	Width, OffsetWidth Pixels
+	Color, OffsetColor color.Color
+	Inset              bool
+}
+
+type WhiteSpace uint8
+
+const (
+	WhiteSpaceNormal WhiteSpace = iota
+	WhiteSpaceNowrap
+	WhiteSpacePre
+	WhiteSpacePreWrap
+)
+
+type TextOverflow uint8
+
+const (
+	TextOverflowClip TextOverflow = iota
+	TextOverflowEllipsis
+)
+
+type Easing struct{ X1, Y1, X2, Y2 float64 }
+
+type TransitionProperty uint8
+
+const (
+	TransitionColor TransitionProperty = 1 << iota
+	TransitionBackground
+	TransitionBorderColor
+	TransitionGradient
+	TransitionOpacity
+	TransitionShadow
+	TransitionTranslate
+	TransitionAll = 1<<iota - 1
+)
+
+type Transition struct {
+	Properties      TransitionProperty
+	Duration, Delay time.Duration
+	Easing          Easing
+}
+
+type Keyframes uint8
+
+const (
+	KeyframesNone Keyframes = iota
+	KeyframesSpin
+	KeyframesPing
+	KeyframesPulse
+	KeyframesBounce
+)
+
+type Animation struct {
+	Keyframes  Keyframes
+	Duration   time.Duration
+	Easing     Easing
+	Iterations float64
+	Infinite   bool
 }
 
 type GradientKind uint8
@@ -235,6 +304,7 @@ type ComputedStyle struct {
 	InsetShadows     []Shadow
 	ShadowColor      color.Color
 	InsetShadowColor color.Color
+	Ring             Ring
 
 	Color         color.Color
 	Bold          bool
@@ -245,4 +315,10 @@ type ComputedStyle struct {
 	Visibility    Visibility
 	Cursor        Cursor
 	UserSelect    UserSelect
+	WhiteSpace    WhiteSpace
+	TextOverflow  TextOverflow
+	AspectRatio   float64
+
+	Transition Transition
+	Animation  Animation
 }

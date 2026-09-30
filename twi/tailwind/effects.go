@@ -1,15 +1,15 @@
 package tailwind
 
 import (
-	"math"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/css"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 func tailwindVar(layer []css.Token) (string, bool) {
@@ -51,30 +51,64 @@ func (c *compiler) boxShadow(raw []css.Token, v vars) (decls, problem) {
 		if !set {
 			continue
 		}
-		property, known := map[string]style.Property{"--tw-shadow": style.PropShadow, "--tw-inset-shadow": style.PropInsetShadow}[name]
-		if !known {
+		var layerDecls decls
+		var p problem
+		switch name {
+		case "--tw-shadow", "--tw-inset-shadow":
+			var shadows []style.Shadow
+			shadows, p = c.shadows(value, v)
+			layerDecls = decls{{Property: map[string]style.Property{"--tw-shadow": style.PropShadow, "--tw-inset-shadow": style.PropInsetShadow}[name], Shadows: shadows}}
+		case "--tw-ring-shadow":
+			layerDecls, p = c.ring(value, v)
+		default:
 			return nil, problem{Unsupported, strings.TrimPrefix(name, "--tw-") + " has no terminal rendering"}
 		}
-		shadows, p := c.shadows(value, v)
 		if p.reason != "" && p.category != Approximated {
 			return nil, p
 		}
 		if p.reason != "" {
 			worst = p
 		}
-		out = append(out, style.Declaration{Property: property, Shadows: shadows})
+		out = append(out, layerDecls...)
 	}
 	return out, worst
+}
+
+func (c *compiler) ring(value []css.Token, v vars) (decls, problem) {
+	alone := vars{theme: v.theme, local: maps.Clone(v.local)}
+	alone.local["--tw-ring-inset"] = nil
+	alone.local["--tw-ring-offset-width"] = []css.Token{{Kind: css.TokenNumber, Text: "0"}}
+	alone.local["--tw-ring-color"] = []css.Token{{Kind: css.TokenIdent, Text: "currentcolor"}}
+	shadows, p := c.shadows(value, alone)
+	switch {
+	case p.reason != "" && p.category != Approximated:
+		return nil, p
+	case len(shadows) != 1:
+		return nil, problem{Unsupported, "ring of " + strconv.Itoa(len(shadows)) + " shadows"}
+	}
+	out := decls{{Property: style.PropRingWidth, Number: float64(shadows[0].Spread)}}
+	if shadows[0].Color.Kind != color.Current {
+		out = append(out, style.Declaration{Property: style.PropRingColor, Color: shadows[0].Color})
+	}
+	return out, p
 }
 
 func (c *compiler) shadows(raw []css.Token, v vars) ([]style.Shadow, problem) {
 	var out []style.Shadow
 	var worst problem
 	for _, written := range commas(raw) {
-		tintable := slices.ContainsFunc(components(written), func(part []css.Token) bool {
-			name, ok := tailwindVar(part)
-			return ok && strings.HasSuffix(name, "shadow-color")
-		})
+		tintable, token, mix := false, theme.Token(0), 0.0
+		for _, part := range components(written) {
+			if name, ok := tailwindVar(part); ok && strings.HasSuffix(name, "shadow-color") {
+				tintable = true
+				if args := commas(part[1:closing(part, 0)]); len(args) == 2 {
+					part = args[1]
+				}
+			}
+			if t, m, ok := themeToken(part); ok {
+				token, mix = t, m
+			}
+		}
 		toks, err := c.resolve(written, v, 0)
 		switch {
 		case err != nil:
@@ -83,7 +117,7 @@ func (c *compiler) shadows(raw []css.Token, v vars) ([]style.Shadow, problem) {
 			continue
 		}
 		for _, layer := range commas(toks) {
-			s := style.Shadow{Color: color.Color{Kind: color.Current}, Tintable: tintable}
+			s := style.Shadow{Color: color.Color{Kind: color.Current}, Tintable: tintable, Token: token, Mix: mix}
 			var lengths []style.Pixels
 			colored := false
 			for _, part := range components(layer) {
@@ -91,14 +125,11 @@ func (c *compiler) shadows(raw []css.Token, v vars) ([]style.Shadow, problem) {
 					s.Inset = true
 					continue
 				}
-				if q, err := evaluate(part); err == nil && len(lengths) < 4 && (q.unit == "px" || q.unit == "rem" || q.unit == "" && q.value == 0) {
-					if q.unit == "rem" {
-						q.value *= konst.RemPixels
+				if px, p := pixels(part); len(lengths) < 4 && (p.reason == "" || p.category == Approximated) {
+					if p.reason != "" {
+						worst = p
 					}
-					if q.value != math.Round(q.value) {
-						worst = problem{Approximated, "fractional shadow pixels rounded"}
-					}
-					lengths = append(lengths, style.Pixels(math.Round(q.value)))
+					lengths = append(lengths, px)
 					continue
 				}
 				paintColor, p := paint(part)

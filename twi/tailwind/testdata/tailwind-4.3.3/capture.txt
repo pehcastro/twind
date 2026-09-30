@@ -1,6 +1,6 @@
 Tailwind CSS v4.3.3, .twind/bin/tailwindcss-windows-x64.exe
 SHA-256 e0e260ce048014e9268f6237ff18f8ccf02cef521cbd0ae04e82c2cdf7aa3955
-Captured 2026-09-29 on Windows 10 Pro 10.0.19045.
+Captured 2026-09-30 on Windows 10 Pro 10.0.19045.
 
 app/input.css is tailwind.Input with the Twind preset; TestAppFixtureMatchesPreset fails when the preset changes.
 Run from the repository root:
@@ -8,7 +8,7 @@ Run from the repository root:
 .twind/bin/tailwindcss-windows-x64.exe -i twi/tailwind/testdata/tailwind-4.3.3/app/input.css -o twi/tailwind/testdata/tailwind-4.3.3/app/output.css
 
 SHA-256 of the output:
-ad5e60e52ded156893070f4995292c8c74ca32def078012d0f317cdc4fb84ed8  app/output.css
+b88592133d20c458a2ad90fb074416404277ba556a7d525ad15c2740fee660cb  app/output.css
 
 app/output.css is also the compiler corpus: tailwind.Inputs hashes Compile of it into every generated IR,
 so recapturing it makes every committed IR stale until regenerated.

@@ -16,6 +16,12 @@ const (
 	RemPixels       = 16
 	NominalCellX    = RemPixels / 2
 	NominalCellY    = RemPixels
+	EaseX1          = 0.25
+	EaseY1          = 0.1
+	EaseX2          = 0.25
+	EaseY2          = 1
+	RingOffsetWhite = 255
+	MatchedRules    = 64
 )
 
 const PresetTheme = `@theme {

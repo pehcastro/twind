@@ -79,9 +79,6 @@ func TestShadow(t *testing.T) {
 			t.Errorf("%s warned %s", class, c)
 		}
 	}
-	if warned["ring-2"] != Unsupported {
-		t.Errorf("ring-2: %v, want an unsupported warning", warned)
-	}
 }
 
 func TestShadowPixels(t *testing.T) {

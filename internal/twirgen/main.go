@@ -166,7 +166,7 @@ func literal(v reflect.Value, names map[string]string) string {
 		return strconv.FormatBool(v.Bool())
 	case reflect.Uint8:
 		number = strconv.FormatUint(v.Uint(), 10)
-	case reflect.Int:
+	case reflect.Int, reflect.Int64:
 		number = strconv.FormatInt(v.Int(), 10)
 	default:
 		panic("twirgen: cannot write a " + v.Kind().String())

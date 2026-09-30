@@ -242,6 +242,8 @@ func length(toks []css.Token) (style.Length, problem) {
 		return style.Length{Unit: style.Auto}, problem{}
 	case "none":
 		return style.Length{Unit: style.None}, problem{}
+	case "fit-content":
+		return style.Length{Unit: style.FitContent}, problem{}
 	}
 	q, err := evaluate(toks)
 	if err != nil {
@@ -258,6 +260,22 @@ func length(toks []css.Token) (style.Length, problem) {
 		return style.Length{Unit: style.Cells, Value: math.Round(q.value)}, problem{Approximated, "fractional cells rounded"}
 	}
 	return style.Length{Unit: style.Cells, Value: q.value}, problem{}
+}
+
+func pixels(toks []css.Token) (style.Pixels, problem) {
+	q, err := evaluate(toks)
+	switch {
+	case err != nil:
+		return 0, problem{Unsupported, err.Error()}
+	case q.unit == "rem":
+		q.value *= konst.RemPixels
+	case q.unit != "px" && (q.unit != "" || q.value != 0):
+		return 0, problem{Unsupported, "unit " + strconv.Quote(q.unit) + " is not pixels"}
+	}
+	if q.value != math.Round(q.value) {
+		return style.Pixels(math.Round(q.value)), problem{Approximated, "fractional pixels rounded"}
+	}
+	return style.Pixels(q.value), problem{}
 }
 
 func number(toks []css.Token) (float64, problem) {

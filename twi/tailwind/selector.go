@@ -20,7 +20,7 @@ func selector(sel string, when style.Condition) (style.Rule, string) {
 		switch rest[0] {
 		case ':':
 			name, after := ident(rest[1:])
-			state, ok := map[string]style.State{"hover": style.StateHover, "focus": style.StateFocus, "focus-visible": style.StateFocusVisible, "active": style.StateActive, "disabled": style.StateDisabled}[name]
+			state, ok := map[string]style.State{"hover": style.StateHover, "focus": style.StateFocus, "focus-visible": style.StateFocusVisible, "active": style.StateActive, "disabled": style.StateDisabled, "focus-within": style.StateFocusWithin, "checked": style.StateChecked}[name]
 			if !ok || strings.HasPrefix(after, "(") {
 				return r, "pseudo-class " + strconv.Quote(rest) + " has no terminal state"
 			}

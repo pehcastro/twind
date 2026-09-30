@@ -16,7 +16,7 @@ func rgba(r, g, b, a uint8) color.Color {
 	return color.Color{Kind: color.Literal, RGBA: color.RGBA{R: r, G: g, B: b, A: a}}
 }
 
-func builtin(t *testing.T, name string, scheme theme.Scheme) *theme.Theme {
+func builtin(t testing.TB, name string, scheme theme.Scheme) *theme.Theme {
 	t.Helper()
 	for _, th := range theme.Builtin() {
 		if th.Name == name && th.Scheme == scheme {
@@ -27,7 +27,7 @@ func builtin(t *testing.T, name string, scheme theme.Scheme) *theme.Theme {
 	return nil
 }
 
-func appSheet(t *testing.T) style.Sheet {
+func appSheet(t testing.TB) style.Sheet {
 	t.Helper()
 	src, err := os.ReadFile("../tailwind/testdata/tailwind-4.3.3/app/output.css")
 	if err != nil {

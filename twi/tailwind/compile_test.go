@@ -121,7 +121,10 @@ func TestCascadeMatrix(t *testing.T) {
 		BorderColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 63, G: 63, B: 70, A: 255}},
 		Radius:      style.RadiusFull, Opacity: 0.5,
 		Visibility: style.Hidden, Cursor: style.CursorPointer, UserSelect: style.SelectNone,
-		Gradient: style.Gradient{From: style.GradientStop{Color: color.Color{Kind: color.Literal}}, Via: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 0.5}, To: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 1}},
+		Gradient:   style.Gradient{From: style.GradientStop{Color: color.Color{Kind: color.Literal}}, Via: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 0.5}, To: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 1}},
+		Ring:       style.Ring{Color: color.Color{Kind: color.Current}, OffsetColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}},
+		Transition: style.Transition{Properties: style.TransitionAll, Easing: style.Easing{X1: 0.25, Y1: 0.1, X2: 0.25, Y2: 1}},
+		Animation:  style.Animation{Iterations: 1, Easing: style.Easing{X1: 0.25, Y1: 0.1, X2: 0.25, Y2: 1}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("matrix classes:\n got %+v\nwant %+v", got, want)
@@ -174,17 +177,17 @@ func TestConditionsKept(t *testing.T) {
 
 func TestCompileRejects(t *testing.T) {
 	cases := map[string]string{
-		"rem length":     ".w-4 { width: 1rem; }",
-		"mixed calc":     ".w-x { width: calc(100% - 2px); }",
-		"undefined var":  ".p-x { padding: var(--nope); }",
-		"descendant":     ".group:hover .x { color: #fff; }",
-		"unknown value":  ".d-x { display: table; }",
-		"unknown prop":   ".s-x { mask-image: none; }",
-		"percent shadow": ".s-x { box-shadow: 10% 1px #000; }",
-		"two colours":    ".s-x { box-shadow: 1px 1px #000 #fff; }",
-		"none and ring":  ".s-x { box-shadow: none; } .r-x { --tw-ring-shadow: 0 0 0 2px #000; box-shadow: var(--tw-ring-shadow); }",
-		"ring shadow":    ".s-x { --tw-ring-shadow: 0 0 0 2px #000; box-shadow: var(--tw-shadow, 0 0 #0000), var(--tw-ring-shadow); }",
-		"fraction cells": ".p-half { padding: 0.5px; }",
+		"rem length":       ".w-4 { width: 1rem; }",
+		"mixed calc":       ".w-x { width: calc(100% - 2px); }",
+		"undefined var":    ".p-x { padding: var(--nope); }",
+		"descendant":       ".group:hover .x { color: #fff; }",
+		"unknown value":    ".d-x { display: table; }",
+		"unknown prop":     ".s-x { mask-image: none; }",
+		"percent shadow":   ".s-x { box-shadow: 10% 1px #000; }",
+		"two colours":      ".s-x { box-shadow: 1px 1px #000 #fff; }",
+		"two ring shadows": ".r-x { --tw-ring-shadow: 0 0 0 2px #000, 0 0 0 1px #fff; box-shadow: var(--tw-ring-shadow); }",
+		"inset ring":       ".r-x { --tw-inset-ring-shadow: inset 0 0 0 1px #000; box-shadow: var(--tw-inset-ring-shadow); }",
+		"fraction cells":   ".p-half { padding: 0.5px; }",
 	}
 	for name, src := range cases {
 		_, warnings, err := Compile("@layer utilities { " + src + " }")
