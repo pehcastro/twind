@@ -3,6 +3,8 @@ package paint
 import (
 	"math"
 
+	konst "github.com/twind-dev/twind/internal/konst/paint"
+
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
@@ -44,16 +46,21 @@ func put(buf *buffer.Buffer, clip layout.Rect, x, y int, src buffer.Cell) {
 		return
 	}
 	dst := &buf.Row(y)[x]
-	bg := over(src.Bg, dst.Bg)
 	if src.Grapheme == " " && src.Attr == 0 && translucent(src.Bg) {
-		dst.Bg = bg
+		dst.Bg = over(src.Bg, dst.Bg)
 		if dst.Fg.Kind == color.Literal {
 			dst.Fg = over(src.Bg, dst.Fg)
 		}
 		return
 	}
-	src.Bg = bg
-	src.Fg = over(src.Fg, bg)
+	under := dst.Bg
+	if dst.Grapheme == konst.UpperHalf {
+		upper := dst.Fg
+		upper.RGBA.A /= 2
+		under = over(upper, dst.Bg)
+	}
+	src.Bg = over(src.Bg, under)
+	src.Fg = over(src.Fg, src.Bg)
 	buf.Set(x, y, src)
 }
 

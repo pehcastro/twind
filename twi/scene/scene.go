@@ -2,6 +2,7 @@ package scene
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
@@ -31,8 +32,10 @@ type Node struct {
 	Shadows, InsetShadows                  []style.Shadow
 	Foreground                             color.Color
 	Bold, Italic, Underline, Strikethrough bool
+	TextAlign                              style.TextAlign
+	Truncate                               bool
 	Children                               []Node
-	lines                                  []string
+	text                                   string
 }
 
 type Text struct{ clean string }
@@ -87,11 +90,21 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	}
 	n.Foreground = s.Color
 	n.Bold, n.Italic, n.Underline, n.Strikethrough = s.Bold, s.Italic, s.Underline, s.Strikethrough
-	n.lines = text.Wrap(content.clean, box.ContentBox.W)
+	n.TextAlign = s.TextAlign
+	n.text = content.clean
 	return n
 }
 
-func (n Node) Lines() []string { return n.lines }
+func (n Node) Lines() []string {
+	if !n.Truncate {
+		return text.Wrap(n.text, n.Content.W)
+	}
+	lines := strings.Split(n.text, "\n")
+	for i, line := range lines {
+		lines[i] = text.Truncate(line, n.Content.W)
+	}
+	return lines
+}
 
 func scrolls(o style.Overflow) bool {
 	switch o {

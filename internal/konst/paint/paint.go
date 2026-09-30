@@ -11,4 +11,6 @@ const (
 	DottedLines    = "┈┊┈┊"
 	DoubleLines    = "═║═║"
 	Hairlines      = "▁▏▔▕"
+	UpperHalf      = "▀"
+	PillCaps       = "▐▌"
 )

@@ -50,13 +50,8 @@ func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
 	if shows(n.Background) {
 		f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: shape, Color: n.Background.RGBA})
 	}
-	if g := n.Gradient; g.Kind == style.GradientLinear {
-		stops := []raster.Stop{{Color: g.From.Color.RGBA, At: g.From.Position}}
-		if g.HasVia {
-			stops = append(stops, raster.Stop{Color: g.Via.Color.RGBA, At: g.Via.Position})
-		}
-		stops = append(stops, raster.Stop{Color: g.To.Color.RGBA, At: g.To.Position})
-		f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: shape, Stops: stops, Angle: angle(g.GradientLine, shape.Rect)})
+	if n.Gradient.Kind == style.GradientLinear {
+		f.ops = append(f.ops, GradientFill(n.Gradient, shape))
 	}
 	edges := n.Border
 	bordered := edges.Style != style.BorderNone && shows(edges.Color)
@@ -106,6 +101,15 @@ func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
 		f.ops = append(f.ops, raster.Op{Kind: raster.Pop})
 	}
 	return visual, true
+}
+
+func GradientFill(g style.Gradient, shape raster.Box) raster.Op {
+	stops := []raster.Stop{{Color: g.From.Color.RGBA, At: g.From.Position}}
+	if g.HasVia {
+		stops = append(stops, raster.Stop{Color: g.Via.Color.RGBA, At: g.Via.Position})
+	}
+	stops = append(stops, raster.Stop{Color: g.To.Color.RGBA, At: g.To.Position})
+	return raster.Op{Kind: raster.Fill, Box: shape, Stops: stops, Angle: angle(g.GradientLine, shape.Rect)}
 }
 
 func (f *Frame) shadow(s style.Shadow) raster.BoxShadow {

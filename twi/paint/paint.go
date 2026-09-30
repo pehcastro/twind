@@ -2,12 +2,15 @@ package paint
 
 import (
 	"fmt"
+	"image"
+	"math"
 	"strings"
 
 	konst "github.com/twind-dev/twind/internal/konst/paint"
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
+	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/text"
@@ -38,11 +41,22 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 	if look == Composited && n.Border.Style == style.BorderSingle {
 		fill = n.Padding
 	}
-	if bg := n.Background; bg.Kind == color.Literal && bg.RGBA.A > 0 {
+	bg := n.Background
+	filled := bg.Kind == color.Literal && bg.RGBA.A > 0
+	if filled {
 		for y := fill.Y; y < fill.Y+fill.H; y++ {
 			for x := fill.X; x < fill.X+fill.W; x++ {
 				put(buf, n.Clip, x, y, buffer.Cell{Grapheme: " ", Bg: bg})
 			}
+		}
+	}
+	if look == Composited && n.Gradient.Kind == style.GradientLinear {
+		gradient(buf, n, fill)
+	}
+	if look == Composited && filled && n.Border.Radius == style.RadiusFull && n.Bounds.H == 1 {
+		caps, r := strings.Split(konst.PillCaps, ""), n.Bounds
+		for i, x := range []int{r.X - 1, r.X + r.W} {
+			put(buf, n.Clip, x, r.Y, buffer.Cell{Grapheme: caps[i], Fg: bg, Bg: color.Color{Kind: color.Literal}})
 		}
 	}
 	for _, s := range insets {
@@ -52,6 +66,30 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 	}
 	border(buf, n, look)
 	lines(buf, n)
+}
+
+func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect) {
+	w, h := float64(fill.W), float64(2*fill.H)
+	op := scene.GradientFill(n.Gradient, raster.Box{Rect: raster.Rect{W: w, H: h}})
+	sin, cos := math.Sincos(op.Angle * math.Pi / 180)
+	if line := math.Abs(w*sin) + math.Abs(h*cos); line > 1 {
+		for i := range op.Stops {
+			op.Stops[i].At = (0.5 + op.Stops[i].At*(line-1)) / line
+		}
+	}
+	img := image.NewRGBA(image.Rect(0, 0, fill.W, 2*fill.H))
+	new(raster.Raster).Draw(img, []raster.Op{op}, img.Rect)
+	for y := range fill.H {
+		for x := range fill.W {
+			top := color.Color{Kind: color.Literal, RGBA: raster.Mean(img, image.Rect(x, 2*y, x+1, 2*y+1))}
+			bottom := color.Color{Kind: color.Literal, RGBA: raster.Mean(img, image.Rect(x, 2*y+1, x+1, 2*y+2))}
+			cell := buffer.Cell{Grapheme: konst.UpperHalf, Fg: top, Bg: bottom}
+			if top == bottom {
+				cell = buffer.Cell{Grapheme: " ", Bg: bottom}
+			}
+			put(buf, n.Clip, fill.X+x, fill.Y+y, cell)
+		}
+	}
 }
 
 func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, c color.Color, inset bool) {
@@ -196,8 +234,18 @@ func lines(buf *buffer.Buffer, n *scene.Node) {
 	ink := buffer.Cell{Grapheme: " ", Fg: n.Foreground, Bg: color.Color{Kind: color.Literal}, Attr: attr}
 	r := n.Content
 	end := r.X + r.W
-	for i, line := range n.Lines()[:min(len(n.Lines()), r.H)] {
+	lines := n.Lines()
+	for i, line := range lines[:min(len(lines), r.H)] {
 		y, x := r.Y+i, r.X
+		switch n.TextAlign {
+		case style.TextLeft, style.TextJustify:
+		case style.TextCenter:
+			x += max(r.W-text.Width(line), 0) / 2
+		case style.TextRight:
+			x += max(r.W-text.Width(line), 0)
+		default:
+			panic(fmt.Sprintf("paint: unknown text align %d", n.TextAlign))
+		}
 		for cluster := range text.Graphemes(line) {
 			if cluster == "\t" {
 				for stop := min(r.X+((x-r.X)/konst.TabStop+1)*konst.TabStop, end); x < stop; x++ {
