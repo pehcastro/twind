@@ -19,6 +19,7 @@ usage: twind <verb> [arguments]
   check  [packages]                    report every stale Style IR, without Tailwind
   drive  [-out dir] script [package]   run a driver script headless and write its frames
   doctor                               print what this terminal supports
+  docs   [-page name] [-theme name]    open the documentation
 
 Packages are go list patterns, the current directory by default.
 twind <verb> -h prints the verb's help.
@@ -27,7 +28,7 @@ Exit status: 0 done, 1 a stale IR or a failed build, run or query, 2 a usage err
 `
 
 func main() {
-	verbs := map[string]func([]string, io.Writer) error{"new": newApp, "build": build, "check": check, "drive": drive, "doctor": doctor}
+	verbs := map[string]func([]string, io.Writer) error{"new": newApp, "build": build, "check": check, "drive": drive, "doctor": doctor, "docs": docs}
 	if len(os.Args) < 2 || verbs[os.Args[1]] == nil {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)

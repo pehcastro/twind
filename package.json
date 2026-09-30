@@ -10,6 +10,8 @@
     "playground": "node scripts/head.mjs go run ./examples/playground",
     "playground:wt": "node scripts/head.mjs wt -w new --size 120,34 -d . --title twind-playground --suppressApplicationTitle powershell -NoLogo -NoExit -Command go run ./examples/playground",
     "playground:dev": "go run ./examples/playground",
+    "docs": "node scripts/head.mjs go run ./cmd/twind docs",
+    "docs:wt": "node scripts/head.mjs wt -w new --size 120,36 -d . --title twind-docs --suppressApplicationTitle powershell -NoLogo -NoExit -Command go run ./cmd/twind docs",
     "gallery": "node scripts/head.mjs go run ./examples/gallery",
     "gallery:wt": "node scripts/head.mjs wt -w new --size 110,34 -d . --title twind-gallery --suppressApplicationTitle powershell -NoLogo -NoExit -Command go run ./examples/gallery",
     "gallery:dark:wt": "node scripts/head.mjs wt -w new --size 110,34 -d . --title twind-gallery --suppressApplicationTitle powershell -NoLogo -NoExit -Command go run ./examples/gallery -theme zinc-dark",
