@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"runtime/debug"
 	"sync"
@@ -10,12 +11,11 @@ import (
 	"time"
 
 	konst "github.com/twind-dev/twind/internal/konst/runtime"
+	"github.com/twind-dev/twind/internal/present"
 	"github.com/twind-dev/twind/internal/render"
-	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/paint"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/terminal"
@@ -40,10 +40,10 @@ type Tree struct {
 }
 
 type Config struct {
-	Clock   Clock
-	Sheet   style.Sheet
-	Profile color.Profile
-	Look    paint.Look
+	Clock    Clock
+	Sheet    style.Sheet
+	Profile  color.Profile
+	Graphics *terminal.Graphics
 }
 
 type PanicError struct {
@@ -67,8 +67,7 @@ type Runtime struct {
 	dirty         bool
 	width, height int
 	keys          []func(input.KeyEvent)
-	prev          *buffer.Buffer
-	writer        terminal.Writer
+	screen        *present.Screen
 	lastFrame     time.Time
 	texts, stale  map[string]scene.Text
 	sanitize      func(string) scene.Text
@@ -179,7 +178,7 @@ func (r *Runtime) handle(ev input.Event) {
 			h(ev)
 		}
 	case input.ResizeEvent:
-		r.width, r.height, r.prev, r.dirty = ev.Width, ev.Height, nil, true
+		r.width, r.height, r.dirty = ev.Width, ev.Height, true
 	case input.MouseEvent, input.PasteEvent, input.FocusEvent, input.ReplyEvent:
 	default:
 		panic(fmt.Sprintf("runtime: unknown event %T", ev))
@@ -189,30 +188,43 @@ func (r *Runtime) handle(ev input.Event) {
 func (r *Runtime) frame(b Backend, now time.Time) error {
 	tree := r.app()
 	r.keys = tree.Keys
-	cur, err := render.Render(tree.Root, render.Frame{
+	root, err := render.Scene(tree.Root, render.Frame{
 		Sheet:    r.cfg.Sheet,
 		Width:    r.width,
 		Height:   layout.Length{Unit: layout.Cells, Value: r.height},
 		Sanitize: r.sanitize,
-		Look:     r.cfg.Look,
 	})
 	if err != nil {
 		return err
 	}
 	r.texts, r.stale = r.stale, r.texts
 	clear(r.texts)
-	if cur.Width() != r.width || cur.Height() != r.height {
-		cur.Resize(r.width, r.height)
+	graphics, cell := r.surface(b)
+	if r.screen == nil {
+		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync()}
 	}
-	if r.prev == nil {
-		neverDrawn := buffer.Cell{Grapheme: "\x00"}
-		r.prev = buffer.New(r.width, r.height)
-		r.prev.Fill(buffer.Rect{W: r.width, H: r.height}, neverDrawn)
-		r.writer = terminal.Writer{Out: b, Profile: r.cfg.Profile, Sync: b.Sync()}
-	}
-	if err := r.writer.Diff(r.prev, cur); err != nil {
+	r.screen.Cell = cell
+	if err := r.screen.Frame(root, r.width, r.height); err != nil {
 		return err
 	}
-	r.prev, r.dirty, r.lastFrame = cur, false, now
+	r.dirty, r.lastFrame = false, now
+	if _, after := r.surface(b); after != cell {
+		r.Invalidate()
+	}
 	return nil
+}
+
+func (r *Runtime) surface(b Backend) (terminal.Graphics, image.Point) {
+	reporter, ok := b.(interface{ Capabilities() terminal.Capabilities })
+	if !ok {
+		return terminal.GraphicsNone, image.Point{}
+	}
+	caps := reporter.Capabilities()
+	if r.cfg.Graphics != nil {
+		caps.Graphics = *r.cfg.Graphics
+	}
+	if caps.Graphics == terminal.GraphicsNone || caps.CellPixels.X <= 0 || caps.CellPixels.Y <= 0 {
+		return terminal.GraphicsNone, image.Point{}
+	}
+	return caps.Graphics, caps.CellPixels
 }

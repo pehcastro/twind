@@ -14,6 +14,10 @@ import (
 
 func Fullscreen() RenderOption { return func(c *renderConfig) { c.fullscreen = true } }
 
+func Graphics(mode terminal.Graphics) RenderOption {
+	return func(c *renderConfig) { c.graphics = &mode }
+}
+
 func Backend(b runtime.Backend, c runtime.Clock) RenderOption {
 	return func(cfg *renderConfig) { cfg.backend, cfg.clock = b, c }
 }
@@ -32,14 +36,17 @@ func New(opts ...RenderOption) *Runtime {
 	if cfg.backend == nil {
 		cfg.clock = realClock{}
 		if !cfg.profileSet {
-			cfg.profile = terminal.Profile(os.Stdout, os.Getenv)
+			cfg.profile, cfg.profileSet = terminal.Profile(os.Stdout, os.Getenv), true
 		}
+	}
+	if os.Getenv("TWIND_GRAPHICS") != "" {
+		cfg.graphics = nil
 	}
 	r := &Runtime{cfg: cfg}
 	if cfg.theme != nil {
 		r.theme = *cfg.theme
 	}
-	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Look: look(cfg.profile)})
+	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics})
 	return r
 }
 
@@ -51,6 +58,9 @@ func (r *Runtime) SetTheme(t theme.Theme) {
 }
 
 func (r *Runtime) Run(app func() Node) error {
+	if !r.cfg.profileSet {
+		return errors.New("twi: Backend needs a ColorProfile")
+	}
 	b := r.cfg.backend
 	if b == nil {
 		if !r.cfg.fullscreen {
@@ -72,7 +82,9 @@ type terminalBackend struct{ *terminal.Backend }
 
 func (t terminalBackend) Events() <-chan input.Event { return t.Backend.Events }
 
-func (t terminalBackend) Sync() bool { return t.Capabilities.Sync }
+func (t terminalBackend) Sync() bool { return t.Backend.Capabilities.Sync }
+
+func (t terminalBackend) Capabilities() terminal.Capabilities { return t.Backend.Capabilities }
 
 type realClock struct{}
 

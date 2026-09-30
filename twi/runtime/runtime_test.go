@@ -2,7 +2,10 @@ package runtime_test
 
 import (
 	"errors"
+	"image"
+	"regexp"
 	goruntime "runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,9 +14,12 @@ import (
 	"time"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/runtime"
+	"github.com/twind-dev/twind/twi/terminal"
 	"github.com/twind-dev/twind/twi/testdata/counter"
+	"github.com/twind-dev/twind/twi/testdata/hello"
 )
 
 type backend struct {
@@ -21,13 +27,23 @@ type backend struct {
 	width, height int
 	frames        chan string
 	exits         atomic.Int32
+	caps          terminal.Capabilities
+	zoom          image.Point
+}
+
+func newBackend(width, height int) *backend {
+	return &backend{events: make(chan input.Event), width: width, height: height, frames: make(chan string, 1<<16)}
 }
 
 func (b *backend) Write(p []byte) (int, error) {
 	b.frames <- string(p)
+	if b.zoom != (image.Point{}) {
+		b.caps.CellPixels, b.zoom = b.zoom, image.Point{}
+	}
 	return len(p), nil
 }
 
+func (b *backend) Capabilities() terminal.Capabilities  { return b.caps }
 func (b *backend) Events() <-chan input.Event           { return b.events }
 func (b *backend) Size() (width, height int, err error) { return b.width, b.height, nil }
 func (b *backend) Sync() bool                           { return false }
@@ -53,12 +69,12 @@ type run struct {
 }
 
 func start(build func(rt *twi.Runtime) func() twi.Node) run {
-	r := run{
-		b:     &backend{events: make(chan input.Event), width: 20, height: 3, frames: make(chan string, 1<<16)},
-		clock: &clock{},
-		done:  make(chan error, 1),
-	}
-	r.rt = twi.New(twi.Backend(r.b, r.clock))
+	return launch(newBackend(20, 3), build)
+}
+
+func launch(b *backend, build func(rt *twi.Runtime) func() twi.Node, opts ...twi.RenderOption) run {
+	r := run{b: b, clock: &clock{}, done: make(chan error, 1)}
+	r.rt = twi.New(append([]twi.RenderOption{twi.Backend(r.b, r.clock), twi.ColorProfile(color.None)}, opts...)...)
 	app := build(r.rt)
 	go func() { r.done <- r.rt.Run(app) }()
 	return r
@@ -360,6 +376,104 @@ func TestTextIsSanitised(t *testing.T) {
 	r := start(static(func() twi.Node { return twi.Text("a\x1b[2Jb") }))
 	if f := r.next(t); strings.Contains(f, "\x1b[2J") || !strings.Contains(f, "a") {
 		t.Fatalf("frame %q", f)
+	}
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBackendNeedsAColorProfile(t *testing.T) {
+	r := run{b: newBackend(20, 3), done: make(chan error, 1)}
+	r.rt = twi.New(twi.Backend(r.b, &clock{}))
+	go func() { r.done <- r.rt.Run(counter.New(r.rt)) }()
+	if err := r.result(t); err == nil || !strings.Contains(err.Error(), "ColorProfile") {
+		t.Fatalf("Run on a backend without a colour profile returned %v", err)
+	}
+}
+
+var sixelAt = regexp.MustCompile(`\x1b\[(\d+);(\d+)H\x1bP`)
+
+func sixelTiles(frame string) []string {
+	var at []string
+	for _, m := range sixelAt.FindAllStringSubmatch(frame, -1) {
+		at = append(at, m[1]+";"+m[2])
+	}
+	slices.Sort(at)
+	return at
+}
+
+func surfaces(t *testing.T, b *backend, opts ...twi.RenderOption) run {
+	t.Helper()
+	s, err := hello.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return launch(b, hello.Surfaces, append([]twi.RenderOption{twi.Styles(s), twi.ColorProfile(color.TrueColor)}, opts...)...)
+}
+
+func TestSixelSendsOnlyChangedSurfaces(t *testing.T) {
+	b := newBackend(40, 15)
+	b.caps = terminal.Capabilities{Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
+	r := surfaces(t, b)
+	if first := r.next(t); len(sixelTiles(first)) == 0 {
+		t.Fatalf("first frame on a Sixel backend sent no tile: %q", first)
+	}
+	r.b.events <- key('t')
+	if f := r.next(t); strings.Contains(f, "\x1bP") || !strings.Contains(f, "1") {
+		t.Fatalf("a text-only key wrote image bytes or no text: %q", f)
+	}
+	r.b.events <- key('b')
+	card := []string{"4;1", "4;9", "7;1", "7;9"}
+	if got := sixelTiles(r.next(t)); !slices.Equal(got, card) {
+		t.Fatalf("card background change sent tiles %v, want the card's tiles %v", got, card)
+	}
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGraphicsChoice(t *testing.T) {
+	sixel := terminal.Capabilities{Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
+	for _, tc := range []struct {
+		name   string
+		caps   terminal.Capabilities
+		env    string
+		opts   []twi.RenderOption
+		pixels bool
+	}{
+		{name: "reported", caps: sixel, pixels: true},
+		{name: "no cell size", caps: terminal.Capabilities{Graphics: terminal.GraphicsSixel}},
+		{name: "option none", caps: sixel, opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsNone)}},
+		{name: "option sixel", caps: terminal.Capabilities{CellPixels: image.Pt(10, 20)}, opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsSixel)}, pixels: true},
+		{name: "environment wins", caps: sixel, env: "sixel", opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsNone)}, pixels: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TWIND_GRAPHICS", tc.env)
+			b := newBackend(40, 15)
+			b.caps = tc.caps
+			r := surfaces(t, b, tc.opts...)
+			if f := r.next(t); strings.Contains(f, "\x1bP") != tc.pixels {
+				t.Errorf("first frame has Sixel %v, want %v", !tc.pixels, tc.pixels)
+			}
+			r.b.events <- key('b')
+			if f := r.next(t); strings.Contains(f, "\x1bP") != tc.pixels {
+				t.Errorf("frame after a background change has Sixel %v, want %v", !tc.pixels, tc.pixels)
+			}
+			if err := r.stop(t); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestCellSizeChangeRedraws(t *testing.T) {
+	b := newBackend(40, 15)
+	b.caps = terminal.Capabilities{Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
+	b.zoom = image.Pt(12, 24)
+	r := surfaces(t, b)
+	r.next(t)
+	if f := r.next(t); len(sixelTiles(f)) == 0 {
+		t.Fatalf("frame after the cell size changed sent no tile: %q", f)
 	}
 	if err := r.stop(t); err != nil {
 		t.Fatal(err)

@@ -71,6 +71,7 @@ type renderConfig struct {
 	sheet      style.Sheet
 	theme      *theme.Theme
 	fullscreen bool
+	graphics   *terminal.Graphics
 	backend    runtime.Backend
 	clock      runtime.Clock
 }
