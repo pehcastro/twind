@@ -73,11 +73,12 @@ type props struct {
 	conjunct     conjunct
 	pictographic bool
 	width        int
+	line         lineClass
 }
 
 func lookup(r rune) props {
 	if r >= ' ' && r <= '~' {
-		return props{width: 1}
+		return props{width: 1, line: lineClass(asciiLineClasses[r-' '])}
 	}
 	lo, hi := 0, len(table)/konst.RecordSize
 	for lo < hi {
@@ -95,6 +96,7 @@ func lookup(r rune) props {
 				conjunct:     conjunct(flags >> konst.ConjunctShift & konst.ConjunctMask),
 				pictographic: flags&konst.PictographicBit != 0,
 				width:        int(flags & konst.WidthMask),
+				line:         lineClass(record[8]),
 			}
 		}
 	}
@@ -181,22 +183,26 @@ func Width(s string) int {
 func (w Widths) Width(s string) int {
 	total := 0
 	for cluster := range Graphemes(s) {
-		width := 0
-		for _, r := range cluster {
-			width = max(width, lookup(r).width)
-		}
-		switch {
-		case width > 0 && strings.ContainsRune(cluster, emojiPresentation):
-			width = 2
-		case width > 0 && strings.ContainsRune(cluster, textPresentation):
-			width = 1
-		}
-		if c := class(cluster); c != Classes && w[c] > 0 {
-			width = w[c]
-		}
-		total += width
+		total += w.clusterWidth(cluster)
 	}
 	return total
+}
+
+func (w Widths) clusterWidth(cluster string) int {
+	width := 0
+	for _, r := range cluster {
+		width = max(width, lookup(r).width)
+	}
+	switch {
+	case width > 0 && strings.ContainsRune(cluster, emojiPresentation):
+		width = 2
+	case width > 0 && strings.ContainsRune(cluster, textPresentation):
+		width = 1
+	}
+	if c := class(cluster); c != Classes && w[c] > 0 {
+		width = w[c]
+	}
+	return width
 }
 
 func class(cluster string) Class {

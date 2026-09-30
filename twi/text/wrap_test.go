@@ -2,8 +2,17 @@ package text
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
+
+func BenchmarkWrap(b *testing.B) {
+	paragraph := strings.Repeat("A well-known pangram: the quick brown fox jumps over the lazy dog, see https://example.com/fox 中文排版。 ", 20)
+	b.ReportAllocs()
+	for b.Loop() {
+		Wrap(paragraph, 60)
+	}
+}
 
 func TestWrap(t *testing.T) {
 	cases := []struct {
@@ -19,6 +28,38 @@ func TestWrap(t *testing.T) {
 		{"one\ntwo three", 5, []string{"one", "two", "three"}},
 		{"e\U00000301e\U00000301e\U00000301", 2, []string{"e\U00000301e\U00000301", "e\U00000301"}},
 		{"", 4, []string{""}},
+	}
+	for _, c := range cases {
+		if got := Wrap(c.s, c.width); !slices.Equal(got, c.want) {
+			t.Errorf("Wrap(%+q, %d) = %+q, want %+q", c.s, c.width, got, c.want)
+		}
+	}
+}
+
+func TestBreak(t *testing.T) {
+	cases := []struct {
+		s     string
+		width int
+		want  []string
+	}{
+		{"a package-level drive", 10, []string{"a package-", "level", "drive"}},
+		{"hello 世界你好", 8, []string{"hello 世", "界你好"}},
+		{"中文中文。", 8, []string{"中文中", "文。"}},
+		{"see (a) now", 5, []string{"see", "(a)", "now"}},
+		{"go (   b", 4, []string{"go", "( b"}},
+		{"wait wait !", 9, []string{"wait", "wait !"}},
+		{"wait !", 4, []string{"wait", "!"}},
+		{"wait !", 5, []string{"wait", "!"}},
+		{"https://example.com/docs/wrapping", 12, []string{"https://", "example.com/", "docs/", "wrapping"}},
+		{"https://averyveryverylonghost.io/x", 10, []string{"https://", "averyveryv", "erylonghos", "t.io/x"}},
+		{"use -verbose or --quiet", 5, []string{"use", "-verb", "ose", "or --", "quiet"}},
+		{"x -5 3.14 1,000 $5 5%", 5, []string{"x -5", "3.14", "1,000", "$5 5%"}},
+		{"ab-cd", 3, []string{"ab-", "cd"}},
+		{"a" + brazil + family + "b", 2, []string{"a", brazil, family, "b"}},
+		{"  lead  and   gaps  ", 20, []string{"lead and gaps"}},
+		{"ab\U0000200Bcd", 3, []string{"ab\U0000200B", "cd"}},
+		{"no\U000000A0break here", 8, []string{"no\U000000A0break", "here"}},
+		{"ab-cd", 0, []string{"a", "b", "-", "c", "d"}},
 	}
 	for _, c := range cases {
 		if got := Wrap(c.s, c.width); !slices.Equal(got, c.want) {

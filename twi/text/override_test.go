@@ -55,7 +55,7 @@ func TestOverrideWrapKeepsBorders(t *testing.T) {
 		}
 		box = append(box, "|"+line+strings.Repeat(" ", pad)+"|")
 	}
-	want := []string{"|go " + brazil + brazil + brazil + "|", "|ok    |", "|" + brazil + "abcde|", "|fg    |"}
+	want := []string{"|go " + brazil + brazil + brazil + "|", "|ok " + brazil + "  |", "|abcdef|", "|g     |"}
 	if !slices.Equal(box, want) {
 		t.Errorf("box %+q, want %+q", box, want)
 	}

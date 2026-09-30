@@ -24,8 +24,16 @@ func main() {
 	base := "https://www.unicode.org/Public/" + *version + "/ucd/"
 	classNames := []string{"Other", "CR", "LF", "Control", "Extend", "ZWJ", "Regional_Indicator", "Prepend", "SpacingMark", "L", "V", "T", "LV", "LVT"}
 	conjunctNames := []string{"None", "Consonant", "Extend", "Linker"}
+	lineNames := []string{"AL", "NU", "ID", "NS", "SP", "BA", "HY", "BB", "B2", "GL", "WJ", "ZW", "OP", "CL", "CP", "EX", "IS", "SY", "QU", "PR", "PO", "IN"}
+	lineAliases := map[string]string{
+		"XX": "AL", "AI": "AL", "SG": "AL", "SA": "AL", "HL": "AL", "CM": "AL", "ZWJ": "AL",
+		"BK": "AL", "CR": "AL", "LF": "AL", "NL": "AL", "AK": "AL", "AP": "AL", "AS": "AL", "VI": "AL", "VF": "AL",
+		"H2": "ID", "H3": "ID", "JL": "ID", "JV": "ID", "JT": "ID", "EB": "ID", "EM": "ID", "RI": "ID", "CB": "ID",
+		"CJ": "NS", "HH": "HY",
+	}
 	count := int(unicode.MaxRune) + 1
 	class := make([]byte, count)
+	line := make([]byte, count)
 	conjunct := make([]byte, count)
 	wide := make([]bool, count)
 	presentation := make([]bool, count)
@@ -37,6 +45,13 @@ func main() {
 	})
 	each(fetch(base+"auxiliary/GraphemeBreakProperty.txt"), func(r rune, fields []string) {
 		class[r] = index(classNames, fields[0])
+	})
+	each(fetch(base+"LineBreak.txt"), func(r rune, fields []string) {
+		name := fields[0]
+		if alias, ok := lineAliases[name]; ok {
+			name = alias
+		}
+		line[r] = index(lineNames, name)
 	})
 	each(fetch(base+"DerivedCoreProperties.txt"), func(r rune, fields []string) {
 		if fields[0] == "InCB" {
@@ -54,7 +69,7 @@ func main() {
 		}
 	})
 
-	records := make([][2]byte, count)
+	records := make([][3]byte, count)
 	for r := range records {
 		width := byte(1)
 		switch classNames[class[r]] {
@@ -72,18 +87,18 @@ func main() {
 		if pictographic[r] {
 			flags |= konst.PictographicBit
 		}
-		records[r] = [2]byte{class[r], flags}
+		records[r] = [3]byte{class[r], flags, line[r]}
 	}
 
 	var out strings.Builder
-	fmt.Fprintf(&out, "package text\n\nconst UnicodeVersion = %q\n\nconst table = \"\" +\n", *version)
+	fmt.Fprintf(&out, "package text\n\nconst UnicodeVersion = %q\n\nconst asciiLineClasses = %q\n\nconst table = \"\" +\n", *version, line[' ':'~'+1])
 	start := 0
 	for r, record := range records {
 		if r+1 < count && records[r+1] == record {
 			continue
 		}
-		if record != [2]byte{0, 1} {
-			span := []byte{byte(start >> 16), byte(start >> 8), byte(start), byte(r >> 16), byte(r >> 8), byte(r), record[0], record[1]}
+		if record != [3]byte{0, 1, 0} {
+			span := []byte{byte(start >> 16), byte(start >> 8), byte(start), byte(r >> 16), byte(r >> 8), byte(r), record[0], record[1], record[2]}
 			fmt.Fprintf(&out, "\t%q +\n", span)
 		}
 		start = r + 1

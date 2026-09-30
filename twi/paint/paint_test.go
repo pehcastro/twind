@@ -85,7 +85,7 @@ func TestBorderCurrentColor(t *testing.T) {
 func TestTextWide(t *testing.T) {
 	box := sized(5, 1, layout.Edges{})
 	buf := buffer.New(7, 2)
-	Paint(buf, scene.New(box, plain(), scene.Sanitize("中文ab")), Composited)
+	Paint(buf, scene.New(box, plain(), scene.Sanitize("中文a")), Composited)
 	expect(t, buf, "中文a  ", "       ")
 	want := []buffer.Width{buffer.Wide, buffer.Continuation, buffer.Wide, buffer.Continuation, buffer.Narrow, buffer.Narrow, buffer.Narrow}
 	for x, w := range want {
