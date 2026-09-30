@@ -205,6 +205,44 @@ func TestAlpha(t *testing.T) {
 	}
 }
 
+func TestDefaultBorderColor(t *testing.T) {
+	src, err := os.ReadFile(appFixture + "/output.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules, _, err := Compile(string(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet, err := style.NewSheet(1, rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	red, err := color.Parse("oklch(63.7% 0.237 25.331)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	zinc200 := rgba(228, 228, 231, 255)
+	for classes, want := range map[string]color.Color{"": zinc200, "border": zinc200, "border rounded-lg": zinc200, "border border-red-500": red, "border-red-500 border": red} {
+		got := sheet.Compute(style.ComputedStyle{}, strings.Fields(classes)).BorderColor
+		t.Logf("%q: %+v", classes, got)
+		if got != want {
+			t.Errorf("%q: border colour %+v, want %+v", classes, got, want)
+		}
+	}
+	var dark []color.Color
+	for _, r := range rules {
+		if r.Class == "" && r.When.Scheme == style.SchemeDark {
+			for _, d := range r.Decls {
+				dark = append(dark, d.Color)
+			}
+		}
+	}
+	if want := []color.Color{rgba(255, 255, 255, 26)}; !reflect.DeepEqual(dark, want) {
+		t.Errorf("dark universal colours %+v, want the dark border token %+v", dark, want)
+	}
+}
+
 func TestTokens(t *testing.T) {
 	sheet, _ := compileFixture(t, appFixture)
 	zinc950, zinc900, zinc500, zinc200, white := rgba(9, 9, 11, 255), rgba(24, 24, 27, 255), rgba(113, 113, 123, 255), rgba(228, 228, 231, 255), rgba(255, 255, 255, 255)

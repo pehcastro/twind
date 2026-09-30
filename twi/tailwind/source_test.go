@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/twind-dev/twind/twi/style"
 )
 
 func TestStale(t *testing.T) {
@@ -48,6 +50,20 @@ func TestStale(t *testing.T) {
 	_, hash, _ = Inputs(dir, "twir_gen.go")
 	write("twir_gen.go", strings.Replace(Header(hash), "version=1", "version=0", 1)+"package main\n")
 	stale(true, "an older IR version")
+}
+
+func TestStaleWhenCompilerOutputChanges(t *testing.T) {
+	fixture := filepath.Join("..", "..", "internal", "twirgen", "testdata", "hello")
+	lostRule := func(src string) ([]style.Rule, []Warning, error) {
+		rules, warnings, err := Compile(src)
+		return rules[:len(rules)-1], warnings, err
+	}
+	if got, err := stale(fixture, "twir_gen.go", Compile); err != nil || got {
+		t.Errorf("committed fixture with today's compiler: stale %v, error %v, want fresh", got, err)
+	}
+	if got, err := stale(fixture, "twir_gen.go", lostRule); err != nil || !got {
+		t.Errorf("committed fixture with a compiler whose output lost a rule: stale %v, error %v, want stale", got, err)
+	}
 }
 
 func TestInput(t *testing.T) {

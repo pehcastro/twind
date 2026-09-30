@@ -168,7 +168,7 @@ func (c *compiler) rule(r css.Rule, sc scope) {
 	selectors := selectorList(r.Selector)
 	if sc.layer == "base" {
 		if slices.Contains(selectors, "*") {
-			c.emit(sc.layer, style.Rule{}, c.block(r.Block, vars{theme: c.light}, func(string, problem) {}))
+			c.themed(sc.layer, style.Rule{}, r.Block, func(string, problem) {})
 		}
 		return
 	}
@@ -178,22 +178,25 @@ func (c *compiler) rule(r css.Rule, sc scope) {
 			c.warnings = append(c.warnings, Warning{Class: out.Class, Property: "selector", Category: Unsupported, Reason: reason})
 			continue
 		}
-		warn := func(property string, p problem) {
+		c.themed(sc.layer, out, r.Block, func(property string, p problem) {
 			c.warnings = append(c.warnings, Warning{Class: out.Class, Property: property, Category: p.category, Reason: p.reason})
-		}
-		theme := c.light
-		if out.When.Scheme == style.SchemeDark && c.dark != nil {
-			theme = c.dark
-		}
-		decls := c.block(r.Block, vars{theme: theme}, warn)
-		c.emit(sc.layer, out, decls)
-		if out.When.Scheme != style.SchemeAny || c.dark == nil {
-			continue
-		}
-		if dark := c.block(r.Block, vars{theme: c.dark}, func(string, problem) {}); !reflect.DeepEqual(dark, decls) {
-			out.When.Scheme = style.SchemeDark
-			c.emit(sc.layer, out, dark)
-		}
+		})
+	}
+}
+
+func (c *compiler) themed(layer string, out style.Rule, block []css.Node, warn func(string, problem)) {
+	theme := c.light
+	if out.When.Scheme == style.SchemeDark && c.dark != nil {
+		theme = c.dark
+	}
+	decls := c.block(block, vars{theme: theme}, warn)
+	c.emit(layer, out, decls)
+	if out.When.Scheme != style.SchemeAny || c.dark == nil {
+		return
+	}
+	if dark := c.block(block, vars{theme: c.dark}, func(string, problem) {}); !reflect.DeepEqual(dark, decls) {
+		out.When.Scheme = style.SchemeDark
+		c.emit(layer, out, dark)
 	}
 }
 

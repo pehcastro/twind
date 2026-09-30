@@ -2,6 +2,7 @@ package tailwind
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -10,7 +11,13 @@ import (
 	"strings"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
+	"github.com/twind-dev/twind/twi/style"
 )
+
+//go:embed testdata/tailwind-4.3.3/app/output.css
+var compilerCorpus string
+
+type compileFunc func(string) ([]style.Rule, []Warning, error)
 
 func Input(sources []string) string {
 	var b strings.Builder
@@ -23,12 +30,20 @@ func Input(sources []string) string {
 }
 
 func Inputs(dir, generated string) ([]string, string, error) {
+	return inputs(dir, generated, Compile)
+}
+
+func inputs(dir, generated string, compile compileFunc) ([]string, string, error) {
+	rules, _, err := compile(strings.ReplaceAll(compilerCorpus, "\r\n", "\n"))
+	if err != nil {
+		return nil, "", err
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, "", err
 	}
 	var hashed strings.Builder
-	hashed.WriteString(Header("") + konst.PresetTheme)
+	fmt.Fprintf(&hashed, "%s%s%#v", Header(""), konst.PresetTheme, rules)
 	var names []string
 	for _, e := range entries {
 		if e.IsDir() || e.Name() == generated || filepath.Ext(e.Name()) != ".go" {
@@ -50,11 +65,15 @@ func Header(hash string) string {
 }
 
 func Stale(dir, generated string) (bool, error) {
+	return stale(dir, generated, Compile)
+}
+
+func stale(dir, generated string, compile compileFunc) (bool, error) {
 	src, err := os.ReadFile(filepath.Join(dir, generated))
 	if err != nil {
 		return false, err
 	}
-	_, hash, err := Inputs(dir, generated)
+	_, hash, err := inputs(dir, generated, compile)
 	if err != nil {
 		return false, err
 	}

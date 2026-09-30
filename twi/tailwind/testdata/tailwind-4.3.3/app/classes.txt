@@ -61,3 +61,5 @@ ring-ring
 dark:bg-zinc-900
 hover:bg-muted
 p-2
+border
+border-red-500

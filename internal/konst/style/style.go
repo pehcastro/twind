@@ -76,4 +76,9 @@ const PresetTheme = `@theme {
     }
   }
 }
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--color-border);
+  }
+}
 `
