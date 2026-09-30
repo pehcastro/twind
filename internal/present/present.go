@@ -48,8 +48,12 @@ type Screen struct {
 	sampled      []bool
 	cache        map[uint64]*cached
 	groups       []group
-	scratch      []*image.RGBA
+	parts        []part
+	targets      []*image.RGBA
 	ops          []raster.Op
+	canvas       image.RGBA
+	lines        []uint8
+	drawn        []bool
 	raster       raster.Raster
 	seed         maphash.Seed
 	frame        uint64
@@ -61,17 +65,36 @@ type Screen struct {
 }
 
 type cached struct {
-	img     *image.RGBA
-	frame   uint64
+	pix     []uint8
+	stride  int
+	row     []int32
 	solid   [][2]int
 	uniform [2]int
+	frame   uint64
 }
 
 type group struct {
 	layer   int
-	img     *image.RGBA
+	into    int
 	opacity float64
 	own     bool
+}
+
+type step uint8
+
+const (
+	drawBox step = iota
+	openGroup
+	closeGroup
+)
+
+type part struct {
+	step    step
+	c       *cached
+	r       image.Rectangle
+	at      image.Point
+	into    int
+	opacity float64
 }
 
 func (s *Screen) Frame(root scene.Node, cols, rows int) error {

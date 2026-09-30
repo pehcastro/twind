@@ -2,11 +2,13 @@ package present
 
 import (
 	"bytes"
+	"encoding/binary"
 	"hash/maphash"
 	"image"
 	imagecolor "image/color"
 	"image/draw"
 	"math"
+	"slices"
 
 	colorkonst "github.com/twind-dev/twind/internal/konst/color"
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
@@ -18,46 +20,94 @@ import (
 )
 
 func (s *Screen) composite(f *scene.Frame, t image.Rectangle) {
-	draw.Draw(s.surface, t, image.Transparent, image.Point{}, draw.Src)
-	s.groups = s.groups[:0]
+	s.groups, s.parts = s.groups[:0], s.parts[:0]
+	if len(s.targets) == 0 {
+		s.targets = append(s.targets, nil)
+	}
+	s.targets[0] = s.surface
 	for i := range f.Layers {
 		l := &f.Layers[i]
 		for len(s.groups) > 0 && s.groups[len(s.groups)-1].layer != l.Parent {
-			s.pop(t)
+			s.close()
 		}
-		target := s.surface
+		into := 0
 		if n := len(s.groups); n > 0 {
-			target = s.groups[n-1].img
+			into = s.groups[n-1].into
 		}
-		own := target != nil && l.Opacity > 0 && l.Opacity < 1
+		own := into >= 0 && l.Opacity > 0 && l.Opacity < 1
 		switch {
 		case own:
-			target = s.group(len(s.groups), t)
+			into++
+			s.parts = append(s.parts, part{step: openGroup, into: into})
 		case l.Opacity <= 0:
-			target = nil
+			into = -1
 		}
-		s.groups = append(s.groups, group{layer: i, img: target, opacity: l.Opacity, own: own})
-		if target == nil || !l.Visual.Overlaps(t) {
+		s.groups = append(s.groups, group{layer: i, into: into, opacity: l.Opacity, own: own})
+		if into < 0 || !l.Visual.Overlaps(t) {
 			continue
 		}
 		for j := range l.Boxes {
 			b := &l.Boxes[j]
 			at := b.Visual.Add(l.Origin)
 			if r := at.Intersect(t).Intersect(l.Clip); !r.Empty() {
-				over(target, r, s.boxRaster(b), r.Min.Sub(at.Min))
+				s.parts = append(s.parts, part{step: drawBox, c: s.boxRaster(b), r: r, at: at.Min, into: into})
 			}
 		}
 	}
 	for len(s.groups) > 0 {
-		s.pop(t)
+		s.close()
 	}
+	for y := t.Min.Y; y < t.Max.Y; y++ {
+		row := s.surface.Pix[s.surface.PixOffset(t.Min.X, y):s.surface.PixOffset(t.Max.X, y)]
+		if y > t.Min.Y && s.repeats(y) {
+			copy(row, s.surface.Pix[s.surface.PixOffset(t.Min.X, y-1):])
+			continue
+		}
+		clear(row)
+		u := image.Rect(t.Min.X, y, t.Max.X, y+1)
+		for _, p := range s.parts {
+			switch p.step {
+			case openGroup:
+				s.group(p.into, u)
+			case drawBox:
+				if r := p.r.Intersect(u); !r.Empty() {
+					over(s.targets[p.into], r, p.c, r.Min.Sub(p.at))
+				}
+			case closeGroup:
+				alpha := image.NewUniform(imagecolor.Alpha{A: uint8(math.Round(p.opacity * math.MaxUint8))})
+				draw.DrawMask(s.targets[p.into-1], u, s.targets[p.into], u.Min, alpha, image.Point{}, draw.Over)
+			}
+		}
+	}
+}
+
+func (s *Screen) close() {
+	g := s.groups[len(s.groups)-1]
+	s.groups = s.groups[:len(s.groups)-1]
+	if g.own {
+		s.parts = append(s.parts, part{step: closeGroup, into: g.into, opacity: g.opacity})
+	}
+}
+
+func (s *Screen) repeats(y int) bool {
+	for _, p := range s.parts {
+		if p.step != drawBox {
+			continue
+		}
+		in, was := y >= p.r.Min.Y && y < p.r.Max.Y, y > p.r.Min.Y && y <= p.r.Max.Y
+		if in != was || in && p.c.row[y-p.at.Y] != p.c.row[y-1-p.at.Y] {
+			return false
+		}
+	}
+	return true
 }
 
 func over(dst *image.RGBA, r image.Rectangle, src *cached, at image.Point) {
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		d := dst.Pix[dst.PixOffset(r.Min.X, y):dst.PixOffset(r.Max.X, y)]
-		p := src.img.Pix[src.img.PixOffset(at.X, at.Y+y-r.Min.Y):][:len(d)]
-		run := src.solid[at.Y+y-r.Min.Y]
+		k := src.row[at.Y+y-r.Min.Y]
+		p := src.pix[int(k)*src.stride+4*at.X:][:len(d)]
+		run := src.solid[k]
 		lo := min(max(run[0]-4*at.X, 0), len(d))
 		hi := min(max(run[1]-4*at.X, lo), len(d))
 		blend(d[:lo], p[:lo])
@@ -67,96 +117,139 @@ func over(dst *image.RGBA, r image.Rectangle, src *cached, at image.Point) {
 }
 
 func blend(d, p []uint8) {
+	var src, under, out uint32
 	for i := 0; i < len(d); i += 4 {
 		switch a := uint32(p[i+3]); a {
 		case 0:
 		case math.MaxUint8:
 			copy(d[i:i+4], p[i:i+4])
 		default:
-			keep := math.MaxUint8 - a
-			for c := range 4 {
-				d[i+c] = p[i+c] + uint8((uint32(d[i+c])*keep+math.MaxUint8/2)/math.MaxUint8)
-			}
-		}
-	}
-}
-
-func solid(img *image.RGBA) [][2]int {
-	runs := make([][2]int, img.Rect.Dy())
-	for y := range runs {
-		row := img.Pix[y*img.Stride:][:4*img.Rect.Dx()]
-		start := 0
-		for i := 0; i <= len(row); i += 4 {
-			if i < len(row) && row[i+3] == math.MaxUint8 {
+			px := d[i : i+4 : i+4]
+			if s, u := binary.LittleEndian.Uint32(p[i:]), binary.LittleEndian.Uint32(px); s != src || u != under || out == 0 {
+				keep := math.MaxUint8 - a
+				for c := range 4 {
+					px[c] = p[i+c] + uint8((uint32(px[c])*keep+math.MaxUint8/2)/math.MaxUint8)
+				}
+				src, under, out = s, u, binary.LittleEndian.Uint32(px)
 				continue
 			}
-			if i-start > runs[y][1]-runs[y][0] {
-				runs[y] = [2]int{start, i}
-			}
-			start = i + 4
+			binary.LittleEndian.PutUint32(px, out)
 		}
 	}
-	return runs
 }
 
-func uniform(img *image.RGBA) [2]int {
-	var best [2]int
-	start := 0
-	for y := 1; y <= img.Rect.Dy(); y++ {
-		if y < img.Rect.Dy() && bytes.Equal(img.Pix[y*img.Stride:][:img.Stride], img.Pix[(y-1)*img.Stride:][:img.Stride]) {
-			continue
-		}
-		if y-start > best[1]-best[0] {
-			best = [2]int{start, y}
-		}
-		start = y
+func (s *Screen) group(into int, t image.Rectangle) {
+	if len(s.targets) == into {
+		s.targets = append(s.targets, &image.RGBA{})
 	}
-	return best
-}
-
-func (s *Screen) pop(t image.Rectangle) {
-	g := s.groups[len(s.groups)-1]
-	s.groups = s.groups[:len(s.groups)-1]
-	if !g.own {
-		return
-	}
-	dst := s.surface
-	if n := len(s.groups); n > 0 {
-		dst = s.groups[n-1].img
-	}
-	alpha := image.NewUniform(imagecolor.Alpha{A: uint8(math.Round(g.opacity * math.MaxUint8))})
-	draw.DrawMask(dst, t, g.img, t.Min, alpha, image.Point{}, draw.Over)
-}
-
-func (s *Screen) group(depth int, t image.Rectangle) *image.RGBA {
-	for len(s.scratch) <= depth {
-		s.scratch = append(s.scratch, &image.RGBA{})
-	}
-	g := s.scratch[depth]
+	g := s.targets[into]
 	n := 4 * t.Dx() * t.Dy()
 	if cap(g.Pix) < n {
 		g.Pix = make([]uint8, n)
 	}
 	g.Pix, g.Stride, g.Rect = g.Pix[:n], 4*t.Dx(), t
 	clear(g.Pix)
-	return g
 }
 
 func (s *Screen) boxRaster(b *scene.Box) *cached {
 	if c, ok := s.cache[b.Look]; ok {
 		return c
 	}
-	img := image.NewRGBA(image.Rectangle{Max: b.Visual.Size()})
+	size := b.Visual.Size()
 	s.ops = append(s.ops[:0], b.Ops...)
 	for i := range s.ops {
 		s.ops[i].Box.X -= float64(b.Visual.Min.X)
 		s.ops[i].Box.Y -= float64(b.Visual.Min.Y)
 	}
-	s.raster.Draw(img, s.ops, img.Rect)
+	stride := 4 * size.X
+	c := &cached{stride: stride, row: make([]int32, size.Y), frame: s.frame}
+	s.plan(size.Y)
+	s.lines = s.lines[:0]
+	for y := 0; y < size.Y; {
+		if !s.drawn[y] {
+			c.row[y] = c.row[y-1]
+			y++
+			continue
+		}
+		end := y + 1
+		for end < size.Y && s.drawn[end] {
+			end++
+		}
+		n := len(s.lines)
+		s.lines = slices.Grow(s.lines, stride*(end-y))
+		s.canvas.Pix, s.canvas.Stride, s.canvas.Rect = s.lines[n:n+stride*(end-y)], stride, image.Rect(0, y, size.X, end)
+		s.raster.Draw(&s.canvas, s.ops, s.canvas.Rect)
+		for at := n; y < end; y, at = y+1, at+stride {
+			line := s.lines[at : at+stride]
+			if n > 0 && bytes.Equal(line, s.lines[n-stride:n]) {
+				c.row[y] = c.row[y-1]
+				continue
+			}
+			c.row[y] = int32(len(c.solid))
+			c.solid = append(c.solid, solid(line))
+			n += copy(s.lines[n:n+stride], line)
+		}
+		s.lines = s.lines[:n]
+	}
+	c.pix = slices.Clone(s.lines)
+	for y, start := 1, 0; y <= size.Y; y++ {
+		if y < size.Y && c.row[y] == c.row[y-1] {
+			continue
+		}
+		if y-start > c.uniform[1]-c.uniform[0] {
+			c.uniform = [2]int{start, y}
+		}
+		start = y
+	}
 	s.rastered++
-	c := &cached{img: img, frame: s.frame, solid: solid(img), uniform: uniform(img)}
 	s.cache[b.Look] = c
 	return c
+}
+
+func (s *Screen) plan(h int) {
+	if cap(s.drawn) < h {
+		s.drawn = make([]bool, h)
+	}
+	s.drawn = s.drawn[:h]
+	clear(s.drawn)
+	for _, op := range s.ops {
+		if op.Kind != raster.Fill && op.Kind != raster.Border || len(op.Stops) > 0 || op.Dash != raster.Solid {
+			for y := range s.drawn {
+				s.drawn[y] = true
+			}
+			return
+		}
+	}
+	if h > 0 {
+		s.drawn[0] = true
+	}
+	for _, op := range s.ops {
+		b, radii, width := op.Box, op.Box.Radii, 0.0
+		if op.Kind == raster.Border {
+			width = op.Width
+		}
+		top, bottom := max(radii[0], radii[1], width), max(radii[2], radii[3], width)
+		for _, edge := range [2][2]float64{{b.Y, b.Y + top}, {b.Y + b.H - bottom, b.Y + b.H}} {
+			for y := max(int(math.Floor(edge[0]))-1, 0); y <= min(int(math.Ceil(edge[1]))+1, h-1); y++ {
+				s.drawn[y] = true
+			}
+		}
+	}
+}
+
+func solid(row []uint8) [2]int {
+	var run [2]int
+	start := 0
+	for i := 0; i <= len(row); i += 4 {
+		if i < len(row) && row[i+3] == math.MaxUint8 {
+			continue
+		}
+		if i-start > run[1]-run[0] {
+			run = [2]int{start, i}
+		}
+		start = i + 4
+	}
+	return run
 }
 
 func (s *Screen) evict(f *scene.Frame) {
