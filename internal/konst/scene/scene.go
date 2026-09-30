@@ -16,6 +16,8 @@ const (
 	HashSeed  = 0xcbf29ce484222325
 	HashPrime = 0x9e3779b97f4a7c15
 	HashShift = 29
+	LookSlots = 512
+	LookOps   = 1024
 )
 
 const (
@@ -25,13 +27,4 @@ const (
 	ThumbGrey      = 128
 	ThumbEighths   = 8
 	LowerEighth    = '▁'
-)
-
-const (
-	MarginsOn  = "?69h"
-	MarginsOff = "?69l"
-	Rows       = "r"
-	Columns    = "s"
-	ScrollUp   = "S"
-	ScrollDown = "T"
 )

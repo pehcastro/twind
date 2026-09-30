@@ -151,43 +151,24 @@ func TestLayersOpacityGroup(t *testing.T) {
 }
 
 func BenchmarkLayers1000(b *testing.B) {
-	const framesPerSample = 8
-	trees := [2]Node{}
-	for t := range trees {
-		root := page()
-		for i := range 50 {
-			c := card(paint(24, 24, uint8(27+t*(i%2)), 255))
-			c.Bounds.Y = i * 5
-			c.Border = Border{Style: style.BorderSingle, Radius: style.RadiusLg, Top: true, Right: true, Bottom: true, Left: true, Color: paint(63, 63, 70, 255)}
-			for j := range 19 {
-				row := box(3, i*5+j%3, 8, 1, paint(39, 39, 42, uint8(255*(j%2))))
-				row.text = Sanitize("row")
-				c.Children = append(c.Children, row)
-			}
-			root.Children = append(root.Children, c)
-		}
-		root.Children = append(root.Children, popover(5+t, 5))
-		trees[t] = root
-	}
+	trees := benchTrees()
 	var frames [2]Frame
 	frames[0].Record(&trees[0], cell)
-	var batches []time.Duration
-	start := time.Now()
+	now := clock(b)
+	var took []time.Duration
 	for i := 1; b.Loop(); i++ {
+		start := now()
 		next := &frames[i%2]
 		next.Record(&trees[i%2], cell)
-		if d := Diff(&frames[1-i%2], next); len(d.Rects) != 25 || len(d.Moves) != 1 {
+		d := Diff(&frames[1-i%2], next)
+		took = append(took, now()-start)
+		if len(d.Rects) != 25 || len(d.Moves) != 1 {
 			b.Fatalf("got %d rects and %d moves, want 25 changed cards and 1 move", len(d.Rects), len(d.Moves))
 		}
-		if i%framesPerSample == 0 {
-			batches = append(batches, time.Since(start)/framesPerSample)
-			start = time.Now()
-		}
 	}
-	if len(batches) > 0 {
-		slices.Sort(batches)
-		b.ReportMetric(float64(batches[len(batches)*95/100].Nanoseconds()), "p95-ns/frame")
-	}
+	slices.Sort(took)
+	b.ReportMetric(float64(took[len(took)/2].Nanoseconds()), "p50-ns/frame")
+	b.ReportMetric(float64(took[len(took)*95/100].Nanoseconds()), "p95-ns/frame")
 }
 
 func TestDamageGroupOpacityReachesChildLayers(t *testing.T) {

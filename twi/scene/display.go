@@ -16,21 +16,26 @@ import (
 )
 
 func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
+	edges := &n.Border
+	bordered := edges.Style != style.BorderNone && shows(edges.Color)
+	if !bordered && !shows(n.Background) && len(n.Shadows)+len(n.InsetShadows) == 0 && n.Gradient.Kind != style.GradientLinear {
+		return image.Rectangle{}, false
+	}
 	start := len(f.ops)
 	bounds := f.pixels(n.Bounds).Sub(origin)
 	if bounds.Empty() {
 		return bounds, false
 	}
 	r := f.radius(n.Border.Radius)
-	shape := raster.Box{Rect: rect(bounds), Radii: [4]float64{r, r, r, r}}
+	shape := rect(bounds)
 	visual := bounds
 	for i := len(n.Shadows) - 1; i >= 0; i-- {
-		s := n.Shadows[i]
+		s := &n.Shadows[i]
 		if !shows(s.Color) {
 			continue
 		}
-		cast := f.shadow(s)
-		f.ops = append(f.ops, raster.Op{Kind: raster.Shadow, Box: shape, Color: s.Color.RGBA, Shadow: cast})
+		cast := f.shadow(*s)
+		f.put(raster.Shadow, shape, r, s.Color.RGBA).Shadow = cast
 		reach := cast.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + cast.Spread
 		visual = visual.Union(image.Rect(
 			int(math.Floor(shape.X+cast.X-reach)), int(math.Floor(shape.Y+cast.Y-reach)),
@@ -38,38 +43,35 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 		))
 	}
 	if shows(n.Background) {
-		fill := shape
+		fill, radius := shape, r
 		if n == f.root {
 			canvas := f.pixels(f.screen).Sub(origin)
-			fill, visual = raster.Box{Rect: rect(canvas)}, visual.Union(canvas)
+			fill, radius, visual = rect(canvas), 0, visual.Union(canvas)
 		}
-		f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: fill, Color: n.Background.RGBA})
+		f.put(raster.Fill, fill, radius, n.Background.RGBA)
 	}
 	if n.Gradient.Kind == style.GradientLinear {
-		f.ops = append(f.ops, GradientFill(n.Gradient, shape))
+		f.ops = append(f.ops, GradientFill(n.Gradient, raster.Box{Rect: shape, Radii: [4]float64{r, r, r, r}}))
 	}
-	edges := n.Border
-	bordered := edges.Style != style.BorderNone && shows(edges.Color)
 	ring := bordered && edges.Top && edges.Right && edges.Bottom && edges.Left
-	inner := shape
+	inner, in := shape, r
 	if ring {
-		inner.Rect = raster.Rect{X: shape.X + konst.BorderPixels, Y: shape.Y + konst.BorderPixels, W: shape.W - 2*konst.BorderPixels, H: shape.H - 2*konst.BorderPixels}
-		for i := range inner.Radii {
-			inner.Radii[i] = max(r-konst.BorderPixels, 0)
-		}
+		b := float64(konst.BorderPixels)
+		inner, in = raster.Rect{X: shape.X + b, Y: shape.Y + b, W: shape.W - 2*b, H: shape.H - 2*b}, max(r-b, 0)
 	}
 	for i := len(n.InsetShadows) - 1; i >= 0; i-- {
-		if s := n.InsetShadows[i]; shows(s.Color) {
-			cast := f.shadow(s)
+		if s := &n.InsetShadows[i]; shows(s.Color) {
+			cast := f.shadow(*s)
 			cast.Inset = true
-			f.ops = append(f.ops, raster.Op{Kind: raster.Shadow, Box: inner, Color: s.Color.RGBA, Shadow: cast})
+			f.put(raster.Shadow, inner, in, s.Color.RGBA).Shadow = cast
 		}
 	}
 	switch {
 	case ring:
-		f.ops = append(f.ops, raster.Op{Kind: raster.Border, Box: shape, Color: edges.Color.RGBA, Width: konst.BorderPixels, Dash: dash(edges.Style)})
+		op := f.put(raster.Border, shape, r, edges.Color.RGBA)
+		op.Width, op.Dash = konst.BorderPixels, dash(edges.Style)
 	case bordered:
-		s := shape.Rect
+		s := shape
 		for _, side := range [...]struct {
 			on   bool
 			line raster.Rect
@@ -80,7 +82,7 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 			{edges.Left, raster.Rect{X: s.X, Y: s.Y, W: konst.BorderPixels, H: s.H}},
 		} {
 			if side.on {
-				f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: side.line}, Color: edges.Color.RGBA, Dash: dash(edges.Style)})
+				f.put(raster.Fill, side.line, 0, edges.Color.RGBA).Dash = dash(edges.Style)
 			}
 		}
 	}
@@ -91,12 +93,15 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 }
 
 func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point, round *clipper) (image.Rectangle, bool) {
+	if clip == layerClip && round == nil {
+		return visual, true
+	}
 	pushed := len(f.ops)
 	if clip != layerClip {
 		if visual = visual.Intersect(clip.Sub(origin)); visual.Empty() {
 			return visual, false
 		}
-		f.ops = append(f.ops, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: rect(clip.Sub(origin))}})
+		f.put(raster.Clip, rect(clip.Sub(origin)), 0, color.RGBA{})
 	}
 	seen := visual.Intersect(clip.Sub(origin))
 	for ; round != nil; round = round.up {
@@ -112,16 +117,24 @@ func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin 
 		if seen.Min.X >= shape.Min.X+reach && seen.Max.X <= shape.Max.X-reach || seen.Min.Y >= shape.Min.Y+reach && seen.Max.Y <= shape.Max.Y-reach {
 			continue
 		}
-		f.ops = append(f.ops, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: rect(shape), Radii: [4]float64{r, r, r, r}}})
+		f.put(raster.Clip, rect(shape), r, color.RGBA{})
 	}
 	pops := len(f.ops) - pushed
 	slices.Reverse(f.ops[start:pushed])
 	slices.Reverse(f.ops[pushed:])
 	slices.Reverse(f.ops[start:])
 	for range pops {
-		f.ops = append(f.ops, raster.Op{Kind: raster.Pop})
+		f.put(raster.Pop, raster.Rect{}, 0, color.RGBA{})
 	}
 	return visual, true
+}
+
+func (f *Frame) put(kind raster.Kind, at raster.Rect, radius float64, c color.RGBA) *raster.Op {
+	f.ops = append(f.ops, raster.Op{})
+	op := &f.ops[len(f.ops)-1]
+	op.Kind, op.Box.Rect, op.Color = kind, at, c
+	op.Box.Radii[0], op.Box.Radii[1], op.Box.Radii[2], op.Box.Radii[3] = radius, radius, radius, radius
+	return op
 }
 
 func dash(s style.BorderStyle) raster.Dash {
@@ -150,9 +163,8 @@ func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (i
 		c = n.Foreground.RGBA
 	}
 	c.A = uint8(float64(c.A) * konst.ThumbAlpha)
-	radius := float64(width) / 2
 	start := len(f.ops)
-	f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: rect(visual), Radii: [4]float64{radius, radius, radius, radius}}, Color: c})
+	f.put(raster.Fill, rect(visual), float64(width)/2, c)
 	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin, nil)
 }
 

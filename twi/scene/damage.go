@@ -3,6 +3,7 @@ package scene
 import (
 	"image"
 	"math"
+	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/color"
@@ -115,11 +116,60 @@ func (d *Damage) add(r image.Rectangle) {
 	d.Rects = append(d.Rects, r)
 }
 
+type looks struct {
+	slots [konst.LookSlots]memo
+	ops   []raster.Op
+}
+
+type memo struct {
+	look     uint64
+	at, size image.Point
+	from, to int
+}
+
+func (m *looks) look(ops []raster.Op, visual image.Rectangle) uint64 {
+	colors := uint64(len(ops))
+	for i := range ops {
+		colors = colors<<8 ^ packed(ops[i].Color)
+	}
+	slot := &m.slots[mix(colors, math.Float64bits(ops[0].Box.W)^math.Float64bits(ops[0].Box.H)>>1)%konst.LookSlots]
+	if slot.to-slot.from == len(ops) && slot.size == visual.Size() && same(m.ops[slot.from:slot.to], slot.at, ops, visual.Min) {
+		return slot.look
+	}
+	look := mix(hash(ops, visual.Min), uint64(visual.Dx())<<32|uint64(visual.Dy()))
+	if len(m.ops)+len(ops) > konst.LookOps {
+		m.ops, m.slots = m.ops[:0], [konst.LookSlots]memo{}
+	}
+	*slot = memo{look: look, at: visual.Min, size: visual.Size(), from: len(m.ops), to: len(m.ops) + len(ops)}
+	m.ops = append(m.ops, ops...)
+	return look
+}
+
+func same(a []raster.Op, aAt image.Point, b []raster.Op, bAt image.Point) bool {
+	ne := func(u, v float64) uint64 { return math.Float64bits(u) ^ math.Float64bits(v) }
+	ax, ay, bx, by := float64(aAt.X), float64(aAt.Y), float64(bAt.X), float64(bAt.Y)
+	for i := range a {
+		p, q := &a[i], &b[i]
+		r, s := &p.Box.Radii, &q.Box.Radii
+		u, v := &p.Shadow, &q.Shadow
+		if ne(p.Box.X-ax, q.Box.X-bx)|ne(p.Box.Y-ay, q.Box.Y-by)|ne(p.Box.W, q.Box.W)|ne(p.Box.H, q.Box.H)|
+			ne(r[0], s[0])|ne(r[1], s[1])|ne(r[2], s[2])|ne(r[3], s[3])|
+			ne(p.Angle, q.Angle)|ne(p.Width, q.Width)|ne(p.Opacity, q.Opacity)|
+			ne(u.X, v.X)|ne(u.Y, v.Y)|ne(u.Blur, v.Blur)|ne(u.Spread, v.Spread)|
+			uint64(p.Kind^q.Kind)|uint64(p.Dash^q.Dash)|packed(p.Color)^packed(q.Color) != 0 || u.Inset != v.Inset ||
+			!slices.EqualFunc(p.Stops, q.Stops, func(m, n raster.Stop) bool { return m.Color == n.Color && ne(m.At, n.At) == 0 }) {
+			return false
+		}
+	}
+	return true
+}
+
 func hash(ops []raster.Op, at image.Point) uint64 {
 	h := uint64(konst.HashSeed)
 	x, y := float64(at.X), float64(at.Y)
-	for _, op := range ops {
-		b, s := op.Box, op.Shadow
+	for i := range ops {
+		op := &ops[i]
+		b, s := &op.Box, &op.Shadow
 		for _, v := range [...]float64{
 			float64(op.Kind), b.X - x, b.Y - y, b.W, b.H, b.Radii[0], b.Radii[1], b.Radii[2], b.Radii[3],
 			op.Angle, op.Width, op.Opacity, s.X, s.Y, s.Blur, s.Spread, float64(op.Dash),
