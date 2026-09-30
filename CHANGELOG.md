@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.0 (2026-09-30)
+
+Run a fullscreen app whose surfaces are pixels under crisp terminal text.
+
+- `twi.NewRuntime`, `rt.Run`, `twi.NewSignal(rt, v)` and `rt.Dispatch`: a retained app that redraws only what changed, with key events, runtime themes (`rt.SetTheme`, every shadcn palette, light and dark) and a headless driver (`twi/drive`) with a fake clock and a script format (`size`, `press`, `type`, `wait`, `resize`, `frame`).
+- Backgrounds, borders, radius, soft shadows, gradients and opacity are rasterised into images and sent as Sixel, Kitty graphics or iTerm2 images, whichever the terminal speaks, with text drawn as real cells on top. Terminals without graphics, `NO_COLOR` and 256 or 16 colours fall back to cells.
+- Terminal detection at start: graphics protocol, cell pixel size, synchronized output, emoji widths and grapheme mode.
+- `position` absolute, relative and fixed, z-index, overflow clipping.
+- The `twind` CLI: `build`, `check`, `drive`, `doctor`.
+- Examples: `examples/playground` (fullscreen app with a theme picker) and `examples/gallery`.
+
+v0.2.0 was not tagged; its surfaces work is part of this release.
+
 ## v0.1.0 (2026-09-29)
 
 Render a DOM once, in static mode, through real Tailwind.
