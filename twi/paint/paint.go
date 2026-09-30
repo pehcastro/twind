@@ -298,20 +298,29 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 			glyph(right, y, edges[1])
 		}
 	}
-	if corners[0] == "" {
-		return
+	corner := func(x, y int, g string) {
+		if g != "" {
+			glyph(x, y, g)
+			return
+		}
+		if !visible(buf, clip, x, y) {
+			return
+		}
+		if under := buf.At(x, y); under.Grapheme != konst.UpperHalf {
+			buf.Set(x, y, buffer.Cell{Grapheme: " ", Fg: under.Fg, Bg: under.Bg})
+		}
 	}
 	if b.Top && b.Left {
-		glyph(r.X, r.Y, corners[0])
+		corner(r.X, r.Y, corners[0])
 	}
 	if b.Top && b.Right {
-		glyph(right, r.Y, corners[1])
+		corner(right, r.Y, corners[1])
 	}
 	if b.Bottom && b.Left {
-		glyph(r.X, bottom, corners[2])
+		corner(r.X, bottom, corners[2])
 	}
 	if b.Bottom && b.Right {
-		glyph(right, bottom, corners[3])
+		corner(right, bottom, corners[3])
 	}
 }
 

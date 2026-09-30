@@ -61,14 +61,8 @@ func TestHairline(t *testing.T) {
 func TestHairlineRounded(t *testing.T) {
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
 	text := "abcdefghijkl\nmnopqrstuvwx\nABCDEFGHIJKL\nMNOPQRSTUVWX\nyz"
-	bare := painted(12, 6, page(12, 6, text), Composited)
 	buf := painted(12, 6, page(12, 6, text, card(place(1, 1, 10, 4, one), style.RadiusLg)), Composited)
-	expect(t, buf, "abcdefghijkl", "mn▁▁▁▁▁▁▁▁wx", "A▕        ▏L", "M▕        ▏X", "yz▔▔▔▔▔▔▔▔  ")
-	for _, at := range [][2]int{{1, 1}, {10, 1}, {1, 4}, {10, 4}} {
-		if got, want := buf.At(at[0], at[1]), bare.At(at[0], at[1]); got != want {
-			t.Errorf("corner %v: %+v, want the parent's cell %+v", at, got, want)
-		}
-	}
+	expect(t, buf, "abcdefghijkl", "m ▁▁▁▁▁▁▁▁ x", "A▕        ▏L", "M▕        ▏X", "y ▔▔▔▔▔▔▔▔  ")
 }
 
 func TestHairlineOneEdge(t *testing.T) {

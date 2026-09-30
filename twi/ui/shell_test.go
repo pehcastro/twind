@@ -139,7 +139,8 @@ func TestContextMenuRightClick(t *testing.T) {
 	expect("a right click outside the area closes it", !menu.Open && !has(d, "Back"))
 	hit(d, "tab shift+f10")
 	x, y, _ = at(d.Frame(), "Back")
-	lx, ly, _ := at(d.Frame(), "╭")
+	rx, ly, _ := at(d.Frame(), "╮")
+	lx := rx - 39
 	expect("shift+f10 after a right click opens at the area's corner again", menu.Open && x == lx+4 && y == ly+1)
 }
 
