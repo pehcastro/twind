@@ -39,7 +39,7 @@ func (r *Raster) plan(ops []Op, tile image.Rectangle) {
 		case Border:
 			outer := op.Box.fit()
 			lo, hi := outer.straight(0)
-			innerLo, innerHi := outer.inset(op.Width).straight(0)
+			innerLo, innerHi := outer.Inset(op.Width).straight(0)
 			if op.Dash != Solid || !outer.even() {
 				lo, hi = 1, 0
 			}

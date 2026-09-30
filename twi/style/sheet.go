@@ -132,6 +132,10 @@ const (
 	PropTailwindAnimationDelay
 	PropTailwindAnimationIterations
 	PropTailwindAnimationFill
+	PropRadiusTopLeft
+	PropRadiusTopRight
+	PropRadiusBottomRight
+	PropRadiusBottomLeft
 )
 
 type Declaration struct {
@@ -643,6 +647,15 @@ func (s Sheet) compute(part Part, parent *ComputedStyle, classes []string, node 
 		rank := int32(i + 1)
 		for j := range r.Decls {
 			d := &r.Decls[j]
+			if d.Property == PropRadius {
+				for p := PropRadiusTopLeft; p <= PropRadiusBottomLeft; p++ {
+					if winners[p] <= rank {
+						winners[p] = rank
+						out.Radius = out.Radius.With(Corner(p-PropRadiusTopLeft), d.Radius)
+					}
+				}
+				continue
+			}
 			if winners[d.Property] > rank {
 				continue
 			}
@@ -867,6 +880,8 @@ func (s *ComputedStyle) apply(d *Declaration, c, inherited color.Color) {
 		s.BorderColor = c
 	case PropRadius:
 		s.Radius = d.Radius
+	case PropRadiusTopLeft, PropRadiusTopRight, PropRadiusBottomRight, PropRadiusBottomLeft:
+		s.Radius = s.Radius.With(Corner(d.Property-PropRadiusTopLeft), d.Radius)
 	case PropBackground:
 		s.Background = c
 	case PropOpacity:

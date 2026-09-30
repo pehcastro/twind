@@ -74,7 +74,7 @@ func (b Box) along(px, py float64) float64 {
 }
 
 func (r *Raster) dashedBorder(op Op, outer, inner *outline, area image.Rectangle) {
-	line := outer.box.inset(op.Width / 2)
+	line := outer.box.Inset(op.Width / 2)
 	dash, gap := dashes(op.Dash, op.Width)
 	p := loop(dash, gap, line.perimeter())
 	p.phase = p.dash / 2

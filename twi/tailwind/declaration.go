@@ -18,11 +18,12 @@ type decls = []style.Declaration
 const noRendering = "no terminal rendering"
 
 func (c *compiler) declaration(prop string, raw []css.Token, v vars) (decls, problem) {
-	switch prop {
-	case "border-radius":
+	if corner, ok := radiusProperty(prop); ok {
 		if r, p, ok := themedRadius(raw); ok {
-			return decls{{Property: style.PropRadius, Radius: r}}, p
+			return decls{{Property: corner, Radius: r}}, p
 		}
+	}
+	switch prop {
 	case "box-shadow":
 		return c.boxShadow(raw, v)
 	case "background-image":
@@ -64,6 +65,18 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 	}
 	if out, p, ok := motion(prop, parts); ok {
 		return out, p
+	}
+	if corner, ok := radiusProperty(prop); ok {
+		q, err := evaluate(slices.Concat(parts...))
+		switch {
+		case err != nil:
+			return nil, problem{Unsupported, err.Error()}
+		case math.IsInf(q.value, 1):
+			return decls{{Property: corner, Radius: style.RadiusFull}}, problem{}
+		case q.value == 0:
+			return decls{{Property: corner, Radius: style.RadiusNone}}, problem{}
+		}
+		return decls{{Property: corner, Radius: style.RadiusSm}}, problem{Approximated, "radius length drawn as sm"}
 	}
 	if strings.HasPrefix(prop, "border-") && strings.HasSuffix(prop, "-style") {
 		prop = "border-style"
@@ -181,17 +194,6 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 		return decls{{Property: style.PropBorderStyle, BorderStyle: v}}, p
 	case "border":
 		return border(parts)
-	case "border-radius":
-		q, err := evaluate(slices.Concat(parts...))
-		switch {
-		case err != nil:
-			return nil, problem{Unsupported, err.Error()}
-		case math.IsInf(q.value, 1):
-			return decls{{Property: style.PropRadius, Radius: style.RadiusFull}}, problem{}
-		case q.value == 0:
-			return decls{{Property: style.PropRadius, Radius: style.RadiusNone}}, problem{}
-		}
-		return decls{{Property: style.PropRadius, Radius: style.RadiusSm}}, problem{Approximated, "radius length drawn as sm"}
 	case "font-weight":
 		return fontWeight(parts)
 	case "font-style":
@@ -356,6 +358,22 @@ func border(parts [][]css.Token) (decls, problem) {
 		out = append(out, style.Declaration{Property: side, Length: width})
 	}
 	return out, problem{}
+}
+
+func radiusProperty(prop string) (style.Property, bool) {
+	switch prop {
+	case "border-radius":
+		return style.PropRadius, true
+	case "border-top-left-radius", "border-start-start-radius":
+		return style.PropRadiusTopLeft, true
+	case "border-top-right-radius", "border-start-end-radius":
+		return style.PropRadiusTopRight, true
+	case "border-bottom-right-radius", "border-end-end-radius":
+		return style.PropRadiusBottomRight, true
+	case "border-bottom-left-radius", "border-end-start-radius":
+		return style.PropRadiusBottomLeft, true
+	}
+	return 0, false
 }
 
 func themedRadius(raw []css.Token) (style.Radius, problem, bool) {

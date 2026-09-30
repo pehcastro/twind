@@ -3,6 +3,7 @@ package style
 import (
 	"time"
 
+	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/theme"
 )
@@ -150,15 +151,33 @@ const (
 	BorderDouble
 )
 
-type Radius uint8
+type Radius int
 
 const (
-	RadiusNone Radius = iota
+	RadiusNone Radius = iota * konst.EveryCorner
 	RadiusSm
 	RadiusMd
 	RadiusLg
 	RadiusFull
 )
+
+type Corner uint8
+
+const (
+	CornerTopLeft Corner = iota
+	CornerTopRight
+	CornerBottomRight
+	CornerBottomLeft
+)
+
+func (r Radius) At(c Corner) Radius {
+	return (r >> (konst.CornerBits * c) & konst.CornerMask) * konst.EveryCorner
+}
+
+func (r Radius) With(c Corner, size Radius) Radius {
+	corner := Radius(konst.CornerMask) << (konst.CornerBits * c)
+	return r&^corner | size&corner
+}
 
 type Cursor uint8
 

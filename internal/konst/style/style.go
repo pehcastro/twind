@@ -28,6 +28,9 @@ const (
 	ClassSlots      = 4
 	HashA           = 0xa0761d6478bd642f
 	HashB           = 0xe7037ed1a0b428db
+	CornerBits      = 4
+	CornerMask      = 1<<CornerBits - 1
+	EveryCorner     = 0x1111
 )
 
 const PresetTheme = `@theme {

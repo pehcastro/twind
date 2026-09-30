@@ -335,7 +335,7 @@ func (r *Raster) shade(pix []uint8, memos []memo, down float64, cov float32) {
 
 func (r *Raster) border(op Op) {
 	outer := op.Box.fit()
-	inner := outer.inset(op.Width)
+	inner := outer.Inset(op.Width)
 	paint := premul(op.Color)
 	top := r.top()
 	area := outer.pixels(0.5).Intersect(top.clip)
@@ -560,7 +560,7 @@ func (b Box) fit() Box {
 	return b
 }
 
-func (b Box) inset(d float64) Box {
+func (b Box) Inset(d float64) Box {
 	out := Box{Rect: Rect{b.X + d, b.Y + d, max(b.W-2*d, 0), max(b.H-2*d, 0)}}
 	for i, r := range b.Radii {
 		out.Radii[i] = max(r-d, 0)

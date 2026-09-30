@@ -26,8 +26,8 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 	if bounds.Empty() {
 		return bounds, false
 	}
-	r := f.radius(n.Border.Radius)
 	shape := rect(bounds)
+	outer := raster.Box{Rect: shape, Radii: f.radii(n.Border.Radius)}
 	visual := bounds
 	for i := len(n.Shadows) - 1; i >= 0; i-- {
 		s := &n.Shadows[i]
@@ -35,7 +35,7 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 			continue
 		}
 		cast := f.shadow(*s)
-		f.put(raster.Shadow, shape, r, s.Color.RGBA).Shadow = cast
+		f.put(raster.Shadow, outer, s.Color.RGBA).Shadow = cast
 		reach := cast.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + cast.Spread
 		visual = visual.Union(image.Rect(
 			int(math.Floor(shape.X+cast.X-reach)), int(math.Floor(shape.Y+cast.Y-reach)),
@@ -43,32 +43,32 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 		))
 	}
 	if shows(n.Background) {
-		fill, radius := shape, r
 		if n == f.root {
 			canvas := f.pixels(f.screen).Sub(origin)
-			fill, radius, visual = rect(canvas), 0, visual.Union(canvas)
+			visual = visual.Union(canvas)
+			f.put(raster.Fill, raster.Box{Rect: rect(canvas)}, n.Background.RGBA)
+		} else {
+			f.put(raster.Fill, outer, n.Background.RGBA)
 		}
-		f.put(raster.Fill, fill, radius, n.Background.RGBA)
 	}
 	if n.Gradient.Kind == style.GradientLinear {
-		f.ops = append(f.ops, GradientFill(n.Gradient, raster.Box{Rect: shape, Radii: [4]float64{r, r, r, r}}))
+		f.ops = append(f.ops, GradientFill(n.Gradient, outer))
 	}
 	ring := bordered && edges.Top && edges.Right && edges.Bottom && edges.Left
-	inner, in := shape, r
-	if ring {
-		b := float64(konst.BorderPixels)
-		inner, in = raster.Rect{X: shape.X + b, Y: shape.Y + b, W: shape.W - 2*b, H: shape.H - 2*b}, max(r-b, 0)
-	}
 	for i := len(n.InsetShadows) - 1; i >= 0; i-- {
 		if s := &n.InsetShadows[i]; shows(s.Color) {
 			cast := f.shadow(*s)
 			cast.Inset = true
-			f.put(raster.Shadow, inner, in, s.Color.RGBA).Shadow = cast
+			inner := outer
+			if ring {
+				inner = outer.Inset(konst.BorderPixels)
+			}
+			f.put(raster.Shadow, inner, s.Color.RGBA).Shadow = cast
 		}
 	}
 	switch {
 	case ring:
-		op := f.put(raster.Border, shape, r, edges.Color.RGBA)
+		op := f.put(raster.Border, outer, edges.Color.RGBA)
 		op.Width, op.Dash = konst.BorderPixels, dash(edges.Style)
 	case bordered:
 		s := shape
@@ -82,7 +82,7 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 			{edges.Left, raster.Rect{X: s.X, Y: s.Y, W: konst.BorderPixels, H: s.H}},
 		} {
 			if side.on {
-				f.put(raster.Fill, side.line, 0, edges.Color.RGBA).Dash = dash(edges.Style)
+				f.put(raster.Fill, raster.Box{Rect: side.line}, edges.Color.RGBA).Dash = dash(edges.Style)
 			}
 		}
 	}
@@ -101,39 +101,41 @@ func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin 
 		if visual = visual.Intersect(clip.Sub(origin)); visual.Empty() {
 			return visual, false
 		}
-		f.put(raster.Clip, rect(clip.Sub(origin)), 0, color.RGBA{})
+		f.put(raster.Clip, raster.Box{Rect: rect(clip.Sub(origin))}, color.RGBA{})
 	}
 	seen := visual.Intersect(clip.Sub(origin))
 	for ; round != nil; round = round.up {
 		n := round.node
 		outer, shape := f.pixels(n.Bounds), f.pixels(n.Padding)
 		inset := max(shape.Min.X-outer.Min.X, shape.Min.Y-outer.Min.Y, outer.Max.X-shape.Max.X, outer.Max.Y-shape.Max.Y)
-		r := f.radius(n.Border.Radius) - float64(inset)
-		if r <= 0 || !clip.In(shape) {
+		r := f.radii(n.Border.Radius)
+		for i := range r {
+			r[i] = max(r[i]-float64(inset), 0)
+		}
+		if r == [4]float64{} || !clip.In(shape) {
 			continue
 		}
 		shape = shape.Sub(origin)
-		reach := int(math.Ceil(min(r, float64(shape.Dx())/2, float64(shape.Dy())/2)))
+		reach := int(math.Ceil(min(max(r[0], r[1], r[2], r[3]), float64(shape.Dx())/2, float64(shape.Dy())/2)))
 		if seen.Min.X >= shape.Min.X+reach && seen.Max.X <= shape.Max.X-reach || seen.Min.Y >= shape.Min.Y+reach && seen.Max.Y <= shape.Max.Y-reach {
 			continue
 		}
-		f.put(raster.Clip, rect(shape), r, color.RGBA{})
+		f.put(raster.Clip, raster.Box{Rect: rect(shape), Radii: r}, color.RGBA{})
 	}
 	pops := len(f.ops) - pushed
 	slices.Reverse(f.ops[start:pushed])
 	slices.Reverse(f.ops[pushed:])
 	slices.Reverse(f.ops[start:])
 	for range pops {
-		f.put(raster.Pop, raster.Rect{}, 0, color.RGBA{})
+		f.put(raster.Pop, raster.Box{}, color.RGBA{})
 	}
 	return visual, true
 }
 
-func (f *Frame) put(kind raster.Kind, at raster.Rect, radius float64, c color.RGBA) *raster.Op {
+func (f *Frame) put(kind raster.Kind, at raster.Box, c color.RGBA) *raster.Op {
 	f.ops = append(f.ops, raster.Op{})
 	op := &f.ops[len(f.ops)-1]
-	op.Kind, op.Box.Rect, op.Color = kind, at, c
-	op.Box.Radii[0], op.Box.Radii[1], op.Box.Radii[2], op.Box.Radii[3] = radius, radius, radius, radius
+	op.Kind, op.Box, op.Color = kind, at, c
 	return op
 }
 
@@ -164,7 +166,8 @@ func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (i
 	}
 	c.A = uint8(float64(c.A) * konst.ThumbAlpha)
 	start := len(f.ops)
-	f.put(raster.Fill, rect(visual), float64(width)/2, c)
+	half := float64(width) / 2
+	f.put(raster.Fill, raster.Box{Rect: rect(visual), Radii: [4]float64{half, half, half, half}}, c)
 	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin, nil)
 }
 
@@ -180,6 +183,20 @@ func GradientFill(g style.Gradient, shape raster.Box) raster.Op {
 func (f *Frame) shadow(s style.Shadow) raster.BoxShadow {
 	px := float64(f.cell.Y) / stylekonst.RemPixels
 	return raster.BoxShadow{X: float64(s.X) * px, Y: float64(s.Y) * px, Blur: float64(s.Blur) * px, Spread: float64(s.Spread) * px}
+}
+
+func (f *Frame) radii(r style.Radius) [4]float64 {
+	if r == style.RadiusNone {
+		return [4]float64{}
+	}
+	return f.corners(r)
+}
+
+func (f *Frame) corners(r style.Radius) (out [4]float64) {
+	for c := range out {
+		out[c] = f.radius(r.At(style.Corner(c)))
+	}
+	return out
 }
 
 func (f *Frame) radius(r style.Radius) float64 {
