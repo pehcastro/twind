@@ -31,6 +31,7 @@ type backend struct {
 	exits         atomic.Int32
 	caps          terminal.Capabilities
 	zoom          image.Point
+	blocked       time.Duration
 }
 
 func newBackend(width, height int) *backend {
@@ -38,6 +39,7 @@ func newBackend(width, height int) *backend {
 }
 
 func (b *backend) Write(p []byte) (int, error) {
+	time.Sleep(b.blocked)
 	if b.zoom != (image.Point{}) {
 		b.caps.CellPixels, b.zoom = b.zoom, image.Point{}
 	}

@@ -206,6 +206,7 @@ func (r *Runtime) loop(b Backend) error {
 				if err := r.draw(b, now); err != nil {
 					return err
 				}
+				now = r.cfg.Clock.Now()
 			}
 		}
 		next := r.sleep()

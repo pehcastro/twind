@@ -111,14 +111,17 @@ func TestWidthsAndCellPixelsFromTheBackend(t *testing.T) {
 	}
 }
 
-func TestMotionWakesAtItsPaceAndStops(t *testing.T) {
+func pulsing(t *testing.T, b *backend) run {
 	sheet, err := frames.Styles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := launch(newBackend(20, 3), frames.Pulse, twi.Styles(sheet), twi.ColorProfile(color.TrueColor))
+	r := launch(b, frames.Pulse, twi.Styles(sheet), twi.ColorProfile(color.TrueColor))
 	r.next(t)
-	wakes, window := r.clock.wakes.Load(), 500*time.Millisecond
+	return r
+}
+
+func (r run) count(window time.Duration) int {
 	count := 0
 	for deadline := time.After(window); deadline != nil; {
 		select {
@@ -128,6 +131,13 @@ func TestMotionWakesAtItsPaceAndStops(t *testing.T) {
 			deadline = nil
 		}
 	}
+	return count
+}
+
+func TestMotionWakesAtItsPaceAndStops(t *testing.T) {
+	r := pulsing(t, newBackend(20, 3))
+	wakes, window := r.clock.wakes.Load(), 500*time.Millisecond
+	count := r.count(window)
 	woke, most := r.clock.wakes.Load()-wakes, int(window/konst.MotionInterval)+2
 	t.Logf("pulsing: %d frames and %d wakes in %v, at most %d frames", count, woke, window, most)
 	if count < most/4 || count > most || woke > int64(3*most) {
@@ -146,6 +156,21 @@ func TestMotionWakesAtItsPaceAndStops(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	if woke := r.clock.wakes.Load() - wakes; woke != 0 {
 		t.Errorf("stopped: the runtime woke %d times in 300ms", woke)
+	}
+	if err := r.stop(t); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSlowTerminalKeepsTheMotionPace(t *testing.T) {
+	b := newBackend(20, 3)
+	b.blocked = 20 * time.Millisecond
+	r := pulsing(t, b)
+	window := 600 * time.Millisecond
+	count, paced := r.count(window), int(window/konst.MotionInterval)
+	t.Logf("pulsing through a terminal that blocks each write %v: %d frames in %v, %d at the motion pace", b.blocked, count, window, paced)
+	if count < paced-3 || count > paced+2 {
+		t.Errorf("%d frames in %v with each write blocked %v, want %d to %d: the pace counts from the frame's start, not its end", count, window, b.blocked, paced-3, paced+2)
 	}
 	if err := r.stop(t); err != nil {
 		t.Error(err)
