@@ -42,12 +42,14 @@ func BenchmarkRetained(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
+	before := tree.Cascades()
 	b.ResetTimer()
 	for i := range b.N {
 		if _, err := tree.Scene(pages[i%len(pages)], frame); err != nil {
 			b.Fatal(err)
 		}
 	}
+	b.ReportMetric(float64(tree.Cascades()-before)/float64(b.N), "cascades/op")
 }
 
 func BenchmarkRetainedAnimating(b *testing.B) {

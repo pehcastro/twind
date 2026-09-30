@@ -1,7 +1,7 @@
 package scene
 
 import (
-	"strings"
+	"math"
 
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
@@ -73,6 +73,13 @@ func Wrapping(s *style.ComputedStyle) text.Wrapping {
 			style.OverflowWrapBreakWord: text.OverflowWrapBreakWord,
 			style.OverflowWrapAnywhere:  text.OverflowWrapAnywhere,
 		}[s.OverflowWrap],
+		Space: [...]text.Space{
+			style.WhiteSpaceNormal:  text.SpaceCollapse,
+			style.WhiteSpaceNowrap:  text.SpaceCollapse,
+			style.WhiteSpacePre:     text.SpacePreserve,
+			style.WhiteSpacePreWrap: text.SpacePreserve,
+			style.WhiteSpacePreLine: text.SpaceCollapse,
+		}[s.WhiteSpace],
 	}
 }
 
@@ -160,18 +167,20 @@ func (n Node) Lines(w text.Widths) []string {
 	if n.text.clean == "" {
 		return nil
 	}
+	b := n.wrapping
+	b.Widths = w
 	if !n.NoWrap && !n.Truncate {
-		b := n.wrapping
-		b.Widths = w
 		return n.text.wrap(b, n.Content.W)
 	}
-	lines := strings.Split(n.text.clean, "\n")
-	if n.Truncate {
-		for i, line := range lines {
-			lines[i] = w.Truncate(line, n.Content.W)
-		}
+	lines := n.text.wrap(b, math.MaxInt)
+	if !n.Truncate {
+		return lines
 	}
-	return lines
+	truncated := make([]string, len(lines))
+	for i, line := range lines {
+		truncated[i] = w.Truncate(line, n.Content.W)
+	}
+	return truncated
 }
 
 func (n *Node) Thumb(unit int) (from, to int, ok bool) {

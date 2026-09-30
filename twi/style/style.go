@@ -229,6 +229,7 @@ const (
 	WhiteSpaceNowrap
 	WhiteSpacePre
 	WhiteSpacePreWrap
+	WhiteSpacePreLine
 )
 
 type TextOverflow uint8

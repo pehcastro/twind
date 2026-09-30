@@ -200,7 +200,7 @@ func TestWhiteSpace(t *testing.T) {
 		"whitespace-nowrap":       style.WhiteSpaceNowrap,
 		"whitespace-pre":          style.WhiteSpacePre,
 		"whitespace-pre-wrap":     style.WhiteSpacePreWrap,
-		"whitespace-pre-line":     style.WhiteSpacePreWrap,
+		"whitespace-pre-line":     style.WhiteSpacePreLine,
 		"whitespace-break-spaces": style.WhiteSpacePreWrap,
 		"whitespace-normal":       style.WhiteSpaceNormal,
 	} {
@@ -223,7 +223,7 @@ func TestWhiteSpace(t *testing.T) {
 		t.Errorf("text-ellipsis: %d", got)
 	}
 	warned := appWarnings(t, "whitespace-")
-	if want := map[string]Category{"whitespace-pre-line": Approximated, "whitespace-break-spaces": Approximated}; !reflect.DeepEqual(warned, want) {
+	if want := map[string]Category{"whitespace-break-spaces": Approximated}; !reflect.DeepEqual(warned, want) {
 		t.Errorf("white-space warnings %v, want %v", warned, want)
 	}
 	quiet(t, func(class string) bool {

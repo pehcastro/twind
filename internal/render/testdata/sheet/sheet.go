@@ -59,6 +59,8 @@ const (
 	Hash             = "w-12 break-all"
 	KeepAll          = "w-12 break-keep"
 	Context          = "relative ml-5 mt-2 w-60 h-12"
+	Seam             = "border rounded-none first:rounded-l-md last:rounded-r-md"
+	Striped          = "odd:bg-zinc-800 even:bg-zinc-900"
 
 	Fading     = "h-3 transition-colors duration-200 ease-linear"
 	Light      = "bg-zinc-100"

@@ -169,7 +169,7 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 	case "--tw-ring-inset":
 		return decls{{Property: style.PropRingInset, Flag: strings.EqualFold(text(slices.Concat(parts...)), "inset")}}, problem{}
 	case "white-space":
-		v, p := pick(parts, map[string]style.WhiteSpace{"normal": style.WhiteSpaceNormal, "nowrap": style.WhiteSpaceNowrap, "pre": style.WhiteSpacePre, "pre-wrap": style.WhiteSpacePreWrap, "pre-line": style.WhiteSpacePreWrap, "break-spaces": style.WhiteSpacePreWrap}, "pre-line", "break-spaces")
+		v, p := pick(parts, map[string]style.WhiteSpace{"normal": style.WhiteSpaceNormal, "nowrap": style.WhiteSpaceNowrap, "pre": style.WhiteSpacePre, "pre-wrap": style.WhiteSpacePreWrap, "pre-line": style.WhiteSpacePreLine, "break-spaces": style.WhiteSpacePreWrap}, "break-spaces")
 		return decls{{Property: style.PropWhiteSpace, WhiteSpace: v}}, p
 	case "text-overflow":
 		v, p := pick(parts, map[string]style.TextOverflow{"clip": style.TextOverflowClip, "ellipsis": style.TextOverflowEllipsis})

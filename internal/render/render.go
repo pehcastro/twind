@@ -45,9 +45,9 @@ type Frame struct {
 }
 
 type styledBox struct {
+	state    style.NodeState
 	box      *layout.Box
 	classes  []string
-	state    style.NodeState
 	computed style.ComputedStyle
 	element  style.Element
 	marks    style.Markers
@@ -127,7 +127,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	t.crossed = band != t.band
 	t.ancestors = t.ancestors[:0]
 	t.now, t.motion.Reduced, t.presenting = f.Now, f.ReducedMotion, false
-	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root, nil)
+	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root, style.PlaceOf(0, 1), nil)
 	t.root, t.cell, t.band, t.restyle = styled, f.Cell, band, false
 	if err != nil {
 		return scene.Node{}, err
@@ -263,7 +263,7 @@ func overlap(a, b layout.Rect) layout.Rect {
 	return layout.Rect{X: x, Y: y, W: max(min(a.X+a.W, b.X+b.W)-x, 0), H: max(min(a.Y+a.H, b.Y+b.H)-y, 0)}
 }
 
-func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node, siblings []*styledBox) (*styledBox, error) {
+func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node, place style.Place, siblings []*styledBox) (*styledBox, error) {
 	s := prev
 	if s == nil {
 		s = &styledBox{box: &layout.Box{}, key: t.key(), born: t.now, lift: motion.Still(), pose: motion.Pose{Scale: 1}}
@@ -274,6 +274,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 	if n.State != nil {
 		state = *n.State
 	}
+	state.Places = place
 	reclassed := prev == nil || !slices.Equal(s.classes, n.Classes)
 	if reclassed {
 		s.marks, s.near = f.Sheet.Marks(n.Classes), f.Sheet.Near(n.Classes, s.near[:0])
@@ -283,7 +284,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		at = *n.At
 	}
 	related := t.relate(f.Sheet, s, n, state, siblings)
-	restate := s.state.States != state.States || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related) || placed != s.placed || at != s.at
+	restate := s.state.States != state.States || s.state.Places != state.Places || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related) || placed != s.placed || at != s.at
 	crossed := t.crossed && f.Sheet.Responsive(n.Classes)
 	if reclassed || t.restyle || parentChanged || restate || crossed {
 		t.cascades++
@@ -366,12 +367,17 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		t.exits(s)
 	}
 	t.ancestors = append(t.ancestors, s)
+	last, index := lastElement(n.Children), 0
 	for i, c := range n.Children {
 		var p *styledBox
 		if i < len(old) {
 			p = old[i]
 		}
-		child, err := t.build(f, p, s.computed, changed, c, s.children[:i])
+		var place style.Place
+		if !c.text() {
+			place, index = placeOf(index, i == last), index+1
+		}
+		child, err := t.build(f, p, s.computed, changed, c, place, s.children[:i])
 		if err != nil {
 			return nil, err
 		}
@@ -428,17 +434,37 @@ func (t *Tree) near(sheet style.Sheet, m *style.Match, n Node, siblings []*style
 	panic(fmt.Sprintf("render: unknown relation %d", m.Relation))
 }
 
+func lastElement(children []Node) int {
+	i := len(children) - 1
+	for i >= 0 && children[i].text() {
+		i--
+	}
+	return i
+}
+
+func placeOf(index int, last bool) style.Place {
+	if last {
+		return style.PlaceOf(index, index+1)
+	}
+	return style.PlaceOf(index, index+2)
+}
+
 func has(sheet style.Sheet, m *style.Match, children []Node) bool {
-	for _, c := range children {
+	last, index := lastElement(children), 0
+	for i, c := range children {
+		if c.text() {
+			continue
+		}
 		var state style.NodeState
 		if c.State != nil {
 			state = *c.State
 		}
+		state.Places, index = placeOf(index, i == last), index+1
 		var marks style.Markers
 		if m.Class != "" {
 			marks = sheet.Marks(c.Classes)
 		}
-		if !c.text() && m.Accepts(c.Element, marks, state) || m.Relation == style.RelationDescendant && has(sheet, m, c.Children) {
+		if m.Accepts(c.Element, marks, state) || m.Relation == style.RelationDescendant && has(sheet, m, c.Children) {
 			return true
 		}
 	}
@@ -696,7 +722,7 @@ func scrolls(o style.Overflow) bool {
 
 func unwrapped(w style.WhiteSpace) bool {
 	switch w {
-	case style.WhiteSpaceNormal, style.WhiteSpacePreWrap:
+	case style.WhiteSpaceNormal, style.WhiteSpacePreWrap, style.WhiteSpacePreLine:
 		return false
 	case style.WhiteSpaceNowrap, style.WhiteSpacePre:
 		return true

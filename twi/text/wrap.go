@@ -84,6 +84,7 @@ type wrapper struct {
 	copied     bool
 	line       []byte
 	used       int
+	keep       bool
 }
 
 type WordBreak uint8
@@ -102,10 +103,18 @@ const (
 	OverflowWrapAnywhere
 )
 
+type Space uint8
+
+const (
+	SpaceCollapse Space = iota
+	SpacePreserve
+)
+
 type Wrapping struct {
 	Widths   Widths
 	Word     WordBreak
 	Overflow OverflowWrap
+	Space    Space
 }
 
 func Wrap(s string, width int) []string {
@@ -117,7 +126,7 @@ func (w Widths) Wrap(s string, width int) []string {
 }
 
 func (b Wrapping) Wrap(s string, width int) []string {
-	out := wrapper{w: b.Widths, s: s, width: width, lines: make([]string, 0, len(s)/max(width, 1)+1)}
+	out := wrapper{w: b.Widths, s: s, width: width, keep: b.Space == SpacePreserve, lines: make([]string, 0, len(s)/max(width, 1)+1)}
 	from := 0
 	for paragraph := range strings.SplitSeq(s, "\n") {
 		b.segments(s, from, from+len(paragraph), out.place)
@@ -152,17 +161,21 @@ func (b Wrapping) MinContent(s string) int {
 }
 
 func (b Wrapping) segments(s string, from, to int, emit func(start, end, width int, spaced bool)) {
-	if b.Word > WordBreakKeepAll || b.Overflow > OverflowWrapAnywhere {
-		panic(fmt.Sprintf("text: unknown word-break %d or overflow-wrap %d", b.Word, b.Overflow))
+	if b.Word > WordBreakKeepAll || b.Overflow > OverflowWrapAnywhere || b.Space > SpacePreserve {
+		panic(fmt.Sprintf("text: unknown word-break %d, overflow-wrap %d or white-space %d", b.Word, b.Overflow, b.Space))
 	}
+	keep := b.Space == SpacePreserve
 	var before lineClass
-	start, end, segWidth := from, from, 0
+	start, end, segWidth, kept := from, from, 0, 0
 	var segSpaced, spaced, leadingHyphen bool
 	for pos := from; pos < to; {
 		n, width, after := b.Widths.next(s[pos:to])
 		if n == 1 && s[pos] == ' ' {
 			spaced = true
 			pos++
+			if keep {
+				end, kept = pos, kept+1
+			}
 			continue
 		}
 		if b.Word == WordBreakAll && after <= numeric {
@@ -171,14 +184,14 @@ func (b Wrapping) segments(s string, from, to int, emit func(start, end, width i
 		keptWhole := b.Word == WordBreakKeepAll && !spaced && before <= ideographic && after <= ideographic
 		if end == from || !keptWhole && lineBreaks(before, after, spaced, leadingHyphen) {
 			emit(start, end, segWidth, segSpaced)
-			start, segWidth, segSpaced = pos, 0, spaced
+			start, segWidth, segSpaced = pos, 0, spaced && !keep
 		} else if spaced {
-			segWidth++
+			segWidth += max(kept, 1)
 		}
 		segWidth += width
 		leadingHyphen = after == hyphen && (spaced || end == from)
 		pos += n
-		before, spaced = after, false
+		before, spaced, kept = after, false, 0
 		for before <= numeric && pos < to && printableByte(s[pos:to]) {
 			class := lookup(rune(s[pos])).line
 			if class > numeric {
@@ -204,9 +217,12 @@ func (o *wrapper) place(start, end, width int, spaced bool) {
 	spaced = false
 	for pos := start; pos < end; {
 		n, cluster, _ := o.w.next(o.s[pos:end])
-		if n == 1 && o.s[pos] == ' ' {
+		switch {
+		case n == 1 && o.s[pos] == ' ' && o.keep:
+			o.put(pos, pos+1, 0, false)
+		case n == 1 && o.s[pos] == ' ':
 			spaced = true
-		} else {
+		default:
 			o.put(pos, pos+n, cluster, spaced)
 			spaced = false
 		}
@@ -230,12 +246,16 @@ func (o *wrapper) put(start, end, width int, spaced bool) {
 		o.flush()
 		gap = 0
 	}
-	o.used += gap + width
 	s := o.s[start:end]
+	hanging := 0
+	for o.keep && hanging < len(s) && s[len(s)-1-hanging] == ' ' {
+		hanging++
+	}
+	o.used += gap + width + hanging
 	if o.length() == 0 {
 		o.start, o.end = start, start
 	}
-	if !o.copied && o.end+gap == start && !strings.Contains(s, "  ") {
+	if !o.copied && o.end+gap == start && (o.keep || !strings.Contains(s, "  ")) {
 		o.end = end
 		return
 	}
@@ -254,6 +274,10 @@ func (o *wrapper) put(start, end, width int, spaced bool) {
 }
 
 func (o *wrapper) flush() {
+	for o.keep && o.used > o.width && o.end > o.start && o.s[o.end-1] == ' ' {
+		o.end--
+		o.used--
+	}
 	if o.copied {
 		o.lines = append(o.lines, string(o.line))
 	} else {
