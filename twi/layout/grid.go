@@ -49,7 +49,6 @@ type span struct{ start, end int }
 
 type gridItem struct {
 	box              *Box
-	index            int
 	area             [2]span
 	definite         [2]bool
 	least, low, high int
@@ -75,7 +74,7 @@ func (b Breadth) contentBased() bool {
 
 func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) int {
 	ints, tracks, cells := len(a.ints), len(a.tracks), len(a.cells)
-	s, frames := &b.Style, b.frames
+	s := &b.Style
 	items, counts := a.placeItems(b)
 	cols := a.initTracks(s.Columns, s.AutoColumns, counts[across], innerW, true)
 	a.contributeWidths(items, cols)
@@ -113,7 +112,7 @@ func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) int {
 			h = a.heightOf(c, it.width, areaH, true)
 		}
 		availW := extent(cols, it.area[across]) - m.Left - m.Right
-		frames[it.index] = Rect{x + m.Left + offset(justifyOf(s, cs), availW-it.width), y + m.Top + offset(al, availH-h), it.width, h}
+		c.frame = Rect{x + m.Left + offset(justifyOf(s, cs), availW-it.width), y + m.Top + offset(al, availH-h), it.width, h}
 	}
 	a.ints, a.tracks, a.cells = a.ints[:ints], a.tracks[:tracks], a.cells[:cells]
 	return total(rows, s.RowGap)
@@ -255,13 +254,14 @@ func (a *arena) placeItems(b *Box) ([]gridItem, [2]int) {
 		panic(fmt.Sprintf("layout: unknown grid flow %d", s.Flow))
 	}
 	explicit := [2]int{len(s.Columns), len(s.Rows)}
-	items := grab(&a.cells, len(b.Children))[:0]
+	kids := children(b)
+	items := grab(&a.cells, len(kids))[:0]
 	width, bound, pushed, stride := explicit[minor], explicit[major], 0, 0
-	for i, c := range b.Children {
+	for _, c := range kids {
 		if !visible(c) || !flowing(c.Style.Position) {
 			continue
 		}
-		it := gridItem{box: c, index: i}
+		it := gridItem{box: c}
 		it.area[across], it.definite[across] = lines(c.Style.Column, explicit[across])
 		it.area[down], it.definite[down] = lines(c.Style.Row, explicit[down])
 		width = max(width, it.area[minor].end)

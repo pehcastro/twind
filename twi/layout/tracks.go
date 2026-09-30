@@ -293,7 +293,10 @@ func (a *arena) position(ts []track, gap, size int, definite bool, j Justify) {
 	pos, extra := a.justify(j, free, len(ts))
 	for i := range ts {
 		ts[i].pos = pos
-		pos += ts[i].base + gap + extra[i]
+		pos += ts[i].base + gap
+		if extra != nil {
+			pos += extra[i]
+		}
 	}
 	a.ints = a.ints[:mark]
 }

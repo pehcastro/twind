@@ -2,6 +2,7 @@ package layout
 
 import (
 	"fmt"
+	"math"
 
 	konst "github.com/twind-dev/twind/internal/konst/layout"
 )
@@ -92,42 +93,42 @@ type Insets struct {
 }
 
 type Style struct {
-	Display    Display
-	Direction  Direction
-	Wrap       Wrapping
-	Justify    Justify
-	AlignItems Align
-	AlignSelf  Align
-	Grow       int
-	Shrink     int
-	Basis      Length
-	Width      Length
-	Height     Length
-	MinWidth   Length
-	MinHeight  Length
-	MaxWidth   Length
-	MaxHeight  Length
-	Aspect     Ratio
-	RowGap     int
-	ColumnGap  int
-	Padding    Edges
-	Margin     Edges
-	Border     Edges
-	Position   Position
-	Inset      Insets
-	Overflow   Overflow
-	ZIndex     int
-
-	Columns      []Track
-	Rows         []Track
-	AutoColumns  []Track
-	AutoRows     []Track
-	Column       Placement
-	Row          Placement
+	Display      Display
+	Direction    Direction
+	Wrap         Wrapping
+	Justify      Justify
+	AlignItems   Align
+	AlignSelf    Align
+	Position     Position
+	Overflow     Overflow
 	Flow         Flow
 	JustifyItems Align
 	JustifySelf  Align
 	AlignContent Justify
+	Height       Length
+	Padding      Edges
+	Border       Edges
+	Margin       Edges
+	Grow         int
+	Shrink       int
+	Basis        Length
+	Width        Length
+	MinWidth     Length
+	MinHeight    Length
+	MaxWidth     Length
+	MaxHeight    Length
+	RowGap       int
+	ColumnGap    int
+	Aspect       Ratio
+	Inset        Insets
+	ZIndex       int
+
+	Columns     []Track
+	Rows        []Track
+	AutoColumns []Track
+	AutoRows    []Track
+	Column      Placement
+	Row         Placement
 }
 
 type Measure func(availableWidth int) (width, height int)
@@ -137,38 +138,39 @@ type Rect struct {
 }
 
 type Box struct {
-	Style    Style
-	Measure  Measure
-	Children []*Box
-
+	Measure                  Measure
+	Children                 []*Box
 	parent                   *Box
 	current, prepared, stale bool
-	spot                     spot
+	adopted, plain           bool
+	Moved                    bool
+	frameW, frameH           int
+	frame                    Rect
 
 	BorderBox  Rect
 	PaddingBox Rect
 	ContentBox Rect
 	Clip       Rect
 
+	spot  spot
+	memo  memo
+	Style Style
+
 	ScrollX, ScrollY          int
 	ScrollWidth, ScrollHeight int
-	Moved                     bool
 
-	memo   memo
-	frames []Rect
-	arena  *arena
+	arena *arena
 }
 
 type memo struct {
-	intrinsic           [2]int
-	intrinsicKnown      [2]bool
-	widthAvail, width   int
-	widthKnown          bool
-	heightWidth, height int
-	heightKnown         bool
-	framesW, framesH    int
-	framesMode          heightMode
-	framesKnown         bool
+	intrinsic                            [2]int
+	widthAvail, width                    int
+	heightWidth, height                  int
+	framesW, framesH                     int
+	natural                              int
+	intrinsicKnown                       [2]bool
+	widthKnown, heightKnown, framesKnown bool
+	framesMode                           heightMode
 }
 
 type placing uint8
@@ -179,9 +181,9 @@ const (
 )
 
 type spot struct {
-	absolute container
 	mode     heightMode
 	state    placing
+	absolute container
 }
 
 func (b *Box) Invalidate() {
@@ -191,39 +193,97 @@ func (b *Box) Invalidate() {
 	}
 }
 
+func ready(b *Box) {
+	switch {
+	case !b.current:
+		refresh(b)
+		b.current, b.prepared, b.stale, b.adopted = true, true, true, false
+	case !b.prepared:
+		prepare(b)
+	}
+}
+
+func children(b *Box) []*Box {
+	if b.adopted {
+		return b.Children
+	}
+	for _, c := range b.Children {
+		if c.parent != b {
+			c.parent = b
+		}
+		ready(c)
+	}
+	b.adopted = true
+	return b.Children
+}
+
+func refresh(b *Box) {
+	s := &b.Style
+	switch {
+	case s.Display > DisplayNone:
+		panic(fmt.Sprintf("layout: unknown display %d", s.Display))
+	case s.Direction > Column:
+		panic(fmt.Sprintf("layout: unknown direction %d", s.Direction))
+	case s.Position > PositionFixed:
+		panic(fmt.Sprintf("layout: unknown position %d", s.Position))
+	case s.Overflow > OverflowScroll:
+		panic(fmt.Sprintf("layout: unknown overflow %d", s.Overflow))
+	}
+	if a := max(s.AlignItems, s.AlignSelf, s.JustifyItems, s.JustifySelf); a > AlignStretch {
+		panic(fmt.Sprintf("layout: unknown align %d", a))
+	}
+	sizes := s.Basis.Unit | s.Width.Unit | s.Height.Unit | s.MinWidth.Unit | s.MinHeight.Unit | s.MaxWidth.Unit | s.MaxHeight.Unit
+	if sizes|s.Inset.Top.Unit|s.Inset.Right.Unit|s.Inset.Bottom.Unit|s.Inset.Left.Unit > Percent {
+		checkUnit(max(s.Basis.Unit, s.Width.Unit, s.Height.Unit, s.MinWidth.Unit, s.MinHeight.Unit, s.MaxWidth.Unit, s.MaxHeight.Unit,
+			s.Inset.Top.Unit, s.Inset.Right.Unit, s.Inset.Bottom.Unit, s.Inset.Left.Unit))
+	}
+	b.memo, b.plain = memo{}, sizes == Auto && s.Aspect == Ratio{}
+	b.frameW = s.Padding.Left + s.Padding.Right + s.Border.Left + s.Border.Right
+	b.frameH = s.Padding.Top + s.Padding.Bottom + s.Border.Top + s.Border.Bottom
+}
+
 func prepare(b *Box) bool {
 	if b.prepared {
 		return false
 	}
-	s, changed := &b.Style, !b.current
+	changed := !b.current
 	if changed {
-		switch {
-		case s.Display > DisplayNone:
-			panic(fmt.Sprintf("layout: unknown display %d", s.Display))
-		case s.Direction > Column:
-			panic(fmt.Sprintf("layout: unknown direction %d", s.Direction))
-		case s.Position > PositionFixed:
-			panic(fmt.Sprintf("layout: unknown position %d", s.Position))
-		case s.Overflow > OverflowScroll:
-			panic(fmt.Sprintf("layout: unknown overflow %d", s.Overflow))
-		}
-		if a := max(s.AlignItems, s.AlignSelf, s.JustifyItems, s.JustifySelf); a > AlignStretch {
-			panic(fmt.Sprintf("layout: unknown align %d", a))
-		}
-		checkUnit(max(s.Basis.Unit, s.Width.Unit, s.Height.Unit, s.MinWidth.Unit, s.MinHeight.Unit, s.MaxWidth.Unit, s.MaxHeight.Unit,
-			s.Inset.Top.Unit, s.Inset.Right.Unit, s.Inset.Bottom.Unit, s.Inset.Left.Unit))
-		b.memo = memo{}
+		refresh(b)
 	}
 	inner := changed
 	for _, c := range b.Children {
-		c.parent = b
+		if c.parent != b {
+			c.parent = b
+		}
 		if prepare(c) && !inner {
 			inner, b.memo = true, memo{}
 		}
 	}
-	b.current, b.prepared, b.stale = true, true, true
+	b.current, b.prepared, b.stale, b.adopted = true, true, true, true
+	s := &b.Style
 	contained := s.Width.Unit == Cells && s.Height.Unit == Cells && clips(s.Overflow)
 	return changed || inner && !contained
+}
+
+func (b *Box) height(base int, definite bool) (int, bool) {
+	if b.plain {
+		return 0, false
+	}
+	return resolve(b.Style.Height, base, definite)
+}
+
+func (b *Box) widthLimit(base int, definite bool) bounds {
+	if b.plain {
+		return bounds{max: math.MaxInt}
+	}
+	return limit(b.Style.MinWidth, b.Style.MaxWidth, base, definite)
+}
+
+func (b *Box) heightLimit(base int, definite bool) bounds {
+	if b.plain {
+		return bounds{max: math.MaxInt}
+	}
+	return limit(b.Style.MinHeight, b.Style.MaxHeight, base, definite)
 }
 
 func checkUnit(u Unit) {
@@ -282,11 +342,6 @@ func resolve(l Length, base int, baseDefinite bool) (int, bool) {
 		return l.Value * base / konst.PercentWhole, baseDefinite
 	}
 	return 0, false
-}
-
-func frame(s *Style) (w, h int) {
-	return s.Padding.Left + s.Padding.Right + s.Border.Left + s.Border.Right,
-		s.Padding.Top + s.Padding.Bottom + s.Border.Top + s.Border.Bottom
 }
 
 func inset(r Rect, e Edges) Rect {
