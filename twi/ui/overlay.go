@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"image"
 	"slices"
 
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
 )
@@ -132,39 +134,102 @@ func escape(k input.KeyEvent) bool { return k.Key == input.KeyEscape }
 
 func closed() twi.Node { return part("hidden", []twi.NodeOption{twi.Key("closed")}) }
 
+type floating struct {
+	anchor, box             *twi.Ref
+	sideOffset, alignOffset int
+	anchorWidth             bool
+	at                      image.Point
+}
+
+func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align Alignment, at phase, content func(placed []twi.NodeOption) twi.Node) twi.Node {
+	positioner, holder := "fixed z-50 flex", "flex flex-col shrink-0"
+	if f.anchorWidth {
+		positioner, holder = "absolute z-50 flex min-w-full", holder+" min-w-full"
+	}
+	var children []twi.NodeOption
+	if at != gone {
+		f.at, side = f.spot(rt.Viewport(), from, side, align)
+		if f.anchorWidth {
+			f.at = f.at.Sub(f.anchor.Bounds().Min)
+		}
+		children = []twi.NodeOption{part(holder, []twi.NodeOption{twi.Measure(f.box), content([]twi.NodeOption{
+			twi.Data("side", pick("side", side, map[Side]string{Bottom: "bottom", Top: "top", Right: "right", Left: "left"})),
+			twi.Data("align", pick("align", align, map[Alignment]string{Start: "start", Center: "center", End: "end"})),
+		})})}
+	}
+	return part(positioner, append([]twi.NodeOption{twi.At(f.at.X, f.at.Y)}, children...))
+}
+
+func (f *floating) spot(view, anchor image.Rectangle, side Side, align Alignment) (image.Point, Side) {
+	size := f.box.Bounds().Size()
+	room := image.Rect(view.Min.X+konst.CollisionPadX, view.Min.Y+konst.CollisionPadY, view.Max.X-konst.CollisionPadX, view.Max.Y-konst.CollisionPadY)
+	gap := func(s Side) int {
+		if s == Right || s == Left {
+			return f.sideOffset + 1
+		}
+		return f.sideOffset
+	}
+	spare := func(s Side) int {
+		switch s {
+		case Bottom:
+			return room.Max.Y - anchor.Max.Y - gap(s) - size.Y
+		case Top:
+			return anchor.Min.Y - gap(s) - size.Y - room.Min.Y
+		case Right:
+			return room.Max.X - anchor.Max.X - gap(s) - size.X
+		case Left:
+		}
+		return anchor.Min.X - gap(s) - size.X - room.Min.X
+	}
+	if opposite := map[Side]Side{Bottom: Top, Top: Bottom, Right: Left, Left: Right}[side]; spare(side) < 0 && spare(opposite) > spare(side) {
+		side = opposite
+	}
+	across := func(start, length, size int) int {
+		return f.alignOffset + start + map[Alignment]int{Start: 0, Center: (length - size) / 2, End: length - size}[align]
+	}
+	var at image.Point
+	switch side {
+	case Bottom:
+		at = image.Pt(across(anchor.Min.X, anchor.Dx(), size.X), anchor.Max.Y+gap(side))
+	case Top:
+		at = image.Pt(across(anchor.Min.X, anchor.Dx(), size.X), anchor.Min.Y-gap(side)-size.Y)
+	case Right:
+		at = image.Pt(anchor.Max.X+gap(side), across(anchor.Min.Y, anchor.Dy(), size.Y))
+	case Left:
+		at = image.Pt(anchor.Min.X-gap(side)-size.X, across(anchor.Min.Y, anchor.Dy(), size.Y))
+	}
+	return image.Pt(max(min(at.X, room.Max.X-size.X), room.Min.X), max(min(at.Y, room.Max.Y-size.Y), room.Min.Y)), side
+}
+
 type anchored struct {
 	overlay
+	floating
 	Side  Side
 	Align Alignment
 }
 
-func (a *anchored) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.OnPointerDownOutside(func() { a.set(false) })}, children...))
+func newAnchored(rt *twi.Runtime, side Side, align Alignment) anchored {
+	return anchored{overlay: overlay{control: control{rt: rt}}, floating: floating{anchor: twi.NewRef(rt), box: twi.NewRef(rt)}, Side: side, Align: align}
 }
 
-func (a *anchored) place(at phase, content func() twi.Node) twi.Node {
-	across := map[Alignment]string{Start: "justify-start", Center: "justify-center", End: "justify-end"}
-	if a.Side == Right || a.Side == Left {
-		across = map[Alignment]string{Start: "items-start", Center: "items-center", End: "items-end"}
-	}
-	return part("absolute z-50 flex flex-row "+pick("side", a.Side, map[Side]string{
-		Bottom: "top-full inset-x-0",
-		Top:    "bottom-full inset-x-0",
-		Right:  "left-full inset-y-0 ml-1",
-		Left:   "right-full inset-y-0 mr-1 justify-end",
-	})+" "+pick("align", a.Align, across), at.holding(content))
+func (a *anchored) Node(children ...twi.NodeOption) twi.Node {
+	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(a.anchor), twi.OnPointerDownOutside(func() { a.set(false) })}, children...))
+}
+
+func (a *anchored) place(at phase, content func(placed []twi.NodeOption) twi.Node) twi.Node {
+	return a.float(a.rt, a.anchor.Bounds(), a.Side, a.Align, at, content)
 }
 
 type Popover struct{ anchored }
 
 func NewPopover(rt *twi.Runtime) *Popover {
-	return &Popover{anchored{overlay: overlay{control: control{rt: rt}}}}
+	return &Popover{newAnchored(rt, Bottom, Center)}
 }
 
 func (p *Popover) Content(children ...twi.NodeOption) twi.Node {
 	at := p.phase()
-	return p.place(at, func() twi.Node {
-		return p.dismissable("flex flex-col w-36 shrink-0 rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md "+popMotion, at, children)
+	return p.place(at, func(placed []twi.NodeOption) twi.Node {
+		return p.dismissable("flex flex-col w-36 shrink-0 rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md "+popMotion, at, append(placed, children...))
 	})
 }
 
@@ -196,13 +261,15 @@ func (h *hint) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 
 func (h *hint) content(classes string, children []twi.NodeOption) twi.Node {
 	at := h.phase()
-	return h.place(at, func() twi.Node { return part("shrink-0 "+classes, append([]twi.NodeOption{at.state()}, children...)) })
+	return h.place(at, func(placed []twi.NodeOption) twi.Node {
+		return part("shrink-0 "+classes, slices.Concat([]twi.NodeOption{at.state()}, placed, children))
+	})
 }
 
 type Tooltip struct{ hint }
 
 func NewTooltip(rt *twi.Runtime) *Tooltip {
-	return &Tooltip{hint{anchored{overlay: overlay{control: control{rt: rt}}, Side: Top}}}
+	return &Tooltip{hint{newAnchored(rt, Top, Center)}}
 }
 
 func (t *Tooltip) Content(children ...twi.NodeOption) twi.Node {
@@ -212,7 +279,7 @@ func (t *Tooltip) Content(children ...twi.NodeOption) twi.Node {
 type HoverCard struct{ hint }
 
 func NewHoverCard(rt *twi.Runtime) *HoverCard {
-	return &HoverCard{hint{anchored{overlay: overlay{control: control{rt: rt}}}}}
+	return &HoverCard{hint{newAnchored(rt, Bottom, Center)}}
 }
 
 func (c *HoverCard) Content(children ...twi.NodeOption) twi.Node {

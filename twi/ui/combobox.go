@@ -23,7 +23,9 @@ type Combobox struct {
 }
 
 func NewCombobox(rt *twi.Runtime) *Combobox {
-	return &Combobox{anchored: anchored{overlay: overlay{control: control{rt: rt}}, Align: Start}, Empty: "No items found.", field: NewInput(rt)}
+	c := &Combobox{anchored: newAnchored(rt, Bottom, Start), Empty: "No items found.", field: NewInput(rt)}
+	c.anchorWidth, c.sideOffset = true, 1
+	return c
 }
 
 func (c *Combobox) Input(options ...twi.NodeOption) twi.Node {
@@ -56,11 +58,11 @@ func (c *Combobox) Content(children ...twi.NodeOption) twi.Node {
 		c.rt.Invalidate()
 	}
 	at := c.phase()
-	return c.place(at, func() twi.Node {
+	return c.place(at, func(placed []twi.NodeOption) twi.Node {
 		if shown(c.items) == 0 {
 			children = append(children, part("py-1 text-center text-muted-foreground", []twi.NodeOption{twi.Text(c.Empty)}))
 		}
-		return part("flex flex-col min-w-full shrink-0 gap-1 mt-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion, append([]twi.NodeOption{at.state()}, children...))
+		return part("flex flex-col shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion, slices.Concat([]twi.NodeOption{at.state()}, placed, children))
 	})
 }
 

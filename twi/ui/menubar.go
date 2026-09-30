@@ -20,8 +20,8 @@ func NewMenubar(rt *twi.Runtime) *Menubar { return &Menubar{control: control{rt:
 type MenubarMenu struct{ DropdownMenu }
 
 func (b *Menubar) Menu() *MenubarMenu {
-	m := &MenubarMenu{}
-	m.rt, m.root, m.bar, m.Align = b.rt, &m.DropdownMenu, b, Start
+	m := &MenubarMenu{DropdownMenu{anchored: newAnchored(b.rt, Bottom, Start), bar: b}}
+	m.root, m.sideOffset, m.alignOffset = &m.DropdownMenu, 1, -1
 	b.menus = append(b.menus, m)
 	return m
 }
@@ -121,5 +121,5 @@ func (m *MenubarMenu) Trigger(children ...twi.NodeOption) twi.Node {
 }
 
 func (m *MenubarMenu) Content(children ...twi.NodeOption) twi.Node {
-	return m.menu(m.place, "flex flex-col min-w-24 shrink-0 gap-1 -ml-1 mt-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95", children)
+	return m.menu(m.anchor.Bounds(), "flex flex-col min-w-24 shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95", children)
 }

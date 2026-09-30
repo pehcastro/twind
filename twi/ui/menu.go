@@ -32,13 +32,13 @@ type DropdownMenu struct {
 }
 
 func NewDropdownMenu(rt *twi.Runtime) *DropdownMenu {
-	m := &DropdownMenu{anchored: anchored{overlay: overlay{control: control{rt: rt}}}}
+	m := &DropdownMenu{anchored: newAnchored(rt, Bottom, Center)}
 	m.root = m
 	return m
 }
 
 func (m *DropdownMenu) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.OnPointerDownOutside(m.dismiss)}, children...))
+	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(m.anchor), twi.OnPointerDownOutside(m.dismiss)}, children...))
 }
 
 func (m *DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
@@ -58,20 +58,20 @@ func (m *DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) tw
 }
 
 func (m *DropdownMenu) Content(children ...twi.NodeOption) twi.Node {
-	return m.menu(m.place, menuContent, children)
+	return m.menu(m.anchor.Bounds(), menuContent, children)
 }
 
-func (m *DropdownMenu) menu(place func(phase, func() twi.Node) twi.Node, classes string, children []twi.NodeOption) twi.Node {
+func (m *DropdownMenu) menu(from image.Rectangle, classes string, children []twi.NodeOption) twi.Node {
 	m.settle()
 	at := m.phase()
-	return place(at, func() twi.Node {
+	return m.float(m.rt, from, m.Side, m.Align, at, func(placed []twi.NodeOption) twi.Node {
 		return m.content(classes, at, func(k input.KeyEvent) bool {
 			if escape(k) {
 				m.dismiss()
 				return true
 			}
 			return m.key(k)
-		}, children)
+		}, append(placed, children...))
 	})
 }
 
@@ -113,13 +113,13 @@ type ContextMenu struct {
 }
 
 func NewContextMenu(rt *twi.Runtime) *ContextMenu {
-	c := &ContextMenu{}
-	c.rt, c.root = rt, &c.DropdownMenu
+	c := &ContextMenu{DropdownMenu: DropdownMenu{anchored: newAnchored(rt, Bottom, Start)}}
+	c.root = &c.DropdownMenu
 	return c
 }
 
 func (c *ContextMenu) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex flex-col", append([]twi.NodeOption{twi.OnPointerDownOutside(c.dismiss)}, children...))
+	return part("relative flex flex-col", append([]twi.NodeOption{twi.Measure(c.anchor), twi.OnPointerDownOutside(c.dismiss)}, children...))
 }
 
 func (c *ContextMenu) Trigger(children ...twi.NodeOption) twi.Node {
@@ -142,29 +142,30 @@ func (c *ContextMenu) Trigger(children ...twi.NodeOption) twi.Node {
 }
 
 func (c *ContextMenu) Content(children ...twi.NodeOption) twi.Node {
-	return c.menu(func(at phase, content func() twi.Node) twi.Node {
-		if c.pointer == nil {
-			return part("absolute top-0 left-0 z-50 flex", at.holding(content))
-		}
-		return part("fixed z-50 flex", append([]twi.NodeOption{twi.At(c.pointer.X, c.pointer.Y)}, at.holding(content)...))
-	}, menuContent, children)
+	point := c.anchor.Bounds().Min
+	if c.pointer != nil {
+		point = *c.pointer
+	}
+	return c.menu(image.Rectangle{Min: point, Max: point}, menuContent, children)
 }
 
 type DropdownMenuSub struct {
 	menuLevel
 	presence
+	floating
 	Open   bool
 	parent *menuLevel
 }
 
 func (l *menuLevel) Sub() *DropdownMenuSub {
-	s := &DropdownMenuSub{menuLevel: menuLevel{root: l.root}, parent: l}
+	rt := l.root.rt
+	s := &DropdownMenuSub{menuLevel: menuLevel{root: l.root}, floating: floating{anchor: twi.NewRef(rt), box: twi.NewRef(rt), alignOffset: -1}, parent: l}
 	l.root.subs = append(l.root.subs, s)
 	return s
 }
 
 func (s *DropdownMenuSub) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex flex-col", children)
+	return part("relative flex flex-col", append([]twi.NodeOption{twi.Measure(s.anchor)}, children...))
 }
 
 func (s *DropdownMenuSub) Trigger(text string, children ...twi.NodeOption) twi.Node {
@@ -174,7 +175,7 @@ func (s *DropdownMenuSub) Trigger(text string, children ...twi.NodeOption) twi.N
 func (s *DropdownMenuSub) Content(children ...twi.NodeOption) twi.Node {
 	s.settle()
 	at := s.next(s.root.rt, s.Open)
-	return part("absolute left-full -top-1 ml-1 z-50 flex", at.holding(func() twi.Node {
+	return s.float(s.root.rt, s.anchor.Bounds(), Right, Start, at, func(placed []twi.NodeOption) twi.Node {
 		return s.content("flex flex-col min-w-16 gap-1 rounded-md whitespace-nowrap border bg-popover px-1 text-popover-foreground shadow-lg "+popMotion, at, func(k input.KeyEvent) bool {
 			if k.Key == input.KeyArrowLeft {
 				s.Open = false
@@ -182,8 +183,8 @@ func (s *DropdownMenuSub) Content(children ...twi.NodeOption) twi.Node {
 				return true
 			}
 			return s.key(k)
-		}, children)
-	}))
+		}, append(placed, children...))
+	})
 }
 
 func (l *menuLevel) settle() {

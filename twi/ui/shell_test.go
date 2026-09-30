@@ -384,7 +384,7 @@ func TestOverlayClosingFrame(t *testing.T) {
 				pop.Node(pop.Trigger(Outline, SizeDefault, refocus, twi.Text("open")), pop.Content(twi.Element(twi.Text("Dimensions")))))
 			state := "removed"
 			if rendered(n).FieldByName("Children").Index(0).FieldByName("Children").Index(1).FieldByName("Children").Len() == 1 {
-				state = dataState(n, []int{0, 1, 0})
+				state = dataState(n, []int{0, 1, 0, 0})
 			}
 			if len(states) == 0 || states[len(states)-1] != state {
 				states = append(states, state)

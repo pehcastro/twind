@@ -19,7 +19,9 @@ type Select struct {
 }
 
 func NewSelect(rt *twi.Runtime) *Select {
-	return &Select{anchored: anchored{overlay: overlay{control: control{rt: rt}}, Align: Start}}
+	s := &Select{anchored: newAnchored(rt, Bottom, Start)}
+	s.anchorWidth = true
+	return s
 }
 
 func (s *Select) Trigger(children ...twi.NodeOption) twi.Node {
@@ -57,9 +59,9 @@ func (s *Select) Content(children ...twi.NodeOption) twi.Node {
 		s.rt.Invalidate()
 	}
 	at := s.phase()
-	return s.place(at, func() twi.Node {
-		return part("flex flex-col min-w-full shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion,
-			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(s.rt, s.key), children))
+	return s.place(at, func(placed []twi.NodeOption) twi.Node {
+		return part("flex flex-col shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion,
+			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(s.rt, s.key), placed, children))
 	})
 }
 

@@ -16,4 +16,6 @@ const (
 	MonthsInYear  = 12
 	HoverOpen     = 200 * time.Millisecond
 	HoverShut     = 150 * time.Millisecond
+	CollisionPadX = 1
+	CollisionPadY = 0
 )

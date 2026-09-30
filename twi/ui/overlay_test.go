@@ -463,28 +463,28 @@ func TestOverlayStates(t *testing.T) {
 		{"sheet from the right: full height, three quarters wide, border on the left only", light, dialog(sheet, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
 			return s.Height == percent(100) && s.Width == percent(75) && s.BorderWidth.Left == cells(1) && s.BorderWidth.Right == cells(0) && shadowed(s)
 		}},
-		{"menu positioner: absolute z-50 below the trigger", light, menu(0, false), []int{1}, func(s style.ComputedStyle) bool {
-			return s.Position == style.PositionAbsolute && s.ZIndex == 50 && s.Inset.Top == percent(100)
+		{"menu positioner: fixed z-50, out of every clip", light, menu(0, false), []int{1}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionFixed && s.ZIndex == 50
 		}},
-		{"menu content: bg-popover rounded-md border shadow-md, 16 cells at least", light, menu(0, false), []int{1, 0}, func(s style.ComputedStyle) bool {
+		{"menu content: bg-popover rounded-md border shadow-md, 16 cells at least", light, menu(0, false), []int{1, 0, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Popover] && s.Radius == style.RadiusMd && s.BorderWidth.Top == cells(1) && shadowed(s) && s.MinWidth == cells(16)
 		}},
-		{"highlighted item: bg-accent", light, menu(0, false), []int{1, 0, 0}, func(s style.ComputedStyle) bool {
+		{"highlighted item: bg-accent", light, menu(0, false), []int{1, 0, 0, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Accent] && s.Color == light.Tokens[theme.AccentForeground]
 		}},
-		{"item not highlighted: no background", light, menu(1, false), []int{1, 0, 0}, func(s style.ComputedStyle) bool { return s.Background.Kind == color.Unset }},
-		{"open sub trigger: bg-accent while the root highlight is elsewhere", light, menu(0, true), []int{1, 0, 1, 0}, func(s style.ComputedStyle) bool {
+		{"item not highlighted: no background", light, menu(1, false), []int{1, 0, 0, 0}, func(s style.ComputedStyle) bool { return s.Background.Kind == color.Unset }},
+		{"open sub trigger: bg-accent while the root highlight is elsewhere", light, menu(0, true), []int{1, 0, 0, 1, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Accent]
 		}},
-		{"root highlight gives way to the open sub trigger", light, menu(0, true), []int{1, 0, 0}, func(s style.ComputedStyle) bool { return s.Background.Kind == color.Unset }},
-		{"sub content holder: absolute right of its trigger", light, menu(0, true), []int{1, 0, 1, 1}, func(s style.ComputedStyle) bool {
-			return s.Position == style.PositionAbsolute && s.Inset.Left == percent(100) && s.ZIndex == 50
+		{"root highlight gives way to the open sub trigger", light, menu(0, true), []int{1, 0, 0, 0}, func(s style.ComputedStyle) bool { return s.Background.Kind == color.Unset }},
+		{"sub content positioner: fixed z-50, out of every clip", light, menu(0, true), []int{1, 0, 0, 1, 1}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionFixed && s.ZIndex == 50
 		}},
-		{"sub content: bg-popover shadow-lg", light, menu(0, true), []int{1, 0, 1, 1, 0}, func(s style.ComputedStyle) bool {
+		{"sub content: bg-popover shadow-lg", light, menu(0, true), []int{1, 0, 0, 1, 1, 0, 0}, func(s style.ComputedStyle) bool {
 			return shadowed(s) && s.Background == light.Tokens[theme.Popover]
 		}},
 		{"outline trigger idle: the button's border ring", light, trigger, nil, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
-		{"tooltip: bg-foreground text-background above the trigger", light, tip(), []int{1, 0}, func(s style.ComputedStyle) bool {
+		{"tooltip: bg-foreground text-background above the trigger", light, tip(), []int{1, 0, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Foreground] && s.Color == light.Tokens[theme.Background]
 		}},
 	})
