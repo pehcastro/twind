@@ -284,3 +284,10 @@ data-[state=closed]:fade-out-0
 data-[state=closed]:zoom-out-95
 animate-accordion-down
 animate-caret-blink
+bg-sidebar
+border-sidebar-border
+bg-chart-3
+text-sidebar-accent-foreground
+bg-sidebar-primary
+bg-selection
+text-selection-foreground

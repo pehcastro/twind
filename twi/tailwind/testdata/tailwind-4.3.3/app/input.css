@@ -25,6 +25,21 @@
   --color-border: var(--color-zinc-200);
   --color-input: var(--color-zinc-200);
   --color-ring: var(--color-zinc-400);
+  --color-sidebar: var(--color-zinc-50);
+  --color-sidebar-foreground: var(--color-zinc-950);
+  --color-sidebar-primary: var(--color-zinc-900);
+  --color-sidebar-primary-foreground: var(--color-zinc-50);
+  --color-sidebar-accent: var(--color-zinc-100);
+  --color-sidebar-accent-foreground: var(--color-zinc-900);
+  --color-sidebar-border: var(--color-zinc-200);
+  --color-sidebar-ring: var(--color-zinc-400);
+  --color-chart-1: var(--color-zinc-300);
+  --color-chart-2: var(--color-zinc-500);
+  --color-chart-3: var(--color-zinc-600);
+  --color-chart-4: var(--color-zinc-700);
+  --color-chart-5: var(--color-zinc-800);
+  --color-selection: var(--color-black);
+  --color-selection-foreground: var(--color-white);
 }
 @layer theme {
   :root, :host {
@@ -47,6 +62,16 @@
       --color-border: oklch(100% 0 0 / 10%);
       --color-input: oklch(100% 0 0 / 15%);
       --color-ring: var(--color-zinc-500);
+      --color-sidebar: var(--color-zinc-900);
+      --color-sidebar-foreground: var(--color-zinc-50);
+      --color-sidebar-primary: var(--color-blue-700);
+      --color-sidebar-primary-foreground: var(--color-zinc-50);
+      --color-sidebar-accent: var(--color-zinc-800);
+      --color-sidebar-accent-foreground: var(--color-zinc-50);
+      --color-sidebar-border: oklch(100% 0 0 / 10%);
+      --color-sidebar-ring: var(--color-zinc-500);
+      --color-selection: var(--color-neutral-200);
+      --color-selection-foreground: var(--color-neutral-900);
     }
   }
 }
