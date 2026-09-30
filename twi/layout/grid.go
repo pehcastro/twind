@@ -90,9 +90,10 @@ func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) ([]Rect
 		cs, m := &c.Style, c.Style.Margin
 		areaW := extent(cols, it.area[across])
 		avail := areaW - m.Left - m.Right
-		it.width = a.fitWidth(c, avail)
 		if justifyOf(s, cs) == AlignStretch && cs.Width.Unit == Auto && cs.Aspect == (Ratio{}) {
 			it.width = limit(cs.MinWidth, cs.MaxWidth, areaW, true).clamp(avail)
+		} else {
+			it.width = a.fitWidth(c, avail)
 		}
 		it.low = a.heightOf(c, it.width, 0, false) + m.Top + m.Bottom
 		it.high, it.least = it.low, it.low
@@ -117,6 +118,9 @@ func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) ([]Rect
 	}
 	used := total(rows, s.RowGap)
 	a.ints, a.tracks, a.cells = a.ints[:ints], a.tracks[:tracks], a.cells[:cells]
+	if mode == measuring {
+		b.memo.keep(frames, innerW, used)
+	}
 	return frames, used
 }
 
@@ -276,13 +280,13 @@ func (a *arena) placeItems(b *Box) ([]gridItem, [2]int) {
 		}
 		items = append(items, it)
 	}
-	occupied := occupancy{grab(&a.ints, (width+stride)*bound), width + stride}
+	occupied := occupancy{grabZero(&a.ints, (width+stride)*bound), width + stride}
 	for _, it := range items {
 		if it.definite[major] && it.definite[minor] {
 			occupied.take(it.area[major], it.area[minor])
 		}
 	}
-	cursors := grab(&a.ints, bound)
+	cursors := grabZero(&a.ints, bound)
 	for i := range items {
 		it := &items[i]
 		if !it.definite[major] || it.definite[minor] {

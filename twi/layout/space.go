@@ -28,14 +28,13 @@ type flexItem struct {
 	content                      bool
 }
 
-func newItem(s *Style, size, lo, hi Length, space int, definite bool) flexItem {
-	it := flexItem{bounds: limit(lo, hi, space, definite), grow: s.Grow, shrink: s.Shrink}
+func (it *flexItem) set(s *Style, size, lo, hi Length, space int, definite bool) {
+	it.bounds, it.grow, it.shrink = limit(lo, hi, space, definite), s.Grow, s.Shrink
 	var ok bool
 	if it.basis, ok = resolve(s.Basis, space, definite); !ok {
 		it.basis, ok = resolve(size, space, definite)
 	}
 	it.content = !ok
-	return it
 }
 
 func (a *arena) flexSizes(items []flexItem, space int) []int {
@@ -131,7 +130,7 @@ func (a *arena) even(amount, n int) []int {
 }
 
 func (a *arena) justify(j Justify, free, n int) (int, []int) {
-	extra := grab(&a.ints, n)
+	extra := grabZero(&a.ints, n)
 	switch j {
 	case JustifyStart, JustifyStretch:
 		return 0, extra

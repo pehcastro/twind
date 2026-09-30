@@ -23,14 +23,19 @@ func grab[T any](stack *[]T, n int) []T {
 	if top+n > cap(s) {
 		s = make([]T, top, 2*cap(s)+n)
 	}
-	s = s[:top+n]
-	clear(s[top:])
-	*stack = s
+	*stack = s[:top+n]
 	return s[top : top+n : top+n]
 }
 
+func grabZero[T any](stack *[]T, n int) []T {
+	s := grab(stack, n)
+	clear(s)
+	return s
+}
+
 func Layout(root *Box, width int, height Length) {
-	forget(root)
+	checkUnit(height.Unit)
+	prepare(root)
 	if !visible(root) {
 		hide(root)
 		return
@@ -60,13 +65,6 @@ func Layout(root *Box, width int, height Length) {
 	a.place(root, 0, 0, w, h, mode, viewport, screen, screen)
 }
 
-func forget(b *Box) {
-	b.memo = memo{}
-	for _, c := range b.Children {
-		forget(c)
-	}
-}
-
 type container struct{ box, clip Rect }
 
 func (a *arena) place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolute, fixed container) {
@@ -82,8 +80,10 @@ func (a *arena) place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolu
 		return
 	}
 	content, definite, padding := b.ContentBox, mode == fixedHeight, b.PaddingBox
-	mark := len(a.rects)
-	frames, _ := a.arrange(b, content.W, content.H, mode)
+	frames, m := b.memo.frames, &b.memo
+	if definite || !m.framesKnown || m.framesW != content.W || m.framesH != content.H {
+		frames, _ = a.arrange(b, content.W, content.H, mode)
+	}
 	if s.Overflow == OverflowScroll {
 		b.scroll(frames)
 		content.X, content.Y, padding.X, padding.Y = content.X-b.ScrollX, content.Y-b.ScrollY, padding.X-b.ScrollX, padding.Y-b.ScrollY
@@ -113,7 +113,6 @@ func (a *arena) place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolu
 			a.place(c, content.X+f.X, content.Y+f.Y, f.W, f.H, childMode, clip, absolute, fixed)
 		}
 	}
-	a.rects = a.rects[:mark]
 }
 
 func (b *Box) scroll(frames []Rect) {
@@ -187,7 +186,12 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 		return a.arrangeGrid(b, innerW, innerH, mode)
 	}
 	ints, flexItems := len(a.ints), len(a.items)
-	defer func() { a.ints, a.items = a.ints[:ints], a.items[:flexItems] }()
+	frames, used := a.arrangeFlex(b, innerW, innerH, mode)
+	a.ints, a.items = a.ints[:ints], a.items[:flexItems]
+	return frames, used
+}
+
+func (a *arena) arrangeFlex(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
 	s := &b.Style
 	row, fixed := isRow(s.Direction), mode == fixedHeight
 	shown := grab(&a.ints, len(b.Children))[:0]
@@ -203,18 +207,18 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 	}
 	items := grab(&a.items, len(shown))
 	for k, i := range shown {
-		c := b.Children[i]
-		cs, m := &c.Style, c.Style.Margin
+		c, it := b.Children[i], &items[k]
+		cs, m := &c.Style, &c.Style.Margin
 		if row {
-			items[k] = newItem(cs, cs.Width, cs.MinWidth, cs.MaxWidth, innerW, true)
-			items[k].margins = m.Left + m.Right
-			if w, ok := aspectWidth(cs, innerH, fixed); items[k].content && ok {
-				items[k].basis, items[k].content = w, false
+			it.set(cs, cs.Width, cs.MinWidth, cs.MaxWidth, innerW, true)
+			it.margins = m.Left + m.Right
+			if w, ok := aspectWidth(cs, innerH, fixed); it.content && ok {
+				it.basis, it.content = w, false
 			}
-			if items[k].content {
-				items[k].basis = a.intrinsic(c, maxContent)
+			if it.content {
+				it.basis = a.intrinsic(c, maxContent)
 			} else {
-				items[k].min = a.autoMin(c, items[k], innerW)
+				it.min = a.autoMin(c, *it, innerW)
 			}
 		} else {
 			al, avail := alignOf(s, cs), innerW-m.Left-m.Right
@@ -224,24 +228,25 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 				frames[i].W = a.fitWidth(c, avail)
 			}
 			frames[i].X = m.Left + offset(al, avail-frames[i].W)
-			items[k] = newItem(cs, cs.Height, cs.MinHeight, cs.MaxHeight, innerH, fixed)
-			items[k].margins = m.Top + m.Bottom
-			content, automatic := items[k].content, cs.MinHeight.Unit == Auto && !clips(cs.Overflow)
+			it.set(cs, cs.Height, cs.MinHeight, cs.MaxHeight, innerH, fixed)
+			it.margins = m.Top + m.Bottom
+			content, automatic := it.content, cs.MinHeight.Unit == Auto && !clips(cs.Overflow)
 			if content || automatic {
 				natural := a.contentHeight(c, frames[i].W)
 				if content {
-					items[k].basis = natural
+					it.basis = natural
 				}
 				if h, sized := resolve(cs.Height, innerH, fixed); sized {
 					natural = min(natural, h)
 				}
 				if automatic {
-					items[k].min = min(natural, items[k].max)
+					it.min = min(natural, it.max)
 				}
 			}
 		}
 	}
 	lines := grab(&a.ints, len(shown)+2)[:1]
+	lines[0] = 0
 	if row && s.Wrap != NoWrap {
 		run := -gap
 		for k, it := range items {
@@ -258,11 +263,12 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 		first, end := lines[l], lines[l+1]
 		group := items[first:end]
 		spent, sizes := gap*max(len(group)-1, 0), grab(&a.ints, len(group))
-		used := spent
+		used, settled := spent, true
 		for k, it := range group {
 			spent += it.margins
 			sizes[k] = it.clamp(it.basis)
 			used += it.margins + sizes[k]
+			settled = settled && (it.shrink*it.basis <= 0 || it.basis <= sizes[k])
 		}
 		if row && used > space {
 			for k, it := range group {
@@ -299,6 +305,9 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 			}
 		}
 		if !row {
+			if mode == measuring && settled {
+				b.memo.keep(frames, innerW, used)
+			}
 			return frames, used
 		}
 		for _, i := range shown[first:end] {
@@ -316,6 +325,9 @@ func (a *arena) arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, in
 		for _, i := range shown {
 			frames[i].Y = cross - frames[i].Y - frames[i].H
 		}
+	}
+	if mode == measuring {
+		b.memo.keep(frames, innerW, cross)
 	}
 	return frames, cross
 }
@@ -475,9 +487,7 @@ func (a *arena) contentHeight(b *Box, w int) int {
 	if b.Measure != nil {
 		_, h = b.Measure(inner)
 	} else {
-		mark := len(a.rects)
 		_, h = a.arrange(b, inner, 0, measuring)
-		a.rects = a.rects[:mark]
 	}
 	m.heightWidth, m.height, m.heightKnown = w, h+frameH, true
 	return m.height

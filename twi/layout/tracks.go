@@ -74,7 +74,7 @@ func (a *arena) sizeTracks(ts []track, items []gridItem, ax, gap, size int, defi
 			continue
 		}
 		extra, mark := it.minimum(definite, under)-gap*(len(spanned)-1), len(a.ints)
-		weights := grab(&a.ints, len(spanned))
+		weights := grabZero(&a.ints, len(spanned))
 		sum := 0
 		for k, t := range spanned {
 			extra -= t.base
@@ -227,7 +227,7 @@ func (a *arena) expand(ts []track, items []gridItem, ax, gap, size int, definite
 			leftover = leftover * factors / konst.FrUnit
 		}
 		mark := len(a.ints)
-		weights := grab(&a.ints, len(ts))
+		weights := grabZero(&a.ints, len(ts))
 		for i, t := range ts {
 			if !t.frozen {
 				weights[i] = t.max.Value

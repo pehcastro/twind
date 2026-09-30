@@ -160,33 +160,54 @@ type memo struct {
 	widthKnown          bool
 	heightWidth, height int
 	heightKnown         bool
+	frames              []Rect
+	framesW, framesH    int
+	framesKnown         bool
+}
+
+func (m *memo) keep(frames []Rect, w, h int) {
+	m.frames, m.framesW, m.framesH, m.framesKnown = frames, w, h, true
+}
+
+func prepare(b *Box) {
+	s := &b.Style
+	switch {
+	case s.Display > DisplayNone:
+		panic(fmt.Sprintf("layout: unknown display %d", s.Display))
+	case s.Direction > Column:
+		panic(fmt.Sprintf("layout: unknown direction %d", s.Direction))
+	case s.Position > PositionFixed:
+		panic(fmt.Sprintf("layout: unknown position %d", s.Position))
+	case s.Overflow > OverflowScroll:
+		panic(fmt.Sprintf("layout: unknown overflow %d", s.Overflow))
+	}
+	if a := max(s.AlignItems, s.AlignSelf, s.JustifyItems, s.JustifySelf); a > AlignStretch {
+		panic(fmt.Sprintf("layout: unknown align %d", a))
+	}
+	checkUnit(max(s.Basis.Unit, s.Width.Unit, s.Height.Unit, s.MinWidth.Unit, s.MinHeight.Unit, s.MaxWidth.Unit, s.MaxHeight.Unit,
+		s.Inset.Top.Unit, s.Inset.Right.Unit, s.Inset.Bottom.Unit, s.Inset.Left.Unit))
+	b.memo = memo{}
+	for _, c := range b.Children {
+		prepare(c)
+	}
+}
+
+func checkUnit(u Unit) {
+	if u > Percent {
+		panic(fmt.Sprintf("layout: unknown unit %d", u))
+	}
 }
 
 func visible(b *Box) bool {
-	if b.Style.Display > DisplayNone {
-		panic(fmt.Sprintf("layout: unknown display %d", b.Style.Display))
-	}
 	return b.Style.Display != DisplayNone
 }
 
 func flowing(p Position) bool {
-	switch p {
-	case PositionStatic, PositionRelative:
-		return true
-	case PositionAbsolute, PositionFixed:
-		return false
-	}
-	panic(fmt.Sprintf("layout: unknown position %d", p))
+	return p == PositionStatic || p == PositionRelative
 }
 
 func clips(o Overflow) bool {
-	switch o {
-	case OverflowVisible:
-		return false
-	case OverflowHidden, OverflowScroll:
-		return true
-	}
-	panic(fmt.Sprintf("layout: unknown overflow %d", o))
+	return o != OverflowVisible
 }
 
 func intersect(a, b Rect) Rect {
@@ -195,13 +216,7 @@ func intersect(a, b Rect) Rect {
 }
 
 func isRow(d Direction) bool {
-	switch d {
-	case Row:
-		return true
-	case Column:
-		return false
-	}
-	panic(fmt.Sprintf("layout: unknown direction %d", d))
+	return d == Row
 }
 
 func alignOf(parent, child *Style) Align {
@@ -217,26 +232,22 @@ func alignOf(parent, child *Style) Align {
 
 func offset(a Align, free int) int {
 	switch a {
-	case AlignStart, AlignStretch:
-		return 0
 	case AlignEnd:
 		return free
 	case AlignCenter:
 		return free / 2
 	}
-	panic(fmt.Sprintf("layout: unknown align %d", a))
+	return 0
 }
 
 func resolve(l Length, base int, baseDefinite bool) (int, bool) {
 	switch l.Unit {
-	case Auto:
-		return 0, false
 	case Cells:
 		return l.Value, true
 	case Percent:
 		return l.Value * base / konst.PercentWhole, baseDefinite
 	}
-	panic(fmt.Sprintf("layout: unknown unit %d", l.Unit))
+	return 0, false
 }
 
 func frame(s *Style) (w, h int) {
