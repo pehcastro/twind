@@ -209,6 +209,26 @@ func TestSixelQuantisesPastRegisters(t *testing.T) {
 	}
 }
 
+func TestSixelQuantiserCountsRepeatedRows(t *testing.T) {
+	encode := func(odd uint8) string {
+		img := image.NewRGBA(image.Rect(0, 0, 128, 96))
+		for y := range 96 {
+			for x := range 128 {
+				c := color.RGBA{uint8(x * 2), uint8(y * 2), uint8(x + y), 255}
+				if y >= 48 {
+					c = color.RGBA{30 + odd*uint8(y%2), 60, 90, 255}
+				}
+				img.SetRGBA(x, y, c)
+			}
+		}
+		var s Sixel
+		return string(s.Encode(nil, img, Placement{}))
+	}
+	if repeated, alternating := encode(0), encode(1); repeated != alternating {
+		t.Fatalf("48 equal rows and 48 rows alternating between two inputs of one register encode differently: %d and %d bytes", len(repeated), len(alternating))
+	}
+}
+
 func TestSixelRowRLE(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 400, 1))
 	for x := range 400 {
@@ -266,5 +286,14 @@ func TestSixelEmpty(t *testing.T) {
 	var s Sixel
 	if out := s.Encode(nil, image.NewRGBA(image.Rect(0, 0, 0, 0)), Placement{}); len(out) != 0 {
 		t.Fatalf("empty image encoded to %q", out)
+	}
+	clear := image.NewRGBA(image.Rect(0, 0, 9, 7))
+	for i := range clear.Pix {
+		if i%4 != 3 {
+			clear.Pix[i] = uint8(i)
+		}
+	}
+	if out := s.Encode(nil, clear, Placement{}); len(out) != 0 {
+		t.Fatalf("transparent image encoded to %q", out)
 	}
 }

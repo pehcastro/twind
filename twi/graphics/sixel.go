@@ -1,6 +1,7 @@
 package graphics
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -13,6 +14,15 @@ import (
 type sixelColour struct {
 	key   uint32
 	count uint32
+}
+
+type sixelStretch struct {
+	end, id int32
+}
+
+type sixelCached struct {
+	pixel uint32
+	id    int32
 }
 
 type sixelSpan struct {
@@ -28,16 +38,20 @@ type sixelBox struct {
 }
 
 type Sixel struct {
-	plane    []int32
-	ids      map[uint32]int32
-	colours  []sixelColour
-	order    []int32
-	register []uint8
-	palette  []uint32
-	spans    []sixelSpan
-	used     []uint8
-	head     [graphics.SixelRegisters]int32
-	tail     [graphics.SixelRegisters]int32
+	stretches []sixelStretch
+	rows      [][2]int32
+	ids       map[uint32]int32
+	cache     [1 << graphics.SixelCacheBits]sixelCached
+	colours   []sixelColour
+	order     []int32
+	register  []uint8
+	palette   []uint32
+	spans     []sixelSpan
+	used      []uint8
+	bits      [graphics.SixelRegisters]uint8
+	changed   [graphics.SixelRegisters]bool
+	head      [graphics.SixelRegisters]int32
+	tail      [graphics.SixelRegisters]int32
 }
 
 func (s *Sixel) Encode(dst []byte, img *image.RGBA, at Placement) []byte {
@@ -45,37 +59,38 @@ func (s *Sixel) Encode(dst []byte, img *image.RGBA, at Placement) []byte {
 	if w == 0 || h == 0 {
 		return dst
 	}
-	one := flat(img)
-	if one != nil && one.Pix[3] == 0 {
+	s.scan(img)
+	if len(s.colours) == 0 {
 		return dst
 	}
-	if one != nil {
-		s.palette = append(s.palette[:0], percentKey(one.Pix))
-	} else {
-		s.index(img)
-		s.quantise()
-	}
+	s.quantise()
 	dst = fmt.Appendf(dst, "\x1b[%d;%dH\x1bP0;1q\"1;1;%d;%d", at.Row+1, at.Col+1, w, h)
 	for i, key := range s.palette {
-		dst = fmt.Appendf(dst, "#%d;2;%d;%d;%d", i, key>>16, key>>8&0xff, key&0xff)
+		dst = append(strconv.AppendInt(append(dst, '#'), int64(i), 10), ";2"...)
+		for _, shift := range [3]uint{16, 8, 0} {
+			dst = strconv.AppendUint(append(dst, ';'), uint64(key>>shift&0xff), 10)
+		}
 	}
+	var from, to int
 	for y := 0; y < h; y += graphics.SixelBand {
+		rows := min(graphics.SixelBand, h-y)
 		if y > 0 {
 			dst = append(dst, '-')
+			if slices.Equal(s.rows[y:y+rows], s.rows[y-graphics.SixelBand:y]) {
+				dst = append(dst, dst[from:to]...)
+				continue
+			}
 		}
-		rows := min(graphics.SixelBand, h-y)
-		if one != nil {
-			dst = sixelRun(append(dst, "#0"...), graphics.SixelZero+byte(1<<rows-1), w)
-		} else {
-			dst = s.band(dst, w, y, rows)
-		}
+		from = len(dst)
+		dst = s.band(dst, w, y, rows)
+		to = len(dst)
 	}
 	return append(dst, "\x1b\\"...)
 }
 
-func percentKey(rgb []byte) uint32 {
-	p := func(v byte) uint32 { return (uint32(v)*graphics.SixelPercent + 127) / 255 }
-	return p(rgb[0])<<16 | p(rgb[1])<<8 | p(rgb[2])
+func percentKey(pixel uint32) uint32 {
+	p := func(v uint32) uint32 { return (v&0xff*graphics.SixelPercent + 127) / 255 }
+	return p(pixel)<<16 | p(pixel>>8)<<8 | p(pixel>>16)
 }
 
 func sixelRun(dst []byte, ch byte, n int) []byte {
@@ -85,47 +100,63 @@ func sixelRun(dst []byte, ch byte, n int) []byte {
 		}
 		return dst
 	}
-	dst = append(dst, '!')
-	dst = strconv.AppendInt(dst, int64(n), 10)
-	return append(dst, ch)
+	return append(strconv.AppendInt(append(dst, '!'), int64(n), 10), ch)
 }
 
-func (s *Sixel) index(img *image.RGBA) {
-	w, h := img.Rect.Dx(), img.Rect.Dy()
-	s.plane = slices.Grow(s.plane[:0], w*h)[:w*h]
+func (s *Sixel) scan(img *image.RGBA) {
+	w := img.Rect.Dx()
 	if s.ids == nil {
 		s.ids = map[uint32]int32{}
 	}
 	clear(s.ids)
+	clear(s.cache[:])
 	s.colours = s.colours[:0]
-	last := ^binary.LittleEndian.Uint32(row(img, 0))
-	id := int32(-1)
-	for y := range h {
-		pix, out := row(img, y), s.plane[y*w:(y+1)*w]
-		for x := range out {
-			p := pix[4*x : 4*x+4]
-			if v := binary.LittleEndian.Uint32(p); v != last {
-				last, id = v, s.lookup(p)
-			}
-			out[x] = id
-			if id >= 0 {
-				s.colours[id].count++
-			}
+	s.stretches = s.stretches[:0]
+	s.rows = s.rows[:0]
+	var above []byte
+	for y := range img.Rect.Dy() {
+		pix := row(img, y)
+		if bytes.Equal(pix, above) {
+			s.rows = append(s.rows, s.rows[y-1])
+			continue
 		}
+		lo := int32(len(s.stretches))
+		for x := 0; x < w; {
+			v, end := binary.LittleEndian.Uint32(pix[4*x:]), x+1
+			for end+graphics.SixelSkip <= w && binary.LittleEndian.Uint32(pix[4*end:]) == v {
+				block := pix[4*end-4 : 4*(end+graphics.SixelSkip)]
+				if !bytes.Equal(block[4:], block[:len(block)-4]) {
+					break
+				}
+				end += graphics.SixelSkip
+			}
+			for end < w && binary.LittleEndian.Uint32(pix[4*end:]) == v {
+				end++
+			}
+			s.stretches = append(s.stretches, sixelStretch{end: int32(end), id: s.lookup(v)})
+			x = end
+		}
+		s.rows = append(s.rows, [2]int32{lo, int32(len(s.stretches))})
+		above = pix
 	}
 }
 
-func (s *Sixel) lookup(p []byte) int32 {
-	if p[3] == 0 {
+func (s *Sixel) lookup(pixel uint32) int32 {
+	if pixel>>24 == 0 {
 		return -1
 	}
-	key := percentKey(p)
+	slot := &s.cache[pixel*graphics.SixelCacheHash>>(32-graphics.SixelCacheBits)]
+	if slot.pixel == pixel {
+		return slot.id
+	}
+	key := percentKey(pixel)
 	id, ok := s.ids[key]
 	if !ok {
 		id = int32(len(s.colours))
 		s.ids[key] = id
 		s.colours = append(s.colours, sixelColour{key: key})
 	}
+	*slot = sixelCached{pixel: pixel, id: id}
 	return id
 }
 
@@ -139,6 +170,15 @@ func (s *Sixel) quantise() {
 			s.palette = append(s.palette, c.key)
 		}
 		return
+	}
+	for _, r := range s.rows {
+		x := int32(0)
+		for _, st := range s.stretches[r[0]:r[1]] {
+			if st.id >= 0 {
+				s.colours[st.id].count += uint32(st.end - x)
+			}
+			x = st.end
+		}
 	}
 	s.order = s.order[:0]
 	for i := range n {
@@ -222,35 +262,50 @@ func (s *Sixel) weightedMedian(b sixelBox) uint32 {
 func (s *Sixel) band(dst []byte, w, y0, rows int) []byte {
 	s.spans = s.spans[:0]
 	s.used = s.used[:0]
-	for x := range w {
-		var regs [graphics.SixelBand]uint8
-		var bits [graphics.SixelBand]byte
-		n := 0
+	var cursor, ends [graphics.SixelBand]int32
+	var held [graphics.SixelBand]int
+	for r := range rows {
+		cursor[r], held[r] = s.rows[y0+r][0]-1, -1
+	}
+	for x := int32(0); x < int32(w); {
+		var changed [2 * graphics.SixelBand]uint8
+		n, end := 0, int32(w)
 		for r := range rows {
-			id := s.plane[(y0+r)*w+x]
-			if id < 0 {
-				continue
-			}
-			reg := s.register[id]
-			k := 0
-			for k < n && regs[k] != reg {
-				k++
-			}
-			if k == n {
-				regs[n], bits[n] = reg, 0
-				n++
-			}
-			bits[k] |= 1 << r
-		}
-		for k := range n {
-			reg := regs[k]
-			if s.head[reg] != 0 {
-				if last := &s.spans[s.tail[reg]-1]; last.bits == bits[k] && last.x+last.n == int32(x) {
-					last.n++
-					continue
+			if ends[r] == x {
+				cursor[r]++
+				st := s.stretches[cursor[r]]
+				ends[r] = st.end
+				reg := -1
+				if st.id >= 0 {
+					reg = int(s.register[st.id])
+				}
+				if reg != held[r] {
+					for _, touched := range [2]int{held[r], reg} {
+						if touched >= 0 {
+							s.bits[touched] ^= 1 << r
+							if !s.changed[touched] {
+								s.changed[touched] = true
+								changed[n] = uint8(touched)
+								n++
+							}
+						}
+					}
+					held[r] = reg
 				}
 			}
-			s.spans = append(s.spans, sixelSpan{x: int32(x), n: 1, bits: bits[k]})
+			end = min(end, ends[r])
+		}
+		for _, reg := range changed[:n] {
+			s.changed[reg] = false
+			if s.head[reg] != 0 {
+				if last := &s.spans[s.tail[reg]-1]; last.n == 0 {
+					last.n = x - last.x
+				}
+			}
+			if s.bits[reg] == 0 {
+				continue
+			}
+			s.spans = append(s.spans, sixelSpan{x: x, bits: s.bits[reg]})
 			at := int32(len(s.spans))
 			if s.head[reg] == 0 {
 				s.head[reg] = at
@@ -260,13 +315,17 @@ func (s *Sixel) band(dst []byte, w, y0, rows int) []byte {
 			}
 			s.tail[reg] = at
 		}
+		x = end
 	}
 	for i, reg := range s.used {
 		if i > 0 {
 			dst = append(dst, '$')
 		}
-		dst = append(dst, '#')
-		dst = strconv.AppendInt(dst, int64(reg), 10)
+		dst = strconv.AppendInt(append(dst, '#'), int64(reg), 10)
+		if last := &s.spans[s.tail[reg]-1]; last.n == 0 {
+			last.n = int32(w) - last.x
+		}
+		s.bits[reg] = 0
 		x := int32(0)
 		for at := s.head[reg]; at != 0; at = s.spans[at-1].next {
 			span := s.spans[at-1]
