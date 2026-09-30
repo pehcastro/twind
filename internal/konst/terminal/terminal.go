@@ -25,8 +25,10 @@ const (
 )
 
 const (
-	EnterScreen   = CSI + "?1049h" + CSI + "?25l" + CSI + "?2004h" + CSI + "?1004h"
-	LeaveScreen   = CSI + "?1004l" + CSI + "?2004l" + CSI + "?25h" + CSI + "?1049l" + Reset
+	EnterScreen   = CSI + "?1049h" + CSI + "?25l" + CSI + "?2004h" + FocusOn
+	LeaveScreen   = FocusOff + CSI + "?2004l" + CSI + "?25h" + CSI + "?1049l" + Reset
+	FocusOn       = CSI + "?1004h"
+	FocusOff      = CSI + "?1004l"
 	MouseOn       = CSI + "?1003h" + CSI + "?1006h"
 	MouseOff      = CSI + "?1006l" + CSI + "?1003l"
 	KittyPush     = CSI + ">1u"
@@ -35,8 +37,9 @@ const (
 	KittyQuery    = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 	KittyOK       = "\x1b_Gi=31;OK\x1b\\"
 	MarginsQuery  = CSI + "?69$p"
-	Queries       = KittyQuery + CSI + "?2026$p" + CSI + "?2027$p" + MarginsQuery + CSI + "?u" + CellQuery
-	InlineQueries = KittyQuery + CSI + "?2026$p" + MarginsQuery + CellQuery
+	ModeQueries   = CSI + "?2026$p" + CSI + "?2027$p" + CSI + "?1004$p" + MarginsQuery
+	Queries       = KittyQuery + ModeQueries + CSI + "?u" + CellQuery
+	InlineQueries = KittyQuery + ModeQueries + CellQuery
 	CursorHome    = CSI + "H"
 	CursorQuery   = CSI + "6n"
 	GraphemesOn   = CSI + "?2027h"
@@ -66,6 +69,7 @@ const (
 	SixelAttribute = 4
 	SyncMode       = 2026
 	GraphemeMode   = 2027
+	FocusMode      = 1004
 	ModeSet        = 1
 	ModeReset      = 2
 	ModeKeptSet    = 3

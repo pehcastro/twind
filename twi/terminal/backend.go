@@ -35,6 +35,7 @@ type Capabilities struct {
 	CellPixels    image.Point
 	Graphemes     bool
 	Margins       bool
+	Focus         bool
 	Widths        text.Widths
 }
 
@@ -200,6 +201,7 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 			caps.Sync = caps.Sync || mode == konst.SyncMode && (state == konst.ModeSet || state == konst.ModeReset)
 			caps.Graphemes = caps.Graphemes || mode == konst.GraphemeMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
 			caps.Margins = caps.Margins || mode == konst.MarginMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
+			caps.Focus = caps.Focus || mode == konst.FocusMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
 		case input.ReplyKeyboardFlags:
 			caps.KittyKeyboard = true
 		case input.ReplyPrimaryAttributes:

@@ -510,3 +510,74 @@ func TestWriteFailureRestores(t *testing.T) {
 		t.Errorf("restored %d times after a failed write, want 1", term.tty.restored)
 	}
 }
+
+func TestInlineGraphemesAndFocus(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		answers          []string
+		graphemes, focus bool
+	}{
+		{"wezterm nightly", []string{"\x1b[?2026;2$y\x1b[?2027;3$y\x1b[?1004;2$y\x1b[?69;2$y\x1b[1;1R\x1b[?65;4;6;18;22;52c"}, true, true},
+		{"focus set", []string{"\x1b[?1004;1$y\x1b[1;1R\x1b[?62c"}, false, true},
+		{"focus kept set", []string{"\x1b[?1004;3$y\x1b[1;1R\x1b[?62c"}, false, true},
+		{"not recognised", []string{"\x1b[?2027;0$y\x1b[?1004;0$y\x1b[1;1R\x1b[?62c"}, false, false},
+		{"permanently reset", []string{"\x1b[?2027;4$y\x1b[?1004;4$y\x1b[1;1R\x1b[?62c"}, false, false},
+		{"split over reads", []string{"\x1b[?2027;3$y\x1b[?10", "04;2$y\x1b[1;1R\x1b[?62c"}, true, true},
+		{"another mode", []string{"\x1b[?2026;1$y\x1b[?1049;1$y\x1b[1;1R\x1b[?62c"}, false, false},
+	} {
+		term := newFake(tc.answers...)
+		caps, _, err := query(term, term.tty, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if caps.Graphemes != tc.graphemes || caps.Focus != tc.focus {
+			t.Errorf("%s: graphemes %v focus %v, want %v %v", tc.name, caps.Graphemes, caps.Focus, tc.graphemes, tc.focus)
+		}
+		out := term.written.String()
+		fence := strings.LastIndex(out, "\x1b[c")
+		for _, ask := range []string{"\x1b[?2027$p", "\x1b[?1004$p"} {
+			if i := strings.Index(out, ask); i < 0 || i > fence {
+				t.Errorf("%s: %q missing or after the fence in %q", tc.name, ask, out)
+			}
+		}
+		for _, set := range []string{konst.GraphemesOn, konst.GraphemesOff, konst.FocusOn, konst.FocusOff} {
+			if strings.Contains(out, set) {
+				t.Errorf("%s: the inline query wrote %q", tc.name, set)
+			}
+		}
+	}
+}
+
+func TestFocusReports(t *testing.T) {
+	term := newFake("\x1b[?1004;1$y\x1b[I\x1b[?62c")
+	b, err := enter(term, term.tty, Options{}, offer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !b.Capabilities.Focus {
+		t.Errorf("focus not detected from ?1004;1: %+v", b.Capabilities)
+	}
+	for _, in := range []string{"\x1b[O", "\x1b[", "I", "\x1b[Ox"} {
+		term.tty.input <- []byte(in)
+	}
+	for _, w := range []input.Event{input.FocusEvent{Focused: true}, input.FocusEvent{}, input.FocusEvent{Focused: true}, input.FocusEvent{}, input.KeyEvent{Rune: 'x'}} {
+		select {
+		case ev := <-b.Events:
+			if ev != w {
+				t.Errorf("event %#v, want %#v", ev, w)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("no event, want %#v", w)
+		}
+	}
+	if err := errors.Join(b.Exit(), b.Exit()); err != nil {
+		t.Fatal(err)
+	}
+	out := term.written.String()
+	if on, ask := strings.Index(out, konst.FocusOn), strings.Index(out, "\x1b[?1004$p"); on < 0 || ask < on {
+		t.Errorf("wrote %q, want ?1004h before the ?1004 question", out)
+	}
+	if strings.Count(out, konst.FocusOff) != 1 || !strings.HasSuffix(out, konst.LeaveScreen) || !strings.Contains(konst.LeaveScreen, konst.FocusOff) {
+		t.Errorf("wrote %q, want ?1004l once, on exit", out)
+	}
+}
