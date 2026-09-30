@@ -66,7 +66,7 @@ func BenchmarkKeyToFrame(b *testing.B) {
 		if err := d.Close(); err != nil {
 			b.Fatal(err)
 		}
-		percentiles(b, samples)
+		percentiles(b, "", samples)
 	})
 
 	for _, sync := range []bool{true, false} {
@@ -91,7 +91,7 @@ func BenchmarkKeyToFrame(b *testing.B) {
 			if err := <-done; err != nil {
 				b.Fatal(err)
 			}
-			percentiles(b, samples)
+			percentiles(b, "", samples)
 			b.ReportMetric(float64(first), "first-bytes/frame")
 			b.ReportMetric(float64(total)/float64(len(samples)), "bytes/frame")
 		})

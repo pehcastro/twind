@@ -40,13 +40,13 @@ func measure(b *testing.B, frame func()) {
 		samples[i] = now() - start
 	}
 	b.StopTimer()
-	percentiles(b, samples)
+	percentiles(b, "", samples)
 }
 
-func percentiles(b *testing.B, samples []time.Duration) {
+func percentiles(b *testing.B, prefix string, samples []time.Duration) {
 	slices.Sort(samples)
-	b.ReportMetric(float64(samples[len(samples)/2]), "p50-ns")
-	b.ReportMetric(float64(samples[len(samples)*95/100]), "p95-ns")
+	b.ReportMetric(float64(samples[len(samples)/2]), prefix+"p50-ns")
+	b.ReportMetric(float64(samples[len(samples)*95/100]), prefix+"p95-ns")
 }
 
 func render(b *testing.B, build func() twi.Node) {
