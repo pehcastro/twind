@@ -8,7 +8,7 @@ Run from the repository root:
 .twind/bin/tailwindcss-windows-x64.exe -i twi/tailwind/testdata/tailwind-4.3.3/app/input.css -o twi/tailwind/testdata/tailwind-4.3.3/app/output.css
 
 SHA-256 of the output:
-dfb69a456737d7e0107083a420ecb4620244ce68b9a46b4bcb686765e2c11d9e  app/output.css
+ad5e60e52ded156893070f4995292c8c74ca32def078012d0f317cdc4fb84ed8  app/output.css
 
 app/output.css is also the compiler corpus: tailwind.Inputs hashes Compile of it into every generated IR,
 so recapturing it makes every committed IR stale until regenerated.

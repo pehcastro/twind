@@ -34,7 +34,7 @@ func page(children ...Node) Node {
 
 func card(bg color.Color) Node {
 	c := box(2, 1, 10, 4, bg)
-	c.Shadows = []style.Shadow{{X: 1, Y: 1, Blur: 2, Color: paint(0, 0, 0, 64)}}
+	c.Shadows = []style.Shadow{{X: 8, Y: 16, Blur: 16, Color: paint(0, 0, 0, 64)}}
 	c.text = "hello"
 	return c
 }
@@ -42,8 +42,24 @@ func card(bg color.Color) Node {
 func popover(x, y int) Node {
 	p := box(x, y, 10, 3, paint(255, 255, 255, 255))
 	p.Position = layout.PositionFixed
-	p.Shadows = []style.Shadow{{Y: 1, Blur: 2, Color: paint(0, 0, 0, 64)}}
+	p.Shadows = []style.Shadow{{Y: 16, Blur: 16, Color: paint(0, 0, 0, 64)}}
 	return p
+}
+
+func TestShadowPixelsScaleByRem(t *testing.T) {
+	c := box(2, 1, 10, 4, paint(255, 255, 255, 255))
+	black := paint(0, 0, 0, 26)
+	c.Shadows = []style.Shadow{{Y: 4, Blur: 6, Spread: -1, Color: black}, {Y: 2, Blur: 4, Spread: -2, Color: black}}
+	var got []raster.BoxShadow
+	for _, op := range record(page(c)).Layers[0].Ops {
+		if op.Kind == raster.Shadow {
+			got = append(got, op.Shadow)
+		}
+	}
+	want := []raster.BoxShadow{{Y: 2.5, Blur: 5, Spread: -2.5}, {Y: 5, Blur: 7.5, Spread: -1.25}}
+	if !slices.Equal(got, want) {
+		t.Errorf("shadow-md on a 10x20 cell: %+v, want %+v, every px times 20/16 whatever the axis", got, want)
+	}
 }
 
 func record(root Node) *Frame {

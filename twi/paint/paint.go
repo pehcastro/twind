@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	konst "github.com/twind-dev/twind/internal/konst/paint"
+	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
+	stylekonst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
@@ -52,7 +54,8 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 	}
 	for _, s := range shadows {
 		r := n.Bounds
-		cast := layout.Rect{X: r.X + s.X - s.Spread, Y: r.Y + s.Y - s.Spread, W: r.W + 2*s.Spread, H: r.H + 2*s.Spread}
+		left, top, right, bottom := reach(s)
+		cast := layout.Rect{X: r.X - left, Y: r.Y - top, W: r.W + left + right, H: r.H + top + bottom}
 		shadow(buf, n.Clip, cast, r, s.Color, false)
 	}
 	fill := n.Bounds
@@ -79,11 +82,24 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 	}
 	for _, s := range insets {
 		p := n.Padding
-		lit := layout.Rect{X: p.X + s.X + s.Spread, Y: p.Y + s.Y + s.Spread, W: p.W - 2*s.Spread, H: p.H - 2*s.Spread}
+		left, top, right, bottom := reach(s)
+		lit := layout.Rect{X: p.X + right, Y: p.Y + bottom, W: p.W - left - right, H: p.H - top - bottom}
 		shadow(buf, n.Clip, p, lit, s.Color, true)
 	}
 	border(buf, n, look)
 	lines(buf, n)
+}
+
+func reach(s style.Shadow) (left, top, right, bottom int) {
+	blur := float64(s.Blur) * rasterkonst.SigmaPerBlur
+	cells := func(offset style.Pixels, cell float64) int {
+		v := (float64(offset+s.Spread) + blur) / cell
+		if v > 0 {
+			return max(1, int(math.Round(v)))
+		}
+		return int(math.Round(v))
+	}
+	return cells(-s.X, stylekonst.NominalCellX), cells(-s.Y, stylekonst.NominalCellY), cells(s.X, stylekonst.NominalCellX), cells(s.Y, stylekonst.NominalCellY)
 }
 
 func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look) {

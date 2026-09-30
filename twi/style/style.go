@@ -140,8 +140,10 @@ const (
 	SelectAll
 )
 
+type Pixels int
+
 type Shadow struct {
-	X, Y, Blur, Spread int
+	X, Y, Blur, Spread Pixels
 	Color              color.Color
 	Inset              bool
 	Tintable           bool

@@ -85,7 +85,7 @@ func TestHairlinePlain(t *testing.T) {
 }
 
 func TestShadow(t *testing.T) {
-	md := style.Shadow{X: 1, Y: 1, Color: literal(shadowMd)}
+	md := style.Shadow{X: 8, Y: 16, Color: literal(shadowMd)}
 	bare := painted(12, 7, page(12, 7, ""), Composited)
 	buf := painted(12, 7, page(12, 7, "", card(place(1, 1, 6, 3, layout.Edges{}), style.RadiusNone, md)), Composited)
 	expect(t, buf, "            ", "            ", "       ▏    ", "       ▏    ", "  ▔▔▔▔▔     ", "            ")
@@ -108,8 +108,32 @@ func TestShadow(t *testing.T) {
 	}
 }
 
+func TestShadowStockMd(t *testing.T) {
+	black := literal(color.RGBA{A: 26})
+	md := []style.Shadow{{Y: 4, Blur: 6, Spread: -1, Color: black}, {Y: 2, Blur: 4, Spread: -2, Color: black}}
+	buf := painted(12, 7, page(12, 7, "", card(place(1, 1, 6, 3, layout.Edges{}), style.RadiusNone, md...)), Composited)
+	expect(t, buf, "            ", "▕      ▏    ", "▕      ▏    ", "▕      ▏    ", " ▔▔▔▔▔▔     ", "            ")
+	if side, below := buf.At(7, 2).Fg, buf.At(3, 4).Fg; !near(side, color.RGBA{R: 219, G: 219, B: 220}) || !near(below, color.RGBA{R: 196, G: 196, B: 197}) {
+		t.Errorf("side %+v below %+v: want one layer at alpha 26 beside, both layers below", side, below)
+	}
+}
+
+func TestShadowNegativeSpread(t *testing.T) {
+	sunk := style.Shadow{Y: 4, Spread: -12, Color: literal(shadowMd)}
+	bare := painted(8, 5, page(8, 5, ""), Composited)
+	buf := painted(8, 5, page(8, 5, "", card(place(1, 1, 4, 2, layout.Edges{}), style.RadiusNone, sunk)), Composited)
+	for y := range 5 {
+		for x := range 8 {
+			inCard := x >= 1 && x < 5 && y >= 1 && y < 3
+			if !inCard && buf.At(x, y) != bare.At(x, y) {
+				t.Errorf("a shadow hidden under its box by spread painted %d,%d: %+v", x, y, buf.At(x, y))
+			}
+		}
+	}
+}
+
 func TestShadowStacked(t *testing.T) {
-	md := style.Shadow{X: 1, Y: 1, Color: literal(shadowMd)}
+	md := style.Shadow{X: 8, Y: 16, Color: literal(shadowMd)}
 	buf := painted(6, 4, page(6, 4, "", card(place(0, 0, 3, 2, layout.Edges{}), style.RadiusNone, md, md)), Composited)
 	if c := buf.At(3, 1); c.Grapheme != "▏" || !near(c.Fg, color.RGBA{R: 211, G: 211, B: 212}) {
 		t.Errorf("two stacked shadows: %+v, want ▏ at twice the shade", c)
@@ -117,7 +141,7 @@ func TestShadowStacked(t *testing.T) {
 }
 
 func TestShadowKeepsText(t *testing.T) {
-	md := style.Shadow{X: 1, Y: 1, Color: literal(shadowMd)}
+	md := style.Shadow{X: 8, Y: 16, Color: literal(shadowMd)}
 	text := strings.Repeat("abcdef\n", 4)
 	bare := painted(6, 4, page(6, 4, text), Composited)
 	buf := painted(6, 4, page(6, 4, text, card(place(0, 0, 3, 2, layout.Edges{}), style.RadiusNone, md)), Composited)
@@ -131,7 +155,7 @@ func TestShadowKeepsText(t *testing.T) {
 func TestShadowCurrentColor(t *testing.T) {
 	s := filled(white)
 	s.Color = literal(red)
-	s.Shadows = []style.Shadow{{X: 1, Y: 1, Color: color.Color{Kind: color.Current}}}
+	s.Shadows = []style.Shadow{{X: 8, Y: 16, Color: color.Color{Kind: color.Current}}}
 	buf := painted(6, 4, page(6, 4, "", scene.New(place(0, 0, 3, 2, layout.Edges{}), s, scene.Text{})), Composited)
 	if c := buf.At(3, 1); c.Grapheme != "▏" || c.Fg != literal(red) {
 		t.Errorf("currentColor shadow %+v, want ▏ in the text colour", c)
@@ -142,7 +166,7 @@ func TestShadowInset(t *testing.T) {
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
 	s := filled(white)
 	s.BorderStyle, s.BorderColor = style.BorderSingle, literal(zinc800)
-	s.InsetShadows = []style.Shadow{{Y: 1, Color: literal(shadowMd), Inset: true}}
+	s.InsetShadows = []style.Shadow{{Y: 16, Color: literal(shadowMd), Inset: true}}
 	buf := painted(6, 5, page(6, 5, "", scene.New(place(0, 0, 6, 5, one), s, scene.Text{})), Composited)
 	expect(t, buf, " ▁▁▁▁ ", "▕▔▔▔▔▏", "▕    ▏", "▕    ▏", " ▔▔▔▔ ")
 	if c := buf.At(2, 1); c.Bg != literal(white) || !near(c.Fg, color.RGBA{R: 237, G: 237, B: 237}) {
@@ -151,7 +175,7 @@ func TestShadowInset(t *testing.T) {
 }
 
 func TestShadowPlain(t *testing.T) {
-	md := style.Shadow{X: 1, Y: 1, Color: literal(shadowMd)}
+	md := style.Shadow{X: 8, Y: 16, Color: literal(shadowMd)}
 	bare := painted(6, 4, page(6, 4, ""), Plain)
 	buf := painted(6, 4, page(6, 4, "", scene.New(place(0, 0, 3, 2, layout.Edges{}), style.ComputedStyle{Opacity: 1, Shadows: []style.Shadow{md}}, scene.Text{})), Plain)
 	for y := range 4 {
@@ -164,7 +188,7 @@ func TestShadowPlain(t *testing.T) {
 }
 
 func TestGlyphsLeavesSurfacesToPixels(t *testing.T) {
-	md := style.Shadow{X: 1, Y: 1, Color: literal(shadowMd)}
+	md := style.Shadow{X: 8, Y: 16, Color: literal(shadowMd)}
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
 	bar := indigoToPink(t, style.ToRight)
 	bar.Radius = style.RadiusFull
@@ -187,7 +211,7 @@ func TestRootBackgroundPaintsTheCanvas(t *testing.T) {
 }
 
 func TestShadowClip(t *testing.T) {
-	md := style.Shadow{X: 2, Y: 2, Spread: 1, Color: literal(shadowMd)}
+	md := style.Shadow{X: 16, Y: 24, Spread: 8, Color: literal(shadowMd)}
 	box := place(0, 0, 4, 2, layout.Edges{})
 	box.Clip = layout.Rect{W: 5, H: 2}
 	bare := painted(6, 3, page(6, 3, ""), Composited)

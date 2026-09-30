@@ -8,6 +8,7 @@ import (
 
 	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
 	konst "github.com/twind-dev/twind/internal/konst/scene"
+	stylekonst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/raster"
@@ -107,8 +108,8 @@ func GradientFill(g style.Gradient, shape raster.Box) raster.Op {
 }
 
 func (f *Frame) shadow(s style.Shadow) raster.BoxShadow {
-	w, h := float64(f.cell.X), float64(f.cell.Y)
-	return raster.BoxShadow{X: float64(s.X) * w, Y: float64(s.Y) * h, Blur: float64(s.Blur) * w, Spread: float64(s.Spread) * w}
+	px := float64(f.cell.Y) / stylekonst.RemPixels
+	return raster.BoxShadow{X: float64(s.X) * px, Y: float64(s.Y) * px, Blur: float64(s.Blur) * px, Spread: float64(s.Spread) * px}
 }
 
 func (f *Frame) radius(r style.Radius) float64 {

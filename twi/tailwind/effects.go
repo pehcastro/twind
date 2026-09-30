@@ -1,10 +1,12 @@
 package tailwind
 
 import (
+	"math"
 	"slices"
 	"strconv"
 	"strings"
 
+	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/css"
 	"github.com/twind-dev/twind/twi/style"
@@ -82,18 +84,21 @@ func (c *compiler) shadows(raw []css.Token, v vars) ([]style.Shadow, problem) {
 		}
 		for _, layer := range commas(toks) {
 			s := style.Shadow{Color: color.Color{Kind: color.Current}, Tintable: tintable}
-			var lengths []int
+			var lengths []style.Pixels
 			colored := false
 			for _, part := range components(layer) {
 				if strings.EqualFold(text(part), "inset") {
 					s.Inset = true
 					continue
 				}
-				if l, p := length(part); l.Unit == style.Cells && (p.reason == "" || p.category == Approximated) && len(lengths) < 4 {
-					if p.reason != "" {
-						worst = p
+				if q, err := evaluate(part); err == nil && len(lengths) < 4 && (q.unit == "px" || q.unit == "rem" || q.unit == "" && q.value == 0) {
+					if q.unit == "rem" {
+						q.value *= konst.RemPixels
 					}
-					lengths = append(lengths, int(l.Value))
+					if q.value != math.Round(q.value) {
+						worst = problem{Approximated, "fractional shadow pixels rounded"}
+					}
+					lengths = append(lengths, style.Pixels(math.Round(q.value)))
 					continue
 				}
 				paintColor, p := paint(part)

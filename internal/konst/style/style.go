@@ -13,6 +13,9 @@ const (
 	FromPosition    = 0
 	ViaPosition     = 0.5
 	ToPosition      = 1
+	RemPixels       = 16
+	NominalCellX    = RemPixels / 2
+	NominalCellY    = RemPixels
 )
 
 const PresetTheme = `@theme {
@@ -21,18 +24,6 @@ const PresetTheme = `@theme {
   --breakpoint-md: 100px;
   --breakpoint-lg: 140px;
   --breakpoint-xl: 180px;
-  --shadow-2xs: 0 1px 0 0 oklch(0% 0 0 / 0.03);
-  --shadow-xs: 0 1px 0 0 oklch(0% 0 0 / 0.05);
-  --shadow-sm: 1px 1px 0 0 oklch(0% 0 0 / 0.05);
-  --shadow: 1px 1px 0 0 oklch(0% 0 0 / 0.05);
-  --shadow-md: 1px 1px 0 0 oklch(0% 0 0 / 0.07);
-  --shadow-lg: 1px 1px 1px 0 oklch(0% 0 0 / 0.1);
-  --shadow-xl: 2px 1px 1px 0 oklch(0% 0 0 / 0.12);
-  --shadow-2xl: 2px 1px 2px 0 oklch(0% 0 0 / 0.25);
-  --inset-shadow-2xs: inset 0 1px 0 0 oklch(0% 0 0 / 0.03);
-  --inset-shadow-xs: inset 0 1px 0 0 oklch(0% 0 0 / 0.05);
-  --inset-shadow-sm: inset 0 1px 0 0 oklch(0% 0 0 / 0.07);
-  --shadow-inner: inset 0 1px 0 0 oklch(0% 0 0 / 0.07);
   --color-background: var(--color-white);
   --color-foreground: var(--color-zinc-950);
   --color-card: var(--color-white);
