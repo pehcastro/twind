@@ -217,6 +217,9 @@ func (s *Screen) surfaces(root *scene.Node) error {
 		}
 		cells := s.tiles[t]
 		s.composite(next, s.pixels(cells))
+		if s.Profile == color.ANSI256 {
+			s.quantise(s.pixels(cells))
+		}
 		s.hashes[t] = s.hash(s.pixels(cells))
 		s.send[t] = s.hashes[t] != s.sent[t]
 		for y := cells.Min.Y; y < cells.Max.Y; y++ {

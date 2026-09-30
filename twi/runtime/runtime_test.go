@@ -446,6 +446,10 @@ func TestGraphicsChoice(t *testing.T) {
 		{name: "option none", caps: sixel, opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsNone)}},
 		{name: "option sixel", caps: terminal.Capabilities{CellPixels: image.Pt(10, 20)}, opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsSixel)}, pixels: true},
 		{name: "environment wins", caps: sixel, env: "sixel", opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsNone)}, pixels: true},
+		{name: "profile 256", caps: sixel, opts: []twi.RenderOption{twi.ColorProfile(color.ANSI256)}, pixels: true},
+		{name: "profile 16", caps: sixel, opts: []twi.RenderOption{twi.ColorProfile(color.ANSI16)}},
+		{name: "profile attributes", caps: sixel, opts: []twi.RenderOption{twi.ColorProfile(color.Attributes)}},
+		{name: "profile none", caps: sixel, env: "sixel", opts: []twi.RenderOption{twi.ColorProfile(color.None)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("TWIND_GRAPHICS", tc.env)

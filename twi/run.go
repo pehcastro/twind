@@ -53,7 +53,7 @@ func New(opts ...RenderOption) *Runtime {
 func (r *Runtime) SetTheme(t theme.Theme) {
 	r.Dispatch(func() {
 		r.theme = t
-		r.Invalidate()
+		r.Restyle()
 	})
 }
 

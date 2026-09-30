@@ -57,6 +57,7 @@ type Runtime struct {
 	cfg     Config
 	wake    chan struct{}
 	changed atomic.Bool
+	restyle atomic.Bool
 
 	mu      sync.Mutex
 	queue   []func()
@@ -106,6 +107,11 @@ func (r *Runtime) Invalidate() {
 	r.wakeUp()
 }
 
+func (r *Runtime) Restyle() {
+	r.restyle.Store(true)
+	r.wakeUp()
+}
+
 func (r *Runtime) wakeUp() {
 	select {
 	case r.wake <- struct{}{}:
@@ -138,6 +144,10 @@ func (r *Runtime) loop(b Backend) error {
 		if r.quitting {
 			return nil
 		}
+		if r.restyle.Swap(false) {
+			r.tree.Restyle()
+			r.dirty = true
+		}
 		if r.changed.Swap(false) {
 			r.dirty = true
 		}
@@ -158,15 +168,8 @@ func (r *Runtime) loop(b Backend) error {
 			r.mu.Lock()
 			r.queue, r.running = r.running[:0], r.queue
 			r.mu.Unlock()
-			before := r.changed.Swap(false)
 			for _, f := range r.running {
 				f()
-			}
-			if r.changed.Load() {
-				r.tree.Restyle()
-			}
-			if before {
-				r.changed.Store(true)
 			}
 			clear(r.running)
 		case <-throttle:
@@ -231,7 +234,7 @@ func (r *Runtime) surface(b Backend) (terminal.Graphics, image.Point) {
 	if r.cfg.Graphics != nil {
 		caps.Graphics = *r.cfg.Graphics
 	}
-	if caps.Graphics == terminal.GraphicsNone || caps.CellPixels.X <= 0 || caps.CellPixels.Y <= 0 {
+	if r.cfg.Profile < color.ANSI256 || caps.Graphics == terminal.GraphicsNone || caps.CellPixels.X <= 0 || caps.CellPixels.Y <= 0 {
 		return terminal.GraphicsNone, image.Point{}
 	}
 	return caps.Graphics, caps.CellPixels

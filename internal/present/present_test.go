@@ -159,6 +159,39 @@ func TestSixelTextTakesTheRegisterColour(t *testing.T) {
 	}
 }
 
+func TestANSI256SurfaceTakesThePaletteColour(t *testing.T) {
+	cube := map[uint8]bool{0: true, 95: true, 135: true, 175: true, 215: true, 255: true}
+	palette := func(c color.RGBA) bool {
+		grey := c.R == c.G && c.G == c.B && c.R >= 8 && c.R <= 238 && (c.R-8)%10 == 0
+		return grey || cube[c.R] && cube[c.G] && cube[c.B]
+	}
+	full, _ := screen(terminal.GraphicsSixel)
+	frame(t, full, tree(t, demo.Dialog()))
+	s, _ := screen(terminal.GraphicsSixel)
+	s.Profile = color.ANSI256
+	frame(t, s, tree(t, demo.Dialog()))
+	for i := 0; i < len(s.surface.Pix); i += 4 {
+		p := s.surface.Pix[i : i+4]
+		if c := (color.RGBA{R: p[0], G: p[1], B: p[2], A: p[3]}); c.A == 255 && !palette(c) {
+			t.Fatalf("opaque surface pixel %+v at byte %d under ANSI256, want an xterm palette colour", c, i)
+		}
+	}
+	for y := range rows {
+		for x, c := range s.shown.Row(y) {
+			if c == (buffer.Cell{}) || c.Width == buffer.Continuation || !s.flat(x, y) {
+				continue
+			}
+			m := s.surface.RGBAAt(x*wt.X, y*wt.Y)
+			if under := (color.RGBA{R: m.R, G: m.G, B: m.B, A: 255}).ANSI256(); c.Bg.RGBA.ANSI256() != under {
+				t.Fatalf("text %q at %d,%d has bg index %d over a flat surface of index %d", c.Grapheme, x, y, c.Bg.RGBA.ANSI256(), under)
+			}
+		}
+	}
+	if s.imageBytes > full.imageBytes {
+		t.Errorf("ANSI256 surface sent %d image bytes, TrueColor %d: quantising must not grow the image", s.imageBytes, full.imageBytes)
+	}
+}
+
 func TestCursorForgottenAfterImage(t *testing.T) {
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	s, out := screen(terminal.GraphicsSixel)

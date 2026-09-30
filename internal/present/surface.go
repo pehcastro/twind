@@ -8,6 +8,7 @@ import (
 	"image/draw"
 	"math"
 
+	colorkonst "github.com/twind-dev/twind/internal/konst/color"
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/raster"
@@ -171,6 +172,38 @@ func (s *Screen) sample(x, y int) color.Color {
 		s.samples[i] = color.Color{Kind: color.Literal, RGBA: m}
 	}
 	return s.samples[i]
+}
+
+func (s *Screen) quantise(r image.Rectangle) {
+	var from, to [3]uint8
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		row := s.surface.Pix[s.surface.PixOffset(r.Min.X, y):s.surface.PixOffset(r.Max.X, y)]
+		for i := 0; i < len(row); i += 4 {
+			if row[i+3] != math.MaxUint8 {
+				continue
+			}
+			if rgb := [3]uint8(row[i : i+3]); rgb != from {
+				from, to = rgb, palette(color.RGBA{R: rgb[0], G: rgb[1], B: rgb[2]}.ANSI256())
+			}
+			copy(row[i:i+3], to[:])
+		}
+	}
+}
+
+func palette(index uint8) [3]uint8 {
+	if index >= colorkonst.GreyBase {
+		v := uint8(colorkonst.GreyFirstLevel + int(index-colorkonst.GreyBase)*colorkonst.GreyLevelStep)
+		return [3]uint8{v, v, v}
+	}
+	cube := int(index - colorkonst.CubeBase)
+	var rgb [3]uint8
+	for c := 2; c >= 0; c-- {
+		if n := cube % colorkonst.CubeSide; n > 0 {
+			rgb[c] = uint8(colorkonst.CubeFirstLevel + (n-1)*colorkonst.CubeLevelStep)
+		}
+		cube /= colorkonst.CubeSide
+	}
+	return rgb
 }
 
 func register(v uint8) uint8 {

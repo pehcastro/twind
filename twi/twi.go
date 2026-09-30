@@ -135,7 +135,7 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 		}
 		defer func() { err = errors.Join(err, restore()) }()
 	}
-	if ok && sizeErr == nil && cfg.profile > color.Attributes && cfg.width <= termWidth && (cfg.graphics == nil || *cfg.graphics != terminal.GraphicsNone) {
+	if ok && sizeErr == nil && cfg.profile >= color.ANSI256 && cfg.width <= termWidth && (cfg.graphics == nil || *cfg.graphics != terminal.GraphicsNone) {
 		caps, cursor, err := terminal.Query(os.Stdin, f)
 		if err != nil {
 			return err
