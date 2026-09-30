@@ -312,7 +312,7 @@ func TestNoGraphicsIsTheCellPaint(t *testing.T) {
 	root := tree(t, demo.Dialog())
 	frame(t, s, root)
 	want := buffer.New(cols, rows)
-	paint.Paint(want, root, paint.Composited)
+	(&paint.Painter{}).Paint(want, &root, paint.Composited)
 	var expected bytes.Buffer
 	never := buffer.New(cols, rows)
 	never.Fill(buffer.Rect{W: cols, H: rows}, buffer.Cell{Grapheme: "\x00"})

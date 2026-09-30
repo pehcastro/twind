@@ -11,6 +11,40 @@ import (
 	"github.com/twind-dev/twind/twi/terminal"
 )
 
+func TestLooksShareOnlyTheSamePixels(t *testing.T) {
+	ink := color.RGBA{R: 20, G: 120, B: 200, A: 255}
+	fill := raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: raster.Rect{X: 13, Y: 24, W: 40, H: 30}, Radii: [4]float64{4, 4, 4, 4}}, Color: ink}
+	clip := func(x, y, w, h float64) raster.Op {
+		return raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: raster.Rect{X: x, Y: y, W: w, H: h}}}
+	}
+	pop := raster.Op{Kind: raster.Pop}
+	s, _ := screen(terminal.GraphicsSixel)
+	s.cache, s.shapes = map[uint64]*cached{}, map[string]*cached{}
+	look := func(key uint64, x int, ops ...raster.Op) *cached {
+		shifted := append([]raster.Op(nil), ops...)
+		for i := range shifted {
+			shifted[i].Box.X += float64(x)
+		}
+		return s.look(&scene.Box{Visual: image.Rect(10+x, 20, 60+x, 60), Ops: shifted, Look: key})
+	}
+	plain := look(1, 0, fill)
+	for _, c := range []struct {
+		name  string
+		got   *cached
+		share bool
+	}{
+		{"moved", look(2, 300, fill), true},
+		{"inside a clip around it", look(3, 0, clip(0, 0, 900, 900), fill, pop), true},
+		{"inside a clip that cuts it", look(4, 0, clip(0, 0, 30, 900), fill, pop), false},
+		{"inside a rounded clip around it", look(5, 0, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: raster.Rect{W: 900, H: 900}, Radii: [4]float64{2, 2, 2, 2}}}, fill, pop), false},
+		{"another colour", look(6, 0, raster.Op{Kind: fill.Kind, Box: fill.Box, Color: color.RGBA{A: 255}}), false},
+	} {
+		if (c.got == plain) != c.share {
+			t.Errorf("a fill %s shares the plain fill's pixels: %v, want %v", c.name, c.got == plain, c.share)
+		}
+	}
+}
+
 func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 	grey, ink := color.RGBA{R: 90, G: 90, B: 90, A: 200}, color.RGBA{R: 20, G: 120, B: 200, A: 255}
 	box := func(x, y, w, h float64, radii ...float64) raster.Box {
@@ -41,7 +75,18 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 			{Kind: raster.Fill, Box: box(0, 0, 50, 50), Color: ink},
 			{Kind: raster.Pop},
 		},
+		"clip across columns": {
+			{Kind: raster.Clip, Box: box(17, 0, 21, 50)},
+			{Kind: raster.Fill, Box: box(0, 3, 50, 40), Color: ink},
+			{Kind: raster.Pop},
+			{Kind: raster.Fill, Box: box(41, 2, 3, 40), Color: grey},
+		},
+		"uneven radii":        {{Kind: raster.Fill, Box: box(2, 3, 44, 40, 2, 12, 1, 3), Color: grey}, {Kind: raster.Border, Box: box(2, 3, 44, 40, 2, 12, 1, 3), Color: ink, Width: 1.5}},
+		"sideways shadow":     {{Kind: raster.Shadow, Box: box(2, 8, 16, 30, 3, 3, 3, 3), Color: grey, Shadow: raster.BoxShadow{X: 20, Blur: 4, Spread: 1}}, {Kind: raster.Fill, Box: box(2, 8, 16, 30, 3, 3, 3, 3), Color: ink}},
+		"horizontal gradient": {{Kind: raster.Fill, Box: box(0, 0, 50, 50, 4, 4, 4, 4), Color: ink, Stops: []raster.Stop{{Color: ink}, {Color: grey, At: 1}}, Angle: 90}},
+		"translucent fill":    {{Kind: raster.Fill, Box: box(0, 0, 50, 50), Color: ink}, {Kind: raster.Fill, Box: box(5.5, 5, 39, 30, 6, 6, 6, 6), Color: grey}},
 	}
+	s, _ := screen(terminal.GraphicsSixel)
 	for name, ops := range cases {
 		want := image.NewRGBA(image.Rect(0, 0, 50, 50))
 		var r raster.Raster
@@ -50,10 +95,9 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 		for i := range shifted {
 			shifted[i].Box.X, shifted[i].Box.Y = shifted[i].Box.X+10, shifted[i].Box.Y+20
 		}
-		s, _ := screen(terminal.GraphicsSixel)
-		s.cache = map[uint64]*cached{}
+		s.cache, s.shapes = map[uint64]*cached{}, map[string]*cached{}
 		c := s.look(&scene.Box{Visual: image.Rect(10, 20, 60, 70), Ops: shifted})
-		s.rasterise()
+		s.rasterise(0, nil)
 		got := image.NewRGBA(want.Rect)
 		over(got, got.Rect, c, image.Point{})
 		for y := range 50 {
@@ -61,6 +105,35 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 				t.Errorf("%s: row %d differs from a full raster", name, y)
 				break
 			}
+		}
+		for y := 1; y < 50; y++ {
+			for lo := range 50 {
+				for _, w := range []int{1, 7} {
+					hi := min(lo+w, 50)
+					equal := bytes.Equal(got.Pix[got.PixOffset(lo, y):got.PixOffset(hi, y)], got.Pix[got.PixOffset(lo, y-1):got.PixOffset(hi, y-1)])
+					if repeats([]part{{step: drawBox, c: c, r: image.Rect(lo, 0, hi, 50)}}, y) && !equal {
+						t.Errorf("%s: row %d repeats row %d between x %d and %d, but its pixels differ", name, y, y-1, lo, hi)
+					}
+				}
+			}
+		}
+		whole, windows := image.NewRGBA(want.Rect), image.NewRGBA(want.Rect)
+		for i := range whole.Pix {
+			whole.Pix[i] = uint8(i * 37 % 200)
+			if i%4 == 3 {
+				whole.Pix[i] = 255
+			}
+		}
+		copy(windows.Pix, whole.Pix)
+		over(whole, whole.Rect, c, image.Point{})
+		for x := 0; x < 50; x += 7 {
+			r := image.Rect(x, 3, min(x+7, 50), 50)
+			over(windows, r, c, r.Min)
+			r = image.Rect(x, 0, min(x+7, 50), 3)
+			over(windows, r, c, r.Min)
+		}
+		if !bytes.Equal(whole.Pix, windows.Pix) {
+			t.Errorf("%s: composited in 7 pixel windows differs from one pass over a background", name)
 		}
 	}
 }

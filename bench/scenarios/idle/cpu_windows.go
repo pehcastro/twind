@@ -18,6 +18,15 @@ func cpuTime() time.Duration {
 	return ticks(kernel) + ticks(user)
 }
 
+func cycles() uint64 {
+	var n uint64
+	proc := windows.NewLazySystemDLL("kernel32.dll").NewProc("QueryProcessCycleTime")
+	if ok, _, err := proc.Call(uintptr(windows.CurrentProcess()), uintptr(unsafe.Pointer(&n))); ok == 0 {
+		panic(err)
+	}
+	return n
+}
+
 type memoryCounters struct {
 	cb, pageFaults                   uint32
 	peakWorkingSet, workingSet       uintptr

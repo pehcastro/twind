@@ -83,14 +83,21 @@ func (s *Screen) placement(t int) graphics.Placement {
 	return graphics.Placement{Col: cells.Min.X, Row: cells.Min.Y, Cols: cells.Dx(), Rows: cells.Dy()}
 }
 
+type encoder interface {
+	Encode(dst []byte, rows [][]byte, at graphics.Placement) []byte
+}
+
 func (w *worker) encode(s *Screen, t int) {
+	switch {
+	case w.encoder != nil:
+	case s.Graphics == terminal.GraphicsSixel:
+		w.encoder = &graphics.Sixel{}
+	default:
+		w.encoder = &graphics.ITerm{}
+	}
 	lo := len(w.out)
 	w.rows = s.tileLines(t, w.rows[:0])
-	if s.Graphics == terminal.GraphicsSixel {
-		w.out = w.sixel.Encode(w.out, w.rows, s.placement(t))
-	} else {
-		w.out = w.iterm.Encode(w.out, w.rows, s.placement(t))
-	}
+	w.out = w.encoder.Encode(w.out, w.rows, s.placement(t))
 	s.pieces[t] = piece{w, lo, len(w.out)}
 }
 
@@ -137,17 +144,18 @@ func (s *Screen) sample(x, y int) color.Color {
 		}
 		return s.samples[i]
 	}
-	var sum, part [4]int
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		if y == r.Min.Y || c.lineOf[y] != c.lineOf[y-1] {
-			part = [4]int{}
-			for ch, v := range c.line(y)[at : at+4*s.Cell.X] {
-				part[ch%4] += int(v)
+	var sum [4]int
+	for y := r.Min.Y; y < r.Max.Y; {
+		k, n := c.lineOf[y], 1
+		for y+n < r.Max.Y && c.lineOf[y+n] == k {
+			n++
+		}
+		for p := c.store[k][at : at+4*s.Cell.X]; len(p) >= 4; p = p[4:] {
+			for ch := range sum {
+				sum[ch] += n * int(p[ch])
 			}
 		}
-		for ch := range sum {
-			sum[ch] += part[ch]
-		}
+		y += n
 	}
 	if n := s.Cell.X * s.Cell.Y; (sum[3]+n/2)/n == 0 {
 		return s.samples[i]

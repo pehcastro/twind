@@ -2,6 +2,7 @@ package present
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/binary"
 	"hash/maphash"
 	"image"
@@ -16,7 +17,6 @@ import (
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
 	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
 	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/graphics"
 	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
 )
@@ -24,14 +24,20 @@ import (
 type worker struct {
 	raster  raster.Raster
 	ops     []raster.Op
-	canvas  image.RGBA
+	turned  []raster.Op
 	drawn   []bool
+	across  []bool
+	pieces  [][2]int
+	pix     []uint8
+	runs    []run
+	ends    []int
 	line    []uint8
 	view    image.RGBA
 	targets []*image.RGBA
 	rows    [][]byte
-	sixel   graphics.Sixel
-	iterm   graphics.ITerm
+	encoder encoder
+	parts   []part
+	groups  []group
 	out     []byte
 }
 
@@ -45,8 +51,12 @@ type piece struct {
 	lo, hi int
 }
 
+func (s *Screen) limit() int {
+	return min(runtime.GOMAXPROCS(0), cmp.Or(s.Workers, graphicskonst.Workers))
+}
+
 func (s *Screen) parallel(n int, do func(w *worker, i int)) {
-	workers := max(min(n, runtime.GOMAXPROCS(0), graphicskonst.Workers), 1)
+	workers := max(min(n, s.limit()), 1)
 	for len(s.workers) < workers {
 		s.workers = append(s.workers, &worker{})
 	}
@@ -64,26 +74,43 @@ func (s *Screen) parallel(n int, do func(w *worker, i int)) {
 	wg.Wait()
 }
 
-func (s *Screen) collect(f *scene.Frame, t int) {
-	r, start := s.pixels(s.tiles[t]), len(s.parts)
+func (s *Screen) gather(f *scene.Frame) {
+	s.hidden = slices.Grow(s.hidden[:0], len(f.Layers))[:len(f.Layers)]
 	for i := range f.Layers {
 		l := &f.Layers[i]
-		for len(s.groups) > 0 && s.groups[len(s.groups)-1].layer != l.Parent {
-			s.close()
+		if s.hidden[i] = l.Opacity <= 0 || l.Parent >= 0 && s.hidden[l.Parent]; s.hidden[i] {
+			continue
+		}
+		for j := range l.Boxes {
+			v := l.Boxes[j].Visual.Add(l.Origin).Intersect(l.Clip)
+			if slices.ContainsFunc(s.drawing, func(t int) bool { return v.Overlaps(s.pixels(s.tiles[t])) }) {
+				s.look(&l.Boxes[j])
+			}
+		}
+	}
+}
+
+func (w *worker) collect(s *Screen, f *scene.Frame, t int) {
+	r := s.pixels(s.tiles[t])
+	w.parts = w.parts[:0]
+	for i := range f.Layers {
+		l := &f.Layers[i]
+		for len(w.groups) > 0 && w.groups[len(w.groups)-1].layer != l.Parent {
+			w.close()
 		}
 		into := 0
-		if n := len(s.groups); n > 0 {
-			into = s.groups[n-1].into
+		if n := len(w.groups); n > 0 {
+			into = w.groups[n-1].into
 		}
 		own := into >= 0 && l.Opacity > 0 && l.Opacity < 1
 		switch {
 		case own:
 			into++
-			s.parts = append(s.parts, part{step: openGroup, into: into})
+			w.parts = append(w.parts, part{step: openGroup, into: into})
 		case l.Opacity <= 0:
 			into = -1
 		}
-		s.groups = append(s.groups, group{layer: i, into: into, opacity: l.Opacity, own: own})
+		w.groups = append(w.groups, group{layer: i, into: into, opacity: l.Opacity, own: own})
 		if into < 0 || !l.Visual.Overlaps(r) {
 			continue
 		}
@@ -91,27 +118,32 @@ func (s *Screen) collect(f *scene.Frame, t int) {
 			b := &l.Boxes[j]
 			at := b.Visual.Add(l.Origin)
 			if v := at.Intersect(r).Intersect(l.Clip); !v.Empty() {
-				s.parts = append(s.parts, part{step: drawBox, c: s.look(b), r: v, at: at.Min, into: into})
+				w.parts = append(w.parts, part{step: drawBox, c: s.cache[b.Look], r: v, at: at.Min, into: into})
 			}
 		}
 	}
-	for len(s.groups) > 0 {
-		s.close()
+	for len(w.groups) > 0 {
+		w.close()
 	}
-	s.spans[t] = [2]int{start, len(s.parts)}
 }
 
-func (s *Screen) close() {
-	g := s.groups[len(s.groups)-1]
-	s.groups = s.groups[:len(s.groups)-1]
+func (w *worker) close() {
+	g := w.groups[len(w.groups)-1]
+	w.groups = w.groups[:len(w.groups)-1]
 	if g.own {
-		s.parts = append(s.parts, part{step: closeGroup, into: g.into, opacity: g.opacity})
+		w.parts = append(w.parts, part{step: closeGroup, into: g.into, opacity: g.opacity})
 	}
 }
 
-func (w *worker) fill(s *Screen, t int) {
+func (w *worker) fill(s *Screen, f *scene.Frame, t int) {
+	w.collect(s, f, t)
 	r, c := s.lines(t)
-	parts := s.parts[s.spans[t][0]:s.spans[t][1]]
+	parts := w.parts
+	for _, p := range parts {
+		if p.step == drawBox {
+			p.c.ready.Wait()
+		}
+	}
 	if len(w.targets) == 0 {
 		w.targets = append(w.targets, &w.view)
 	}
@@ -151,45 +183,85 @@ func repeats(parts []part, y int) bool {
 			continue
 		}
 		in, was := y >= p.r.Min.Y && y < p.r.Max.Y, y > p.r.Min.Y && y <= p.r.Max.Y
-		if in != was || in && p.c.row[y-p.at.Y] != p.c.row[y-1-p.at.Y] {
+		if in != was {
+			return false
+		}
+		if !in {
+			continue
+		}
+		if k := p.c.row[y-p.at.Y]; k != p.c.row[y-1-p.at.Y] && int(p.c.change[k][0]) < p.r.Max.X-p.at.X && p.r.Min.X-p.at.X < int(p.c.change[k][1]) {
 			return false
 		}
 	}
 	return true
 }
 
+func find(runs []run, x int) int {
+	i, _ := slices.BinarySearchFunc(runs, x+1, func(r run, x int) int { return cmp.Compare(int(r.end), x) })
+	return i
+}
+
+func differ(a, b []run) [2]int32 {
+	start := func(r []run, i int) int32 {
+		if i == 0 {
+			return 0
+		}
+		return r[i-1].end
+	}
+	lo, i, j := int32(0), 0, 0
+	for i < len(a) && a[i].px == b[j].px {
+		lo = min(a[i].end, b[j].end)
+		if a[i].end == lo {
+			i++
+		}
+		if b[j].end == lo {
+			j++
+		}
+	}
+	hi, i, j := a[len(a)-1].end, len(a)-1, len(b)-1
+	for i >= 0 && a[i].px == b[j].px {
+		hi = max(start(a, i), start(b, j))
+		if start(a, i) == hi {
+			i--
+		}
+		if start(b, j) == hi {
+			j--
+		}
+	}
+	return [2]int32{lo, hi}
+}
+
 func over(dst *image.RGBA, r image.Rectangle, src *cached, at image.Point) {
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		d := dst.Pix[dst.PixOffset(r.Min.X, y):dst.PixOffset(r.Max.X, y)]
-		k := src.row[at.Y+y-r.Min.Y]
-		p := src.pix[int(k)*src.stride+4*at.X:][:len(d)]
-		run := src.solid[k]
-		lo := min(max(run[0]-4*at.X, 0), len(d))
-		hi := min(max(run[1]-4*at.X, lo), len(d))
-		blend(d[:lo], p[:lo])
-		copy(d[lo:hi], p[lo:hi])
-		blend(d[hi:], p[hi:])
+		runs := src.lines[src.row[at.Y+y-r.Min.Y]]
+		for x, i := at.X, find(runs, at.X); x < at.X+r.Dx(); i++ {
+			end := min(int(runs[i].end), at.X+r.Dx())
+			flood(d[4*(x-at.X):4*(end-at.X)], runs[i].px)
+			x = end
+		}
 	}
 }
 
-func blend(d, p []uint8) {
-	var src, under, out uint32
-	for i := 0; i < len(d); i += 4 {
-		switch a := uint32(p[i+3]); a {
-		case 0:
-		case math.MaxUint8:
-			copy(d[i:i+4], p[i:i+4])
-		default:
-			px := d[i : i+4 : i+4]
-			if s, u := binary.LittleEndian.Uint32(p[i:]), binary.LittleEndian.Uint32(px); s != src || u != under || out == 0 {
-				keep := math.MaxUint8 - a
-				for c := range 4 {
-					px[c] = p[i+c] + uint8((uint32(px[c])*keep+math.MaxUint8/2)/math.MaxUint8)
+func flood(d []uint8, px uint32) {
+	switch a := px >> 24; a {
+	case 0:
+	case math.MaxUint8:
+		binary.LittleEndian.PutUint32(d, px)
+		for n := 4; n < len(d); n *= 2 {
+			copy(d[n:], d[:n])
+		}
+	default:
+		var under, out uint32
+		for i := 0; i < len(d); i += 4 {
+			if u := binary.LittleEndian.Uint32(d[i:]); i == 0 || u != under {
+				under, out = u, 0
+				for shift := 0; shift < 32; shift += 8 {
+					kept := (under >> shift & math.MaxUint8) * (math.MaxUint8 - a)
+					out |= uint32(uint8(px>>shift)+uint8((kept+math.MaxUint8/2)/math.MaxUint8)) << shift
 				}
-				src, under, out = s, u, binary.LittleEndian.Uint32(px)
-				continue
 			}
-			binary.LittleEndian.PutUint32(px, out)
+			binary.LittleEndian.PutUint32(d[i:], out)
 		}
 	}
 }
@@ -211,20 +283,72 @@ func (s *Screen) look(b *scene.Box) *cached {
 	if c, ok := s.cache[b.Look]; ok {
 		return c
 	}
-	size, drawn := b.Visual.Size(), 0
-	s.drawn, drawn = plan(s.drawn, b.Ops, float64(b.Visual.Min.Y), size.Y)
-	c := &cached{frame: s.frame, stride: 4 * size.X, row: make([]int32, size.Y), pix: make([]uint8, 0, 4*size.X*drawn), solid: make([][2]int, 0, drawn)}
+	s.shape = s.canonical(s.shape[:0], b)
+	c, ok := s.shapes[string(s.shape)]
+	if !ok {
+		c = &cached{frame: s.frame, row: make([]int32, b.Visual.Dy())}
+		c.ready.Add(1)
+		s.shapes[string(s.shape)] = c
+		s.pending = append(s.pending, pending{b, c})
+		s.rastered++
+	}
 	s.cache[b.Look] = c
-	s.pending = append(s.pending, pending{b, c})
-	s.rastered++
 	return c
 }
 
-func (s *Screen) rasterise() {
+func (s *Screen) canonical(key []byte, b *scene.Box) []byte {
+	size, origin := b.Visual.Size(), b.Visual.Min
+	number := func(v ...float64) {
+		for _, f := range v {
+			key = binary.LittleEndian.AppendUint64(key, math.Float64bits(f))
+		}
+	}
+	number(float64(size.X), float64(size.Y))
+	s.idle = s.idle[:0]
+	for _, op := range b.Ops {
+		x, y, r := op.Box.X-float64(origin.X), op.Box.Y-float64(origin.Y), op.Box.Radii
+		switch op.Kind {
+		case raster.Clip:
+			idle := r == [4]float64{} && x <= 0 && y <= 0 && x+op.Box.W >= float64(size.X) && y+op.Box.H >= float64(size.Y)
+			if s.idle = append(s.idle, idle); idle {
+				continue
+			}
+		case raster.Opacity:
+			s.idle = append(s.idle, false)
+		case raster.Pop:
+			n := len(s.idle) - 1
+			idle := n >= 0 && s.idle[n]
+			if s.idle = s.idle[:max(n, 0)]; idle {
+				continue
+			}
+		}
+		inset := byte(0)
+		if op.Shadow.Inset {
+			inset = 1
+		}
+		key = binary.AppendUvarint(append(key, byte(op.Kind), byte(op.Dash), inset, op.Color.R, op.Color.G, op.Color.B, op.Color.A), uint64(len(op.Stops)))
+		number(x, y, op.Box.W, op.Box.H, r[0], r[1], r[2], r[3], op.Angle, op.Width, op.Opacity, op.Shadow.X, op.Shadow.Y, op.Shadow.Blur, op.Shadow.Spread)
+		for _, stop := range op.Stops {
+			key = append(key, stop.Color.R, stop.Color.G, stop.Color.B, stop.Color.A)
+			number(stop.At)
+		}
+	}
+	return key
+}
+
+func (s *Screen) rasterise(n int, then func(w *worker, i int)) {
 	slices.SortStableFunc(s.pending, func(a, b pending) int {
 		return b.box.Visual.Dx()*b.box.Visual.Dy() - a.box.Visual.Dx()*a.box.Visual.Dy()
 	})
-	s.parallel(len(s.pending), func(w *worker, i int) { w.rasterise(s.pending[i].box, s.pending[i].c) })
+	looks := len(s.pending)
+	s.parallel(looks+n, func(w *worker, i int) {
+		if i >= looks {
+			then(w, i-looks)
+			return
+		}
+		w.rasterise(s.pending[i].box, s.pending[i].c)
+		s.pending[i].c.ready.Done()
+	})
 	s.pending = s.pending[:0]
 }
 
@@ -235,32 +359,79 @@ func (w *worker) rasterise(b *scene.Box, c *cached) {
 		w.ops[i].Box.X -= float64(b.Visual.Min.X)
 		w.ops[i].Box.Y -= float64(b.Visual.Min.Y)
 	}
-	stride := c.stride
-	w.drawn, _ = plan(w.drawn, w.ops, 0, size.Y)
+	w.turned = append(w.turned[:0], w.ops...)
+	for i := range w.turned {
+		b, s := &w.turned[i].Box, &w.turned[i].Shadow
+		b.X, b.Y, b.W, b.H = b.Y, b.X, b.H, b.W
+		b.Radii[1], b.Radii[3] = b.Radii[3], b.Radii[1]
+		s.X, s.Y = s.Y, s.X
+	}
+	w.drawn, w.across = plan(w.drawn, w.ops, size.Y), plan(w.across, w.turned, size.X)
+	w.pieces = w.pieces[:0]
+	width := 0
+	for x, drawn := range w.across {
+		switch {
+		case !drawn:
+			continue
+		case x > 0 && w.across[x-1]:
+			w.pieces[len(w.pieces)-1][1]++
+		default:
+			w.pieces = append(w.pieces, [2]int{x, x + 1})
+		}
+		width++
+	}
+	w.runs, w.ends = w.runs[:0], w.ends[:0]
 	for y := 0; y < size.Y; {
 		if !w.drawn[y] {
 			c.row[y] = c.row[y-1]
 			y++
 			continue
 		}
-		end := y + 1
+		top, end := y, y+1
 		for end < size.Y && w.drawn[end] {
 			end++
 		}
-		n := len(c.pix)
-		w.canvas.Pix, w.canvas.Stride, w.canvas.Rect = c.pix[n:n+stride*(end-y)], stride, image.Rect(0, y, size.X, end)
-		w.raster.Draw(&w.canvas, w.ops, w.canvas.Rect)
-		for at := n; y < end; y, at = y+1, at+stride {
-			line := c.pix[at : at+stride]
-			if n > 0 && bytes.Equal(line, c.pix[n-stride:n]) {
+		stride := 4 * width
+		w.pix = slices.Grow(w.pix[:0], stride*(end-top))[:stride*(end-top)]
+		left := 0
+		for _, p := range w.pieces {
+			canvas := image.RGBA{Pix: w.pix[4*left:], Stride: stride, Rect: image.Rect(p[0], top, p[1], end)}
+			w.raster.Draw(&canvas, w.ops, canvas.Rect)
+			left += p[1] - p[0]
+		}
+		for ; y < end; y++ {
+			row := w.pix[(y-top)*stride:][:stride]
+			if y > top && bytes.Equal(row, w.pix[(y-top-1)*stride:][:stride]) {
 				c.row[y] = c.row[y-1]
 				continue
 			}
-			c.row[y] = int32(len(c.solid))
-			c.solid = append(c.solid, solid(line))
-			n += copy(c.pix[n:n+stride], line)
+			start, left := len(w.runs), 0
+			for i, p := range w.pieces {
+				w.runs = encode(w.runs, start, row[4*left:4*(left+p[1]-p[0])], p[0])
+				left += p[1] - p[0]
+				w.runs[len(w.runs)-1].end = int32(size.X)
+				if i+1 < len(w.pieces) {
+					w.runs[len(w.runs)-1].end = int32(w.pieces[i+1][0])
+				}
+			}
+			k, previous := len(w.ends), 0
+			if k > 1 {
+				previous = w.ends[k-2]
+			}
+			if y == top && k > 0 && slices.Equal(w.runs[start:], w.runs[previous:start]) {
+				w.runs, c.row[y] = w.runs[:start], c.row[y-1]
+				continue
+			}
+			c.row[y], w.ends = int32(k), append(w.ends, len(w.runs))
 		}
-		c.pix = c.pix[:n]
+	}
+	all, from := slices.Clone(w.runs), 0
+	c.lines, c.change = make([][]run, len(w.ends)), make([][2]int32, len(w.ends))
+	for k, to := range w.ends {
+		c.lines[k], from = all[from:to:to], to
+		if k > 0 {
+			c.change[k] = differ(c.lines[k], c.lines[k-1])
+		}
 	}
 	for y, start := 1, 0; y <= size.Y; y++ {
 		if y < size.Y && c.row[y] == c.row[y-1] {
@@ -273,7 +444,27 @@ func (w *worker) rasterise(b *scene.Box, c *cached) {
 	}
 }
 
-func plan(drawn []bool, ops []raster.Op, origin float64, h int) ([]bool, int) {
+func encode(runs []run, start int, row []uint8, x int) []run {
+	for i := 0; i < len(row); {
+		px := binary.LittleEndian.Uint32(row[i:])
+		j, pair := i+4, uint64(px)<<32|uint64(px)
+		for j+8 <= len(row) && binary.LittleEndian.Uint64(row[j:]) == pair {
+			j += 8
+		}
+		for j < len(row) && binary.LittleEndian.Uint32(row[j:]) == px {
+			j += 4
+		}
+		if n := len(runs); n > start && runs[n-1].px == px {
+			runs[n-1].end = int32(x + j/4)
+		} else {
+			runs = append(runs, run{end: int32(x + j/4), px: px})
+		}
+		i = j
+	}
+	return runs
+}
+
+func plan(drawn []bool, ops []raster.Op, h int) []bool {
 	drawn = slices.Grow(drawn[:0], h)[:h]
 	clear(drawn)
 	mark := func(from, to float64) {
@@ -281,16 +472,17 @@ func plan(drawn []bool, ops []raster.Op, origin float64, h int) ([]bool, int) {
 			drawn[y] = true
 		}
 	}
-	inside := func(y float64) bool { return y > 0 && y < float64(h) }
 	mark(0, 0)
 	for _, op := range ops {
-		b, r := op.Box, op.Box.Radii
-		b.Y -= origin
-		top, bottom := max(r[0], r[1], op.Width), max(r[2], r[3], op.Width)
+		b, r, fit := op.Box, op.Box.Radii, 1.0
+		for _, side := range [4][3]float64{{b.W, r[0], r[1]}, {b.W, r[3], r[2]}, {b.H, r[0], r[3]}, {b.H, r[1], r[2]}} {
+			if sum := side[1] + side[2]; sum > side[0] {
+				fit = min(fit, side[0]/sum)
+			}
+		}
+		top, bottom := max(fit*max(r[0], r[1]), op.Width), max(fit*max(r[2], r[3]), op.Width)
 		switch {
 		case op.Kind == raster.Opacity || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset:
-			mark(0, float64(h))
-		case op.Kind == raster.Clip && r == [4]float64{} && (inside(b.Y) || inside(b.Y+b.H)):
 			mark(0, float64(h))
 		case op.Kind == raster.Shadow:
 			s := op.Shadow
@@ -304,31 +496,7 @@ func plan(drawn []bool, ops []raster.Op, origin float64, h int) ([]bool, int) {
 			mark(b.Y+b.H-bottom, b.Y+b.H)
 		}
 	}
-	rows := 0
-	for _, d := range drawn {
-		if d {
-			rows++
-		}
-	}
-	return drawn, rows
-}
-
-func solid(row []uint8) [2]int {
-	var run [2]int
-	start := 0
-	for i := 0; i <= len(row); i += 4 {
-		for i+8 <= len(row) && binary.LittleEndian.Uint64(row[i:])&graphicskonst.AlphaPair == graphicskonst.AlphaPair {
-			i += 8
-		}
-		if i < len(row) && row[i+3] == math.MaxUint8 {
-			continue
-		}
-		if i-start > run[1]-run[0] {
-			run = [2]int{start, i}
-		}
-		start = i + 4
-	}
-	return run
+	return drawn
 }
 
 func (s *Screen) evict(f *scene.Frame) {
@@ -342,6 +510,11 @@ func (s *Screen) evict(f *scene.Frame) {
 	for look, c := range s.cache {
 		if c.frame != s.frame {
 			delete(s.cache, look)
+		}
+	}
+	for shape, c := range s.shapes {
+		if c.frame != s.frame {
+			delete(s.shapes, shape)
 		}
 	}
 }

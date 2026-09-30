@@ -87,7 +87,7 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 func (s *Screen) unshifted(l *scene.Layer, b *scene.Box, dy int, area image.Rectangle) {
 	v := b.Visual.Add(l.Origin).Intersect(l.Clip)
 	c := s.look(b)
-	s.rasterise()
+	s.rasterise(0, nil)
 	band := c.uniform
 	top, bottom := max(v.Min.Y, b.Visual.Min.Y+l.Origin.Y+band[0]), min(v.Max.Y, b.Visual.Min.Y+l.Origin.Y+band[1])
 	outer := image.Rect(v.Min.X, min(v.Min.Y, v.Min.Y+dy), v.Max.X, max(v.Max.Y, v.Max.Y+dy))

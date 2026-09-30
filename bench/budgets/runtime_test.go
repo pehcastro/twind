@@ -129,7 +129,10 @@ func BenchmarkFocusToFrame(b *testing.B) {
 	b.ReportMetric(float64(total)/float64(len(samples)), "bytes/frame")
 }
 
-func BenchmarkIdle(b *testing.B) { idle(b) }
+func BenchmarkIdle(b *testing.B) {
+	b.Run("none", func(b *testing.B) { idle(b) })
+	b.Run("timer", func(b *testing.B) { idle(b, "-timer", "1s") })
+}
 
 func BenchmarkAppIdle(b *testing.B) { idle(b, "-app", "surfaces", "-window", "60s") }
 
@@ -138,23 +141,29 @@ func idle(b *testing.B, args ...string) {
 	if out, err := exec.Command("go", "build", "-o", exe, "github.com/twind-dev/twind/bench/scenarios/idle").CombinedOutput(); err != nil {
 		b.Fatalf("%v\n%s", err, out)
 	}
-	var cpu, wall, wakes, bytes, resident, private, heap float64
+	var cpu, wall, wakes, bytes, resident, private, heap, fired, spent float64
 	b.ResetTimer()
 	for range b.N {
 		out, err := exec.Command(exe, args...).Output()
 		if err != nil {
 			b.Fatal(err)
 		}
-		var c, w, k, n, r, p, h float64
-		if _, err := fmt.Sscan(string(out), &c, &w, &k, &n, &r, &p, &h); err != nil {
+		var c, w, k, n, r, p, h, f, s float64
+		if _, err := fmt.Sscan(string(out), &c, &w, &k, &n, &r, &p, &h, &f, &s); err != nil {
 			b.Fatalf("idle printed %q: %v", out, err)
 		}
-		cpu, wall, wakes, bytes = cpu+c, wall+w, wakes+k, bytes+n
+		cpu, wall, wakes, bytes, fired, spent = cpu+c, wall+w, wakes+k, bytes+n, fired+f, spent+s
 		resident, private, heap = max(resident, r), max(private, p), max(heap, h)
 	}
 	b.StopTimer()
 	b.ReportMetric(100*cpu/wall, "cpu-%")
+	b.ReportMetric(spent/float64(b.N), "cpu-cycles")
 	b.ReportMetric(wakes/float64(b.N), "wakeups")
+	b.ReportMetric(wakes/(wall/float64(time.Second)), "wakeups/s")
+	b.ReportMetric(fired/float64(b.N), "timer-fires")
+	if fired > 0 {
+		b.ReportMetric(wakes/fired, "wakeups/fire")
+	}
 	b.ReportMetric(bytes/float64(b.N), "idle-bytes")
 	b.ReportMetric(resident/mebi, "rss-MB")
 	b.ReportMetric(private/mebi, "private-MB")

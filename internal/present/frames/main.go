@@ -45,6 +45,7 @@ func run(cols, rows int, cell image.Point, hold time.Duration, margins bool, nam
 		"page":   {demo.Page()},
 		"dialog": {demo.Dialog()},
 		"list":   {demo.List(0), demo.List(2)},
+		"cards":  {demo.Cards("", 3), demo.Cards("w-40", 3)},
 	}
 	sheet, err := demo.Styles()
 	if err != nil {
@@ -64,7 +65,7 @@ func run(cols, rows int, cell image.Point, hold time.Duration, margins bool, nam
 			frames = slices.Repeat([]render.Node{demo.Scroller(200)}, len(steps)+1)
 		}
 		if !ok {
-			return errors.New("unknown tree " + name + ", want hello, page, dialog, list, scroll:N, jump:N or reveal:N")
+			return errors.New("unknown tree " + name + ", want hello, page, dialog, list, cards, scroll:N, jump:N or reveal:N")
 		}
 		if _, err := os.Stdout.WriteString(termkonst.LeaveScreen + termkonst.EnterScreen); err != nil {
 			return err

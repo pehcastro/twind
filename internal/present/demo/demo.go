@@ -65,6 +65,14 @@ func Page() render.Node {
 	)
 }
 
+func Cards(row string, n int) render.Node {
+	cards := make([]render.Node, n)
+	for i := range cards {
+		cards[i] = el("w-24 h-20 shrink-0 p-1 border rounded-lg shadow-md bg-card text-card-foreground", text(fmt.Sprintf("Card %d", i+1)))
+	}
+	return el("flex p-2 bg-background text-foreground", el(row+" flex gap-2 p-2 overflow-hidden", cards...))
+}
+
 var ScrollerPath = []int{0, 1}
 
 func Scroller(rows int) render.Node {

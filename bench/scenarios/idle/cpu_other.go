@@ -20,6 +20,8 @@ func cpuTime() time.Duration {
 	return time.Duration(u.Utime.Nano() + u.Stime.Nano())
 }
 
+func cycles() uint64 { return 0 }
+
 func memory() (resident, private uint64) {
 	peak := uint64(usage().Maxrss) << 10
 	return peak, peak

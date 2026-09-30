@@ -50,6 +50,7 @@ func (c *clock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 func main() {
 	app := flag.String("app", "counter", "counter, 80x24 without graphics, or surfaces, 120x40 with Sixel and a 10x20 cell")
 	window := flag.Duration("window", 10*time.Second, "idle time measured after the first frame")
+	period := flag.Duration("timer", 0, "the period of one timer that sets itself again each time it fires, 0 for no timer")
 	flag.Parse()
 	b := &backend{events: make(chan input.Event), drawn: make(chan struct{}), width: 80, height: 24}
 	c := &clock{}
@@ -72,14 +73,29 @@ func main() {
 		os.Exit(2)
 	}
 	rt := twi.New(opts...)
+	var ticks atomic.Int64
+	if *period > 0 {
+		origin := time.Now()
+		var arm func()
+		arm = func() {
+			rt.After(time.Until(origin.Add(time.Duration(ticks.Load()+1)**period)), func() {
+				ticks.Add(1)
+				arm()
+			})
+		}
+		rt.Dispatch(arm)
+	}
 	done := make(chan error, 1)
 	go func() { done <- rt.Run(view(rt)) }()
 	<-b.drawn
+	settled := make(chan struct{})
+	rt.Dispatch(func() { close(settled) })
+	<-settled
 
-	bytes, wakes, cpu, start := b.bytes.Load(), c.wakes.Load(), cpuTime(), time.Now()
+	bytes, wakes, fired, cpu, spent, start := b.bytes.Load(), c.wakes.Load(), ticks.Load(), cpuTime(), cycles(), time.Now()
 	time.Sleep(*window)
-	cpu, wall := cpuTime()-cpu, time.Since(start)
-	bytes, wakes = b.bytes.Load()-bytes, c.wakes.Load()-wakes
+	cpu, spent, wall := cpuTime()-cpu, cycles()-spent, time.Since(start)
+	bytes, wakes, fired = b.bytes.Load()-bytes, c.wakes.Load()-wakes, ticks.Load()-fired
 	resident, private := memory()
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
@@ -89,5 +105,5 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Println(cpu.Nanoseconds(), wall.Nanoseconds(), wakes, bytes, resident, private, stats.HeapInuse)
+	fmt.Println(cpu.Nanoseconds(), wall.Nanoseconds(), wakes, bytes, resident, private, stats.HeapInuse, fired, spent)
 }
