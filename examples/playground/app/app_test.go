@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"strings"
@@ -6,7 +6,6 @@ import (
 	"unicode"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/tailwind"
@@ -20,10 +19,6 @@ func TestStylesFresh(t *testing.T) {
 	if stale {
 		t.Errorf("%s is stale against the classes in this package: run go generate", konst.GeneratedFile)
 	}
-}
-
-func App(rt *twi.Runtime) func() twi.Node {
-	return playground(rt, env{cwd: "/home/user/twind", profile: "truecolor", size: func() string { return "headless" }}, state{theme: themeIndex("zinc-dark"), focus: "input"}, "")
 }
 
 func open(t *testing.T) *drive.Driver {

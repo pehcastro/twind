@@ -56,17 +56,17 @@ type PanicError struct {
 func (p *PanicError) Error() string { return fmt.Sprintf("runtime: panic: %v\n%s", p.Value, p.Stack) }
 
 type Runtime struct {
-	cfg     Config
-	wake    chan struct{}
-	changed atomic.Bool
-	restyle atomic.Bool
+	cfg      Config
+	wake     chan struct{}
+	changed  atomic.Bool
+	quitting atomic.Bool
 
-	mu      sync.Mutex
-	queue   []func()
-	running []func()
+	mu       sync.Mutex
+	queue    []func()
+	running  []func()
+	restyles []func()
 
 	app           func() Tree
-	quitting      bool
 	dirty         bool
 	width, height int
 	keys          []func(input.KeyEvent)
@@ -114,8 +114,10 @@ func (r *Runtime) Invalidate() {
 	r.wakeUp()
 }
 
-func (r *Runtime) Restyle() {
-	r.restyle.Store(true)
+func (r *Runtime) Restyle(apply func()) {
+	r.mu.Lock()
+	r.restyles = append(r.restyles, apply)
+	r.mu.Unlock()
 	r.wakeUp()
 }
 
@@ -126,7 +128,10 @@ func (r *Runtime) wakeUp() {
 	}
 }
 
-func (r *Runtime) Quit() { r.Dispatch(func() { r.quitting = true }) }
+func (r *Runtime) Quit() {
+	r.quitting.Store(true)
+	r.wakeUp()
+}
 
 func (r *Runtime) Run(b Backend, app func() Tree) (err error) {
 	defer func() {
@@ -148,10 +153,17 @@ func (r *Runtime) loop(b Backend) error {
 	var throttle <-chan time.Time
 	for {
 		now := r.cfg.Clock.Now()
-		if r.quitting {
+		if r.quitting.Load() {
 			return nil
 		}
-		if r.restyle.Swap(false) {
+		r.mu.Lock()
+		restyles := r.restyles
+		r.restyles = nil
+		r.mu.Unlock()
+		for _, apply := range restyles {
+			apply()
+		}
+		if restyles != nil {
 			r.tree.Restyle()
 			r.dirty = true
 		}
@@ -189,7 +201,7 @@ func (r *Runtime) handle(ev input.Event) {
 	switch ev := ev.(type) {
 	case input.KeyEvent:
 		if ev.Key == input.KeyRune && ev.Rune == 'c' && ev.Modifiers == input.ModCtrl && !ev.Release {
-			r.quitting = true
+			r.quitting.Store(true)
 			return
 		}
 		prevented := r.focus.Key(&r.doc, ev).DefaultPrevented()

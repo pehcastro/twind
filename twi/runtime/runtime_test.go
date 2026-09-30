@@ -20,6 +20,7 @@ import (
 	"github.com/twind-dev/twind/twi/terminal"
 	"github.com/twind-dev/twind/twi/testdata/counter"
 	"github.com/twind-dev/twind/twi/testdata/hello"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 type backend struct {
@@ -513,6 +514,59 @@ func TestResizeBurstCoalesces(t *testing.T) {
 	}
 	if err := r.stop(t); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHandlerSetAndSetThemeDrawOnce(t *testing.T) {
+	s, err := hello.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var light, dark theme.Theme
+	for _, th := range theme.Builtin() {
+		if th.Name == "zinc" && th.Scheme == theme.Light {
+			light = th
+		}
+		if th.Name == "zinc" && th.Scheme == theme.Dark {
+			dark = th
+		}
+	}
+	r := launch(newBackend(20, 3), func(rt *twi.Runtime) func() twi.Node {
+		shown := twi.NewSignal(rt, "light")
+		return func() twi.Node {
+			return twi.Element(
+				twi.OnKey(func(input.KeyEvent) {
+					shown.Set("dark")
+					rt.SetTheme(dark)
+				}),
+				twi.Class("bg-card text-card-foreground"),
+				twi.Text(shown.Get()),
+			)
+		}
+	}, twi.Styles(s), twi.Theme(light), twi.ColorProfile(color.TrueColor))
+	r.next(t)
+	time.Sleep(50 * time.Millisecond)
+	r.b.events <- key('k')
+	if f := r.next(t); !strings.Contains(f, "dark") || !strings.Contains(f, "48;2;24;24;27") {
+		t.Fatalf("frame after a key that sets a signal and the theme is %q, want the text and the zinc dark card together", f)
+	}
+	r.quiet(t)
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestQuitBeforeRunDrawsNothing(t *testing.T) {
+	r := run{b: newBackend(20, 3), clock: &clock{}, done: make(chan error, 1)}
+	r.rt = twi.New(twi.Backend(r.b, r.clock), twi.ColorProfile(color.None))
+	app := counter.New(r.rt)
+	r.rt.Quit()
+	go func() { r.done <- r.rt.Run(app) }()
+	if err := r.result(t); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(r.b.frames); n != 0 {
+		t.Fatalf("Quit before Run still drew %d frames", n)
 	}
 }
 

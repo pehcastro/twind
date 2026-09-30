@@ -41,6 +41,36 @@ func zinc(t *testing.T, scheme theme.Scheme) theme.Theme {
 	return theme.Theme{}
 }
 
+func TestSetThemeBeforeRunDrawsOnce(t *testing.T) {
+	s, err := hello.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := make(frames, 4)
+	rt := twi.New(twi.Styles(s), twi.Theme(zinc(t, theme.Light)), twi.Backend(out, wallClock{}), twi.ColorProfile(color.TrueColor))
+	rt.SetTheme(zinc(t, theme.Dark))
+	done := make(chan error, 1)
+	go func() { done <- rt.Run(hello.Card) }()
+	const white, zinc900 = "48;2;255;255;255", "48;2;24;24;27"
+	select {
+	case first := <-out:
+		if !strings.Contains(first, zinc900) || strings.Contains(first, white) {
+			t.Errorf("first frame after SetTheme(zinc dark) before Run: want %q and no %q:\n%q", zinc900, white, first)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no frame within 2s")
+	}
+	select {
+	case f := <-out:
+		t.Errorf("a second frame with no input: %q", f)
+	case <-time.After(200 * time.Millisecond):
+	}
+	rt.Quit()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSetThemeFromAnotherGoroutine(t *testing.T) {
 	s, err := hello.Styles()
 	if err != nil {

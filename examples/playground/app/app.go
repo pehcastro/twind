@@ -1,6 +1,7 @@
-package main
+package app
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -13,22 +14,31 @@ import (
 	"github.com/twind-dev/twind/twi/theme"
 )
 
+//go:generate go run github.com/twind-dev/twind/internal/twirgen
+
 const (
 	pickerRows = 9
 	listRows   = 40
 	focusRing  = " shadow-[0_0_0_1px_var(--color-ring)]"
 )
 
+type Env struct {
+	Cwd, Profile string
+	Size         func() string
+}
+
+type Start struct {
+	Page         int
+	Theme        string
+	Picker       bool
+	Focus, Value string
+}
+
 type state struct {
 	page, count   int
 	theme, cursor int
 	picker        bool
 	focus         string
-}
-
-type env struct {
-	cwd, profile string
-	size         func() string
 }
 
 type controls struct {
@@ -85,12 +95,7 @@ func themeName(t theme.Theme) string {
 }
 
 func themeIndex(name string) int {
-	for i, t := range theme.Builtin() {
-		if themeName(t) == name {
-			return i
-		}
-	}
-	return -1
+	return slices.IndexFunc(theme.Builtin(), func(t theme.Theme) bool { return themeName(t) == name })
 }
 
 func el(class string, children ...twi.Node) twi.Node {
@@ -103,12 +108,26 @@ func el(class string, children ...twi.Node) twi.Node {
 
 func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 
-func playground(rt *twi.Runtime, env env, start state, value string) func() twi.Node {
+func App(rt *twi.Runtime) func() twi.Node {
+	return playground(rt, Env{Cwd: "/home/user/twind", Profile: "truecolor", Size: func() string { return "headless" }}, state{theme: themeIndex("zinc-dark")}, "input", "")
+}
+
+func New(rt *twi.Runtime, env Env, start Start) (func() twi.Node, error) {
+	s := state{page: start.Page - 1, theme: themeIndex(start.Theme), picker: start.Picker}
+	if s.page < 0 || s.page >= len(pages()) {
+		return nil, fmt.Errorf("page %d: want 1 to %d", start.Page, len(pages()))
+	}
+	if s.theme < 0 {
+		return nil, fmt.Errorf("theme %q: not a built-in theme", start.Theme)
+	}
+	return playground(rt, env, s, start.Focus, start.Value), nil
+}
+
+func playground(rt *twi.Runtime, env Env, start state, auto, value string) func() twi.Node {
 	themes := theme.Builtin()
 	all := pages()
 	counter := slices.IndexFunc(all, func(p page) bool { return p.name == "counter" })
-	auto := start.focus
-	start.cursor, start.focus = start.theme, ""
+	start.cursor = start.theme
 	st := twi.NewSignal(rt, start)
 	rt.SetTheme(themes[start.theme])
 	update := func(change func(*state)) {
@@ -148,7 +167,7 @@ func playground(rt *twi.Runtime, env env, start state, value string) func() twi.
 		name := themeName(themes[s.theme])
 		tabs := []twi.Node{
 			txt("shrink-0 rounded-full px-1 bg-emerald-400 text-emerald-950 font-bold", "twind"),
-			txt("shrink h-1 overflow-hidden px-1 text-muted-foreground", text.Truncate(filepath.ToSlash(env.cwd), 40)),
+			txt("shrink h-1 overflow-hidden px-1 text-muted-foreground", text.Truncate(filepath.ToSlash(env.Cwd), 40)),
 		}
 		for i, p := range all {
 			class := "shrink-0 rounded-full px-1 text-muted-foreground"
@@ -189,8 +208,8 @@ func playground(rt *twi.Runtime, env env, start state, value string) func() twi.
 			),
 			el("flex flex-row gap-3 px-3 text-muted-foreground",
 				txt("text-emerald-400", "● fullscreen"),
-				twi.Text(env.size()),
-				twi.Text(env.profile),
+				twi.Text(env.Size()),
+				twi.Text(env.Profile),
 				twi.Text(name),
 				el("grow"),
 				twi.Text("focus "+s.focus),

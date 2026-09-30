@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/bench/scenarios/playground"
 	"github.com/twind-dev/twind/bench/scenarios/surfaces"
+	playground "github.com/twind-dev/twind/examples/playground/app"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
@@ -123,9 +123,9 @@ type timing struct {
 func (t *timing) frame(be *surfaceBackend, rt *twi.Runtime, begin time.Duration) {
 	p := <-be.written
 	t.first = append(t.first, t.now()-begin)
-	t.out.add(p)
 	t.extra += settle(be, rt)
 	t.quiet = append(t.quiet, t.now()-begin)
+	t.out.add(p)
 }
 
 func (t *timing) report(b *testing.B) {

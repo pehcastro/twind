@@ -51,10 +51,7 @@ func New(opts ...RenderOption) *Runtime {
 }
 
 func (r *Runtime) SetTheme(t theme.Theme) {
-	r.Dispatch(func() {
-		r.theme = t
-		r.Restyle()
-	})
+	r.Restyle(func() { r.theme = t })
 }
 
 func (r *Runtime) Run(app func() Node) error {
