@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"encoding/base64"
 	"io"
 	"strconv"
 	"strings"
@@ -33,6 +34,10 @@ type ink struct {
 type pen struct {
 	fg, bg ink
 	attr   buffer.Attr
+}
+
+func Clipboard(text string) []byte {
+	return append(base64.StdEncoding.AppendEncode([]byte(konst.ClipboardSet), []byte(text)), konst.BEL...)
 }
 
 func (w *Writer) Diff(prev, cur *buffer.Buffer) error {

@@ -3,6 +3,7 @@ package paint
 import (
 	"fmt"
 	"image"
+	"iter"
 	"math"
 	"strings"
 	"unicode/utf8"
@@ -319,44 +320,62 @@ func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widt
 		attr |= buffer.Strikethrough
 	}
 	ink := buffer.Cell{Grapheme: " ", Fg: n.Foreground, Bg: color.Color{Kind: color.Literal}, Attr: attr}
-	r := n.Content
-	end := r.X + r.W
-	lines := n.Lines(widths)
-	for i, line := range lines[:min(len(lines), r.H)] {
-		y, x := r.Y+i, r.X
-		if y < clip.Y || y >= clip.Y+clip.H {
+	for g := range Placed(n, widths, clip) {
+		if g.Cluster == "\t" {
+			for x := g.X; x < g.X+g.Width; x++ {
+				put(buf, clip, x, g.Y, ink)
+			}
 			continue
 		}
-		switch n.TextAlign {
-		case style.TextLeft, style.TextJustify:
-		case style.TextCenter:
-			x += max(r.W-widths.Width(line), 0) / 2
-		case style.TextRight:
-			x += max(r.W-widths.Width(line), 0)
-		default:
-			panic(fmt.Sprintf("paint: unknown text align %d", n.TextAlign))
+		cell := ink
+		cell.Grapheme = g.Cluster
+		if g.Width > 1 {
+			cell.Width = buffer.Wide
 		}
-		for cluster := range text.Graphemes(line) {
-			if cluster == "\t" {
-				for stop := min(r.X+((x-r.X)/konst.TabStop+1)*konst.TabStop, end); x < stop; x++ {
-					put(buf, clip, x, y, ink)
+		put(buf, clip, g.X, g.Y, cell)
+	}
+}
+
+type Glyph struct {
+	X, Y, Width int
+	Cluster     string
+}
+
+func Placed(n *scene.Node, widths text.Widths, rows layout.Rect) iter.Seq[Glyph] {
+	return func(yield func(Glyph) bool) {
+		r := n.Content
+		end := r.X + r.W
+		lines := n.Lines(widths)
+		for i, line := range lines[:min(len(lines), r.H)] {
+			y, x := r.Y+i, r.X
+			if y < rows.Y || y >= rows.Y+rows.H {
+				continue
+			}
+			switch n.TextAlign {
+			case style.TextLeft, style.TextJustify:
+			case style.TextCenter:
+				x += max(r.W-widths.Width(line), 0) / 2
+			case style.TextRight:
+				x += max(r.W-widths.Width(line), 0)
+			default:
+				panic(fmt.Sprintf("paint: unknown text align %d", n.TextAlign))
+			}
+			for cluster := range text.Graphemes(line) {
+				w := widths.Width(cluster)
+				if cluster == "\t" {
+					w = min(r.X+((x-r.X)/konst.TabStop+1)*konst.TabStop, end) - x
 				}
-				continue
+				if w <= 0 {
+					continue
+				}
+				if x+w > end {
+					break
+				}
+				if !yield(Glyph{x, y, w, cluster}) {
+					return
+				}
+				x += w
 			}
-			w := widths.Width(cluster)
-			if w == 0 {
-				continue
-			}
-			if x+w > end {
-				break
-			}
-			cell := ink
-			cell.Grapheme = cluster
-			if w > 1 {
-				cell.Width = buffer.Wide
-			}
-			put(buf, clip, x, y, cell)
-			x += w
 		}
 	}
 }

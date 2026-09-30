@@ -18,6 +18,8 @@ func Graphics(mode terminal.Graphics) RenderOption {
 	return func(c *renderConfig) { c.graphics = &mode }
 }
 
+func NoClipboard() RenderOption { return func(c *renderConfig) { c.noClipboard = true } }
+
 func Backend(b runtime.Backend, c runtime.Clock) RenderOption {
 	return func(cfg *renderConfig) { cfg.backend, cfg.clock = b, c }
 }
@@ -48,7 +50,7 @@ func New(opts ...RenderOption) *Runtime {
 	if cfg.theme != nil {
 		r.theme = *cfg.theme
 	}
-	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics})
+	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics, NoClipboard: cfg.noClipboard})
 	return r
 }
 

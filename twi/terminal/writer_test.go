@@ -216,3 +216,14 @@ func TestSameIndex(t *testing.T) {
 		}
 	}
 }
+
+func TestClipboardPayloadIsInert(t *testing.T) {
+	if got, want := string(Clipboard("héllo\tworld\n")), "\x1b]52;c;aMOpbGxvCXdvcmxkCg==\a"; got != want {
+		t.Errorf("Clipboard: %q, want %q", got, want)
+	}
+	hostile := "a\x1b]52;c;ZXZpbA==\a\x1b[2J\x9b6n\x07b"
+	seq := Clipboard(hostile)
+	if bytes.Count(seq, []byte{0x1b}) != 1 || bytes.IndexByte(seq, 0x07) != len(seq)-1 {
+		t.Errorf("Clipboard(%q) = %q: an escape or a bell of the text reached the terminal", hostile, seq)
+	}
+}

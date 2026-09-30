@@ -38,6 +38,7 @@ func (r *Runtime) point(ev input.MouseEvent) {
 
 func (r *Runtime) hover() {
 	r.pointer.moved = false
+	r.extend()
 	path := r.hit(r.pointer.at.X, r.pointer.at.Y)
 	r.dirty = r.restyles(r.pointer.hovered, path, style.StateHover) || r.dirty
 	r.pointer.hovered = path
@@ -74,10 +75,14 @@ func (r *Runtime) press(ev input.MouseEvent) {
 		r.dirty = r.restyles(r.pointer.pressed, r.pointer.hovered, style.StateActive) || r.dirty
 		r.pointer.pressed, r.pointer.down = r.pointer.hovered, target
 	}
+	prevented := target != nil && r.send(target, events.PointerDown).DefaultPrevented()
+	if ev.Button == input.MouseLeft {
+		r.pick(ev, prevented || target != nil && (target.node.Focusable || len(target.node.Click) > 0))
+	}
 	if target == nil {
 		return
 	}
-	if !r.send(target, events.PointerDown).DefaultPrevented() {
+	if !prevented {
 		for e := target; e != nil; e = e.parent {
 			if r.doc.Focusable(e) && !r.doc.Disabled(e) {
 				r.focus.Set(&r.doc, e)
@@ -109,6 +114,7 @@ func (r *Runtime) release(ev input.MouseEvent) {
 	if ev.Button != input.MouseLeft {
 		return
 	}
+	r.sel.dragging, r.sel.active = false, r.sel.shown
 	r.dirty = r.restyles(r.pointer.pressed, nil, style.StateActive) || r.dirty
 	down := r.pointer.down
 	r.pointer.pressed, r.pointer.down = nil, nil

@@ -85,4 +85,14 @@ const (
 	WheelUpReport   = 64
 	WheelDownReport = 65
 	ArrowLines      = 1
+	MultiClick      = 500 * time.Millisecond
+	MultiClickSlack = 1
+	WordClicks      = 2
+	LineClicks      = 3
+)
+
+const (
+	OSC          = "\x1b]"
+	BEL          = "\x07"
+	ClipboardSet = OSC + "52;c;"
 )

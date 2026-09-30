@@ -42,10 +42,11 @@ type Tree struct {
 }
 
 type Config struct {
-	Clock    Clock
-	Sheet    style.Sheet
-	Profile  color.Profile
-	Graphics *terminal.Graphics
+	Clock       Clock
+	Sheet       style.Sheet
+	Profile     color.Profile
+	Graphics    *terminal.Graphics
+	NoClipboard bool
 }
 
 type PanicError struct {
@@ -79,6 +80,8 @@ type Runtime struct {
 	nodes         render.Node
 	scene         scene.Node
 	pointer       pointer
+	sel           selection
+	out           io.Writer
 	pointed       bool
 	ringless      bool
 	revealed      *Elem
@@ -154,7 +157,7 @@ func (r *Runtime) loop(b Backend) error {
 	if r.width, r.height, err = b.Size(); err != nil {
 		return err
 	}
-	r.dirty = true
+	r.dirty, r.out = true, b
 	events := b.Events()
 	var ev input.Event
 	var alarm <-chan time.Time
@@ -165,7 +168,9 @@ func (r *Runtime) loop(b Backend) error {
 		r.now, r.awake = now, true
 		r.mu.Unlock()
 		if ev != nil {
-			r.handle(ev)
+			if err := r.handle(ev); err != nil {
+				return err
+			}
 			ev = nil
 		}
 		r.drain()
@@ -220,18 +225,25 @@ func (r *Runtime) drain() {
 	clear(r.running)
 }
 
-func (r *Runtime) handle(ev input.Event) {
+func (r *Runtime) handle(ev input.Event) error {
 	switch ev := ev.(type) {
 	case input.KeyEvent:
-		if ev.Key == input.KeyRune && ev.Rune == 'c' && ev.Modifiers == input.ModCtrl && !ev.Release {
+		c := ev.Key == input.KeyRune && ev.Rune == 'c' && !ev.Release
+		switch {
+		case c && r.sel.shown && (ev.Modifiers == input.ModCtrl || ev.Modifiers == input.ModMeta):
+			return r.copySelection()
+		case c && ev.Modifiers == input.ModCtrl:
 			r.quitting.Store(true)
-			return
+			return nil
+		case ev.Key == input.KeyEscape && !ev.Release && r.sel.shown:
+			r.sel.clear()
+			r.dirty = true
 		}
 		r.pointed = false
 		prevented := r.focus.Key(&r.doc, ev).DefaultPrevented()
 		r.refocused()
 		if prevented {
-			return
+			return nil
 		}
 		for _, h := range r.keys {
 			h(ev)
@@ -247,6 +259,7 @@ func (r *Runtime) handle(ev input.Event) {
 	default:
 		panic(fmt.Sprintf("runtime: unknown event %T", ev))
 	}
+	return nil
 }
 
 func (r *Runtime) activate(ev input.KeyEvent) {
@@ -338,7 +351,8 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync(), Margins: caps.Margins}
 	}
 	r.screen.Cell = cell
-	if err := r.screen.Frame(root, r.width, r.height); err != nil {
+	r.flow()
+	if err := r.screen.Frame(r.highlight(root), r.width, r.height); err != nil {
 		return err
 	}
 	r.dirty, r.lastFrame = false, now

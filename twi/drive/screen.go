@@ -2,6 +2,7 @@ package drive
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -16,15 +17,17 @@ import (
 )
 
 type screen struct {
-	cells *buffer.Buffer
-	x, y  int
-	pen   buffer.Cell
+	cells     *buffer.Buffer
+	x, y      int
+	pen       buffer.Cell
+	clipboard string
 }
 
 func (s *screen) Write(p []byte) (int, error) {
 	for rest := p; len(rest) > 0; {
-		at := bytes.Index(rest, []byte(tkonst.CSI))
-		if at != 0 {
+		at := bytes.IndexByte(rest, tkonst.CSI[0])
+		switch {
+		case at != 0:
 			if at < 0 {
 				at = len(rest)
 			}
@@ -33,6 +36,19 @@ func (s *screen) Write(p []byte) (int, error) {
 			}
 			rest = rest[at:]
 			continue
+		case bytes.HasPrefix(rest, []byte(tkonst.ClipboardSet)):
+			end := bytes.Index(rest, []byte(tkonst.BEL))
+			if end < 0 {
+				return 0, fmt.Errorf("drive: the screen got a cut clipboard write %q", rest)
+			}
+			text, err := base64.StdEncoding.DecodeString(string(rest[len(tkonst.ClipboardSet):end]))
+			if err != nil {
+				return 0, fmt.Errorf("drive: the screen got a clipboard write that is not base64: %w", err)
+			}
+			s.clipboard, rest = string(text), rest[end+len(tkonst.BEL):]
+			continue
+		case !bytes.HasPrefix(rest, []byte(tkonst.CSI)):
+			return 0, fmt.Errorf("drive: the screen cannot read the escape in %q", rest)
 		}
 		end := len(tkonst.CSI)
 		for end < len(rest) && rest[end] >= '0' && rest[end] <= '?' {

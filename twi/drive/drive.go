@@ -153,6 +153,8 @@ func (d *Driver) Frame() Frame { return d.screen.frame() }
 
 func (d *Driver) Err() error { return d.err }
 
+func (d *Driver) Clipboard() string { return d.screen.clipboard }
+
 func (d *Driver) Close() error {
 	d.rt.Quit()
 	<-d.exited

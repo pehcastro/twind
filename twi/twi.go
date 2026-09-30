@@ -115,15 +115,16 @@ func Classes(options []NodeOption) (classes []string, rest []NodeOption) {
 type RenderOption func(*renderConfig)
 
 type renderConfig struct {
-	width      int
-	profile    color.Profile
-	profileSet bool
-	sheet      style.Sheet
-	theme      *theme.Theme
-	fullscreen bool
-	graphics   *terminal.Graphics
-	backend    runtime.Backend
-	clock      runtime.Clock
+	width       int
+	profile     color.Profile
+	profileSet  bool
+	sheet       style.Sheet
+	theme       *theme.Theme
+	fullscreen  bool
+	noClipboard bool
+	graphics    *terminal.Graphics
+	backend     runtime.Backend
+	clock       runtime.Clock
 }
 
 func look(p color.Profile) paint.Look {

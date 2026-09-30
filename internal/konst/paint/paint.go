@@ -3,6 +3,13 @@ package paint
 const TabStop = 8
 
 const (
+	SelectionRed   = 51
+	SelectionGreen = 144
+	SelectionBlue  = 255
+	SelectionAlpha = 128
+)
+
+const (
 	DamageColumns = 8
 	HashPrime     = 0x9e3779b97f4a7c15
 	HashRotate    = 31

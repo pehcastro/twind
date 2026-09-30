@@ -1,9 +1,11 @@
 package runtime_test
 
 import (
+	"fmt"
 	"image"
 	"slices"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/runtime"
+	"github.com/twind-dev/twind/twi/runtime/testdata/selection"
 	"github.com/twind-dev/twind/twi/terminal"
 )
 
@@ -39,6 +42,53 @@ func (c *steppingClock) Now() time.Time {
 }
 
 func (c *steppingClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
+
+func BenchmarkDragToFrame(b *testing.B) {
+	sheet, err := selection.Styles()
+	if err != nil {
+		b.Fatal(err)
+	}
+	card := strings.Fields(selection.Card)
+	var rows []render.Node
+	for r := range 3 {
+		var cards []render.Node
+		for c := range 4 {
+			var texts []render.Node
+			for t := range 3 {
+				texts = append(texts, render.Node{Text: fmt.Sprintf("card %d %d paragraph %d: %s", r, c, t, selection.Wrapped)})
+			}
+			cards = append(cards, render.Node{Classes: card, Children: texts})
+		}
+		rows = append(rows, render.Node{Classes: []string{"flex", "flex-row", "gap-2"}, Children: cards})
+	}
+	tree := runtime.Tree{Root: render.Node{Classes: []string{"flex", "flex-col", "gap-1", "p-1", "h-full", "bg-black", "text-white"}, Children: rows}}
+	be := &countingBackend{events: make(chan input.Event), written: make(chan int)}
+	rt := runtime.New(runtime.Config{Clock: &steppingClock{}, Sheet: sheet, Profile: color.TrueColor})
+	done := make(chan error, 1)
+	go func() { done <- rt.Run(be, func() runtime.Tree { return tree }) }()
+	<-be.written
+	be.events <- input.MouseEvent{X: 4, Y: 2, Button: input.MouseLeft, Action: input.MousePress}
+	var samples []time.Duration
+	total, at, now := 0, 0, stopwatch(b)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		at++
+		start := now()
+		be.events <- input.MouseEvent{X: 8 + at%12, Y: 3 + at%5, Button: input.MouseLeft, Action: input.MouseMove}
+		total += <-be.written
+		samples = append(samples, now()-start)
+	}
+	b.StopTimer()
+	rt.Quit()
+	if err := <-done; err != nil {
+		b.Fatal(err)
+	}
+	slices.Sort(samples)
+	b.ReportMetric(float64(samples[len(samples)/2].Nanoseconds()), "p50-ns/move")
+	b.ReportMetric(float64(samples[len(samples)*95/100].Nanoseconds()), "p95-ns/move")
+	b.ReportMetric(float64(total)/float64(len(samples)), "bytes/move")
+}
 
 func BenchmarkWheelToFrame(b *testing.B) {
 	const rows, view = 200, 20
