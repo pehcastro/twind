@@ -13,7 +13,10 @@ import (
 
 type Key uint32
 
-type Pose struct{ Opacity, Scale, Turn, TranslateY float64 }
+type Pose struct {
+	Opacity, Scale, Turn   float64
+	TranslateX, TranslateY style.Length
+}
 
 type property uint8
 
@@ -27,6 +30,7 @@ const (
 	propOpacity
 	propTranslateX
 	propTranslateY
+	propScale
 	propCount
 )
 
@@ -119,9 +123,6 @@ func (s *Styles) Frame(key Key, prev, next *style.ComputedStyle, now time.Durati
 	if a.Pose.Opacity != next.Opacity {
 		a.values[propOpacity], a.moved = [4]float64{a.Pose.Opacity}, a.moved|1<<propOpacity
 	}
-	if ty := next.TranslateY; a.Pose.TranslateY != 0 && (ty.Unit == style.Percent || ty.Value == 0) {
-		a.values[propTranslateY], a.moved = [4]float64{ty.Value + a.Pose.TranslateY, float64(style.Percent)}, a.moved|1<<propTranslateY
-	}
 	for m := e.live; m != 0; m &= m - 1 {
 		b := bits.TrailingZeros16(m)
 		c := e.clock(b)
@@ -140,7 +141,7 @@ func (s *Styles) Frame(key Key, prev, next *style.ComputedStyle, now time.Durati
 	if e.live == 0 && e.animation.Keyframes == style.KeyframesNone {
 		s.Drop(key)
 	}
-	return a.moved != 0
+	return a.moved != 0 || a.Pose.Scale != 1 || a.Pose.TranslateX.Value != 0 || a.Pose.TranslateY.Value != 0
 }
 
 func (e *entry) clock(b int) *clock {
@@ -163,13 +164,28 @@ func (s *Styles) Drop(key Key) {
 
 func (s *Styles) Holds(key Key) bool { return int(key) < len(s.index) && s.index[key] != 0 }
 
+func (s *Styles) Closing(key Key) bool {
+	if s.Reduced || !s.Holds(key) {
+		return false
+	}
+	e := &s.entries[s.index[key]-1]
+	return e.animation.Keyframes == style.KeyframesExit && !e.animation.Infinite && e.running(s.now)
+}
+
+func (e *entry) running(now time.Duration) bool {
+	a := &e.animation
+	return a.Keyframes != style.KeyframesNone && a.Duration > 0 && (a.Infinite || now-e.began < a.Delay+time.Duration(float64(a.Duration)*a.Iterations))
+}
+
 func (s *Styles) Wake() (time.Duration, bool) {
 	at, moving := time.Duration(math.MaxInt64), false
 	for i := range s.entries {
 		e := &s.entries[i]
-		a := e.animation
-		if !s.Reduced && a.Keyframes != style.KeyframesNone && a.Duration > 0 && (a.Infinite || s.now-e.began < time.Duration(float64(a.Duration)*a.Iterations)) {
-			return s.now, true
+		if start := e.began + e.animation.Delay; !s.Reduced && e.running(s.now) {
+			if s.now >= start {
+				return s.now, true
+			}
+			at, moving = min(at, start), true
 		}
 		for m := e.live; m != 0; m &= m - 1 {
 			at, moving = min(at, max(e.clock(bits.TrailingZeros16(m)).start, s.now)), true
@@ -312,7 +328,7 @@ func same(prev, next *style.ComputedStyle) bool {
 	s, t := &prev.Transition, &next.Transition
 	return s.Properties == t.Properties && s.Duration == t.Duration && s.Delay == t.Delay && s.Easing == t.Easing && prev.Color == next.Color && prev.Background == next.Background &&
 		prev.BorderColor == next.BorderColor && a.From.Color == b.From.Color && a.Via.Color == b.Via.Color && a.To.Color == b.To.Color &&
-		prev.Opacity == next.Opacity && prev.TranslateX == next.TranslateX && prev.TranslateY == next.TranslateY &&
+		prev.Opacity == next.Opacity && prev.TranslateX == next.TranslateX && prev.TranslateY == next.TranslateY && prev.ScaleX == next.ScaleX && prev.ScaleY == next.ScaleY &&
 		slices.Equal(prev.Shadows, next.Shadows) && slices.Equal(prev.InsetShadows, next.InsetShadows)
 }
 
@@ -328,7 +344,7 @@ func (p property) flag() style.TransitionProperty {
 		return style.TransitionGradient
 	case propOpacity:
 		return style.TransitionOpacity
-	case propTranslateX, propTranslateY:
+	case propTranslateX, propTranslateY, propScale:
 		return style.TransitionTranslate
 	}
 	panic("motion: unknown property")
@@ -348,7 +364,7 @@ func (p property) colour(st *style.ComputedStyle) *color.Color {
 		return &st.Gradient.Via.Color
 	case propGradientTo:
 		return &st.Gradient.To.Color
-	case propOpacity, propTranslateX, propTranslateY:
+	case propOpacity, propTranslateX, propTranslateY, propScale:
 		return nil
 	}
 	panic("motion: unknown property")
@@ -370,6 +386,8 @@ func read(p property, st *style.ComputedStyle) ([4]float64, bool) {
 		return length(st.TranslateX)
 	case propTranslateY:
 		return length(st.TranslateY)
+	case propScale:
+		return [4]float64{st.ScaleX, st.ScaleY}, true
 	case propColor:
 		return channels(st.Color)
 	}
@@ -384,6 +402,8 @@ func write(p property, st *style.ComputedStyle, v [4]float64, table *srgb) {
 		st.TranslateX = style.Length{Unit: style.Unit(v[1]), Value: v[0]}
 	case propTranslateY:
 		st.TranslateY = style.Length{Unit: style.Unit(v[1]), Value: v[0]}
+	case propScale:
+		st.ScaleX, st.ScaleY = v[0], v[1]
 	default:
 		*p.colour(st) = color.Color{Kind: color.Literal, RGBA: table.rgba(v)}
 	}
@@ -441,14 +461,10 @@ func lerp(a, b [4]float64, t float64) [4]float64 {
 
 func Keyframe(a style.Animation, opacity float64, elapsed time.Duration) Pose {
 	pose := Pose{Opacity: opacity, Scale: 1}
-	if a.Keyframes == style.KeyframesNone || a.Duration <= 0 || elapsed < 0 {
+	t, on := progress(elapsed-a.Delay, a.Duration, a.Iterations, a.Infinite, a.Fill)
+	if a.Keyframes == style.KeyframesNone || !on {
 		return pose
 	}
-	cycles := float64(elapsed) / float64(a.Duration)
-	if !a.Infinite && cycles >= a.Iterations {
-		return pose
-	}
-	t := cycles - math.Floor(cycles)
 	ease := CubicBezier(a.Easing.X1, a.Easing.Y1, a.Easing.X2, a.Easing.Y2)
 	mid := func(v float64) float64 { return (t - v) / (1 - v) }
 	switch a.Keyframes {
@@ -466,14 +482,47 @@ func Keyframe(a style.Animation, opacity float64, elapsed time.Duration) Pose {
 	case style.KeyframesBounce:
 		if t < konst.BounceMiddle {
 			fall := CubicBezier(konst.BounceFallX1, konst.BounceFallY1, konst.BounceFallX2, konst.BounceFallY2)
-			pose.TranslateY = konst.BounceLift * (1 - fall.at(t/konst.BounceMiddle))
+			pose.TranslateY = style.Length{Unit: style.Percent, Value: konst.BounceLift * (1 - fall.at(t/konst.BounceMiddle))}
 		} else {
 			rise := CubicBezier(konst.BounceRiseX1, konst.BounceRiseY1, konst.BounceRiseX2, konst.BounceRiseY2)
-			pose.TranslateY = konst.BounceLift * rise.at(mid(konst.BounceMiddle))
+			pose.TranslateY = style.Length{Unit: style.Percent, Value: konst.BounceLift * rise.at(mid(konst.BounceMiddle))}
 		}
+	case style.KeyframesEnter:
+		pose = posed(a.Enter).toward(pose, ease.at(t))
+	case style.KeyframesExit:
+		pose = pose.toward(posed(a.Exit), ease.at(t))
 	case style.KeyframesNone:
 	default:
 		panic("motion: unknown keyframes")
 	}
 	return pose
+}
+
+func progress(elapsed, duration time.Duration, iterations float64, infinite bool, fill style.Fill) (float64, bool) {
+	if elapsed < 0 {
+		return 0, fill == style.FillBackwards || fill == style.FillBoth
+	}
+	if cycles := float64(elapsed) / float64(max(duration, 1)); infinite && duration > 0 || cycles < iterations {
+		return cycles - math.Floor(cycles), true
+	}
+	end := math.Mod(iterations, 1)
+	if end == 0 && iterations > 0 {
+		end = 1
+	}
+	return end, fill == style.FillForwards || fill == style.FillBoth
+}
+
+func posed(p style.Pose) Pose {
+	return Pose{Opacity: p.Opacity, Scale: p.Scale, Turn: p.Degrees / konst.DegreesPerTurn, TranslateX: p.TranslateX, TranslateY: p.TranslateY}
+}
+
+func (p Pose) toward(to Pose, t float64) Pose {
+	mix := func(a, b float64) float64 { return a + (b-a)*t }
+	slide := func(a, b style.Length) style.Length {
+		if a.Value == 0 {
+			a.Unit = b.Unit
+		}
+		return style.Length{Unit: a.Unit, Value: mix(a.Value, b.Value)}
+	}
+	return Pose{Opacity: mix(p.Opacity, to.Opacity), Scale: mix(p.Scale, to.Scale), Turn: mix(p.Turn, to.Turn), TranslateX: slide(p.TranslateX, to.TranslateX), TranslateY: slide(p.TranslateY, to.TranslateY)}
 }

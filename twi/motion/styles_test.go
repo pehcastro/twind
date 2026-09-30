@@ -244,12 +244,12 @@ func TestStylesAnimation(t *testing.T) {
 	}
 	once := a
 	once.Animation = style.Animation{Keyframes: style.KeyframesBounce, Duration: time.Second, Iterations: 1}
-	if got, _ := show(&s, 1, &a, &once, 3*time.Second); got.TranslateY != (style.Length{Unit: style.Percent, Value: -25}) {
-		t.Errorf("bounce restarted at %v, want -25%%", got.TranslateY)
+	if got, pose := show(&s, 1, &a, &once, 3*time.Second); pose.TranslateY != percent(-25) || got.TranslateY != (style.Length{}) {
+		t.Errorf("bounce restarted at pose %v style %v, want a -25%% pose over an untouched style", pose.TranslateY, got.TranslateY)
 	}
 	for _, at := range []time.Duration{4 * time.Second, 5 * time.Second} {
-		if got, _ := show(&s, 1, &once, &once, at); got.TranslateY != (style.Length{}) {
-			t.Errorf("finished bounce at %v translates %v", at, got.TranslateY)
+		if _, pose := show(&s, 1, &once, &once, at); pose.TranslateY.Value != 0 {
+			t.Errorf("finished bounce at %v translates %v", at, pose.TranslateY)
 		}
 	}
 	if at, moving := s.Wake(); moving {
@@ -320,15 +320,16 @@ func TestKeyframesTailwind(t *testing.T) {
 		{"ping 0.9 s", ping, 1, 900 * ms, Pose{Opacity: 0, Scale: 2}},
 		{"ping 0.375 s", ping, 1, 375 * ms, Pose{Opacity: 1 - bisectBezier(0, 0, 0.2, 1, 0.5), Scale: 1 + bisectBezier(0, 0, 0.2, 1, 0.5)}},
 		{"spin 0.25 s", spin, 1, 250 * ms, Pose{Opacity: 1, Scale: 1, Turn: 0.25}},
-		{"bounce 0 s", bounce, 1, 0, Pose{Opacity: 1, Scale: 1, TranslateY: -25}},
-		{"bounce 0.25 s", bounce, 1, 250 * ms, Pose{Opacity: 1, Scale: 1, TranslateY: -25 * (1 - fall)}},
-		{"bounce 0.5 s", bounce, 1, 500 * ms, Pose{Opacity: 1, Scale: 1}},
-		{"bounce 0.75 s", bounce, 1, 750 * ms, Pose{Opacity: 1, Scale: 1, TranslateY: -25 * bisectBezier(0, 0, 0.2, 1, 0.5)}},
-		{"bounce 1 s", bounce, 1, time.Second, Pose{Opacity: 1, Scale: 1, TranslateY: -25}},
+		{"bounce 0 s", bounce, 1, 0, Pose{Opacity: 1, Scale: 1, TranslateY: percent(-25)}},
+		{"bounce 0.25 s", bounce, 1, 250 * ms, Pose{Opacity: 1, Scale: 1, TranslateY: percent(-25 * (1 - fall))}},
+		{"bounce 0.5 s", bounce, 1, 500 * ms, Pose{Opacity: 1, Scale: 1, TranslateY: percent(0)}},
+		{"bounce 0.75 s", bounce, 1, 750 * ms, Pose{Opacity: 1, Scale: 1, TranslateY: percent(-25 * bisectBezier(0, 0, 0.2, 1, 0.5))}},
+		{"bounce 1 s", bounce, 1, time.Second, Pose{Opacity: 1, Scale: 1, TranslateY: percent(-25)}},
 	}
 	for _, c := range cases {
 		got := Keyframe(c.a, c.opacity, c.at)
-		if math.Abs(got.Opacity-c.want.Opacity) > 1e-4 || math.Abs(got.Scale-c.want.Scale) > 1e-4 || math.Abs(got.Turn-c.want.Turn) > 1e-4 || math.Abs(got.TranslateY-c.want.TranslateY) > 1e-3 {
+		if math.Abs(got.Opacity-c.want.Opacity) > 1e-4 || math.Abs(got.Scale-c.want.Scale) > 1e-4 || math.Abs(got.Turn-c.want.Turn) > 1e-4 ||
+			got.TranslateY.Unit != c.want.TranslateY.Unit || math.Abs(got.TranslateY.Value-c.want.TranslateY.Value) > 1e-3 {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)
 		}
 	}

@@ -15,6 +15,7 @@ const (
 	SettleSample       = time.Millisecond
 	SettleLimit        = 10 * time.Second
 	EncodeBuckets      = 4096
+	DegreesPerTurn     = 360
 )
 
 const (

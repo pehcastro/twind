@@ -68,4 +68,17 @@ const (
 	Muted      = "text-sm text-muted-foreground"
 	Shifted    = "translate-x-2 translate-y-1"
 	Half       = "w-10 h-2 -translate-x-1/2"
+
+	Opening   = "fixed top-4 left-10 w-60 h-6 border bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-200"
+	Closing   = "fixed top-4 left-10 w-60 h-6 border bg-background animate-out fade-out-0"
+	Delayed   = "h-2 animate-in fade-in-0 delay-100"
+	Held      = "h-2 animate-in fade-in-0 delay-100 fill-mode-both"
+	Sliding   = "fixed top-4 left-10 w-20 h-4 -translate-y-1/2 animate-in slide-in-from-left-4 slide-in-from-top"
+	Zoomed    = "h-4 w-20 scale-50"
+	Growing   = "h-4 w-20 transition-transform duration-200 ease-linear"
+	Backdrop  = "fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+	Panel     = "relative flex flex-col w-full max-w-64 gap-1 rounded-lg border bg-background px-3 py-1 text-foreground shadow-lg duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+	PanelHead = "flex flex-col text-center sm:text-left"
+	PanelFoot = "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+	PanelBtn  = "rounded-md bg-primary px-2 text-primary-foreground"
 )

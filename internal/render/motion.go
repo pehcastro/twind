@@ -25,15 +25,17 @@ func moves(st *style.ComputedStyle) bool {
 
 func (t *Tree) animate(s *styledBox, prev, next *style.ComputedStyle) {
 	moving := t.motion.Frame(s.key, prev, next, t.now, &t.overlay)
+	pose := motion.Pose{Scale: 1}
 	if moving {
 		if s.shown == nil {
 			s.shown = new(style.ComputedStyle)
 		}
 		*s.shown = *next
 		t.motion.Overlay(&t.overlay, s.shown)
+		pose = motion.Pose{Scale: t.overlay.Pose.Scale, TranslateX: t.overlay.Pose.TranslateX, TranslateY: t.overlay.Pose.TranslateY}
 	}
 	s.painted = s.painted && !moving && !s.animated
-	s.animated = moving
+	s.animated, s.pose = moving, pose
 }
 
 func (t *Tree) key() motion.Key {
@@ -49,55 +51,71 @@ func (t *Tree) key() motion.Key {
 func (t *Tree) release(s *styledBox) {
 	t.motion.Drop(s.key)
 	t.free = append(t.free, s.key)
+	for _, list := range [2][]*styledBox{s.children, s.exiting} {
+		for _, c := range list {
+			t.release(c)
+		}
+	}
 	s.animated, s.painted, s.exiting = false, false, nil
 	s.box.Children = s.box.Children[:len(s.children)]
-	for _, c := range s.children {
-		t.release(c)
-	}
-}
-
-func (t *Tree) leave(parent, gone *styledBox) {
-	t.release(gone)
-	t.relayout = true
-	if gone.exit != nil && gone.exit.Duration > 0 && !t.motion.Reduced {
-		gone.born = t.now
-		parent.exiting = append(parent.exiting, gone)
-	}
 }
 
 func (t *Tree) exits(s *styledBox) {
 	kept := s.exiting[:0]
 	for _, e := range s.exiting {
 		s.painted = false
-		if age := t.now - e.born; age < e.exit.Duration && !t.motion.Reduced {
-			e.lift, e.painted, t.presenting = e.exit.Exit(age), false, true
+		held := t.closing(e)
+		if age := t.now - e.born; e.exit != nil && age < e.exit.Total() && !t.motion.Reduced {
+			e.lift, e.painted, t.presenting, held = e.exit.Exit(age), false, true, true
+		}
+		if held {
 			kept = append(kept, e)
 			continue
 		}
+		t.release(e)
 		t.relayout = true
 	}
 	clear(s.exiting[len(kept):])
 	s.exiting = kept
 }
 
-func shift(l style.Length, size int, extra float64) int {
-	switch l.Unit {
-	case style.Cells:
-		extra += l.Value
-	case style.Percent:
-		extra += l.Value * float64(size) / 100
-	case style.Auto, style.None, style.FitContent:
-	default:
-		panic(fmt.Sprintf("render: unknown translate unit %d", l.Unit))
+func (t *Tree) closing(s *styledBox) bool {
+	held := false
+	if s.animated || t.motion.Holds(s.key) {
+		switch a := &s.computed.Animation; a.Fill {
+		case style.FillNone:
+			a.Fill = style.FillForwards
+		case style.FillBackwards:
+			a.Fill = style.FillBoth
+		case style.FillForwards, style.FillBoth:
+		}
+		t.animate(s, &s.computed, &s.computed)
+		held = t.motion.Closing(s.key)
 	}
-	return int(math.Round(extra))
+	for _, c := range s.children {
+		held = t.closing(c) || held
+		s.painted = s.painted && c.painted
+	}
+	return held
 }
 
-func transform(n *scene.Node, dx, dy int, scale float64) {
+func translated(l style.Length, size int) float64 {
+	switch l.Unit {
+	case style.Cells:
+		return l.Value
+	case style.Percent:
+		return l.Value * float64(size) / 100
+	case style.Auto, style.None, style.FitContent:
+		return 0
+	}
+	panic(fmt.Sprintf("render: unknown translate unit %d", l.Unit))
+}
+
+func transform(n *scene.Node, dx, dy int, sx, sy float64) {
 	b := n.Bounds
 	cx, cy := float64(b.X)+float64(b.W)/2, float64(b.Y)+float64(b.H)/2
 	at := func(x, y int) (int, int) {
-		return int(math.Round(cx+(float64(x)-cx)*scale)) + dx, int(math.Round(cy+(float64(y)-cy)*scale)) + dy
+		return int(math.Round(cx+(float64(x)-cx)*sx)) + dx, int(math.Round(cy+(float64(y)-cy)*sy)) + dy
 	}
 	whole := func(r layout.Rect) layout.Rect {
 		x0, y0 := at(r.X, r.Y)
