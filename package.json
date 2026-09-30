@@ -5,7 +5,7 @@
   "scripts": {
     "hello": "node scripts/head.mjs go run ./examples/hello",
     "hello:truecolor": "node scripts/head.mjs go run ./examples/hello -truecolor",
-    "hello:wt": "node scripts/head.mjs wt -w new -d . --title twind-hello cmd /k go run ./examples/hello",
+    "hello:wt": "node scripts/head.mjs wt -w new -d . --title twind-hello powershell -NoLogo -NoExit -Command go run ./examples/hello",
     "hello:dev": "go run ./examples/hello",
     "sheet": "node -e \"require('fs').mkdirSync('.local/prints/dev',{recursive:true})\" && TWIND_SHEET=$INIT_CWD/.local/prints/dev node scripts/head.mjs go test ./twi/raster/ -run Sheet -count=1",
     "test": "node scripts/head.mjs go test -p 8 ./...",
