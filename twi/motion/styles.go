@@ -95,7 +95,7 @@ func (s *Styles) Frame(key Key, prev, next *style.ComputedStyle, now time.Durati
 	}
 	e := &s.entries[s.index[key]-1]
 	t := next.Transition
-	if on := !s.Reduced && t.Duration+t.Delay > 0; !on || prev == nil || !same(prev, next) {
+	if on := !s.Reduced && t.Duration+t.Delay > 0; (prev != next || s.Reduced) && (!on || prev == nil || !same(prev, next)) {
 		live := e.live
 		e.live = 0
 		for p := range propCount {
@@ -160,6 +160,8 @@ func (s *Styles) Drop(key Key) {
 	s.entries = s.entries[:last-1]
 	s.index[key] = 0
 }
+
+func (s *Styles) Holds(key Key) bool { return int(key) < len(s.index) && s.index[key] != 0 }
 
 func (s *Styles) Wake() (time.Duration, bool) {
 	at, moving := time.Duration(math.MaxInt64), false

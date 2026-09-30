@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/internal/render/testdata/sheet"
@@ -46,6 +47,41 @@ func BenchmarkRetained(b *testing.B) {
 		if _, err := tree.Scene(pages[i%len(pages)], frame); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func BenchmarkRetainedAnimating(b *testing.B) {
+	styles, err := sheet.Styles()
+	if err != nil {
+		b.Fatal(err)
+	}
+	root := render.Node{Classes: strings.Fields(sheet.Page)}
+	for r := range 100 {
+		row := render.Node{Classes: strings.Fields(sheet.Row)}
+		for c := range 10 {
+			cell := render.Node{Classes: strings.Fields(sheet.Focus), Text: "cell " + strconv.Itoa(r*10+c)}
+			if c == 0 {
+				cell.Classes = strings.Fields(sheet.Pulsing)
+			}
+			row.Children = append(row.Children, cell)
+		}
+		root.Children = append(root.Children, row)
+	}
+	var tree render.Tree
+	frame := render.Frame{Sheet: styles, Width: 200, Height: layout.Length{Unit: layout.Cells, Value: 60}}
+	if _, err := tree.Scene(root, frame); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := range b.N {
+		frame.Now = time.Duration(i+1) * 16 * time.Millisecond
+		if _, err := tree.Scene(root, frame); err != nil {
+			b.Fatal(err)
+		}
+	}
+	if _, moving := tree.Wake(); !moving {
+		b.Fatal("100 pulsing nodes report no wake")
 	}
 }
 

@@ -56,4 +56,16 @@ const (
 	BreakAll         = "break-all"
 	BreakWords       = "break-words"
 	Anywhere         = "wrap-anywhere"
+
+	Fading     = "h-3 transition-colors duration-200 ease-linear"
+	Light      = "bg-zinc-100"
+	Dark       = "bg-zinc-900"
+	HoverCard  = "flex flex-col gap-1 w-40 rounded-xl border border-zinc-700 bg-zinc-900 p-2 text-zinc-100 shadow-sm transition-colors duration-200 hover:bg-zinc-600 hover:border-zinc-400"
+	Pulsing    = "h-2 w-20 rounded-md bg-zinc-800 animate-pulse"
+	Overlay    = "fixed inset-0 bg-black/50"
+	DialogBox  = "fixed top-4 left-10 grid w-60 gap-2 rounded-lg border bg-background p-3 text-foreground shadow-lg"
+	DialogHead = "text-lg font-semibold"
+	Muted      = "text-sm text-muted-foreground"
+	Shifted    = "translate-x-2 translate-y-1"
+	Half       = "w-10 h-2 -translate-x-1/2"
 )

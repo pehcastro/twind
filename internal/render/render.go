@@ -7,11 +7,13 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	lkonst "github.com/twind-dev/twind/internal/konst/layout"
 	skonst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/layout"
+	"github.com/twind-dev/twind/twi/motion"
 	"github.com/twind-dev/twind/twi/paint"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
@@ -25,16 +27,20 @@ type Node struct {
 	State    *style.NodeState
 	TopLayer int
 	Children []Node
+	Enter    *motion.Presence
+	Exit     *motion.Presence
 }
 
 type Frame struct {
-	Sheet    style.Sheet
-	Width    int
-	Height   layout.Length
-	Sanitize func(raw string) scene.Text
-	Look     paint.Look
-	Cell     image.Point
-	Widths   text.Widths
+	Sheet         style.Sheet
+	Width         int
+	Height        layout.Length
+	Sanitize      func(raw string) scene.Text
+	Look          paint.Look
+	Cell          image.Point
+	Widths        text.Widths
+	Now           time.Duration
+	ReducedMotion bool
 }
 
 type styledBox struct {
@@ -58,8 +64,16 @@ type styledBox struct {
 	natural  [2]int
 	sizes    map[int][2]int
 	children []*styledBox
+	exiting  []*styledBox
 	node     scene.Node
 	painted  bool
+	key      motion.Key
+	born     time.Duration
+	enter    *motion.Presence
+	exit     *motion.Presence
+	animated bool
+	shown    *style.ComputedStyle
+	lift     motion.Offset
 }
 
 func Render(root Node, f Frame) (*buffer.Buffer, error) {
@@ -86,6 +100,12 @@ type Tree struct {
 	cascades                   int
 	ancestors                  []*styledBox
 	related                    []int
+	motion                     motion.Styles
+	overlay                    motion.Animated
+	keys                       motion.Key
+	free                       []motion.Key
+	now                        time.Duration
+	presenting                 bool
 }
 
 func (t *Tree) Restyle() { t.restyle = true }
@@ -105,6 +125,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	t.restyle = t.restyle || f.Cell != t.cell
 	t.crossed = band != t.band
 	t.ancestors = t.ancestors[:0]
+	t.now, t.motion.Reduced, t.presenting = f.Now, f.ReducedMotion, false
 	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root, nil)
 	t.root, t.width, t.height, t.cell, t.band, t.restyle = styled, f.Width, f.Height, f.Cell, band, false
 	if err != nil {
@@ -192,7 +213,11 @@ func (s *styledBox) scene(moved bool, r reclip) scene.Node {
 	if s.painted && !moved {
 		return s.node
 	}
-	n := scene.New(s.box, s.computed, s.text)
+	st := &s.computed
+	if s.animated {
+		st = s.shown
+	}
+	n := scene.New(s.box, *st, s.text)
 	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
 	if s.top > 0 {
 		r.on, r.flow, r.absolute = true, r.viewport, r.viewport
@@ -206,19 +231,27 @@ func (s *styledBox) scene(moved bool, r reclip) scene.Node {
 			r.absolute = r.flow
 		}
 	}
-	for _, c := range s.children {
-		inner := r
-		switch c.box.Style.Position {
-		case layout.PositionStatic, layout.PositionRelative:
-		case layout.PositionAbsolute:
-			inner.flow = r.absolute
-		case layout.PositionFixed:
-			inner.flow, inner.absolute = r.viewport, r.viewport
+	n.Children = make([]scene.Node, 0, len(s.children)+len(s.exiting))
+	for _, list := range [2][]*styledBox{s.children, s.exiting} {
+		for _, c := range list {
+			inner := r
+			switch c.box.Style.Position {
+			case layout.PositionStatic, layout.PositionRelative:
+			case layout.PositionAbsolute:
+				inner.flow = r.absolute
+			case layout.PositionFixed:
+				inner.flow, inner.absolute = r.viewport, r.viewport
+			}
+			if c.box.Style.Display == layout.DisplayNone {
+				inner.on, inner.viewport = false, layout.Rect{}
+			}
+			n.Children = append(n.Children, c.scene(moved, inner))
 		}
-		if c.box.Style.Display == layout.DisplayNone {
-			inner.on, inner.viewport = false, layout.Rect{}
-		}
-		n.Children = append(n.Children, c.scene(moved, inner))
+	}
+	n.Opacity *= s.lift.Opacity
+	dx, dy := shift(st.TranslateX, n.Bounds.W, s.lift.X), shift(st.TranslateY, n.Bounds.H, s.lift.Y)
+	if dx != 0 || dy != 0 || s.lift.Scale != 1 {
+		transform(&n, dx, dy, s.lift.Scale)
 	}
 	s.node, s.painted = n, true
 	return n
@@ -232,10 +265,11 @@ func overlap(a, b layout.Rect) layout.Rect {
 func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node, siblings []*styledBox) (*styledBox, error) {
 	s := prev
 	if s == nil {
-		s = &styledBox{box: &layout.Box{}}
+		s = &styledBox{box: &layout.Box{}, key: t.key(), born: t.now, lift: motion.Still()}
 		t.relayout = true
 	}
-	changed := false
+	s.enter, s.exit = n.Enter, n.Exit
+	changed, animating := false, false
 	var state style.NodeState
 	if n.State != nil {
 		state = *n.State
@@ -262,6 +296,13 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		if reverse := reversed(computed); reverse != s.reverse {
 			s.reverse, t.relayout = reverse, true
 		}
+		if animating = moves(&computed) || s.animated || t.motion.Holds(s.key); animating {
+			before := &s.computed
+			if prev == nil {
+				before = nil
+			}
+			t.animate(s, before, &computed)
+		}
 		if changed = prev == nil || t.restyle || !reflect.DeepEqual(computed, s.computed); changed {
 			s.computed, s.painted = computed, false
 		}
@@ -277,6 +318,19 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		}
 		s.classes, s.state, s.element = n.Classes, state, n.Element
 	}
+	if !animating && (s.animated || t.motion.Holds(s.key)) {
+		t.animate(s, &s.computed, &s.computed)
+	}
+	lift := motion.Still()
+	if age := t.now - s.born; s.enter != nil && age < s.enter.Duration && !t.motion.Reduced {
+		lift, t.presenting = s.enter.Enter(age), true
+	}
+	if s.animated {
+		lift.Scale *= t.overlay.Pose.Scale
+	}
+	if lift != s.lift {
+		s.lift, s.painted = lift, false
+	}
 	if n.TopLayer != s.top {
 		s.top, t.relayout = n.TopLayer, true
 	}
@@ -285,8 +339,14 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 	}
 	old := s.children
 	if len(old) != len(n.Children) {
+		for _, gone := range old[min(len(old), len(n.Children)):] {
+			t.leave(s, gone)
+		}
 		s.children, s.box.Children = make([]*styledBox, len(n.Children)), make([]*layout.Box, len(n.Children))
 		s.painted = false
+	}
+	if len(s.exiting) > 0 {
+		t.exits(s)
 	}
 	t.ancestors = append(t.ancestors, s)
 	for i, c := range n.Children {
@@ -304,6 +364,10 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		}
 		s.children[i], s.box.Children[at] = child, child.box
 		s.painted = s.painted && child.painted
+	}
+	s.box.Children = s.box.Children[:len(n.Children)]
+	for _, e := range s.exiting {
+		s.box.Children = append(s.box.Children, e.box)
 	}
 	t.ancestors = t.ancestors[:len(t.ancestors)-1]
 	return s, nil
