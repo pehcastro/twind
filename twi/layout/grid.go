@@ -261,7 +261,7 @@ func (a *arena) placeItems(b *Box) ([]gridItem, [2]int) {
 	}
 	explicit := [2]int{len(s.Columns), len(s.Rows)}
 	items := grab(&a.cells, len(b.Children))[:0]
-	width, bound, stride := explicit[minor], explicit[major], 0
+	width, bound, pushed, stride := explicit[minor], explicit[major], 0, 0
 	for i, c := range b.Children {
 		if !visible(c) || !flowing(c.Style.Position) {
 			continue
@@ -273,13 +273,14 @@ func (a *arena) placeItems(b *Box) ([]gridItem, [2]int) {
 		if it.definite[major] {
 			bound = max(bound, it.area[major].end)
 		} else {
-			bound += it.area[major].end - it.area[major].start
+			pushed += it.area[major].end - it.area[major].start
 		}
 		if it.definite[major] && !it.definite[minor] {
 			stride += it.area[minor].end
 		}
 		items = append(items, it)
 	}
+	bound += pushed
 	occupied := occupancy{grabZero(&a.ints, (width+stride)*bound), width + stride}
 	for _, it := range items {
 		if it.definite[major] && it.definite[minor] {

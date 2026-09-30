@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"math/rand/v2"
 	"testing"
 
 	konst "github.com/twind-dev/twind/internal/konst/layout"
@@ -221,4 +222,46 @@ func TestGridSkipsOutOfFlowAndImplicitLines(t *testing.T) {
 	root = grid(Style{}, full, next)
 	Layout(root, 20, Length{})
 	borders(t, []*Box{root, full, next}, Rect{0, 0, 20, 2}, Rect{0, 0, 20, 1}, Rect{0, 1, 20, 1})
+}
+
+func TestGridRandomTreesDoNotPanic(t *testing.T) {
+	line := func(r *rand.Rand) Line {
+		if r.IntN(2) == 0 {
+			return Line{Span: r.IntN(5)}
+		}
+		return Line{Index: r.IntN(13) - 5}
+	}
+	var gridded func(r *rand.Rand, b *Box)
+	gridded = func(r *rand.Rand, b *Box) {
+		b.Style.Column, b.Style.Row = Placement{line(r), line(r)}, Placement{line(r), line(r)}
+		if len(b.Children) == 0 {
+			return
+		}
+		b.Style.Display, b.Style.Flow = DisplayGrid, Flow(r.IntN(4))
+		b.Style.Columns, b.Style.Rows = randomTracks(r, 5), randomTracks(r, 5)
+		b.Style.AutoColumns, b.Style.AutoRows = randomTracks(r, 2), randomTracks(r, 2)
+		for _, c := range b.Children {
+			gridded(r, c)
+		}
+	}
+	for i := range 10000 {
+		r := rand.New(rand.NewPCG(98, uint64(i)))
+		root := randomTree(r, 1+r.IntN(3))
+		gridded(r, root)
+		height := Length{}
+		if r.IntN(2) == 0 {
+			height = cells(r.IntN(50))
+		}
+		if laidOut(root, r.IntN(100), height) == "panic" {
+			t.Fatalf("tree %d panics", i)
+		}
+	}
+}
+
+func TestGridAutoItemBelowLaterDefiniteItem(t *testing.T) {
+	auto, fixed := text("a"), text("b")
+	fixed.Style.Row, fixed.Style.Column = Placement{Start: Line{Index: 1}}, Placement{Start: Line{Index: 1}}
+	root := grid(Style{Columns: repeat(1, shareTrack)}, auto, fixed)
+	Layout(root, 20, Length{})
+	borders(t, []*Box{root, auto, fixed}, Rect{0, 0, 20, 2}, Rect{0, 1, 20, 1}, Rect{0, 0, 20, 1})
 }
