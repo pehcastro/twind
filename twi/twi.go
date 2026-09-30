@@ -4,21 +4,40 @@ import (
 	"errors"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	konst "github.com/twind-dev/twind/internal/konst/twi"
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/paint"
+	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/terminal"
 )
 
-type Node struct{ tree render.Node }
+type Node struct {
+	tree    render.Node
+	keys    []func(input.KeyEvent)
+	ownKeys int
+}
 
 type NodeOption interface{ apply(*Node) }
 
-func (n Node) apply(parent *Node) { parent.tree.Children = append(parent.tree.Children, n.tree) }
+func (n Node) apply(parent *Node) {
+	parent.tree.Children = append(parent.tree.Children, n.tree)
+	parent.keys = append(parent.keys, n.keys...)
+}
+
+type onKey func(input.KeyEvent)
+
+func (h onKey) apply(n *Node) {
+	n.keys = slices.Insert(n.keys, n.ownKeys, (func(input.KeyEvent))(h))
+	n.ownKeys++
+}
+
+func OnKey(handler func(input.KeyEvent)) NodeOption { return onKey(handler) }
 
 type classList []string
 
@@ -32,7 +51,7 @@ func Element(options ...NodeOption) Node {
 	return n
 }
 
-func Text(s string) Node { return Node{render.Node{Text: s}} }
+func Text(s string) Node { return Node{tree: render.Node{Text: s}} }
 
 func Class(classes ...string) NodeOption {
 	var list classList
@@ -49,6 +68,16 @@ type renderConfig struct {
 	profile    color.Profile
 	profileSet bool
 	sheet      style.Sheet
+	fullscreen bool
+	backend    runtime.Backend
+	clock      runtime.Clock
+}
+
+func look(p color.Profile) paint.Look {
+	if p <= color.Attributes {
+		return paint.Plain
+	}
+	return paint.Composited
 }
 
 func Width(cells int) RenderOption { return func(c *renderConfig) { c.width = cells } }
@@ -82,11 +111,7 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 	if !cfg.profileSet {
 		cfg.profile = terminal.Profile(w, os.Getenv)
 	}
-	look := paint.Composited
-	if cfg.profile <= color.Attributes {
-		look = paint.Plain
-	}
-	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look})
+	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile)})
 	if err != nil {
 		return err
 	}

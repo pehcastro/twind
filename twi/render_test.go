@@ -103,7 +103,12 @@ func TestRenderHelloTruecolor(t *testing.T) {
 			if c.bg != "9,9,11" {
 				t.Errorf("cell %d,%d background %q, want zinc-950 9,9,11", x, y, c.bg)
 			}
-			if c.glyph != " " && c.fg != "244,244,245" {
+			hairline := c.glyph == "▁" || c.glyph == "▔" || c.glyph == "▕" || c.glyph == "▏"
+			switch {
+			case c.glyph == " ":
+			case hairline && c.fg != "228,228,231":
+				t.Errorf("border cell %d,%d %q foreground %q, want the border token zinc-200 228,228,231", x, y, c.glyph, c.fg)
+			case !hairline && c.fg != "244,244,245":
 				t.Errorf("cell %d,%d %q foreground %q, want zinc-100 244,244,245", x, y, c.glyph, c.fg)
 			}
 		}
