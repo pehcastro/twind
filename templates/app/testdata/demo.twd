@@ -1,11 +1,14 @@
 size 120x34
 frame start
 press t
+wait 300ms
 frame picker
 press down
 press enter
+wait 300ms
 frame dark
 press tab
 press tab
 press enter
+wait 300ms
 frame dialog

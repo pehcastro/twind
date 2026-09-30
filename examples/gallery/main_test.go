@@ -151,11 +151,13 @@ func TestFormsPlanSelectAndSave(t *testing.T) {
 	for _, k := range []string{"down", "enter", "tab", "tab", "tab", "tab", "enter"} {
 		d.Press(k)
 	}
+	d.Advance(300 * time.Millisecond)
 	if text := d.Frame().Text(); !strings.Contains(text, "Enterprise") || !strings.Contains(text, "Free") {
 		t.Errorf("enter on the plan trigger did not open its list:\n%s", text)
 	}
 	d.Press("down")
 	d.Press("enter")
+	d.Advance(300 * time.Millisecond)
 	if text := d.Frame().Text(); !strings.Contains(text, "Team") || strings.Contains(text, "Enterprise") {
 		t.Errorf("down and enter did not choose Team and close:\n%s", text)
 	}
