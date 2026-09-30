@@ -22,15 +22,17 @@ func TestStylesFresh(t *testing.T) {
 	}
 }
 
+func App(rt *twi.Runtime) func() twi.Node {
+	return playground(rt, env{cwd: "/home/user/twind", profile: "truecolor", size: func() string { return "headless" }}, state{theme: themeIndex("zinc-dark"), focus: "input"}, "")
+}
+
 func open(t *testing.T) *drive.Driver {
 	t.Helper()
 	sheet, err := Styles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
-		return playground(rt, env{cwd: "/home/user/twind", profile: "truecolor", size: func() string { return "headless" }}, state{theme: themeIndex("zinc-dark"), focus: "input"}, "")
-	}, drive.Size(100, 30), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(100, 30), drive.Styles(sheet))
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
 			t.Error(err)

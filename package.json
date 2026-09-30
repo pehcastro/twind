@@ -23,6 +23,8 @@
     "check": "pnpm vet && pnpm lint && pnpm test",
     "bench": "node scripts/head.mjs go test -p 1 ./bench/... -run ^$ -bench . -count 5",
     "gen": "go generate ./examples/hello ./twi/testdata/hello ./bench/budgets ./internal/twirgen/testdata/hello",
-    "fmt": "gofmt -l ."
+    "fmt": "gofmt -l .",
+    "doctor": "go run ./cmd/twind doctor",
+    "twind": "go run ./cmd/twind"
   }
 }
