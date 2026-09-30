@@ -55,6 +55,7 @@ type Overflow uint8
 const (
 	OverflowVisible Overflow = iota
 	OverflowHidden
+	OverflowScroll
 )
 
 type Unit uint8
@@ -119,6 +120,9 @@ type Box struct {
 	PaddingBox Rect
 	ContentBox Rect
 	Clip       Rect
+
+	ScrollX, ScrollY          int
+	ScrollWidth, ScrollHeight int
 }
 
 func visible(b *Box) bool {
@@ -145,7 +149,7 @@ func clips(o Overflow) bool {
 	switch o {
 	case OverflowVisible:
 		return false
-	case OverflowHidden:
+	case OverflowHidden, OverflowScroll:
 		return true
 	}
 	panic(fmt.Sprintf("layout: unknown overflow %d", o))

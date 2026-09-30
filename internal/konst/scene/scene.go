@@ -17,3 +17,21 @@ const (
 	HashPrime = 0x9e3779b97f4a7c15
 	HashShift = 29
 )
+
+const (
+	ThumbWidthCell = 0.4
+	ThumbInsetCell = 0.2
+	ThumbAlpha     = 0.45
+	ThumbGrey      = 128
+	ThumbEighths   = 8
+	LowerEighth    = '▁'
+)
+
+const (
+	MarginsOn  = "?69h"
+	MarginsOff = "?69l"
+	Rows       = "r"
+	Columns    = "s"
+	ScrollUp   = "S"
+	ScrollDown = "T"
+)

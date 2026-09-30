@@ -14,9 +14,15 @@ type Move struct {
 	From, To image.Point
 }
 
+type Scroll struct {
+	Layer int
+	By    image.Point
+}
+
 type Damage struct {
-	Rects []image.Rectangle
-	Moves []Move
+	Rects   []image.Rectangle
+	Moves   []Move
+	Scrolls []Scroll
 }
 
 func Diff(prev, next *Frame) Damage {
@@ -42,14 +48,18 @@ func Diff(prev, next *Frame) Damage {
 		}
 		delete(index, l.key)
 		p := &prev.Layers[j]
-		if j < latest || p.Opacity != l.Opacity || parent(prev, p) != parent(next, l) || l.Parent >= 0 && whole[l.Parent] {
+		if j < latest || p.Opacity != l.Opacity || p.Clip != l.Clip || parent(prev, p) != parent(next, l) || l.Parent >= 0 && whole[l.Parent] {
 			whole[i] = true
 			d.add(p.Visual)
 			d.add(l.Visual)
 			continue
 		}
 		latest = j
-		if p.Origin != l.Origin {
+		switch {
+		case p.Origin == l.Origin:
+		case l.scroller:
+			d.Scrolls = append(d.Scrolls, Scroll{Layer: i, By: l.Origin.Sub(p.Origin)})
+		default:
 			d.Moves = append(d.Moves, Move{Layer: i, From: p.Origin, To: l.Origin})
 		}
 		if p.hash != l.hash {

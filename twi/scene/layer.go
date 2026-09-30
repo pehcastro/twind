@@ -20,16 +20,18 @@ type Frame struct {
 }
 
 type Layer struct {
-	Parent  int
-	Origin  image.Point
-	Opacity float64
-	Ops     []raster.Op
-	Boxes   []Box
-	Visual  image.Rectangle
-	key     uint64
-	hash    uint64
-	opsFrom int
-	boxFrom int
+	Parent   int
+	Origin   image.Point
+	Opacity  float64
+	Ops      []raster.Op
+	Boxes    []Box
+	Visual   image.Rectangle
+	Clip     image.Rectangle
+	key      uint64
+	hash     uint64
+	opsFrom  int
+	boxFrom  int
+	scroller bool
 }
 
 type Box struct {
@@ -61,7 +63,7 @@ type chunk struct {
 func (f *Frame) Record(root *Node, cell image.Point) {
 	f.cell, f.screen, f.root = cell, root.Clip, root
 	f.Layers, f.ops, f.boxes = f.Layers[:0], f.ops[:0], f.boxes[:0]
-	f.promote(stack(root, konst.HashSeed), -1)
+	f.promote(stack(root, konst.HashSeed), -1, false)
 	opsTo, boxTo := len(f.ops), len(f.boxes)
 	for i := len(f.Layers) - 1; i >= 0; i-- {
 		l := &f.Layers[i]
@@ -77,6 +79,7 @@ func (f *Frame) Record(root *Node, cell image.Point) {
 			l.hash = mix(mix(l.hash, b.key), b.hash)
 			l.Visual = l.Visual.Union(b.Visual.Add(l.Origin))
 		}
+		l.Visual = l.Visual.Intersect(l.Clip)
 	}
 }
 
@@ -146,32 +149,49 @@ func (ctx *context) visit(draw func(entry), child func(*context)) {
 	}
 }
 
-func (f *Frame) promote(ctx *context, parent int) {
+func (f *Frame) promote(ctx *context, parent int, scroll bool) {
+	n := ctx.node
+	l := Layer{
+		Parent: parent, Origin: f.pixels(n.Bounds).Min, Opacity: n.Opacity, Clip: f.pixels(f.screen),
+		key: mix(mix(ctx.key, 0), 0), opsFrom: len(f.ops), boxFrom: len(f.boxes), scroller: scroll,
+	}
+	if scroll {
+		l.Origin, l.Clip = f.pixels(n.ScrollContent).Min, f.pixels(n.Padding).Intersect(f.pixels(n.Clip))
+	}
 	c := &chunk{first: len(f.Layers)}
-	f.Layers = append(f.Layers, Layer{
-		Parent: parent, Origin: f.pixels(ctx.node.Bounds).Min, Opacity: ctx.node.Opacity,
-		key: mix(mix(ctx.key, 0), 0), opsFrom: len(f.ops), boxFrom: len(f.boxes),
-	})
-	f.paint(ctx, c)
-}
-
-func (f *Frame) paint(ctx *context, c *chunk) {
-	ctx.visit(func(e entry) { f.draw(e, c) }, func(s *context) { f.child(s, c) })
+	f.Layers = append(f.Layers, l)
+	ctx.visit(func(e entry) {
+		if !scroll || e.node != n {
+			f.draw(e, c)
+		}
+	}, func(s *context) { f.child(s, c) })
 }
 
 func (f *Frame) child(ctx *context, c *chunk) {
 	n := ctx.node
-	if n.Opacity == 1 && n.Position != layout.PositionFixed && !n.Scroll {
-		f.paint(ctx, c)
-		return
+	switch {
+	case n.Opacity < 1 || n.Position == layout.PositionFixed:
+		f.promote(ctx, c.first, false)
+		c.closed = true
+	case n.Scroll:
+		f.draw(ctx.flow[0], c)
+		f.promote(ctx, c.first, true)
+		c.closed = true
+		l, start := &f.Layers[c.first], len(f.ops)
+		visual, ok := f.thumb(n, l.Origin, l.Clip)
+		f.commit(mix(ctx.key, 0), visual, ok, start, c)
+	default:
+		ctx.visit(func(e entry) { f.draw(e, c) }, func(s *context) { f.child(s, c) })
 	}
-	f.promote(ctx, c.first)
-	c.closed = true
 }
 
 func (f *Frame) draw(e entry, c *chunk) {
-	origin, start := f.Layers[c.first].Origin, len(f.ops)
-	visual, ok := f.record(e.node, origin)
+	l, start := &f.Layers[c.first], len(f.ops)
+	visual, ok := f.record(e.node, l.Origin, l.Clip)
+	f.commit(e.key, visual, ok, start, c)
+}
+
+func (f *Frame) commit(key uint64, visual image.Rectangle, ok bool, start int, c *chunk) {
 	if !ok {
 		f.ops = f.ops[:start]
 		return
@@ -179,12 +199,13 @@ func (f *Frame) draw(e entry, c *chunk) {
 	if c.closed {
 		c.closed = false
 		c.count++
+		first := &f.Layers[c.first]
 		f.Layers = append(f.Layers, Layer{
-			Parent: c.first, Origin: origin, Opacity: 1,
-			key: mix(f.Layers[c.first].key, uint64(c.count)), opsFrom: start, boxFrom: len(f.boxes),
+			Parent: c.first, Origin: first.Origin, Opacity: 1, Clip: first.Clip,
+			key: mix(first.key, uint64(c.count)), opsFrom: start, boxFrom: len(f.boxes),
 		})
 	}
 	look := mix(hash(f.ops[start:], visual.Min), uint64(visual.Dx())<<32|uint64(visual.Dy()))
 	at := uint64(visual.Min.X)<<32 | uint64(uint32(visual.Min.Y))
-	f.boxes = append(f.boxes, Box{Visual: visual, Look: look, key: e.key, hash: mix(look, at), opsFrom: start})
+	f.boxes = append(f.boxes, Box{Visual: visual, Look: look, key: key, hash: mix(look, at), opsFrom: start})
 }

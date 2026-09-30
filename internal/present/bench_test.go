@@ -1,6 +1,7 @@
 package present
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -28,6 +29,47 @@ func BenchmarkFirstFrameDialog(b *testing.B) {
 	}
 	p95(b, samples)
 	b.ReportMetric(float64(bytes), "bytes/frame")
+}
+
+func BenchmarkScrollOneRow(b *testing.B) {
+	for _, margins := range []bool{true, false} {
+		b.Run(fmt.Sprintf("margins=%v", margins), func(b *testing.B) {
+			offsets := make([]int, 0, 2*(listRows-rows))
+			for o := range listRows - rows {
+				offsets = append(offsets, o)
+			}
+			for o := listRows - rows; o > 0; o-- {
+				offsets = append(offsets, o)
+			}
+			trees := scrolled(b, offsets...)
+			s, out := screen(terminal.GraphicsSixel)
+			s.Margins = margins
+			frame(b, s, trees[0])
+			const framesPerSample = 8
+			var samples []time.Duration
+			written, images, tiles := 0, 0, 0
+			start := time.Now()
+			for i := 1; b.Loop(); i++ {
+				frame(b, s, trees[i%len(trees)])
+				if i%framesPerSample == 0 {
+					samples = append(samples, time.Since(start)/framesPerSample)
+					start = time.Now()
+				}
+				written, images = written+len(out.last()), images+s.imageBytes
+				for _, sent := range s.send {
+					if sent {
+						tiles++
+					}
+				}
+			}
+			if len(samples) > 0 {
+				p95(b, samples)
+			}
+			b.ReportMetric(float64(written)/float64(b.N), "bytes/frame")
+			b.ReportMetric(float64(images)/float64(b.N), "image-bytes/frame")
+			b.ReportMetric(float64(tiles)/float64(b.N), "tiles/frame")
+		})
+	}
 }
 
 func BenchmarkRowHover(b *testing.B) {

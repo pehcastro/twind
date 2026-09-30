@@ -71,16 +71,83 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	if f.Sanitize == nil {
 		f.Sanitize = scene.Sanitize
 	}
-	t.relayout = t.root == nil || f.Width != t.width || f.Height != t.height
+	t.relayout = t.relayout || t.root == nil || f.Width != t.width || f.Height != t.height
 	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root)
 	t.root, t.width, t.height, t.restyle = styled, f.Width, f.Height, false
 	if err != nil {
 		return scene.Node{}, err
 	}
-	if t.relayout {
+	moved := t.relayout
+	if moved {
 		layout.Layout(styled.box, f.Width, f.Height)
 	}
-	return styled.scene(t.relayout), nil
+	t.relayout = false
+	return styled.scene(moved), nil
+}
+
+func (t *Tree) ScrollBy(path []int, dx, dy int) bool {
+	b := t.scroller(path)
+	return b != nil && t.scrollTo(b, b.ScrollX+dx, b.ScrollY+dy)
+}
+
+func (t *Tree) ScrollTo(path []int, x, y int) bool {
+	b := t.scroller(path)
+	return b != nil && t.scrollTo(b, x, y)
+}
+
+func (t *Tree) ScrollIntoView(path []int) bool {
+	s, scrollers := t.find(path)
+	if s == nil {
+		return false
+	}
+	target, moved := s.box.BorderBox, false
+	for _, b := range slices.Backward(scrollers) {
+		view, x, y := b.PaddingBox, b.ScrollX, b.ScrollY
+		moved = t.scrollTo(b, x+reveal(target.X, target.W, view.X, view.W), y+reveal(target.Y, target.H, view.Y, view.H)) || moved
+		target.X, target.Y = target.X-(b.ScrollX-x), target.Y-(b.ScrollY-y)
+	}
+	return moved
+}
+
+func reveal(at, size, view, span int) int {
+	switch {
+	case at < view:
+		return at - view
+	case at+size > view+span:
+		return min(at+size-view-span, at-view)
+	}
+	return 0
+}
+
+func (t *Tree) scroller(path []int) *layout.Box {
+	if s, _ := t.find(path); s != nil && s.box.Style.Overflow == layout.OverflowScroll {
+		return s.box
+	}
+	return nil
+}
+
+func (t *Tree) find(path []int) (*styledBox, []*layout.Box) {
+	s := t.root
+	var scrollers []*layout.Box
+	for _, i := range path {
+		if s == nil || i < 0 || i >= len(s.children) {
+			return nil, nil
+		}
+		if s.box.Style.Overflow == layout.OverflowScroll {
+			scrollers = append(scrollers, s.box)
+		}
+		s = s.children[i]
+	}
+	return s, scrollers
+}
+
+func (t *Tree) scrollTo(b *layout.Box, x, y int) bool {
+	x, y = max(min(x, b.ScrollWidth-b.PaddingBox.W), 0), max(min(y, b.ScrollHeight-b.PaddingBox.H), 0)
+	if x == b.ScrollX && y == b.ScrollY {
+		return false
+	}
+	b.ScrollX, b.ScrollY, t.relayout = x, y, true
+	return true
 }
 
 func (s *styledBox) scene(moved bool) scene.Node {
@@ -237,7 +304,10 @@ func boxStyle(s style.ComputedStyle) (layout.Style, error) {
 		Inset:      layout.Insets{Top: length(s.Inset.Top), Right: length(s.Inset.Right), Bottom: length(s.Inset.Bottom), Left: length(s.Inset.Left)},
 		ZIndex:     s.ZIndex,
 	}
-	if s.OverflowX != style.OverflowVisible || s.OverflowY != style.OverflowVisible {
+	switch {
+	case scrolls(s.OverflowX) || scrolls(s.OverflowY):
+		out.Overflow = layout.OverflowScroll
+	case s.OverflowX != style.OverflowVisible || s.OverflowY != style.OverflowVisible:
 		out.Overflow = layout.OverflowHidden
 	}
 	switch s.Position {
@@ -272,4 +342,14 @@ func boxStyle(s style.ComputedStyle) (layout.Style, error) {
 		return layout.Style{}, fmt.Errorf("twi: layout does not support this %s yet", strings.Join(slices.Compact(unsupported), ", "))
 	}
 	return out, nil
+}
+
+func scrolls(o style.Overflow) bool {
+	switch o {
+	case style.OverflowVisible, style.OverflowHidden:
+		return false
+	case style.OverflowScroll, style.OverflowAuto:
+		return true
+	}
+	panic(fmt.Sprintf("render: unknown overflow %d", o))
 }

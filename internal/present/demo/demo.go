@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/twind-dev/twind/internal/render"
@@ -37,6 +38,26 @@ func Dialog() render.Node {
 				el("text-muted-foreground", text("This cannot be undone.")),
 			),
 		),
+	)
+}
+
+var ScrollerPath = []int{0, 1}
+
+func Scroller(rows int) render.Node {
+	items := make([]render.Node, rows)
+	for i := range items {
+		row := "px-1"
+		if i%2 == 1 {
+			row = "px-1 bg-muted"
+		}
+		items[i] = el(row, text(fmt.Sprintf("Row %03d  build %d passed", i, 1400+i*7)))
+	}
+	return el("flex gap-2 p-1 bg-background text-foreground",
+		el("w-40 flex flex-col p-1 border rounded-lg shadow-md bg-card text-card-foreground",
+			text("Builds"),
+			el("h-20 flex flex-col overflow-y-auto", items...),
+		),
+		text("Page text beside the list"),
 	)
 }
 

@@ -44,14 +44,18 @@ func place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolute, fixed c
 	if clips(s.Overflow) {
 		clip = intersect(clip, b.PaddingBox)
 	}
-	if s.Position != PositionStatic {
-		absolute = container{b.PaddingBox, clip}
-	}
 	if b.Measure != nil {
 		return
 	}
-	content, definite := b.ContentBox, mode == fixedHeight
+	content, definite, padding := b.ContentBox, mode == fixedHeight, b.PaddingBox
 	frames, _ := arrange(b, content.W, content.H, mode)
+	if s.Overflow == OverflowScroll {
+		b.scroll(frames)
+		content.X, content.Y, padding.X, padding.Y = content.X-b.ScrollX, content.Y-b.ScrollY, padding.X-b.ScrollX, padding.Y-b.ScrollY
+	}
+	if s.Position != PositionStatic {
+		absolute = container{padding, clip}
+	}
 	for i, c := range b.Children {
 		cs := c.Style
 		switch {
@@ -74,6 +78,21 @@ func place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolute, fixed c
 			place(c, content.X+f.X, content.Y+f.Y, f.W, f.H, childMode, clip, absolute, fixed)
 		}
 	}
+}
+
+func (b *Box) scroll(frames []Rect) {
+	s, view := b.Style, b.PaddingBox
+	right, bottom := 0, 0
+	for i, c := range b.Children {
+		if visible(c) && flowing(c.Style.Position) {
+			f, m := frames[i], c.Style.Margin
+			right, bottom = max(right, f.X+f.W+m.Right), max(bottom, f.Y+f.H+m.Bottom)
+		}
+	}
+	b.ScrollWidth = max(view.W, s.Padding.Left+right+s.Padding.Right)
+	b.ScrollHeight = max(view.H, s.Padding.Top+bottom+s.Padding.Bottom)
+	b.ScrollX = max(min(b.ScrollX, b.ScrollWidth-view.W), 0)
+	b.ScrollY = max(min(b.ScrollY, b.ScrollHeight-view.H), 0)
 }
 
 func shift(near, far Length, base int) int {

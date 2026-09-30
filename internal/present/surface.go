@@ -10,6 +10,7 @@ import (
 
 	colorkonst "github.com/twind-dev/twind/internal/konst/color"
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
+	scenekonst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
@@ -42,7 +43,7 @@ func (s *Screen) composite(f *scene.Frame, t image.Rectangle) {
 		for j := range l.Boxes {
 			b := &l.Boxes[j]
 			at := b.Visual.Add(l.Origin)
-			if r := at.Intersect(t); !r.Empty() {
+			if r := at.Intersect(t).Intersect(l.Clip); !r.Empty() {
 				over(target, r, s.boxRaster(b), r.Min.Sub(at.Min))
 			}
 		}
@@ -52,28 +53,65 @@ func (s *Screen) composite(f *scene.Frame, t image.Rectangle) {
 	}
 }
 
-func over(dst *image.RGBA, r image.Rectangle, src *image.RGBA, at image.Point) {
+func over(dst *image.RGBA, r image.Rectangle, src *cached, at image.Point) {
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		d := dst.Pix[dst.PixOffset(r.Min.X, y):dst.PixOffset(r.Max.X, y)]
-		p := src.Pix[src.PixOffset(at.X, at.Y+y-r.Min.Y):][:len(d)]
-		for i := 0; i < len(d); i += 4 {
-			switch a := uint32(p[i+3]); a {
-			case 0:
-			case math.MaxUint8:
-				end := i + 4
-				for end < len(d) && p[end+3] == math.MaxUint8 {
-					end += 4
-				}
-				copy(d[i:end], p[i:end])
-				i = end - 4
-			default:
-				keep := math.MaxUint8 - a
-				for c := range 4 {
-					d[i+c] = p[i+c] + uint8((uint32(d[i+c])*keep+math.MaxUint8/2)/math.MaxUint8)
-				}
+		p := src.img.Pix[src.img.PixOffset(at.X, at.Y+y-r.Min.Y):][:len(d)]
+		run := src.solid[at.Y+y-r.Min.Y]
+		lo := min(max(run[0]-4*at.X, 0), len(d))
+		hi := min(max(run[1]-4*at.X, lo), len(d))
+		blend(d[:lo], p[:lo])
+		copy(d[lo:hi], p[lo:hi])
+		blend(d[hi:], p[hi:])
+	}
+}
+
+func blend(d, p []uint8) {
+	for i := 0; i < len(d); i += 4 {
+		switch a := uint32(p[i+3]); a {
+		case 0:
+		case math.MaxUint8:
+			copy(d[i:i+4], p[i:i+4])
+		default:
+			keep := math.MaxUint8 - a
+			for c := range 4 {
+				d[i+c] = p[i+c] + uint8((uint32(d[i+c])*keep+math.MaxUint8/2)/math.MaxUint8)
 			}
 		}
 	}
+}
+
+func solid(img *image.RGBA) [][2]int {
+	runs := make([][2]int, img.Rect.Dy())
+	for y := range runs {
+		row := img.Pix[y*img.Stride:][:4*img.Rect.Dx()]
+		start := 0
+		for i := 0; i <= len(row); i += 4 {
+			if i < len(row) && row[i+3] == math.MaxUint8 {
+				continue
+			}
+			if i-start > runs[y][1]-runs[y][0] {
+				runs[y] = [2]int{start, i}
+			}
+			start = i + 4
+		}
+	}
+	return runs
+}
+
+func uniform(img *image.RGBA) [2]int {
+	var best [2]int
+	start := 0
+	for y := 1; y <= img.Rect.Dy(); y++ {
+		if y < img.Rect.Dy() && bytes.Equal(img.Pix[y*img.Stride:][:img.Stride], img.Pix[(y-1)*img.Stride:][:img.Stride]) {
+			continue
+		}
+		if y-start > best[1]-best[0] {
+			best = [2]int{start, y}
+		}
+		start = y
+	}
+	return best
 }
 
 func (s *Screen) pop(t image.Rectangle) {
@@ -104,9 +142,9 @@ func (s *Screen) group(depth int, t image.Rectangle) *image.RGBA {
 	return g
 }
 
-func (s *Screen) boxRaster(b *scene.Box) *image.RGBA {
+func (s *Screen) boxRaster(b *scene.Box) *cached {
 	if c, ok := s.cache[b.Look]; ok {
-		return c.img
+		return c
 	}
 	img := image.NewRGBA(image.Rectangle{Max: b.Visual.Size()})
 	s.ops = append(s.ops[:0], b.Ops...)
@@ -116,8 +154,9 @@ func (s *Screen) boxRaster(b *scene.Box) *image.RGBA {
 	}
 	s.raster.Draw(img, s.ops, img.Rect)
 	s.rastered++
-	s.cache[b.Look] = &cached{img: img, frame: s.frame}
-	return img
+	c := &cached{img: img, frame: s.frame, solid: solid(img), uniform: uniform(img)}
+	s.cache[b.Look] = c
+	return c
 }
 
 func (s *Screen) evict(f *scene.Frame) {
@@ -150,12 +189,11 @@ func (s *Screen) pixels(cells image.Rectangle) image.Rectangle {
 }
 
 func (s *Screen) hash(r image.Rectangle) uint64 {
-	var h maphash.Hash
-	h.SetSeed(s.seed)
+	h := uint64(scenekonst.HashSeed)
 	for y := r.Min.Y; y < r.Max.Y; y++ {
-		_, _ = h.Write(s.surface.Pix[s.surface.PixOffset(r.Min.X, y):s.surface.PixOffset(r.Max.X, y)])
+		h = (h ^ maphash.Bytes(s.seed, s.surface.Pix[s.surface.PixOffset(r.Min.X, y):s.surface.PixOffset(r.Max.X, y)])) * scenekonst.HashPrime
 	}
-	return h.Sum64()
+	return h
 }
 
 func (s *Screen) sample(x, y int) color.Color {

@@ -15,7 +15,7 @@ import (
 	"github.com/twind-dev/twind/twi/style"
 )
 
-func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
+func (f *Frame) record(n *Node, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
 	start := len(f.ops)
 	bounds := f.pixels(n.Bounds).Sub(origin)
 	if bounds.Empty() {
@@ -87,15 +87,40 @@ func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
 	if len(f.ops) == start {
 		return visual, false
 	}
-	if n.Clip != f.screen {
-		clip := f.pixels(n.Clip).Sub(origin)
-		if visual = visual.Intersect(clip); visual.Empty() {
-			return visual, false
-		}
-		f.ops = slices.Insert(f.ops, start, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: rect(clip)}})
-		f.ops = append(f.ops, raster.Op{Kind: raster.Pop})
+	return f.clip(start, visual, f.pixels(n.Clip), layerClip, origin)
+}
+
+func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point) (image.Rectangle, bool) {
+	if clip == layerClip {
+		return visual, true
 	}
+	clip = clip.Sub(origin)
+	if visual = visual.Intersect(clip); visual.Empty() {
+		return visual, false
+	}
+	f.ops = slices.Insert(f.ops, start, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: rect(clip)}})
+	f.ops = append(f.ops, raster.Op{Kind: raster.Pop})
 	return visual, true
+}
+
+func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
+	from, to, ok := n.Thumb(f.cell.Y)
+	if !ok {
+		return image.Rectangle{}, false
+	}
+	inset := int(math.Round(konst.ThumbInsetCell * float64(f.cell.X)))
+	width := int(math.Round(konst.ThumbWidthCell * float64(f.cell.X)))
+	view := f.pixels(n.Padding)
+	visual := image.Rect(view.Max.X-inset-width, view.Min.Y+from+inset, view.Max.X-inset, view.Min.Y+to-inset).Sub(origin)
+	c := color.RGBA{R: konst.ThumbGrey, G: konst.ThumbGrey, B: konst.ThumbGrey, A: math.MaxUint8}
+	if n.Foreground.Kind == color.Literal {
+		c = n.Foreground.RGBA
+	}
+	c.A = uint8(float64(c.A) * konst.ThumbAlpha)
+	radius := float64(width) / 2
+	start := len(f.ops)
+	f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: rect(visual), Radii: [4]float64{radius, radius, radius, radius}}, Color: c})
+	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin)
 }
 
 func GradientFill(g style.Gradient, shape raster.Box) raster.Op {

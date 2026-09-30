@@ -26,9 +26,11 @@ type Screen struct {
 	Graphics terminal.Graphics
 	Cell     image.Point
 	Sync     bool
+	Margins  bool
 
 	cols, rows        int
 	cell              image.Point
+	painter           paint.Painter
 	fresh             bool
 	text, shown, want *buffer.Buffer
 	out               bytes.Buffer
@@ -41,6 +43,7 @@ type Screen struct {
 	tileOf       []int
 	hashes, sent []uint64
 	dirty, send  []bool
+	moved        []bool
 	samples      []color.Color
 	sampled      []bool
 	cache        map[uint64]*cached
@@ -58,8 +61,10 @@ type Screen struct {
 }
 
 type cached struct {
-	img   *image.RGBA
-	frame uint64
+	img     *image.RGBA
+	frame   uint64
+	solid   [][2]int
+	uniform [2]int
 }
 
 type group struct {
@@ -85,8 +90,7 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	case s.Graphics == terminal.GraphicsNone:
 		look = paint.Composited
 	}
-	s.text.Fill(buffer.Rect{W: cols, H: rows}, buffer.Cell{Grapheme: " "})
-	paint.Paint(s.text, root, look)
+	s.painter.Paint(s.text, &root, look)
 	s.imageBytes = 0
 	if s.Graphics != terminal.GraphicsNone {
 		if err := s.surfaces(&root); err != nil {
@@ -94,6 +98,9 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 		}
 	}
 	s.compose()
+	if s.Graphics == terminal.GraphicsNone {
+		s.scrollbars(&root)
+	}
 	if err := s.writer.Diff(s.shown, s.want); err != nil {
 		return err
 	}
@@ -152,7 +159,7 @@ func (s *Screen) reset(cols, rows int) {
 		}
 	}
 	n := len(s.tiles)
-	s.hashes, s.sent, s.dirty, s.send = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n)
+	s.hashes, s.sent, s.dirty, s.send, s.moved = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n), make([]bool, n)
 	s.samples, s.sampled = make([]color.Color, cols*rows), make([]bool, cols*rows)
 }
 
@@ -202,11 +209,14 @@ func (s *Screen) surfaces(root *scene.Node) error {
 			s.damage(r)
 		}
 		for _, m := range d.Moves {
-			v := next.Layers[m.Layer].Visual
-			s.damage(v)
-			s.damage(v.Sub(m.To).Add(m.From))
+			l := &next.Layers[m.Layer]
+			s.damage(l.Visual)
+			s.damage(l.Visual.Sub(m.To).Add(m.From).Intersect(l.Clip))
 		}
-		changed = len(d.Rects)+len(d.Moves) > 0
+		for _, sc := range d.Scrolls {
+			s.scroll(next, sc)
+		}
+		changed = len(d.Rects)+len(d.Moves)+len(d.Scrolls) > 0
 	}
 	if changed {
 		s.frame++
@@ -216,12 +226,17 @@ func (s *Screen) surfaces(root *scene.Node) error {
 			continue
 		}
 		cells := s.tiles[t]
+		if s.moved[t] {
+			s.sent[t], s.moved[t] = s.hash(s.pixels(cells)), false
+		}
 		s.composite(next, s.pixels(cells))
 		if s.Profile == color.ANSI256 {
 			s.quantise(s.pixels(cells))
 		}
 		s.hashes[t] = s.hash(s.pixels(cells))
-		s.send[t] = s.hashes[t] != s.sent[t]
+		if s.send[t] = s.hashes[t] != s.sent[t]; !s.send[t] {
+			continue
+		}
 		for y := cells.Min.Y; y < cells.Max.Y; y++ {
 			clear(s.sampled[y*s.cols+cells.Min.X : y*s.cols+cells.Max.X])
 		}

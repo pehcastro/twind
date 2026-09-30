@@ -1,7 +1,6 @@
 package scene
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/twind-dev/twind/twi/color"
@@ -26,6 +25,7 @@ type Node struct {
 	ZIndex                                 int
 	Opacity                                float64
 	Scroll                                 bool
+	ScrollContent                          layout.Rect
 	Background                             color.Color
 	Gradient                               style.Gradient
 	Border                                 Border
@@ -80,7 +80,11 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 		Position: box.Style.Position,
 		ZIndex:   box.Style.ZIndex,
 		Opacity:  s.Opacity,
-		Scroll:   scrolls(s.OverflowX) || scrolls(s.OverflowY),
+		Scroll:   box.Style.Overflow == layout.OverflowScroll,
+	}
+	if n.Scroll {
+		p := box.PaddingBox
+		n.ScrollContent = layout.Rect{X: p.X - box.ScrollX, Y: p.Y - box.ScrollY, W: box.ScrollWidth, H: box.ScrollHeight}
 	}
 	if s.Visibility == style.Hidden {
 		return n
@@ -117,6 +121,9 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 }
 
 func (n Node) Lines() []string {
+	if n.text.clean == "" {
+		return nil
+	}
 	if !n.Truncate {
 		return n.text.wrap(n.Content.W)
 	}
@@ -127,12 +134,13 @@ func (n Node) Lines() []string {
 	return lines
 }
 
-func scrolls(o style.Overflow) bool {
-	switch o {
-	case style.OverflowVisible, style.OverflowHidden:
-		return false
-	case style.OverflowScroll, style.OverflowAuto:
-		return true
+func (n *Node) Thumb(unit int) (from, to int, ok bool) {
+	view, content := n.Padding.H, n.ScrollContent.H
+	if !n.Scroll || content <= view || view <= 0 {
+		return 0, 0, false
 	}
-	panic(fmt.Sprintf("scene: unknown overflow %d", o))
+	track := view * unit
+	length := max(track*view/content, unit)
+	from = (track - length) * (n.Padding.Y - n.ScrollContent.Y) / (content - view)
+	return from, from + length, true
 }
