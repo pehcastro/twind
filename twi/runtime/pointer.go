@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 
 	"github.com/twind-dev/twind/twi/events"
@@ -147,40 +146,4 @@ func (r *Runtime) hit(x, y int) []int {
 		return nil
 	}
 	return find(&r.scene, []int{})
-}
-
-func (r *Runtime) restyles(old, next []int, bit style.State) bool {
-	from := 0
-	if old != nil && next != nil {
-		for from < min(len(old), len(next)) && old[from] == next[from] {
-			from++
-		}
-		from++
-	}
-	return r.stateful(old, from, bit) || r.stateful(next, from, bit)
-}
-
-func (r *Runtime) stateful(path []int, from int, bit style.State) bool {
-	if path == nil {
-		return false
-	}
-	sheet := r.cfg.Sheet.WithColumns(r.width)
-	n := r.nodes
-	for depth := 0; ; depth++ {
-		if depth >= from {
-			var own style.NodeState
-			if n.State != nil {
-				own = *n.State
-			}
-			with := own
-			with.States |= bit
-			if !reflect.DeepEqual(sheet.ComputeState(style.ComputedStyle{}, n.Classes, own), sheet.ComputeState(style.ComputedStyle{}, n.Classes, with)) {
-				return true
-			}
-		}
-		if depth == len(path) || path[depth] >= len(n.Children) {
-			return false
-		}
-		n = n.Children[path[depth]]
-	}
 }

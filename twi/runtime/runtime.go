@@ -236,6 +236,7 @@ func (r *Runtime) handle(ev input.Event) {
 		for _, h := range r.keys {
 			h(ev)
 		}
+		r.activate(ev)
 		r.scrollKey(ev)
 	case input.MouseEvent:
 		r.point(ev)
@@ -245,6 +246,14 @@ func (r *Runtime) handle(ev input.Event) {
 	case input.PasteEvent, input.FocusEvent, input.ReplyEvent:
 	default:
 		panic(fmt.Sprintf("runtime: unknown event %T", ev))
+	}
+}
+
+func (r *Runtime) activate(ev input.KeyEvent) {
+	current, ok := r.focus.Current()
+	pressed := ev.Key == input.KeyEnter || ev.Key == input.KeyRune && ev.Rune == ' '
+	if ok && pressed && ev.Modifiers == 0 && !ev.Release && len(current.node.Click) > 0 && !r.doc.Disabled(current) {
+		events.Dispatch(&r.doc, current, &events.Event[*Elem]{Type: events.Click, Key: ev})
 	}
 }
 

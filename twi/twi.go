@@ -75,6 +75,12 @@ func (a attribute) apply(n *Node) {
 	state.Attrs = append(state.Attrs, style.Attr(a))
 }
 
+type tag style.Element
+
+func (t tag) apply(n *Node) { n.tree.Element = style.Element(t) }
+
+func Tag(element style.Element) NodeOption { return tag(element) }
+
 func Data(name, value string) NodeOption { return attribute{Name: "data-" + name, Value: value} }
 
 func Element(options ...NodeOption) Node {
@@ -93,6 +99,17 @@ func Class(classes ...string) NodeOption {
 		list = append(list, strings.Fields(c)...)
 	}
 	return list
+}
+
+func Classes(options []NodeOption) (classes []string, rest []NodeOption) {
+	for _, o := range options {
+		if list, ok := o.(classList); ok {
+			classes = append(classes, list...)
+		} else {
+			rest = append(rest, o)
+		}
+	}
+	return classes, rest
 }
 
 type RenderOption func(*renderConfig)
