@@ -29,6 +29,7 @@ func appRules(t *testing.T) map[string][]style.Rule {
 type shape struct {
 	when         style.Condition
 	near, target style.Match
+	part         style.Part
 }
 
 func checkShapes(t *testing.T, want map[string]shape) {
@@ -41,8 +42,8 @@ func checkShapes(t *testing.T, want map[string]shape) {
 		}
 		for _, r := range rules[class] {
 			r.When.Scheme = style.SchemeAny
-			if len(r.Decls) == 0 || !reflect.DeepEqual(shape{r.When, r.Near, r.Target}, w) {
-				t.Errorf("%s:\n got when %+v near %+v target %+v decls %d\nwant when %+v near %+v target %+v", class, r.When, r.Near, r.Target, len(r.Decls), w.when, w.near, w.target)
+			if len(r.Decls) == 0 || !reflect.DeepEqual(shape{r.When, r.Near, r.Target, r.Part}, w) {
+				t.Errorf("%s:\n got when %+v near %+v target %+v part %d decls %d\nwant when %+v near %+v target %+v part %d", class, r.When, r.Near, r.Target, r.Part, len(r.Decls), w.when, w.near, w.target, w.part)
 			}
 		}
 		if c, ok := warned[class]; ok {
@@ -85,6 +86,7 @@ func TestHas(t *testing.T) {
 		"has-aria-invalid:border-destructive": {near: style.Match{Relation: descendant, Attrs: attr("aria-invalid", "true")}},
 		"has-[[data-slot=x]]:p-2":             {near: style.Match{Relation: descendant, Attrs: attr("data-slot", "x")}},
 		"has-[select:disabled]:opacity-50":    {near: style.Match{Relation: descendant, Element: style.ElementSelect, States: style.StateDisabled}},
+		"[&:has([role=checkbox])]:pr-0":       {near: style.Match{Relation: descendant, Attrs: attr("role", "checkbox")}},
 	})
 }
 
@@ -112,11 +114,8 @@ func TestChildUnsupportedFormsWarn(t *testing.T) {
 		"group-has-data-[slot=x]/item:gap-2",
 		"has-[>a,>button]:p-2",
 		"[&_svg:not([class*='size-'])]:size-4",
-		"[&>span:last-child]:underline",
-		"[&>*:not(:first-child)]:p-1",
 		"[&>video]:hidden",
 		"group-hover:[&>svg]:shrink-0",
-		"first:p-1",
 	} {
 		if warned[class] != Unsupported {
 			t.Errorf("%s: warned %v, want unsupported", class, warned[class])

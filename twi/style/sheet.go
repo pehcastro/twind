@@ -185,9 +185,33 @@ const (
 	StateChecked
 )
 
+type Place uint8
+
+const (
+	PlaceFirst Place = 1 << iota
+	PlaceLast
+	PlaceOdd
+	PlaceEven
+)
+
+type Negation struct {
+	States State
+	Attrs  []Attr
+	Places Place
+}
+
+type Part uint8
+
+const (
+	PartNode Part = iota
+	PartPlaceholder
+	PartSelection
+)
+
 type NodeState struct {
 	States State
 	Attrs  []Attr
+	Places Place
 }
 
 type Attr struct {
@@ -210,6 +234,8 @@ type Condition struct {
 	MinCols   int
 	BelowCols int
 	Scheme    Scheme
+	Places    Place
+	Not       Negation
 }
 
 type Rule struct {
@@ -218,6 +244,7 @@ type Rule struct {
 	Decls  []Declaration
 	Target Match
 	Near   Match
+	Part   Part
 }
 
 type Sheet struct {
@@ -233,9 +260,9 @@ type Sheet struct {
 }
 
 type class struct {
-	name               string
-	rules, near, hands []int
-	mark               Markers
+	name                      string
+	rules, near, hands, parts []int
+	mark                      Markers
 }
 
 type index struct {
@@ -316,7 +343,7 @@ func (s Sheet) Responsive(classes []string) bool {
 	bounded := func(i int) bool { return s.rules[i].When.MinCols != 0 || s.rules[i].When.BelowCols != 0 }
 	return slices.ContainsFunc(s.universal, bounded) || slices.ContainsFunc(classes, func(name string) bool {
 		c := s.class(name)
-		return c != nil && (slices.ContainsFunc(c.rules, bounded) || slices.ContainsFunc(c.near, bounded) || slices.ContainsFunc(c.hands, bounded))
+		return c != nil && (slices.ContainsFunc(c.rules, bounded) || slices.ContainsFunc(c.near, bounded) || slices.ContainsFunc(c.hands, bounded) || slices.ContainsFunc(c.parts, bounded))
 	})
 }
 
@@ -347,7 +374,7 @@ func (s Sheet) Hands(classes []string, node NodeState, into []int) []int {
 			continue
 		}
 		for _, i := range c.hands {
-			if when := &s.rules[i].When; s.fits(when, scheme) && node.holds(when.States, when.Attrs) {
+			if when := &s.rules[i].When; s.fits(when, scheme) && node.holds(when.States, when.Attrs, when.Places, &when.Not) {
 				into = append(into, i)
 			}
 		}
@@ -358,7 +385,7 @@ func (s Sheet) Hands(classes []string, node NodeState, into []int) []int {
 func (s Sheet) Rule(i int) *Rule { return &s.rules[i] }
 
 func (m *Match) Accepts(element Element, marks Markers, node NodeState) bool {
-	return (m.Element == ElementAny || m.Element == element) && marks&m.mark == m.mark && node.holds(m.States, m.Attrs)
+	return (m.Element == ElementAny || m.Element == element) && marks&m.mark == m.mark && node.holds(m.States, m.Attrs, m.Places, &m.Not)
 }
 
 func (s Sheet) WithTheme(t *theme.Theme) Sheet {
@@ -393,7 +420,7 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 	for i := range s.rules {
 		r := &s.rules[i]
 		w := &r.When
-		s.gated[i] = w.States != 0 || len(w.Attrs) > 0 || w.MinCols != 0 || w.BelowCols != 0 || w.Scheme != SchemeAny
+		s.gated[i] = w.States != 0 || len(w.Attrs) > 0 || w.MinCols != 0 || w.BelowCols != 0 || w.Scheme != SchemeAny || w.Places != 0 || w.Not.States != 0 || len(w.Not.Attrs) > 0 || w.Not.Places != 0
 		for _, m := range [...]*Match{&r.Near, &r.Target} {
 			if m.Class == "" {
 				continue
@@ -415,6 +442,9 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 		case r.Near.Relation != RelationSelf:
 			c := entry(r.Class)
 			c.near = append(c.near, i)
+		case r.Part != PartNode:
+			c := entry(r.Class)
+			c.parts = append(c.parts, i)
 		case r.Class != "":
 			c := entry(r.Class)
 			c.rules = append(c.rules, i)
@@ -492,16 +522,25 @@ func initial() ComputedStyle {
 	}
 }
 
-func (n NodeState) holds(states State, attrs []Attr) bool {
-	if states&^n.States != 0 {
+func (n NodeState) holds(states State, attrs []Attr, places Place, not *Negation) bool {
+	if states&^n.States != 0 || places&^n.Places != 0 || not.States&n.States != 0 || not.Places != 0 && (n.Places == 0 || not.Places&n.Places != 0) {
 		return false
 	}
 	for _, want := range attrs {
-		if !slices.ContainsFunc(n.Attrs, func(a Attr) bool { return a.Name == want.Name && (want.AnyValue || a.Value == want.Value) }) {
+		if !n.carries(want) {
+			return false
+		}
+	}
+	for _, unwanted := range not.Attrs {
+		if n.carries(unwanted) {
 			return false
 		}
 	}
 	return true
+}
+
+func (n NodeState) carries(want Attr) bool {
+	return slices.ContainsFunc(n.Attrs, func(a Attr) bool { return a.Name == want.Name && (want.AnyValue || a.Value == want.Value) })
 }
 
 func themed(t *theme.Theme, c color.Color, token theme.Token, mix float64) color.Color {
@@ -538,15 +577,54 @@ func (s Sheet) fits(when *Condition, scheme Scheme) bool {
 	return !narrow && !wide && (when.Scheme == SchemeAny || when.Scheme == scheme)
 }
 
-func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeState, related []int) (out ComputedStyle) {
-	var stack [konst.MatchedRules]int
-	matched := append(stack[:0], s.universal...)
-	for _, name := range classes {
-		if c := s.class(name); c != nil {
-			matched = append(matched, c.rules...)
+func PlaceOf(index, count int) Place {
+	place := PlaceOdd
+	if index%2 == 1 {
+		place = PlaceEven
+	}
+	if index == 0 {
+		place |= PlaceFirst
+	}
+	if index == count-1 {
+		place |= PlaceLast
+	}
+	return place
+}
+
+func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeState, related []int) ComputedStyle {
+	return s.compute(PartNode, &parent, classes, node, related)
+}
+
+func (s Sheet) ComputePart(part Part, origin ComputedStyle, classes []string, node NodeState, related []int) ComputedStyle {
+	return s.compute(part, &origin, classes, node, related)
+}
+
+func (s *Sheet) only(part Part, rules, into []int) []int {
+	for _, i := range rules {
+		if s.rules[i].Part == part {
+			into = append(into, i)
 		}
 	}
-	matched = append(matched, related...)
+	return into
+}
+
+func (s Sheet) compute(part Part, parent *ComputedStyle, classes []string, node NodeState, related []int) (out ComputedStyle) {
+	var stack [konst.MatchedRules]int
+	matched := stack[:0]
+	if part == PartNode {
+		matched = append(matched, s.universal...)
+	}
+	for _, name := range classes {
+		c := s.class(name)
+		switch {
+		case c == nil:
+		case part == PartNode:
+			matched = append(matched, c.rules...)
+		default:
+			matched = s.only(part, c.parts, matched)
+		}
+	}
+	matched = s.only(part, related, matched)
 	if s.start == nil {
 		out = initial()
 	} else {
@@ -559,7 +637,7 @@ func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeS
 	var winners [1 << 8]int32
 	for _, i := range matched {
 		r := &s.rules[i]
-		if s.gated[i] && (!s.fits(&r.When, scheme) || r.Target.Relation == RelationSelf && !node.holds(r.When.States, r.When.Attrs)) {
+		if s.gated[i] && (!s.fits(&r.When, scheme) || r.Target.Relation == RelationSelf && !node.holds(r.When.States, r.When.Attrs, r.When.Places, &r.When.Not)) {
 			continue
 		}
 		rank := int32(i + 1)

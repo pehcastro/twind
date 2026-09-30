@@ -3,6 +3,7 @@ package tailwind
 import (
 	"cmp"
 	"math"
+	"math/bits"
 	"slices"
 	"strconv"
 	"strings"
@@ -31,7 +32,7 @@ func selector(sel string, when style.Condition) (style.Rule, string) {
 	}
 	anchor, rest, reason := compound(rest)
 	r.Class = anchor.Class
-	for reason == "" && strings.HasPrefix(rest, ":") {
+	for reason == "" && strings.HasPrefix(rest, ":") && !strings.HasPrefix(rest, "::") {
 		var near, more style.Match
 		if inner, after, ok := call(rest, ":is("); ok {
 			near, reason = relative(inner)
@@ -47,15 +48,17 @@ func selector(sel string, when style.Condition) (style.Rule, string) {
 		}
 		r.Near = near
 		more, rest, reason = compound(rest)
-		anchor.States, anchor.Attrs = anchor.States|more.States, append(anchor.Attrs, more.Attrs...)
+		anchor.States, anchor.Attrs, anchor.Places = anchor.States|more.States, append(anchor.Attrs, more.Attrs...), anchor.Places|more.Places
+		anchor.Not = style.Negation{States: anchor.Not.States | more.Not.States, Attrs: append(anchor.Not.Attrs, more.Not.Attrs...), Places: anchor.Not.Places | more.Not.Places}
 	}
 	if reason != "" {
 		return r, reason
 	}
 	r.When.States |= anchor.States
 	r.When.Attrs = append(r.When.Attrs, anchor.Attrs...)
-	if rest == "" {
-		return r, ""
+	r.When.Places, r.When.Not = anchor.Places, anchor.Not
+	if r.Part, rest, reason = pseudoElement(rest); reason != "" || rest == "" {
+		return r, reason
 	}
 	relation := style.RelationDescendant
 	if after, ok := strings.CutPrefix(rest, " > "); ok {
@@ -70,7 +73,22 @@ func selector(sel string, when style.Condition) (style.Rule, string) {
 	}
 	r.Target, rest, reason = compound(rest)
 	r.Target.Relation = relation
+	if reason == "" {
+		r.Part, rest, reason = pseudoElement(rest)
+	}
 	return r, cmp.Or(reason, leftover(rest))
+}
+
+func pseudoElement(s string) (style.Part, string, string) {
+	if !strings.HasPrefix(s, "::") {
+		return style.PartNode, s, ""
+	}
+	name, after := ident(s[2:])
+	part, ok := map[string]style.Part{"placeholder": style.PartPlaceholder, "selection": style.PartSelection}[name]
+	if !ok {
+		return style.PartNode, s, "pseudo-element " + strconv.Quote(s) + " has no terminal part"
+	}
+	return part, after, ""
 }
 
 func leftover(rest string) string {
@@ -99,10 +117,10 @@ func relative(inner string) (style.Match, string) {
 	}
 	test, left, reason := compound(after)
 	if reason = cmp.Or(reason, leftover(left)); reason != "" || test.Class != "" || test.Element != style.ElementAny {
-		return m, cmp.Or(reason, "relative "+strconv.Quote(after)+" tests more than a state or an attribute")
+		return m, cmp.Or(reason, "relative "+strconv.Quote(after)+" tests more than a state, an attribute or a position")
 	}
-	m.Class, m.States, m.Attrs = group.Class, test.States, test.Attrs
-	return m, ""
+	test.Relation, test.Class = m.Relation, group.Class
+	return test, ""
 }
 
 func has(inner string) (style.Match, string) {
@@ -158,9 +176,38 @@ func compound(s string) (style.Match, string, string) {
 	for s != "" {
 		switch s[0] {
 		case ':':
+			if strings.HasPrefix(s, "::") {
+				return m, s, ""
+			}
+			if inner, after, ok := call(s, ":not("); ok {
+				n, left, reason := compound(inner)
+				if reason = cmp.Or(reason, leftover(left)); reason != "" {
+					return m, s, reason
+				}
+				if n.Class != "" || n.Element != style.ElementAny || n.Not.States != 0 || n.Not.Places != 0 || len(n.Not.Attrs) > 0 || bits.OnesCount8(uint8(n.States))+len(n.Attrs)+bits.OnesCount8(uint8(n.Places)) != 1 {
+					return m, s, "negation " + strconv.Quote(inner) + " holds more than one state, attribute or position"
+				}
+				m.Not = style.Negation{States: m.Not.States | n.States, Attrs: append(m.Not.Attrs, n.Attrs...), Places: m.Not.Places | n.Places}
+				s = after
+				continue
+			}
+			if inner, after, ok := call(s, ":nth-child("); ok {
+				place, ok := map[string]style.Place{"odd": style.PlaceOdd, "even": style.PlaceEven}[inner]
+				if !ok {
+					return m, s, "position " + strconv.Quote(s) + " is not first, last, only, odd or even"
+				}
+				m.Places |= place
+				s = after
+				continue
+			}
 			name, after := ident(s[1:])
 			if strings.HasPrefix(after, "(") {
 				return m, s, ""
+			}
+			if place, ok := map[string]style.Place{"first-child": style.PlaceFirst, "last-child": style.PlaceLast, "only-child": style.PlaceFirst | style.PlaceLast}[name]; ok {
+				m.Places |= place
+				s = after
+				continue
 			}
 			state, ok := map[string]style.State{"hover": style.StateHover, "focus": style.StateFocus, "focus-visible": style.StateFocusVisible, "active": style.StateActive, "disabled": style.StateDisabled, "focus-within": style.StateFocusWithin, "checked": style.StateChecked}[name]
 			if !ok {

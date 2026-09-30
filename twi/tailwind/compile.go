@@ -175,6 +175,9 @@ func (c *compiler) walk(nodes []css.Node, sc scope) {
 					c.walk(n.Block, scope{layer: name, when: sc.when, reject: sc.reject})
 				}
 			case "media":
+				if strings.ReplaceAll(text(n.Prelude), " ", "") == "not(hover:hover)" {
+					continue
+				}
 				when, reject := media(sc.when, text(n.Prelude))
 				c.walk(n.Block, scope{layer: sc.layer, when: when, reject: cmp.Or(sc.reject, reject)})
 			}

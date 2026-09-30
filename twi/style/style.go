@@ -277,6 +277,8 @@ type Match struct {
 	Element  Element
 	States   State
 	Attrs    []Attr
+	Places   Place
+	Not      Negation
 	mark     Markers
 }
 
