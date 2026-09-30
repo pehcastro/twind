@@ -20,6 +20,8 @@ import (
 const doctorHelp = `Asks the terminal on stdin and stdout what it supports and prints the answers and how long they took.
 TWIND_GRAPHICS set to none, sixel, iterm2 or kitty overrides the graphics answer, as it does for every Twind program.
 truecolor says whether the terminal echoed a 24-bit colour back through DECRQSS; colour is what Twind will use.
+grid is the size the terminal itself reports; Twind lays out to it when it differs from size, the pty's.
+kitty is the terminal's answer to a raw and a zlib kitty image; Twind uses kitty only when zlib is OK.
 glyphs lists the width the terminal gives each glyph Twind draws, ? where it gave none.`
 
 const doctorGlyphs = "─ │ ╭ ┼ █ ▀ ▄ ▌ ▏ ▕ ▁ ▦ ‹ › ⌄ ▸ ⌘ ⇧ ⌃ ✓ ✕ • ● ◆ ◐ ◦ ⊗ ⌕ … 中 🙂"
@@ -35,6 +37,9 @@ type answers struct {
 	truecolor bool
 	clipboard bool
 	pointer   string
+	grid      string
+	kittyRaw  string
+	kittyZlib string
 	widths    []int
 }
 
@@ -55,11 +60,12 @@ func doctor(args []string, stdout io.Writer) error {
 	}
 	glyphs := strings.Fields(doctorGlyphs)
 	start := time.Now()
-	caps, _, err := terminal.Query(os.Stdin, os.Stdout)
+	raw, err := terminal.Probe(os.Stdin, os.Stdout, konst.ProbeBegin+strings.Join(glyphs, konst.ProbeStep)+konst.ProbeStep+konst.ProbeEnd+konst.DoctorQueries)
 	if err != nil {
 		return err
 	}
-	raw, err := terminal.Probe(os.Stdin, os.Stdout, konst.ProbeBegin+strings.Join(glyphs, konst.ProbeStep)+konst.ProbeStep+konst.ProbeEnd+konst.DoctorQueries)
+	answered := time.Since(start)
+	caps, _, err := terminal.Query(os.Stdin, os.Stdout)
 	took := time.Since(start)
 	if err != nil {
 		return err
@@ -85,7 +91,7 @@ func doctor(args []string, stdout io.Writer) error {
 	fmt.Fprintf(&report, "size       %dx%d cells\nenv        TERM=%s COLORTERM=%s TERM_PROGRAM=%s WT_SESSION=%t\ncolour     %s\nsync       %t\ngraphemes  %t\nfocus      %t\nmargins    %t\nemoji      %s\nkeyboard   %s\ngraphics   %s\ncell       %s\n",
 		width, height, text.Sanitize(os.Getenv("TERM"), text.ShowBidi), text.Sanitize(os.Getenv("COLORTERM"), text.ShowBidi), text.Sanitize(os.Getenv("TERM_PROGRAM"), text.ShowBidi), os.Getenv("WT_SESSION") != "",
 		profileName(terminal.Profile(os.Stdout, os.Getenv)), caps.Sync, caps.Graphemes, caps.Focus, caps.Margins, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell)
-	fmt.Fprintf(&report, "%sdetected   in %s\n", answerLines(a, glyphs), took.Round(time.Millisecond))
+	fmt.Fprintf(&report, "%sdetected   in %s, first answer after %s\n", answerLines(a, glyphs), took.Round(time.Millisecond), answered.Round(time.Millisecond))
 	if *file != "" {
 		if err := os.WriteFile(*file, []byte(report.String()), 0o600); err != nil {
 			return err
@@ -104,7 +110,7 @@ func parseAnswers(raw []byte, glyphs, columns int) answers {
 		}
 		introducer := rest[i+1]
 		rest = rest[i+2:]
-		if introducer != 'P' && introducer != ']' {
+		if introducer != 'P' && introducer != ']' && introducer != '_' {
 			continue
 		}
 		end, next := bytes.IndexByte(rest, konst.BELByte), 1
@@ -121,6 +127,10 @@ func parseAnswers(raw []byte, glyphs, columns int) answers {
 			if pointer, ok := strings.CutPrefix(body, konst.PointerAnswer); ok {
 				a.pointer = text.Sanitize(pointer, text.ShowBidi)
 			}
+		case strings.HasPrefix(body, konst.KittyZlibAnswer):
+			a.kittyZlib = text.Sanitize(body[len(konst.KittyZlibAnswer):], text.ShowBidi)
+		case strings.HasPrefix(body, konst.KittyRawAnswer):
+			a.kittyRaw = text.Sanitize(body[len(konst.KittyRawAnswer):], text.ShowBidi)
 		case strings.HasPrefix(body, konst.VersionAnswer):
 			a.version = text.Sanitize(body[len(konst.VersionAnswer):], text.ShowBidi)
 		case strings.HasPrefix(body, konst.TruecolorAnswer):
@@ -164,6 +174,9 @@ func parseAnswers(raw []byte, glyphs, columns int) answers {
 				cursors = append(cursors, r.Params)
 			}
 		case input.ReplyWindow:
+			if len(r.Params) == konst.WindowParams && r.Params[0] == konst.GridReport && r.Params[1] > 0 && r.Params[2] > 0 {
+				a.grid = strconv.Itoa(r.Params[2]) + "x" + strconv.Itoa(r.Params[1])
+			}
 		}
 	}
 	if len(cursors) == glyphs+1 {
@@ -199,8 +212,8 @@ func answerLines(a answers, glyphs []string) string {
 			measured[i] = g + " " + strconv.Itoa(a.widths[i])
 		}
 	}
-	return fmt.Sprintf("terminal   %s\nprimary    %s\nsecondary  %s\nmouse      any-event %t, sgr %t\npaste      %t\ntruecolor  %t\nclipboard  %t\npointer    %s\nglyphs     %s\n",
-		orNone(a.version), orNone(a.primary), orNone(a.secondary), a.mouseAny, a.mouseSGR, a.paste, a.truecolor, a.clipboard, orNone(a.pointer), strings.Join(measured, " "))
+	return fmt.Sprintf("terminal   %s\nprimary    %s\nsecondary  %s\nmouse      any-event %t, sgr %t\npaste      %t\ntruecolor  %t\nclipboard  %t\npointer    %s\ngrid       %s\nkitty      raw %s, zlib %s\nglyphs     %s\n",
+		orNone(a.version), orNone(a.primary), orNone(a.secondary), a.mouseAny, a.mouseSGR, a.paste, a.truecolor, a.clipboard, orNone(a.pointer), orNone(a.grid), orNone(a.kittyRaw), orNone(a.kittyZlib), strings.Join(measured, " "))
 }
 
 func profileName(p color.Profile) string {

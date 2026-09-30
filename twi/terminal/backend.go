@@ -52,10 +52,12 @@ type Backend struct {
 	leave   string
 	asking  atomic.Bool
 	cell    atomic.Pointer[image.Point]
+	grid    atomic.Pointer[image.Point]
 	polling atomic.Bool
 	settled chan struct{}
 	mu      sync.Mutex
 	asked   bool
+	again   bool
 	exited  bool
 }
 
@@ -107,12 +109,12 @@ func Probe(in, out *os.File, queries string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, raw, _, err := probe(out, t, queries+konst.Fence)
+	_, raw, _, err := probe(out, t, queries+konst.Fence, konst.StartupTimeout)
 	return raw, err
 }
 
 func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
-	b, raw, replies, err := probe(out, t, konst.Probes+konst.InlineQueries)
+	b, raw, replies, err := probe(out, t, konst.Probes+konst.InlineQueries, konst.QueryTimeout)
 	if b == nil {
 		return Capabilities{}, image.Point{}, err
 	}
@@ -124,11 +126,11 @@ func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
 	return Capabilities{}, image.Point{}, err
 }
 
-func probe(out io.Writer, t tty, queries string) (*Backend, []byte, []input.ReplyEvent, error) {
+func probe(out io.Writer, t tty, queries string, wait time.Duration) (*Backend, []byte, []input.ReplyEvent, error) {
 	events := make(chan input.Event, konst.EventBuffer)
 	b := &Backend{Events: events, out: out, tty: t, opt: Options{NoMouse: true}, answers: make(chan answer, konst.ReplyBuffer)}
 	go b.read(events)
-	raw, replies, err := b.ask(queries)
+	raw, replies, err := b.ask(queries, wait)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -171,7 +173,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	if !opt.NoMouse {
 		seq += konst.MouseOn
 	}
-	raw, replies, err := b.ask(seq + konst.CursorHome + konst.GraphemesOn + konst.Probes + konst.Queries)
+	raw, replies, err := b.ask(seq+konst.CursorHome+konst.GraphemesOn+konst.Probes+konst.Queries, konst.StartupTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +198,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	return b, nil
 }
 
-func (b *Backend) ask(seq string) ([]byte, []input.ReplyEvent, error) {
+func (b *Backend) ask(seq string, wait time.Duration) ([]byte, []input.ReplyEvent, error) {
 	for len(b.answers) > 0 {
 		<-b.answers
 	}
@@ -207,7 +209,7 @@ func (b *Backend) ask(seq string) ([]byte, []input.ReplyEvent, error) {
 	}
 	var raw []byte
 	var replies []input.ReplyEvent
-	timeout := time.After(konst.QueryTimeout)
+	timeout := time.After(wait)
 	for {
 		select {
 		case <-timeout:
@@ -223,7 +225,8 @@ func (b *Backend) ask(seq string) ([]byte, []input.ReplyEvent, error) {
 }
 
 func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabilities {
-	caps := Capabilities{CellPixels: b.cellPixels(replies)}
+	cell, _ := b.window(replies)
+	caps := Capabilities{CellPixels: cell}
 	graphics := o.graphics
 	var cursors [][]int
 	for _, r := range replies {
@@ -272,8 +275,8 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 	return caps
 }
 
-func (b *Backend) cellPixels(replies []input.ReplyEvent) image.Point {
-	var cell, window image.Point
+func (b *Backend) window(replies []input.ReplyEvent) (cell, grid image.Point) {
+	var pixels image.Point
 	for _, r := range replies {
 		if r.Kind != input.ReplyWindow || len(r.Params) != konst.WindowParams || r.Params[1] <= 0 || r.Params[2] <= 0 {
 			continue
@@ -282,16 +285,22 @@ func (b *Backend) cellPixels(replies []input.ReplyEvent) image.Point {
 		case konst.CellReport:
 			cell = size
 		case konst.WindowReport:
-			window = size
+			pixels = size
+		case konst.GridReport:
+			grid = size
 		}
 	}
-	if w, h, err := b.tty.size(); cell == (image.Point{}) && err == nil && w > 0 && h > 0 {
-		cell = image.Pt(window.X/w, window.Y/h)
+	cells := grid
+	if w, h, err := b.tty.size(); cells == (image.Point{}) && err == nil {
+		cells = image.Pt(w, h)
+	}
+	if cell == (image.Point{}) && cells.X > 0 && cells.Y > 0 {
+		cell = image.Pt(pixels.X/cells.X, pixels.Y/cells.Y)
 	}
 	if cell.X == 0 || cell.Y == 0 {
-		return image.Point{}
+		return image.Point{}, grid
 	}
-	return cell
+	return cell, grid
 }
 
 func (b *Backend) read(events chan<- input.Event) {
@@ -317,14 +326,16 @@ func (b *Backend) read(events chan<- input.Event) {
 			evs = b.decoder.Decode(buf[:n])
 		}
 		quiet = n > 0
-		if recheck {
+		sized := b.grid.Load() != nil
+		if recheck && !sized {
 			w, h, err := b.tty.size()
 			if err == nil && (w != width || h != height) {
 				width, height = w, h
 				evs = append(evs, input.ResizeEvent{Width: w, Height: h})
 			}
 		}
-		if recheck || slices.ContainsFunc(evs, func(ev input.Event) bool { return caused(ev, time.Since(lastAsk)) }) {
+		poll := b.polling.Load() && (recheck || slices.ContainsFunc(evs, func(ev input.Event) bool { return caused(ev, time.Since(lastAsk)) }))
+		if poll || recheck && sized {
 			lastAsk = time.Now()
 			b.askCell()
 		}
@@ -337,15 +348,34 @@ func (b *Backend) read(events chan<- input.Event) {
 				case input.ReplyWindow:
 					polled = append(polled, ev)
 				case input.ReplyPrimaryAttributes:
-					if cell := b.cellPixels(polled); b.settle() && b.learn(cell) {
-						events <- input.ResizeEvent{Width: width, Height: height, Cell: cell}
-					}
+					cell, grid := b.window(polled)
 					polled = polled[:0]
+					settled := b.settle()
+					if settled && grid == (image.Point{}) && b.grid.Load() != nil {
+						grid.X, grid.Y, _ = b.tty.size()
+					}
+					resized := grid != (image.Point{}) && grid != image.Pt(width, height)
+					if grid != (image.Point{}) {
+						b.grid.Store(&grid)
+						width, height = grid.X, grid.Y
+					}
+					if !settled {
+						continue
+					}
+					resize := input.ResizeEvent{Width: width, Height: height}
+					if b.learn(cell) {
+						resize.Cell = cell
+					} else if !resized {
+						continue
+					}
+					events <- resize
 				case input.ReplySecondaryAttributes, input.ReplyMode, input.ReplyCursorPosition, input.ReplyKeyboardFlags:
 				}
 				continue
 			case input.ResizeEvent:
 				width, height = ev.Width, ev.Height
+				grid := image.Pt(ev.Width, ev.Height)
+				b.grid.Store(&grid)
 				b.learn(ev.Cell)
 			}
 			events <- ev
@@ -372,16 +402,13 @@ func caused(ev input.Event, since time.Duration) bool {
 }
 
 func (b *Backend) askCell() {
-	if !b.polling.Load() {
-		return
-	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.asked || b.exited {
-		return
+	b.again = b.asked
+	if !b.asked && !b.exited {
+		_, err := io.WriteString(b.out, konst.CellQuery)
+		b.asked = err == nil
 	}
-	_, err := io.WriteString(b.out, konst.CellQuery)
-	b.asked = err == nil
 }
 
 func (b *Backend) settle() bool {
@@ -389,6 +416,10 @@ func (b *Backend) settle() bool {
 	defer b.mu.Unlock()
 	asked := b.asked
 	b.asked = false
+	if asked && b.again && !b.exited {
+		_, err := io.WriteString(b.out, konst.CellQuery)
+		b.asked, b.again = err == nil, false
+	}
 	if asked && b.exited {
 		close(b.settled)
 	}
@@ -405,6 +436,9 @@ func (b *Backend) learn(cell image.Point) bool {
 }
 
 func (b *Backend) Size() (width, height int, err error) {
+	if grid := b.grid.Load(); grid != nil {
+		return grid.X, grid.Y, nil
+	}
 	return b.tty.size()
 }
 

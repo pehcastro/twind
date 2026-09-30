@@ -61,6 +61,7 @@ type fakeTerminal struct {
 	tty     *fakeTTY
 	answers []string
 	later   []string
+	reply   func(p []byte) []string
 	delay   time.Duration
 	mu      sync.Mutex
 	written bytes.Buffer
@@ -76,6 +77,8 @@ func (t *fakeTerminal) Write(p []byte) (int, error) {
 	t.written.Write(p)
 	answers := t.answers
 	switch {
+	case t.reply != nil:
+		answers = t.reply(p)
 	case bytes.Contains(p, []byte(konst.Queries)) || bytes.Contains(p, []byte(konst.InlineQueries)):
 	case bytes.Contains(p, []byte(konst.CellQuery)):
 		answers = t.later
@@ -142,9 +145,12 @@ func TestStartupQueries(t *testing.T) {
 		{"fence alone, split over two reads", []string{"\x1b[?6", "2;22c"}, false, false, true},
 		{"silent", nil, false, false, false},
 	}
-	const runs = 20
 	for _, tc := range cases {
 		var took time.Duration
+		runs := 20
+		if !tc.fenced {
+			runs = 1
+		}
 		for range runs {
 			term := newFake(tc.answers...)
 			start := time.Now()
@@ -163,13 +169,13 @@ func TestStartupQueries(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		took /= runs
+		took /= time.Duration(runs)
 		t.Logf("%s: %v mean over %d runs", tc.name, took, runs)
 		switch {
 		case tc.fenced && took >= 5*time.Millisecond:
 			t.Errorf("%s: took %v after the fence, want under 5ms", tc.name, took)
-		case !tc.fenced && (took < konst.QueryTimeout || took > 2*konst.QueryTimeout):
-			t.Errorf("%s: took %v, want the %v timeout", tc.name, took, konst.QueryTimeout)
+		case !tc.fenced && (took < konst.StartupTimeout || took > konst.StartupTimeout+konst.QueryTimeout):
+			t.Errorf("%s: took %v, want the %v startup wait", tc.name, took, konst.StartupTimeout)
 		}
 	}
 }
@@ -634,7 +640,7 @@ func TestWidthProbes(t *testing.T) {
 		if b.Capabilities.Widths != tc.widths || b.Capabilities.Graphemes != tc.graphemes {
 			t.Errorf("%s: widths %v graphemes %v, want %v %v", tc.name, b.Capabilities.Widths, b.Capabilities.Graphemes, tc.widths, tc.graphemes)
 		}
-		if tc.fenced != (took < konst.QueryTimeout) || took > 2*konst.QueryTimeout {
+		if tc.fenced != (took < konst.QueryTimeout) || took > 2*konst.StartupTimeout {
 			t.Errorf("%s: took %v, fenced %v", tc.name, took, tc.fenced)
 		}
 		term.tty.input <- []byte("x")
@@ -689,7 +695,7 @@ func TestProbeReturnsEveryAnswer(t *testing.T) {
 	for _, tc := range cases {
 		term := newFake(tc.answers...)
 		start := time.Now()
-		_, raw, _, err := probe(term, term.tty, konst.DoctorQueries+konst.Fence)
+		_, raw, _, err := probe(term, term.tty, konst.DoctorQueries+konst.Fence, konst.StartupTimeout)
 		took := time.Since(start)
 		if err != nil {
 			t.Fatal(err)
@@ -697,7 +703,7 @@ func TestProbeReturnsEveryAnswer(t *testing.T) {
 		if want := strings.Join(tc.answers, ""); string(raw) != want {
 			t.Errorf("%s: raw %q, want %q", tc.name, raw, want)
 		}
-		if tc.fenced != (took < konst.QueryTimeout) || took > 2*konst.QueryTimeout {
+		if tc.fenced != (took < konst.QueryTimeout) || took > 2*konst.StartupTimeout {
 			t.Errorf("%s: took %v, fenced %v", tc.name, took, tc.fenced)
 		}
 		if out := term.written.String(); out != konst.DoctorQueries+konst.Fence {
@@ -792,5 +798,169 @@ func TestFocusReports(t *testing.T) {
 	}
 	if strings.Count(out, konst.FocusOff) != 1 || !strings.HasSuffix(out, konst.LeaveScreen) || !strings.Contains(konst.LeaveScreen, konst.FocusOff) {
 		t.Errorf("wrote %q, want ?1004l once, on exit", out)
+	}
+}
+
+func TestSixelFromATerminalStillStarting(t *testing.T) {
+	term := newFake(windowsTerminal...)
+	term.delay = 4 * konst.QueryTimeout
+	start := time.Now()
+	b, err := enter(term, term.tty, Options{}, offer{})
+	took := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Capabilities.Graphics != GraphicsSixel || b.Capabilities.CellPixels != image.Pt(10, 20) || !b.Capabilities.Sync {
+		t.Errorf("answers %v after the start: %+v, want sixel, 10x20 cells and sync", term.delay, b.Capabilities)
+	}
+	if took > term.delay+konst.QueryTimeout {
+		t.Errorf("took %v, want the fence at %v", took, term.delay)
+	}
+	if err := b.Exit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSixelWhenKittyRefusesCompression(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		zlib     bool
+		graphics Graphics
+	}{
+		{"contour 0.7.0 refuses o=z", false, GraphicsSixel},
+		{"kitty takes o=z", true, GraphicsKitty},
+	} {
+		term := newFake()
+		term.reply = func(p []byte) []string {
+			start := bytes.Index(p, []byte("\x1b_G"))
+			if start < 0 || !bytes.HasSuffix(p, []byte(konst.Fence)) {
+				return nil
+			}
+			control, _, _ := bytes.Cut(p[start:], []byte(";"))
+			status := "OK"
+			if bytes.Contains(control, []byte("o=z")) && !tc.zlib {
+				status = "ENOTSUP:compressed payloads are not supported"
+			}
+			return []string{"\x1b_Gi=31;" + status + "\x1b\\\x1b[6;19;9t\x1b[?65;1;3;4;7;9;18;21;22;29;52;314c"}
+		}
+		b, err := enter(term, term.tty, Options{}, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Capabilities.Graphics != tc.graphics || b.Capabilities.CellPixels != image.Pt(9, 19) {
+			t.Errorf("%s: graphics %d cell %v, want %d 9x19", tc.name, b.Capabilities.Graphics, b.Capabilities.CellPixels, tc.graphics)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestSizeFromTheTerminal(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		answers []string
+		size    image.Point
+		cell    image.Point
+	}{
+		{"tabby: the pty was told a stale width", []string{"\x1b[8;36;120t\x1b[6;17;7t\x1b[4;612;840t\x1b[?62;4;9;22c"}, image.Pt(120, 36), image.Pt(7, 17)},
+		{"window pixels over the terminal's grid", []string{"\x1b[4;720;1200t\x1b[8;36;120t\x1b[?62;4c"}, image.Pt(120, 36), image.Pt(10, 20)},
+		{"no grid answer", []string{"\x1b[6;17;7t\x1b[?62;4c"}, image.Pt(109, 36), image.Pt(7, 17)},
+		{"zero grid", []string{"\x1b[8;0;0t\x1b[6;17;7t\x1b[?62;4c"}, image.Pt(109, 36), image.Pt(7, 17)},
+		{"short grid report", []string{"\x1b[8;36t\x1b[6;17;7t\x1b[?62;4c"}, image.Pt(109, 36), image.Pt(7, 17)},
+	} {
+		term := newFake(tc.answers...)
+		term.tty.cells = image.Pt(109, 36)
+		b, err := enter(term, term.tty, Options{}, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if w, h, err := b.Size(); image.Pt(w, h) != tc.size || err != nil || b.Capabilities.CellPixels != tc.cell {
+			t.Errorf("%s: size %dx%d %v cell %v, want %v cell %v", tc.name, w, h, err, b.Capabilities.CellPixels, tc.size, tc.cell)
+		}
+		if !strings.Contains(term.out(), konst.GridQuery) {
+			t.Errorf("%s: wrote %q, want the grid asked", tc.name, term.out())
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestSizeAfterAConsoleResize(t *testing.T) {
+	const tabby = "\x1b[8;36;120t\x1b[6;17;7t\x1b[4;612;840t\x1b[?62;4;9;22c"
+	key := input.KeyEvent{Rune: 'x'}
+	for _, tc := range []struct {
+		name    string
+		answers []string
+		later   []string
+		console image.Point
+		want    []input.Event
+		size    image.Point
+	}{
+		{"the pty shrinks, the grid stays", []string{tabby}, []string{"\x1b[8;36;120t\x1b[?62;4c"}, image.Pt(109, 36), []input.Event{key}, image.Pt(120, 36)},
+		{"the grid follows the pty", []string{tabby}, []string{"\x1b[8;30;100t\x1b[?62;4c"}, image.Pt(100, 30), []input.Event{input.ResizeEvent{Width: 100, Height: 30}, key}, image.Pt(100, 30)},
+		{"the grid moves, the pty does not", []string{tabby}, []string{"\x1b[8;40;130t\x1b[?62;4c"}, image.Pt(120, 36), []input.Event{input.ResizeEvent{Width: 130, Height: 40}, key}, image.Pt(130, 40)},
+		{"no grid answer after the resize", []string{tabby}, []string{"\x1b[?62;4c"}, image.Pt(100, 30), []input.Event{input.ResizeEvent{Width: 100, Height: 30}, key}, image.Pt(100, 30)},
+		{"a grid first answered after a resize", []string{"\x1b[6;17;7t\x1b[?62;4c"}, []string{"\x1b[8;36;120t\x1b[?62;4c"}, image.Pt(100, 30), []input.Event{input.ResizeEvent{Width: 100, Height: 30}, input.ResizeEvent{Width: 120, Height: 36}, key}, image.Pt(120, 36)},
+	} {
+		term := newFake(tc.answers...)
+		term.later = tc.later
+		term.tty.cells = image.Pt(120, 36)
+		b, err := enter(term, term.tty, Options{}, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		before := len(term.out())
+		term.tty.resize <- tc.console
+		for deadline := time.Now().Add(time.Second); !strings.Contains(term.out()[before:], konst.CellQuery) && time.Now().Before(deadline); {
+			time.Sleep(time.Millisecond)
+		}
+		term.tty.input <- []byte("x")
+		events(t, b, tc.name, tc.want...)
+		if w, h, _ := b.Size(); image.Pt(w, h) != tc.size {
+			t.Errorf("%s: size %dx%d, want %v", tc.name, w, h, tc.size)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestSizeWhileAQueryIsOut(t *testing.T) {
+	var mu sync.Mutex
+	grid := "\x1b[8;36;120t"
+	term := newFake()
+	term.delay = konst.QueryTimeout / 2
+	term.reply = func(p []byte) []string {
+		if !bytes.HasSuffix(p, []byte(konst.Fence)) {
+			return nil
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		return []string{grid + "\x1b[6;17;7t\x1b[?62;4c"}
+	}
+	term.tty.cells = image.Pt(120, 36)
+	b, err := enter(term, term.tty, Options{}, offer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	grid = "\x1b[8;30;100t"
+	mu.Unlock()
+	term.tty.resize <- image.Pt(100, 30)
+	for deadline := time.Now().Add(time.Second); strings.Count(term.out(), konst.CellQuery) < 2 && time.Now().Before(deadline); {
+		time.Sleep(time.Millisecond)
+	}
+	mu.Lock()
+	grid = "\x1b[8;25;90t"
+	mu.Unlock()
+	term.tty.resize <- image.Pt(90, 25)
+	events(t, b, "two resizes, one answer out", input.ResizeEvent{Width: 100, Height: 30}, input.ResizeEvent{Width: 90, Height: 25})
+	if n := strings.Count(term.out(), konst.CellQuery); n != 3 {
+		t.Errorf("asked %d times, want startup and one per resize", n)
+	}
+	if err := b.Exit(); err != nil {
+		t.Fatal(err)
 	}
 }

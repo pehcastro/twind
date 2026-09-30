@@ -35,6 +35,11 @@ func TestDoctorParsesEachReplyKind(t *testing.T) {
 		{"fewer reports than glyphs", "\x1b[5;1R\x1b[5;2R\x1b[5;3R", answers{widths: []int{0, 0, 0}}},
 		{"another row, no advance", "\x1b[5;1R\x1b[6;1R\x1b[5;1R\x1b[5;2R", answers{widths: []int{0, 0, 1}}},
 		{"right margin clamps", "\x1b[5;78R\x1b[5;79R\x1b[5;80R\x1b[5;80R", answers{widths: []int{1, 0, 0}}},
+		{"grid", "\x1b[8;36;120t", answers{grid: "120x36", widths: []int{0, 0, 0}}},
+		{"zero grid", "\x1b[8;0;0t\x1b[4;612;840t", answers{widths: []int{0, 0, 0}}},
+		{"kitty refuses zlib", "\x1b_Gi=31;ENOTSUP:compressed payloads are not supported\x1b\\\x1b_Gi=32;OK\x1b\\", answers{kittyZlib: "ENOTSUP:compressed payloads are not supported", kittyRaw: "OK", widths: []int{0, 0, 0}}},
+		{"kitty status holding escapes", "\x1b_Gi=32;E\x1b[2JRR\x1b\\", answers{kittyRaw: "ERR", widths: []int{0, 0, 0}}},
+		{"kitty answer for another id", "\x1b_Gi=7;OK\x1b\\", answers{widths: []int{0, 0, 0}}},
 	}
 	for _, tc := range cases {
 		if got := parseAnswers([]byte(tc.raw), 3, 80); !reflect.DeepEqual(got, tc.want) {
@@ -45,7 +50,7 @@ func TestDoctorParsesEachReplyKind(t *testing.T) {
 
 func TestDoctorReportNamesUnknowns(t *testing.T) {
 	out := answerLines(answers{widths: []int{0, 2}}, []string{"a", "b"})
-	for _, line := range []string{"terminal   no answer\n", "secondary  no answer\n", "truecolor  false\n", "clipboard  false\n", "pointer    no answer\n", "glyphs     a ? b 2\n"} {
+	for _, line := range []string{"terminal   no answer\n", "secondary  no answer\n", "truecolor  false\n", "clipboard  false\n", "pointer    no answer\n", "grid       no answer\n", "kitty      raw no answer, zlib no answer\n", "glyphs     a ? b 2\n"} {
 		if !strings.Contains(out, line) {
 			t.Errorf("report %q lacks %q", out, line)
 		}

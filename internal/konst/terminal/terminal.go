@@ -34,8 +34,9 @@ const (
 	KittyPush     = CSI + ">1u"
 	KittyPop      = CSI + "<u"
 	Fence         = CSI + "c"
-	CellQuery     = CSI + "16t" + CSI + "14t" + Fence
-	KittyQuery    = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
+	GridQuery     = CSI + "18t"
+	CellQuery     = CSI + "16t" + CSI + "14t" + GridQuery + Fence
+	KittyQuery    = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24,o=z;eNpiYGAADAAAAwAB\x1b\\"
 	KittyOK       = "\x1b_Gi=31;OK\x1b\\"
 	MarginsQuery  = CSI + "?69$p"
 	ModeQueries   = CSI + "?2026$p" + CSI + "?2027$p" + CSI + "?1004$p" + MarginsQuery + CSI + "?2048$p"
@@ -69,6 +70,7 @@ const (
 	MarginMode     = 69
 	CellReport     = 6
 	WindowReport   = 4
+	GridReport     = 8
 	WindowParams   = 3
 	InBandMode     = 2048
 	SixelAttribute = 4
@@ -82,6 +84,7 @@ const (
 
 const (
 	QueryTimeout    = 100 * time.Millisecond
+	StartupTimeout  = time.Second
 	EscapeTimeout   = 50 * time.Millisecond
 	CellPoll        = 500 * time.Millisecond
 	EventBuffer     = 256
@@ -126,5 +129,8 @@ const (
 	PointerQuery       = OSC + "22;?__current__" + ST
 	PointerAnswer      = "22;"
 	KeyboardQuery      = CSI + "?u"
-	DoctorQueries      = VersionQuery + SecondaryQuery + KeyboardQuery + DoctorModes + TruecolorQuery + ClipboardQuery + PointerQuery
+	KittyRawQuery      = "\x1b_Gi=32,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
+	KittyZlibAnswer    = "Gi=31;"
+	KittyRawAnswer     = "Gi=32;"
+	DoctorQueries      = VersionQuery + SecondaryQuery + KeyboardQuery + DoctorModes + TruecolorQuery + ClipboardQuery + PointerQuery + KittyQuery + KittyRawQuery + GridQuery
 )
