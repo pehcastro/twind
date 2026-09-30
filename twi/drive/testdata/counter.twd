@@ -1,0 +1,9 @@
+size 20x3
+frame start
+press +
+press +
+type ++
+frame four
+press -
+resize 12x2
+frame small

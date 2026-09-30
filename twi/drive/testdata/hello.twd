@@ -1,0 +1,7 @@
+size 40x12
+frame start
+resize 30x10
+frame small
+wait 1s
+press enter
+frame later
