@@ -232,35 +232,42 @@ func block(side, weight int, fg, bg color.Color) buffer.Cell {
 	return buffer.Cell{Grapheme: set[(eighths-1)*konst.BlockBytes : eighths*konst.BlockBytes], Fg: fg, Bg: bg, Attr: attr}
 }
 
-func glyphs(b scene.Border, look Look) (edges, corners string) {
+func glyphs(b scene.Border, look Look) (edges string, corners [4]string) {
 	if look == Glyphs {
-		return "", ""
-	}
-	round := konst.SquareCorners
-	if b.Radius != style.RadiusNone {
-		round = konst.RoundedCorners
+		return "", corners
 	}
 	switch b.Style {
 	case style.BorderNone:
-		return "", ""
+		return "", corners
 	case style.BorderSingle:
 		if look == Plain {
-			return konst.SingleLines, round
+			return konst.SingleLines, rounded(b.Radius)
 		}
-		return konst.Hairlines, ""
+		return konst.Hairlines, corners
 	case style.BorderDashed:
-		return konst.DashedLines, round
+		return konst.DashedLines, rounded(b.Radius)
 	case style.BorderDotted:
-		return konst.DottedLines, round
+		return konst.DottedLines, rounded(b.Radius)
 	case style.BorderDouble:
-		return konst.DoubleLines, konst.DoubleCorners
+		return konst.DoubleLines, split(konst.DoubleCorners)
 	}
 	panic(fmt.Sprintf("paint: unknown border style %d", b.Style))
 }
 
+func rounded(r style.Radius) (corners [4]string) {
+	square, round := split(konst.SquareCorners), split(konst.RoundedCorners)
+	for i, c := range [4]style.Corner{style.CornerTopLeft, style.CornerTopRight, style.CornerBottomLeft, style.CornerBottomRight} {
+		corners[i] = square[i]
+		if r.At(c) != style.RadiusNone {
+			corners[i] = round[i]
+		}
+	}
+	return corners
+}
+
 func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 	r, b := n.Bounds, n.Border
-	edgeSet, cornerSet := glyphs(b, look)
+	edgeSet, corners := glyphs(b, look)
 	if edgeSet == "" || r.W == 0 || r.H == 0 {
 		return
 	}
@@ -291,10 +298,9 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 			glyph(right, y, edges[1])
 		}
 	}
-	if cornerSet == "" {
+	if corners[0] == "" {
 		return
 	}
-	corners := split(cornerSet)
 	if b.Top && b.Left {
 		glyph(r.X, r.Y, corners[0])
 	}

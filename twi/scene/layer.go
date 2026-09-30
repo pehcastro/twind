@@ -1,9 +1,7 @@
 package scene
 
 import (
-	"cmp"
 	"image"
-	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/layout"
@@ -22,24 +20,15 @@ type Frame struct {
 	stacker
 }
 
+type Walker struct{ stacker }
+
 type stacker struct {
-	contexts pool[context]
-	clippers pool[clipper]
-	top      []*context
+	contexts []context
+	entries  []entry
+	top      chain
 }
 
-type pool[T any] struct {
-	all  []*T
-	used int
-}
-
-func (p *pool[T]) next() *T {
-	if p.used == len(p.all) {
-		p.all = append(p.all, new(T))
-	}
-	p.used++
-	return p.all[p.used-1]
-}
+type chain struct{ head, tail int32 }
 
 type Layer struct {
 	Parent   int
@@ -65,23 +54,18 @@ type Box struct {
 }
 
 type context struct {
-	node                *Node
-	key                 uint64
-	flow                []entry
-	below, level, above []*context
-	top                 []*context
+	node                     *Node
+	key                      uint64
+	first, end               int32
+	below, level, above, top chain
+	next                     int32
+	scroll                   bool
 }
 
 type entry struct {
-	node   *Node
-	key    uint64
-	scroll *context
-	round  *clipper
-}
-
-type clipper struct {
-	node *Node
-	up   *clipper
+	node         *Node
+	key          uint64
+	round, opens int32
 }
 
 type chunk struct {
@@ -114,135 +98,193 @@ func (f *Frame) Record(root *Node, cell image.Point) {
 }
 
 func Walk(root *Node, draw func(*Node), group func(n *Node, inside func())) {
-	var walk func(*context)
-	walk = func(ctx *context) {
-		ctx.visit(func(e entry) { draw(e.node) }, func(c *context) { group(c.node, func() { walk(c) }) })
+	new(Walker).Walk(root, draw, group)
+}
+
+func (w *Walker) Walk(root *Node, draw func(*Node), group func(n *Node, inside func())) {
+	ctx := w.page(root)
+	group(root, func() { w.walk(ctx, draw, group) })
+}
+
+func (w *Walker) walk(ctx int32, draw func(*Node), group func(n *Node, inside func())) {
+	w.visit(ctx, func(e entry) { draw(e.node) }, func(c int32) { group(w.contexts[c].node, func() { w.walk(c, draw, group) }) })
+}
+
+func (s *stacker) page(root *Node) int32 {
+	if s.contexts == nil {
+		nodes, opened := census(root)
+		s.contexts, s.entries = make([]context, 1, opened+2), make([]entry, 1, nodes+1)
 	}
-	var s stacker
-	group(root, func() { walk(s.page(root)) })
-}
-
-func (s *stacker) page(root *Node) *context {
-	s.contexts.used, s.clippers.used, s.top = 0, 0, s.top[:0]
-	ctx := s.stack(root, konst.HashSeed, nil)
-	slices.SortStableFunc(s.top, func(a, b *context) int { return cmp.Compare(a.node.TopLayer, b.node.TopLayer) })
-	ctx.top = s.top
+	s.contexts, s.entries, s.top = s.contexts[:1], s.entries[:1], chain{}
+	ctx := s.stack(root, konst.HashSeed, 0)
+	s.contexts[ctx].top = s.top
 	return ctx
 }
 
-func (s *stacker) open(n *Node, key uint64) *context {
-	ctx := s.contexts.next()
-	*ctx = context{node: n, key: key, flow: ctx.flow[:0], below: ctx.below[:0], level: ctx.level[:0], above: ctx.above[:0]}
+func census(n *Node) (nodes, opened int) {
+	nodes = 1
+	for i := range n.Children {
+		c := &n.Children[i]
+		if c.TopLayer > 0 || c.Opacity < 1 || c.Position != layout.PositionStatic || c.Scroll {
+			opened++
+		}
+		more, open := census(c)
+		nodes, opened = nodes+more, opened+open
+	}
+	return nodes, opened
+}
+
+func (s *stacker) open(n *Node, key uint64, scroll bool) int32 {
+	s.contexts = append(s.contexts, context{node: n, key: key, first: int32(len(s.entries)), scroll: scroll})
+	return int32(len(s.contexts) - 1)
+}
+
+func (s *stacker) close(ctx int32) {
+	s.entries[s.contexts[ctx].first].opens = ctx
+	s.contexts[ctx].end = int32(len(s.entries))
+}
+
+func (s *stacker) stack(n *Node, key uint64, round int32) int32 {
+	ctx := s.open(n, key, false)
+	s.collect(ctx, n, key, round)
+	s.close(ctx)
 	return ctx
 }
 
-func (s *stacker) stack(n *Node, key uint64, round *clipper) *context {
-	ctx := s.open(n, key)
-	s.collect(ctx, n, key, ctx, round)
-	byZ := func(a, b *context) int { return cmp.Compare(a.node.ZIndex, b.node.ZIndex) }
-	slices.SortStableFunc(ctx.below, byZ)
-	slices.SortStableFunc(ctx.above, byZ)
-	return ctx
+func (s *stacker) push(n *Node, key uint64, round int32) int32 {
+	s.entries = append(s.entries, entry{node: n, key: key, round: round})
+	return int32(len(s.entries) - 1)
 }
 
-func (s *stacker) collect(ctx *context, n *Node, key uint64, into *context, round *clipper) {
-	into.flow = append(into.flow, entry{node: n, key: key, round: round})
+func (s *stacker) insert(l *chain, c int32, rank func(*Node) int) {
+	r := rank(s.contexts[c].node)
+	prev, at := int32(0), l.head
+	if l.tail != 0 && rank(s.contexts[l.tail].node) <= r {
+		prev, at = l.tail, 0
+	}
+	for at != 0 && rank(s.contexts[at].node) <= r {
+		prev, at = at, s.contexts[at].next
+	}
+	s.contexts[c].next = at
+	if prev == 0 {
+		l.head = c
+	} else {
+		s.contexts[prev].next = c
+	}
+	if at == 0 {
+		l.tail = c
+	}
+}
+
+func zIndex(n *Node) int { return n.ZIndex }
+
+func topLayer(n *Node) int { return n.TopLayer }
+
+func treeOrder(*Node) int { return 0 }
+
+func (s *stacker) collect(ctx int32, n *Node, key uint64, round int32) {
+	self := s.push(n, key, round)
 	if n.HidesOverflow && n.Border.Radius != style.RadiusNone {
-		up := round
-		round = s.clippers.next()
-		*round = clipper{node: n, up: up}
+		round = self
 	}
 	for i := range n.Children {
 		c, ck := &n.Children[i], mix(key, uint64(i)+1)
 		positioned := c.Position != layout.PositionStatic
 		switch {
 		case c.TopLayer > 0:
-			s.top = append(s.top, s.stack(c, ck, nil))
+			child := s.stack(c, ck, 0)
+			s.insert(&s.top, child, topLayer)
 		case c.Opacity < 1 || c.Position == layout.PositionFixed || positioned && c.ZIndex != 0:
 			masks := round
 			if c.Position == layout.PositionFixed {
-				masks = nil
+				masks = 0
 			}
-			switch child := s.stack(c, ck, masks); {
+			child := s.stack(c, ck, masks)
+			switch parent := &s.contexts[ctx]; {
 			case c.ZIndex < 0:
-				ctx.below = append(ctx.below, child)
+				s.insert(&parent.below, child, zIndex)
 			case c.ZIndex > 0:
-				ctx.above = append(ctx.above, child)
+				s.insert(&parent.above, child, zIndex)
 			default:
-				ctx.level = append(ctx.level, child)
+				s.insert(&parent.level, child, treeOrder)
 			}
 		case positioned:
-			own := s.open(c, ck)
-			ctx.level = append(ctx.level, own)
-			s.collect(ctx, c, ck, own, round)
+			own := s.open(c, ck, false)
+			s.insert(&s.contexts[ctx].level, own, treeOrder)
+			s.collect(ctx, c, ck, round)
+			s.close(own)
 		case c.Scroll:
-			own := s.open(c, ck)
-			into.flow = append(into.flow, entry{scroll: own})
-			s.collect(ctx, c, ck, own, round)
+			own := s.open(c, ck, true)
+			s.collect(ctx, c, ck, round)
+			s.close(own)
 		case len(c.Children) == 0:
-			into.flow = append(into.flow, entry{node: c, key: ck, round: round})
+			s.push(c, ck, round)
 		default:
-			s.collect(ctx, c, ck, into, round)
+			s.collect(ctx, c, ck, round)
 		}
 	}
 }
 
-func (ctx *context) visit(draw func(entry), child func(*context)) {
-	draw(ctx.flow[0])
-	for _, s := range ctx.below {
-		child(s)
+func (s *stacker) visit(c int32, draw func(entry), child func(int32)) {
+	ctx := s.contexts[c]
+	each := func(l chain) {
+		for at := l.head; at != 0; at = s.contexts[at].next {
+			child(at)
+		}
 	}
-	for _, e := range ctx.flow[1:] {
-		if e.scroll != nil {
-			child(e.scroll)
+	flow := s.entries[ctx.first:ctx.end]
+	draw(flow[0])
+	each(ctx.below)
+	for at := 1; at < len(flow); {
+		e := flow[at]
+		if e.opens == 0 {
+			draw(e)
+			at++
 			continue
 		}
-		draw(e)
+		if s.contexts[e.opens].scroll {
+			child(e.opens)
+		}
+		at = int(s.contexts[e.opens].end - ctx.first)
 	}
-	for _, s := range ctx.level {
-		child(s)
-	}
-	for _, s := range ctx.above {
-		child(s)
-	}
-	for _, s := range ctx.top {
-		child(s)
-	}
+	each(ctx.level)
+	each(ctx.above)
+	each(ctx.top)
 }
 
-func (f *Frame) promote(ctx *context, parent int, scroll bool) {
-	n := ctx.node
+func (f *Frame) promote(ctx int32, parent int, scroll bool) {
+	n := f.contexts[ctx].node
 	l := Layer{
 		Parent: parent, Origin: f.pixels(n.Bounds).Min, Opacity: n.Opacity, Clip: f.pixels(f.screen),
-		key: mix(mix(ctx.key, 0), 0), opsFrom: len(f.ops), boxFrom: len(f.boxes), scroller: scroll,
+		key: mix(mix(f.contexts[ctx].key, 0), 0), opsFrom: len(f.ops), boxFrom: len(f.boxes), scroller: scroll,
 	}
 	if scroll {
 		l.Origin, l.Clip = f.pixels(n.ScrollContent).Min, f.pixels(n.Padding).Intersect(f.pixels(n.Clip))
 	}
 	c := &chunk{first: len(f.Layers)}
 	f.Layers = append(f.Layers, l)
-	ctx.visit(func(e entry) {
+	f.visit(ctx, func(e entry) {
 		if !scroll || e.node != n {
 			f.draw(e, c)
 		}
-	}, func(s *context) { f.child(s, c) })
+	}, func(s int32) { f.child(s, c) })
 }
 
-func (f *Frame) child(ctx *context, c *chunk) {
-	n := ctx.node
+func (f *Frame) child(ctx int32, c *chunk) {
+	n := f.contexts[ctx].node
 	switch {
 	case n.Opacity < 1 || n.Position == layout.PositionFixed:
 		f.promote(ctx, c.first, false)
 		c.closed = true
 	case n.Scroll:
-		f.draw(ctx.flow[0], c)
+		f.draw(f.entries[f.contexts[ctx].first], c)
 		f.promote(ctx, c.first, true)
 		c.closed = true
 		l, start := &f.Layers[c.first], len(f.ops)
 		visual, ok := f.thumb(n, l.Origin, l.Clip)
-		f.commit(mix(ctx.key, 0), visual, ok, start, c)
+		f.commit(mix(f.contexts[ctx].key, 0), visual, ok, start, c)
 	default:
-		ctx.visit(func(e entry) { f.draw(e, c) }, func(s *context) { f.child(s, c) })
+		f.visit(ctx, func(e entry) { f.draw(e, c) }, func(s int32) { f.child(s, c) })
 	}
 }
 

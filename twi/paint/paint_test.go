@@ -227,3 +227,10 @@ func TestTextHostile(t *testing.T) {
 	}
 	t.Logf("%d hostile cases, every cell read", cases)
 }
+
+func TestBorderCornerEach(t *testing.T) {
+	left := style.RadiusNone.With(style.CornerTopLeft, style.RadiusMd).With(style.CornerBottomLeft, style.RadiusMd)
+	expect(t, boxed(left, literal(white)), "╭────┐  ", "│    │  ", "╰────┘  ")
+	bottomRight := style.RadiusNone.With(style.CornerBottomRight, style.RadiusSm)
+	expect(t, boxed(bottomRight, literal(white)), "┌────┐  ", "│    │  ", "└────╯  ")
+}

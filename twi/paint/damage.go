@@ -31,6 +31,7 @@ type Painter struct {
 	wide, wasWide          []bool
 	spans                  []layout.Rect
 	layers                 []*buffer.Buffer
+	walker                 scene.Walker
 }
 
 type shape struct {
@@ -109,7 +110,7 @@ func (p *Painter) order(root *scene.Node, screen layout.Rect) {
 		next = p.index[n]
 		return next
 	}
-	scene.Walk(root, func(n *scene.Node) {
+	p.walker.Walk(root, func(n *scene.Node) {
 		p.ops = append(p.ops, op{step: drawStep, node: at(n)})
 		next++
 	}, func(n *scene.Node, inside func()) {

@@ -15,7 +15,7 @@ import (
 	"github.com/twind-dev/twind/twi/style"
 )
 
-func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
+func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
 	edges := &n.Border
 	bordered := edges.Style != style.BorderNone && shows(edges.Color)
 	if !bordered && !shows(n.Background) && len(n.Shadows)+len(n.InsetShadows) == 0 && n.Gradient.Kind != style.GradientLinear {
@@ -92,8 +92,8 @@ func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip im
 	return f.clip(start, visual, f.pixels(n.Clip), layerClip, origin, round)
 }
 
-func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point, round *clipper) (image.Rectangle, bool) {
-	if clip == layerClip && round == nil {
+func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point, round int32) (image.Rectangle, bool) {
+	if clip == layerClip && round == 0 {
 		return visual, true
 	}
 	pushed := len(f.ops)
@@ -104,8 +104,8 @@ func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin 
 		f.put(raster.Clip, raster.Box{Rect: rect(clip.Sub(origin))}, color.RGBA{})
 	}
 	seen := visual.Intersect(clip.Sub(origin))
-	for ; round != nil; round = round.up {
-		n := round.node
+	for ; round != 0; round = f.entries[round].round {
+		n := f.entries[round].node
 		outer, shape := f.pixels(n.Bounds), f.pixels(n.Padding)
 		inset := max(shape.Min.X-outer.Min.X, shape.Min.Y-outer.Min.Y, outer.Max.X-shape.Max.X, outer.Max.Y-shape.Max.Y)
 		r := f.radii(n.Border.Radius)
@@ -168,7 +168,7 @@ func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (i
 	start := len(f.ops)
 	half := float64(width) / 2
 	f.put(raster.Fill, raster.Box{Rect: rect(visual), Radii: [4]float64{half, half, half, half}}, c)
-	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin, nil)
+	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin, 0)
 }
 
 func GradientFill(g style.Gradient, shape raster.Box) raster.Op {
