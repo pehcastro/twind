@@ -79,8 +79,8 @@ func (r *Raster) band(area image.Rectangle, lo, hi float64) {
 		r.vary(area.Min.Y, area.Max.Y+1)
 		return
 	}
-	r.vary(area.Min.Y, first+2)
-	r.vary(last, area.Max.Y+1)
+	r.vary(area.Min.Y, max(first+2, area.Min.Y+1))
+	r.vary(min(last, area.Max.Y), area.Max.Y+1)
 }
 
 func (r *Raster) halves(b Box) {

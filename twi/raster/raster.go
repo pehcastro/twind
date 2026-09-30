@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/raster"
 	"github.com/twind-dev/twind/twi/color"
@@ -62,7 +63,7 @@ type layer struct {
 type memo struct {
 	along, t float64
 	cov      float32
-	in, out  uint32
+	in, out  [4]uint8
 }
 
 type Raster struct {
@@ -71,6 +72,7 @@ type Raster struct {
 	depth    int
 	phi      [konst.PhiSteps + 1]float64
 	ramp     [konst.GradientSteps + 1][4]float32
+	stops    []Stop
 	memo     []memo
 	solid    []uint8
 	rows     repeat
@@ -283,9 +285,10 @@ func (r *Raster) fill(op Op) {
 		for x, i := lo, top.img.PixOffset(lo, y); x < hi; x, i = x+1, i+4 {
 			fx := float64(x) + 0.5
 			cov := float32(1)
-			if x < fullLo || x >= fullHi {
+			switch {
+			case x < fullLo || x >= fullHi:
 				cov = o.cover(x, y)
-			} else if uniform {
+			case uniform:
 				for _, run := range r.open(y, x, fullHi) {
 					pix := top.img.Pix[top.img.PixOffset(run[0], y):top.img.PixOffset(run[1], y)]
 					if opaque {
@@ -294,6 +297,10 @@ func (r *Raster) fill(op Op) {
 						flood(pix, paint, 1)
 					}
 				}
+				x, i = fullHi-1, top.img.PixOffset(fullHi-1, y)
+				continue
+			case op.Dash == Solid:
+				r.shade(top.img.Pix[i:top.img.PixOffset(fullHi, y)], r.memo[x-area.Min.X:fullHi-area.Min.X], down, 1)
 				x, i = fullHi-1, top.img.PixOffset(fullHi-1, y)
 				continue
 			}
@@ -309,14 +316,20 @@ func (r *Raster) fill(op Op) {
 				blend(px, paint, cov)
 				continue
 			}
-			m := &r.memo[x-area.Min.X]
-			t, in := m.along+down+0.5, binary.LittleEndian.Uint32(px)
-			if t != m.t || cov != m.cov || in != m.in {
-				blend(px, r.sample(t), cov)
-				m.t, m.cov, m.in, m.out = t, cov, in, binary.LittleEndian.Uint32(px)
-			}
-			binary.LittleEndian.PutUint32(px, m.out)
+			r.shade(px, r.memo[x-area.Min.X:][:1], down, cov)
 		}
+	}
+}
+
+func (r *Raster) shade(pix []uint8, memos []memo, down float64, cov float32) {
+	for k := range memos {
+		m, px := &memos[k], (*[4]uint8)(pix[4*k:])
+		if t := m.along + down + 0.5; t != m.t || cov != m.cov || *px != m.in {
+			m.t, m.cov, m.in = t, cov, *px
+			blend(px[:], r.sample(t), cov)
+			m.out = *px
+		}
+		*px = m.out
 	}
 }
 
@@ -434,6 +447,10 @@ func resize[T any](s []T, n int) []T {
 }
 
 func (r *Raster) gradient(stops []Stop) {
+	if slices.Equal(stops, r.stops) {
+		return
+	}
+	r.stops = append(r.stops[:0], stops...)
 	var l1, l2 [3]float64
 	pair := -1
 	for i := range r.ramp {
