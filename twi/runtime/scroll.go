@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"image"
 	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
@@ -87,6 +88,39 @@ func (r *Runtime) scrollIntoView() bool {
 		nx, ny = max(min(nx, content.W-view.W), 0), max(min(ny, content.H-view.H), 0)
 		moved = r.tree.ScrollTo(s.path, nx, ny) || moved
 		at.X, at.Y = at.X-(nx-x), at.Y-(ny-y)
+	}
+	return moved
+}
+
+type Ref struct {
+	bounds image.Rectangle
+	frame  uint64
+}
+
+func (f *Ref) Bounds() image.Rectangle { return f.bounds }
+
+func (r *Runtime) Viewport() image.Rectangle { return image.Rect(0, 0, r.width, r.height) }
+
+func (r *Runtime) measure() bool {
+	moved := false
+	for _, e := range r.doc.refs {
+		n := &r.scene
+		for _, i := range e.path() {
+			n = &n.Children[i]
+		}
+		at, ref := n.Bounds, e.node.Measure
+		box := image.Rect(at.X, at.Y, at.X+at.W, at.Y+at.H)
+		moved = moved || box != ref.bounds
+		ref.bounds, ref.frame = box, r.doc.frame
+	}
+	for _, ref := range r.measured {
+		if ref.frame != r.doc.frame && ref.bounds != (image.Rectangle{}) {
+			ref.bounds, moved = image.Rectangle{}, true
+		}
+	}
+	r.measured = r.measured[:0]
+	for _, e := range r.doc.refs {
+		r.measured = append(r.measured, e.node.Measure)
 	}
 	return moved
 }

@@ -109,3 +109,9 @@ func NonModalFocusScope() NodeOption {
 }
 
 func Key(key string) NodeOption { return behaviour(func(n *runtime.Node) { n.Key = key }) }
+
+type Ref = runtime.Ref
+
+func NewRef(*Runtime) *Ref { return &Ref{} }
+
+func Measure(ref *Ref) NodeOption { return behaviour(func(n *runtime.Node) { n.Measure = ref }) }

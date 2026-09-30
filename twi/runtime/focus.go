@@ -22,6 +22,7 @@ type Node struct {
 	Focusable, Disabled, AutoFocus   bool
 	TopLayer                         bool
 	Scope                            Scope
+	Measure                          *Ref
 	KeyDown, Focus, Blur             []events.Listener[*Elem]
 	Click, Enter, Leave, PointerDown []events.Listener[*Elem]
 	PointerDownOutside, FocusOutside []func()
@@ -44,6 +45,7 @@ type document struct {
 	entered []entered
 	autos   []*Elem
 	layers  []*Elem
+	refs    []*Elem
 	focused *Elem
 }
 
@@ -80,7 +82,7 @@ func (d *document) Listeners(e *Elem, t events.Type) []events.Listener[*Elem] {
 
 func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	d.frame++
-	d.scopes, d.loose, d.autos, d.layers = d.scopes[:0], d.loose[:0], d.autos[:0], d.layers[:0]
+	d.scopes, d.loose, d.autos, d.layers, d.refs = d.scopes[:0], d.loose[:0], d.autos[:0], d.layers[:0], d.refs[:0]
 	if d.root == nil {
 		d.root = &Elem{}
 	}
@@ -236,6 +238,9 @@ func (d *document) attach(e *Elem, n Node) {
 	}
 	if n.TopLayer {
 		d.layers = append(d.layers, e)
+	}
+	if n.Measure != nil {
+		d.refs = append(d.refs, e)
 	}
 	kept := len(e.children) == len(n.Children)
 	for i := 0; kept && i < len(n.Children); i++ {

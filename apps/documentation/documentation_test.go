@@ -2,6 +2,7 @@ package docsapp
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -346,6 +347,101 @@ func TestCopy(t *testing.T) {
 	}
 }
 
+var buttonSections = []string{"Usage", "Variants", "Sizes", "API reference"}
+
+func column(d *drive.Driver, from, to int, text string) int {
+	for y, line := range strings.Split(d.Frame().Text(), "\n") {
+		if r := []rune(line); len(r) > from && strings.HasPrefix(strings.TrimSpace(string(r[from:min(to, len(r))])), text) {
+			return y
+		}
+	}
+	return -1
+}
+
+func onThisPage(t *testing.T, d *drive.Driver) (current string, rows []int) {
+	t.Helper()
+	x, _ := spot(t, d, "On this page")
+	cells, seen := d.Frame().Cells(), map[string]int{}
+	colours := make([]string, len(buttonSections))
+	for i, s := range buttonSections {
+		y := column(d, x, cells.Width(), s)
+		if y < 0 {
+			t.Fatalf("no %q under On this page:\n%s", s, d.Frame().Text())
+		}
+		rows = append(rows, y)
+		for c := x; c < cells.Width(); c++ {
+			if cell := cells.At(c, y); cell.Grapheme != " " {
+				colours[i] = fmt.Sprint(cell.Fg, cell.Attr)
+				break
+			}
+		}
+		seen[colours[i]]++
+	}
+	for i, c := range colours {
+		if seen[c] == 1 {
+			current = buttonSections[i]
+		}
+	}
+	return current, rows
+}
+
+func TestOnThisPageClickScrollsToTheHeading(t *testing.T) {
+	d := open(t)
+	jump(t, d, "Button")
+	left, breadcrumb := spot(t, d, "Docs ›")
+	right, _ := spot(t, d, "On this page")
+	top := breadcrumb - 1
+	got, rows := onThisPage(t, d)
+	if got != "Usage" {
+		t.Errorf("at the top of Button: current entry %q, want Usage", got)
+	}
+	t.Logf("before the click on Sizes:\n%s", d.Frame().Text())
+	d.Click(right+1, rows[2])
+	if got := column(d, left, right, "Sizes"); got != top {
+		t.Errorf("a click on Sizes put its heading on row %d, want the content's top row %d:\n%s", got, top, d.Frame().Text())
+	}
+	if got, _ := onThisPage(t, d); got != "Sizes" {
+		t.Errorf("after the click on Sizes: current entry %q, want Sizes", got)
+	}
+	t.Logf("after the click on Sizes:\n%s", d.Frame().Text())
+	d.Click(right+1, rows[0])
+	if got := column(d, left, right, "Usage"); got != top {
+		t.Errorf("a click on Usage put its heading on row %d, want %d", got, top)
+	}
+	d.Move(left, top+10)
+	d.Press("tab")
+	d.Press("tab")
+	d.Press("enter")
+	if got, _ := onThisPage(t, d); got != "Sizes" || column(d, left, right, "Sizes") != top {
+		t.Errorf("tab twice from Usage, then enter: current %q, Sizes on row %d, want Sizes on %d:\n%s", got, column(d, left, right, "Sizes"), top, d.Frame().Text())
+	}
+}
+
+func TestOnThisPageFollowsTheWheel(t *testing.T) {
+	t.Skip("the app cannot see the page's scroll offset or a heading's position: needs a runtime scroll event and element bounds, see TWI-162 Log")
+	d := open(t)
+	jump(t, d, "Button")
+	left, breadcrumb := spot(t, d, "Docs ›")
+	right, _ := spot(t, d, "On this page")
+	top := breadcrumb - 1
+	for range 40 {
+		if y := column(d, left, right, "Variants"); y >= 0 && y <= top {
+			break
+		}
+		d.Wheel(left+2, top+2, 1)
+	}
+	if y := column(d, left, right, "Sizes"); y >= 0 && y <= top {
+		t.Fatalf("one notch took Sizes past the top too; the check needs a finer step:\n%s", d.Frame().Text())
+	}
+	if got, _ := onThisPage(t, d); got != "Variants" {
+		t.Errorf("wheel down until Variants reaches the top: current entry %q, want Variants:\n%s", got, d.Frame().Text())
+	}
+	d.Wheel(left+2, top+2, -40)
+	if got, _ := onThisPage(t, d); got != "Usage" {
+		t.Errorf("wheel back to the top: current entry %q, want Usage", got)
+	}
+}
+
 func TestLink(t *testing.T) {
 	d := open(t)
 	x, y := spot(t, d, "read Installation")
@@ -371,17 +467,17 @@ func TestThemePicker(t *testing.T) {
 	d := open(t)
 	d.Press("t")
 	d.Press("down")
-	if text := d.Frame().Text(); !strings.Contains(text, "● zinc-dark") || !strings.Contains(text, "◐ zinc-dark") {
+	if text := d.Frame().Text(); !strings.Contains(text, "● zinc-dark") || !strings.Contains(text, "Theme: zinc-dark") {
 		t.Fatalf("down in the picker: want zinc-dark still applied and marked:\n%s", text)
 	}
 	d.Press("escape")
-	if text := d.Frame().Text(); strings.Contains(text, "Enter keeps") || !strings.Contains(text, "◐ zinc-dark") {
+	if text := d.Frame().Text(); strings.Contains(text, "Enter keeps") || !strings.Contains(text, "Theme: zinc-dark") {
 		t.Fatalf("escape: want the picker closed and zinc-dark kept:\n%s", text)
 	}
 	d.Press("t")
 	d.Press("up")
 	d.Press("enter")
-	if text := d.Frame().Text(); !strings.Contains(text, "◐ zinc-light") {
+	if text := d.Frame().Text(); !strings.Contains(text, "Theme: zinc-light") {
 		t.Errorf("up, enter from zinc-dark: want zinc-light applied:\n%s", text)
 	}
 }

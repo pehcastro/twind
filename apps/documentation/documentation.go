@@ -44,6 +44,7 @@ type site struct {
 	palette             *ui.CommandDialog
 	sidebar             *ui.Sidebar
 	page, theme, trying int
+	section             int
 	picker              bool
 }
 
@@ -215,7 +216,7 @@ func (s *site) open(page int) {
 	if err := s.parse(page); err != nil {
 		panic(err)
 	}
-	s.page, s.folds[s.entries[page].group].Open = page, true
+	s.page, s.section, s.folds[s.entries[page].group].Open = page, 0, true
 	s.rt.Invalidate()
 }
 
@@ -240,7 +241,7 @@ func (s *site) view() twi.Node {
 			el("grow"),
 			s.palette.Trigger(ui.Outline, ui.SizeSM, twi.Key("search"), twi.Class("w-40 justify-between text-muted-foreground"),
 				twi.Text("Search documentation..."), ui.KbdGroup(ui.Kbd(twi.Text("Ctrl")), ui.Kbd(twi.Text("K")))),
-			ui.Button(ui.Ghost, ui.SizeSM, twi.Key("theme"), twi.OnClick(func(*twi.Event) { s.openPicker() }), twi.Text("◐ "+themeName(s.themes[s.theme]))),
+			ui.Button(ui.Ghost, ui.SizeSM, twi.Key("theme"), twi.OnClick(func(*twi.Event) { s.openPicker() }), twi.Text("Theme: "+themeName(s.themes[s.theme]))),
 		),
 		el("flex flex-row flex-1 min-h-0", s.sidebar.Provider(s.nav(), ui.SidebarInset(el("flex flex-row flex-1 min-h-0", s.content(e), s.outline(e))))),
 		s.search(),
@@ -287,7 +288,7 @@ func (s *site) content(e entry) twi.Node {
 				ui.BreadcrumbItem(ui.BreadcrumbLink(twi.Text(e.group))), ui.BreadcrumbSeparator(),
 				ui.BreadcrumbItem(ui.BreadcrumbPage(twi.Text(e.title))),
 			)),
-			markdown.Render(e.page, markdown.Options{Highlight: s.code, Follow: s.follow}),
+			s.sections(e),
 			el("flex flex-row justify-between pt-1", pager...),
 		),
 	)
@@ -299,15 +300,43 @@ func (s *site) follow(target string) {
 	}
 }
 
+func (s *site) sections(e entry) twi.Node {
+	options := markdown.Options{Highlight: s.code, Follow: s.follow}
+	var out []twi.NodeOption
+	for blocks := e.page.Blocks; len(blocks) > 0; {
+		end := 1 + slices.IndexFunc(blocks[1:], func(b markdown.Block) bool { return b.Kind == markdown.Heading && outlined(b.Level) })
+		if end == 0 {
+			end = len(blocks)
+		}
+		section := []twi.NodeOption{markdown.Render(markdown.Page{Blocks: blocks[:end]}, options)}
+		if b := blocks[0]; b.Kind == markdown.Heading && outlined(b.Level) {
+			section = append(section, twi.Key("section-"+b.ID))
+			if b.Level == 2 {
+				section = append(section, twi.Class("not-first:mt-1"))
+			}
+		}
+		out, blocks = append(out, el("flex flex-col", section...)), blocks[end:]
+	}
+	return el("flex flex-col gap-1", out...)
+}
+
+func outlined(level int) bool { return level == 2 || level == 3 }
+
 func (s *site) outline(e entry) twi.Node {
 	items := []twi.NodeOption{txt("font-medium", "On this page")}
-	for _, a := range e.page.Anchors {
-		switch a.Level {
-		case 2:
-			items = append(items, txt("text-muted-foreground", a.Text))
-		case 3:
-			items = append(items, txt("pl-2 text-muted-foreground", a.Text))
+	for i, a := range slices.DeleteFunc(slices.Clone(e.page.Anchors), func(a markdown.Anchor) bool { return !outlined(a.Level) }) {
+		class := "text-muted-foreground"
+		if i == s.section {
+			class = "text-foreground"
 		}
+		if a.Level == 3 {
+			class += " pl-2"
+		}
+		items = append(items, twi.Element(twi.Key("toc-"+a.ID), twi.Focusable(), twi.Class("rounded-sm hover:text-foreground focus-visible:shadow-[0_0_0_1px_var(--color-ring)]", class), twi.Text(a.Text), twi.OnClick(func(*twi.Event) {
+			s.section = i
+			s.rt.ScrollIntoView("section-" + a.ID)
+			s.rt.Invalidate()
+		})))
 	}
 	return el("flex flex-col w-24 shrink-0 gap-1 px-2 py-1", items...)
 }

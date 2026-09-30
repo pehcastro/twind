@@ -88,6 +88,7 @@ type Runtime struct {
 	ringless      bool
 	revealed      *Elem
 	intoView      string
+	measured      []*Ref
 	lastFrame     time.Time
 	texts, stale  map[string]scene.Text
 	sanitize      func(string) scene.Text
@@ -344,7 +345,6 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		tree = r.app()
 		r.doc.update(tree.Events, &r.focus)
 	}
-	r.keys = tree.Keys
 	graphics, cell := r.surface(r.caps)
 	frame := render.Frame{
 		Sheet:    r.cfg.Sheet,
@@ -356,27 +356,13 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		Now:      now.Sub(r.start),
 		Graphics: graphics != terminal.GraphicsNone,
 	}
-	tree.Root = r.number(tree.Root)
-	r.nodes = tree.Root
-	current, ok := r.focus.Current()
+	current, _ := r.focus.Current()
 	if current != r.revealed {
 		r.ringless = r.pointed
 	}
-	if ok {
-		at := style.StateFocus | style.StateFocusWithin
-		if !r.ringless {
-			at |= style.StateFocusVisible
-		}
-		tree.Root = mark(tree.Root, current.path(), at, style.StateFocusWithin)
-	}
-	if r.pointer.hovered != nil {
-		tree.Root = mark(tree.Root, r.pointer.hovered, style.StateHover, style.StateHover)
-	}
-	if r.pointer.pressed != nil {
-		tree.Root = mark(tree.Root, r.pointer.pressed, style.StateActive, style.StateActive)
-	}
+	root := r.marked(tree)
 	var err error
-	if r.scene, err = r.tree.Scene(tree.Root, frame); err != nil {
+	if r.scene, err = r.tree.Scene(root, frame); err != nil {
 		return err
 	}
 	moved := current != r.revealed && current != nil && r.tree.ScrollIntoView(current.path())
@@ -385,7 +371,14 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		moved = r.scrollIntoView() || moved
 	}
 	if moved {
-		if r.scene, err = r.tree.Scene(tree.Root, frame); err != nil {
+		if r.scene, err = r.tree.Scene(root, frame); err != nil {
+			return err
+		}
+	}
+	for pass := 1; r.measure() && pass < konst.MeasurePasses; pass++ {
+		tree = r.app()
+		r.doc.update(tree.Events, &r.focus)
+		if r.scene, err = r.tree.Scene(r.marked(tree), frame); err != nil {
 			return err
 		}
 	}
@@ -411,6 +404,26 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		r.Invalidate()
 	}
 	return nil
+}
+
+func (r *Runtime) marked(tree Tree) render.Node {
+	r.keys = tree.Keys
+	root := r.number(tree.Root)
+	r.nodes = root
+	if current, ok := r.focus.Current(); ok {
+		at := style.StateFocus | style.StateFocusWithin
+		if !r.ringless {
+			at |= style.StateFocusVisible
+		}
+		root = mark(root, current.path(), at, style.StateFocusWithin)
+	}
+	if r.pointer.hovered != nil {
+		root = mark(root, r.pointer.hovered, style.StateHover, style.StateHover)
+	}
+	if r.pointer.pressed != nil {
+		root = mark(root, r.pointer.pressed, style.StateActive, style.StateActive)
+	}
+	return root
 }
 
 func (r *Runtime) number(root render.Node) render.Node {
