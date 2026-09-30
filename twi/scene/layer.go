@@ -25,6 +25,7 @@ type Frame struct {
 type stacker struct {
 	contexts pool[context]
 	clippers pool[clipper]
+	top      []*context
 }
 
 type pool[T any] struct {
@@ -68,6 +69,7 @@ type context struct {
 	key                 uint64
 	flow                []entry
 	below, level, above []*context
+	top                 []*context
 }
 
 type entry struct {
@@ -90,8 +92,7 @@ type chunk struct {
 func (f *Frame) Record(root *Node, cell image.Point) {
 	f.cell, f.screen, f.root = cell, root.Clip, root
 	f.Layers, f.ops, f.boxes = f.Layers[:0], f.ops[:0], f.boxes[:0]
-	f.contexts.used, f.clippers.used = 0, 0
-	f.promote(f.stack(root, konst.HashSeed, nil), -1, false)
+	f.promote(f.page(root), -1, false)
 	opsTo, boxTo := len(f.ops), len(f.boxes)
 	for i := len(f.Layers) - 1; i >= 0; i-- {
 		l := &f.Layers[i]
@@ -118,7 +119,15 @@ func Walk(root *Node, draw func(*Node), group func(n *Node, inside func())) {
 		ctx.visit(func(e entry) { draw(e.node) }, func(c *context) { group(c.node, func() { walk(c) }) })
 	}
 	var s stacker
-	group(root, func() { walk(s.stack(root, konst.HashSeed, nil)) })
+	group(root, func() { walk(s.page(root)) })
+}
+
+func (s *stacker) page(root *Node) *context {
+	s.contexts.used, s.clippers.used, s.top = 0, 0, s.top[:0]
+	ctx := s.stack(root, konst.HashSeed, nil)
+	slices.SortStableFunc(s.top, func(a, b *context) int { return cmp.Compare(a.node.TopLayer, b.node.TopLayer) })
+	ctx.top = s.top
+	return ctx
 }
 
 func (s *stacker) open(n *Node, key uint64) *context {
@@ -147,8 +156,14 @@ func (s *stacker) collect(ctx *context, n *Node, key uint64, into *context, roun
 		c, ck := &n.Children[i], mix(key, uint64(i)+1)
 		positioned := c.Position != layout.PositionStatic
 		switch {
+		case c.TopLayer > 0:
+			s.top = append(s.top, s.stack(c, ck, nil))
 		case c.Opacity < 1 || c.Position == layout.PositionFixed || positioned && c.ZIndex != 0:
-			switch child := s.stack(c, ck, round); {
+			masks := round
+			if c.Position == layout.PositionFixed {
+				masks = nil
+			}
+			switch child := s.stack(c, ck, masks); {
 			case c.ZIndex < 0:
 				ctx.below = append(ctx.below, child)
 			case c.ZIndex > 0:
@@ -188,6 +203,9 @@ func (ctx *context) visit(draw func(entry), child func(*context)) {
 		child(s)
 	}
 	for _, s := range ctx.above {
+		child(s)
+	}
+	for _, s := range ctx.top {
 		child(s)
 	}
 }

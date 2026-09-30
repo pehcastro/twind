@@ -22,6 +22,7 @@ type Node struct {
 	Element  style.Element
 	Classes  []string
 	State    *style.NodeState
+	TopLayer int
 	Children []Node
 }
 
@@ -48,6 +49,7 @@ type styledBox struct {
 	nowrap   bool
 	anywhere bool
 	reverse  bool
+	top      int
 	raw      string
 	text     scene.Text
 	natural  [2]int
@@ -110,7 +112,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 		layout.Layout(styled.box, f.Width, f.Height)
 	}
 	t.relayout = false
-	return styled.scene(moved), nil
+	return styled.scene(moved, reclip{viewport: styled.box.Clip}), nil
 }
 
 func (t *Tree) ScrollBy(path []int, dx, dy int) bool {
@@ -178,17 +180,50 @@ func (t *Tree) scrollTo(b *layout.Box, x, y int) bool {
 	return true
 }
 
-func (s *styledBox) scene(moved bool) scene.Node {
+type reclip struct {
+	on                       bool
+	flow, absolute, viewport layout.Rect
+}
+
+func (s *styledBox) scene(moved bool, r reclip) scene.Node {
 	if s.painted && !moved {
 		return s.node
 	}
 	n := scene.New(s.box, s.computed, s.text)
-	n.Truncate = s.truncate
+	n.Truncate, n.TopLayer = s.truncate, s.top
+	if s.top > 0 {
+		r.on, r.flow, r.absolute = true, r.viewport, r.viewport
+	}
+	if r.on {
+		n.Clip = r.flow
+		if n.HidesOverflow {
+			r.flow = overlap(r.flow, n.Padding)
+		}
+		if n.Position != layout.PositionStatic {
+			r.absolute = r.flow
+		}
+	}
 	for _, c := range s.children {
-		n.Children = append(n.Children, c.scene(moved))
+		inner := r
+		switch c.box.Style.Position {
+		case layout.PositionStatic, layout.PositionRelative:
+		case layout.PositionAbsolute:
+			inner.flow = r.absolute
+		case layout.PositionFixed:
+			inner.flow, inner.absolute = r.viewport, r.viewport
+		}
+		if c.box.Style.Display == layout.DisplayNone {
+			inner.on, inner.viewport = false, layout.Rect{}
+		}
+		n.Children = append(n.Children, c.scene(moved, inner))
 	}
 	s.node, s.painted = n, true
 	return n
+}
+
+func overlap(a, b layout.Rect) layout.Rect {
+	x, y := max(a.X, b.X), max(a.Y, b.Y)
+	return layout.Rect{X: x, Y: y, W: max(min(a.X+a.W, b.X+b.W)-x, 0), H: max(min(a.Y+a.H, b.Y+b.H)-y, 0)}
 }
 
 func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node, siblings []*styledBox) (*styledBox, error) {
@@ -238,6 +273,9 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 			s.truncate, s.painted = truncate, false
 		}
 		s.classes, s.state, s.element = n.Classes, state, n.Element
+	}
+	if n.TopLayer != s.top {
+		s.top, t.relayout = n.TopLayer, true
 	}
 	if n.Text != s.raw && s.retext(f, n.Text) {
 		t.relayout = true

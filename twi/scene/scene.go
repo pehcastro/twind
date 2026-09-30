@@ -23,6 +23,9 @@ type Node struct {
 	Clip                                   layout.Rect
 	Position                               layout.Position
 	ZIndex                                 int
+	TopLayer                               int
+	Visibility                             style.Visibility
+	PointerEvents                          style.PointerEvents
 	Opacity                                float64
 	Scroll                                 bool
 	HidesOverflow                          bool
@@ -87,6 +90,8 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 		Opacity:       s.Opacity,
 		Scroll:        box.Style.Overflow == layout.OverflowScroll,
 		HidesOverflow: box.Style.Overflow != layout.OverflowVisible,
+		Visibility:    s.Visibility,
+		PointerEvents: s.PointerEvents,
 	}
 	if n.Scroll {
 		p := box.PaddingBox
