@@ -64,21 +64,21 @@ func put(buf *buffer.Buffer, clip layout.Rect, x, y int, src buffer.Cell) {
 	buf.Set(x, y, src)
 }
 
-func fade(dst, layer *buffer.Buffer, opacity float64) {
-	whole := layout.Rect{W: dst.Width(), H: dst.Height()}
+func fade(dst, layer *buffer.Buffer, opacity float64, span layout.Rect) {
 	scale := func(c *color.Color) {
 		if c.Kind == color.Literal {
 			c.RGBA.A = uint8(math.Round(float64(c.RGBA.A) * opacity))
 		}
 	}
-	for y := range layer.Height() {
-		for x, c := range layer.Row(y) {
+	for y := span.Y; y < span.Y+span.H; y++ {
+		for x := span.X; x < span.X+span.W; x++ {
+			c := layer.At(x, y)
 			if c.Width == buffer.Continuation {
 				continue
 			}
 			scale(&c.Fg)
 			scale(&c.Bg)
-			put(dst, whole, x, y, c)
+			put(dst, span, x, y, c)
 		}
 	}
 }

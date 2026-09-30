@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
-	"strings"
+	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/paint"
 	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
@@ -26,28 +26,7 @@ const (
 	Glyphs
 )
 
-func Paint(buf *buffer.Buffer, root scene.Node, look Look) {
-	if bg := root.Background; bg.Kind == color.Literal && bg.RGBA.A > 0 {
-		buf.Fill(buffer.Rect{W: buf.Width(), H: buf.Height()}, buffer.Cell{Grapheme: " ", Bg: bg})
-	}
-	target := buf
-	scene.Walk(&root, func(n *scene.Node) { draw(target, n, look) }, func(n *scene.Node, inside func()) {
-		switch {
-		case n.Opacity <= 0:
-		case n.Opacity >= 1:
-			inside()
-		default:
-			under := target
-			target = buffer.New(buf.Width(), buf.Height())
-			target.Fill(buffer.Rect{W: buf.Width(), H: buf.Height()}, buffer.Cell{Grapheme: " ", Bg: color.Color{Kind: color.Literal}})
-			inside()
-			fade(under, target, n.Opacity)
-			target = under
-		}
-	})
-}
-
-func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
+func draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 	shadows, insets := n.Shadows, n.InsetShadows
 	if look != Composited {
 		shadows, insets = nil, nil
@@ -56,7 +35,7 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 		r := n.Bounds
 		left, top, right, bottom := reach(s)
 		cast := layout.Rect{X: r.X - left, Y: r.Y - top, W: r.W + left + right, H: r.H + top + bottom}
-		shadow(buf, n.Clip, cast, r, s.Color, false)
+		shadow(buf, clip, cast, r, s.Color, false)
 	}
 	fill := n.Bounds
 	if look == Composited && n.Border.Style == style.BorderSingle {
@@ -65,29 +44,38 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 	bg := n.Background
 	filled := bg.Kind == color.Literal && bg.RGBA.A > 0
 	if filled {
-		for y := fill.Y; y < fill.Y+fill.H; y++ {
-			for x := fill.X; x < fill.X+fill.W; x++ {
-				put(buf, n.Clip, x, y, buffer.Cell{Grapheme: " ", Bg: bg})
+		f := overlap(fill, clip)
+		for y := f.Y; y < f.Y+f.H; y++ {
+			for x := f.X; x < f.X+f.W; x++ {
+				put(buf, clip, x, y, buffer.Cell{Grapheme: " ", Bg: bg})
 			}
 		}
 	}
 	if look != Plain && n.Gradient.Kind == style.GradientLinear {
-		gradient(buf, n, fill, look)
+		gradient(buf, n, fill, look, clip)
 	}
 	if look == Composited && filled && n.Border.Radius == style.RadiusFull && n.Bounds.H == 1 {
-		caps, r := strings.Split(konst.PillCaps, ""), n.Bounds
-		for i, x := range []int{r.X - 1, r.X + r.W} {
-			put(buf, n.Clip, x, r.Y, buffer.Cell{Grapheme: caps[i], Fg: bg, Bg: color.Color{Kind: color.Literal}})
-		}
+		caps, r := split(konst.PillCaps), n.Bounds
+		put(buf, clip, r.X-1, r.Y, buffer.Cell{Grapheme: caps[0], Fg: bg, Bg: color.Color{Kind: color.Literal}})
+		put(buf, clip, r.X+r.W, r.Y, buffer.Cell{Grapheme: caps[1], Fg: bg, Bg: color.Color{Kind: color.Literal}})
 	}
 	for _, s := range insets {
 		p := n.Padding
 		left, top, right, bottom := reach(s)
 		lit := layout.Rect{X: p.X + right, Y: p.Y + bottom, W: p.W - left - right, H: p.H - top - bottom}
-		shadow(buf, n.Clip, p, lit, s.Color, true)
+		shadow(buf, clip, p, lit, s.Color, true)
 	}
-	border(buf, n, look)
-	lines(buf, n)
+	border(buf, n, look, clip)
+	lines(buf, n, clip)
+}
+
+func split(set string) (glyphs [4]string) {
+	i := 0
+	for at, r := range set {
+		glyphs[i] = set[at : at+utf8.RuneLen(r)]
+		i++
+	}
+	return glyphs
 }
 
 func reach(s style.Shadow) (left, top, right, bottom int) {
@@ -102,7 +90,7 @@ func reach(s style.Shadow) (left, top, right, bottom int) {
 	return cells(-s.X, stylekonst.NominalCellX), cells(-s.Y, stylekonst.NominalCellY), cells(s.X, stylekonst.NominalCellX), cells(s.Y, stylekonst.NominalCellY)
 }
 
-func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look) {
+func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look, clip layout.Rect) {
 	w, h := float64(fill.W), float64(2*fill.H)
 	op := scene.GradientFill(n.Gradient, raster.Box{Rect: raster.Rect{W: w, H: h}})
 	sin, cos := math.Sincos(op.Angle * math.Pi / 180)
@@ -121,13 +109,13 @@ func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look) {
 			if top == bottom || look == Glyphs {
 				cell = buffer.Cell{Grapheme: " ", Bg: bottom}
 			}
-			put(buf, n.Clip, fill.X+x, fill.Y+y, cell)
+			put(buf, clip, fill.X+x, fill.Y+y, cell)
 		}
 	}
 }
 
 func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, c color.Color, inset bool) {
-	hairlines := strings.Split(konst.Hairlines, "")
+	hairlines := split(konst.Hairlines)
 	band := func(v, lo, size, litLo, litSize int) (out, after, fraction bool) {
 		after = v >= litLo+litSize
 		out = after || v < litLo
@@ -140,8 +128,9 @@ func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, c color.Color, in
 		}
 		return out, after, v == far
 	}
-	for y := shaded.Y; y < shaded.Y+shaded.H; y++ {
-		for x := shaded.X; x < shaded.X+shaded.W; x++ {
+	area := overlap(shaded, clip)
+	for y := area.Y; y < area.Y+area.H; y++ {
+		for x := area.X; x < area.X+area.W; x++ {
 			outX, right, fractionX := band(x, shaded.X, shaded.W, lit.X, lit.W)
 			outY, below, fractionY := band(y, shaded.Y, shaded.H, lit.Y, lit.H)
 			if outX == outY {
@@ -203,18 +192,18 @@ func glyphs(b scene.Border, look Look) (edges, corners string) {
 	panic(fmt.Sprintf("paint: unknown border style %d", b.Style))
 }
 
-func border(buf *buffer.Buffer, n *scene.Node, look Look) {
+func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 	r, b := n.Bounds, n.Border
 	edgeSet, cornerSet := glyphs(b, look)
 	if edgeSet == "" || r.W == 0 || r.H == 0 {
 		return
 	}
-	edges := strings.Split(edgeSet, "")
+	edges := split(edgeSet)
 	right, bottom := r.X+r.W-1, r.Y+r.H-1
 	glyph := func(x, y int, g string) {
-		put(buf, n.Clip, x, y, buffer.Cell{Grapheme: g, Fg: b.Color, Bg: color.Color{Kind: color.Literal}})
+		put(buf, clip, x, y, buffer.Cell{Grapheme: g, Fg: b.Color, Bg: color.Color{Kind: color.Literal}})
 	}
-	for x := r.X; x <= right; x++ {
+	for x := max(r.X, clip.X); x <= min(right, clip.X+clip.W-1); x++ {
 		if x == r.X && b.Left || x == right && b.Right {
 			continue
 		}
@@ -225,7 +214,7 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look) {
 			glyph(x, bottom, edges[2])
 		}
 	}
-	for y := r.Y; y <= bottom; y++ {
+	for y := max(r.Y, clip.Y); y <= min(bottom, clip.Y+clip.H-1); y++ {
 		if y == r.Y && b.Top || y == bottom && b.Bottom {
 			continue
 		}
@@ -239,7 +228,7 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look) {
 	if cornerSet == "" {
 		return
 	}
-	corners := strings.Split(cornerSet, "")
+	corners := split(cornerSet)
 	if b.Top && b.Left {
 		glyph(r.X, r.Y, corners[0])
 	}
@@ -254,7 +243,7 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look) {
 	}
 }
 
-func lines(buf *buffer.Buffer, n *scene.Node) {
+func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect) {
 	var attr buffer.Attr
 	if n.Bold {
 		attr |= buffer.Bold
@@ -274,6 +263,9 @@ func lines(buf *buffer.Buffer, n *scene.Node) {
 	lines := n.Lines()
 	for i, line := range lines[:min(len(lines), r.H)] {
 		y, x := r.Y+i, r.X
+		if y < clip.Y || y >= clip.Y+clip.H {
+			continue
+		}
 		switch n.TextAlign {
 		case style.TextLeft, style.TextJustify:
 		case style.TextCenter:
@@ -286,7 +278,7 @@ func lines(buf *buffer.Buffer, n *scene.Node) {
 		for cluster := range text.Graphemes(line) {
 			if cluster == "\t" {
 				for stop := min(r.X+((x-r.X)/konst.TabStop+1)*konst.TabStop, end); x < stop; x++ {
-					put(buf, n.Clip, x, y, ink)
+					put(buf, clip, x, y, ink)
 				}
 				continue
 			}
@@ -302,7 +294,7 @@ func lines(buf *buffer.Buffer, n *scene.Node) {
 			if w > 1 {
 				cell.Width = buffer.Wide
 			}
-			put(buf, n.Clip, x, y, cell)
+			put(buf, clip, x, y, cell)
 			x += w
 		}
 	}
