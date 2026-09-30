@@ -292,6 +292,7 @@ const (
 	TransitionOpacity
 	TransitionShadow
 	TransitionTranslate
+	TransitionScale
 	TransitionAll = 1<<iota - 1
 )
 

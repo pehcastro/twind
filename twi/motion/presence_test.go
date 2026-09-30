@@ -163,23 +163,29 @@ func TestStylesEnterDelayWakesAtStart(t *testing.T) {
 func TestStylesScaleTransition(t *testing.T) {
 	from := card(color.RGBA{A: 255}, 1)
 	from.ScaleX, from.ScaleY = 1, 1
-	from.Transition = style.Transition{Properties: style.TransitionTranslate, Duration: 200 * ms, Easing: straight}
+	from.Transition = style.Transition{Properties: style.TransitionScale, Duration: 200 * ms, Easing: straight}
 	to := from
 	to.ScaleX, to.ScaleY = 0.5, 0.25
+	to.TranslateY = cells(4)
 	var s Styles
-	show(&s, 1, &from, &to, 0)
+	if got, _ := show(&s, 1, &from, &to, 0); got.TranslateY != cells(4) {
+		t.Errorf("transition-[scale] moved translate: %v, want the target 4 cells at once", got.TranslateY)
+	}
 	if got, _ := show(&s, 1, &to, &to, 100*ms); got.ScaleX != 0.75 || got.ScaleY != 0.625 {
-		t.Errorf("transition-transform scale at 100 ms %v %v, want 0.75 0.625", got.ScaleX, got.ScaleY)
+		t.Errorf("transition-[scale] scale at 100 ms %v %v, want 0.75 0.625", got.ScaleX, got.ScaleY)
 	}
 	if got, _ := show(&s, 1, &to, &to, 200*ms); got.ScaleX != 0.5 || got.ScaleY != 0.25 {
 		t.Errorf("scale at the end %v %v", got.ScaleX, got.ScaleY)
 	}
 	idle(t, &s)
-	from.Transition.Properties, to.Transition.Properties = style.TransitionColor, style.TransitionColor
-	if got, _ := show(&s, 2, &from, &to, 0); got.ScaleX != 0.5 {
-		t.Errorf("transition-colors moved scale: %v", got.ScaleX)
+	for _, flag := range []style.TransitionProperty{style.TransitionColor, style.TransitionTranslate} {
+		from.Transition.Properties, to.Transition.Properties = flag, flag
+		if got, _ := show(&s, 2, &from, &to, 0); got.ScaleX != 0.5 {
+			t.Errorf("transition %08b moved scale: %v", flag, got.ScaleX)
+		}
+		show(&s, 2, &to, &to, time.Second)
+		idle(t, &s)
 	}
-	idle(t, &s)
 }
 
 func TestPresenceEnterExitDelayFill(t *testing.T) {

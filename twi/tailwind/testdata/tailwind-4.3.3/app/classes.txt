@@ -89,6 +89,7 @@ transition-transform
 transition-all
 transition-none
 transition-[color,box-shadow]
+transition-[scale]
 duration-150
 duration-300
 ease-linear

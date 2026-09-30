@@ -63,8 +63,8 @@ func transitionProperty(parts [][]css.Token) (decls, problem) {
 	fields := map[string]style.TransitionProperty{
 		"all": style.TransitionAll, "none": 0, "color": style.TransitionColor, "background-color": style.TransitionBackground, "border-color": style.TransitionBorderColor,
 		"--tw-gradient-from": style.TransitionGradient, "--tw-gradient-via": style.TransitionGradient, "--tw-gradient-to": style.TransitionGradient,
-		"opacity": style.TransitionOpacity, "box-shadow": style.TransitionShadow, "transform": style.TransitionTranslate, "translate": style.TransitionTranslate,
-		"outline-color": 0, "text-decoration-color": 0, "fill": 0, "stroke": 0, "scale": 0, "rotate": 0, "filter": 0, "-webkit-backdrop-filter": 0, "backdrop-filter": 0,
+		"opacity": style.TransitionOpacity, "box-shadow": style.TransitionShadow, "transform": style.TransitionTranslate | style.TransitionScale, "translate": style.TransitionTranslate, "scale": style.TransitionScale,
+		"outline-color": 0, "text-decoration-color": 0, "fill": 0, "stroke": 0, "rotate": 0, "filter": 0, "-webkit-backdrop-filter": 0, "backdrop-filter": 0,
 		"display": 0, "content-visibility": 0, "overlay": 0, "pointer-events": 0,
 	}
 	var set style.TransitionProperty

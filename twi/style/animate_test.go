@@ -57,6 +57,16 @@ func TestAnimatePoseStartsStill(t *testing.T) {
 	}
 }
 
+func TestTransitionScale(t *testing.T) {
+	sheet := appSheet(t)
+	if got := sheet.Compute(style.ComputedStyle{}, strings.Fields("transition-[scale] scale-95")); got.Transition.Properties != style.TransitionScale || got.ScaleX != 0.95 {
+		t.Errorf("transition-[scale] scale-95: properties %08b scale %v, want %08b and 0.95", got.Transition.Properties, got.ScaleX, style.TransitionScale)
+	}
+	if style.TransitionScale == style.TransitionTranslate || style.TransitionAll&style.TransitionScale == 0 {
+		t.Errorf("TransitionScale %08b must be its own flag inside TransitionAll %08b", style.TransitionScale, style.TransitionAll)
+	}
+}
+
 func TestScaleStartsAtOne(t *testing.T) {
 	sheet := appSheet(t)
 	if got := sheet.Compute(style.ComputedStyle{}, nil); got.ScaleX != 1 || got.ScaleY != 1 {

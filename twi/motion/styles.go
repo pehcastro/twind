@@ -344,8 +344,10 @@ func (p property) flag() style.TransitionProperty {
 		return style.TransitionGradient
 	case propOpacity:
 		return style.TransitionOpacity
-	case propTranslateX, propTranslateY, propScale:
+	case propTranslateX, propTranslateY:
 		return style.TransitionTranslate
+	case propScale:
+		return style.TransitionScale
 	}
 	panic("motion: unknown property")
 }
@@ -371,7 +373,7 @@ func (p property) colour(st *style.ComputedStyle) *color.Color {
 }
 
 func (p property) paints() bool {
-	return p.flag()&(style.TransitionOpacity|style.TransitionTranslate) == 0
+	return p.flag()&(style.TransitionOpacity|style.TransitionTranslate|style.TransitionScale) == 0
 }
 
 func (p property) pairs(a, b [4]float64) bool {
