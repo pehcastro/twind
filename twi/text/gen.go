@@ -90,18 +90,39 @@ func main() {
 		records[r] = [3]byte{class[r], flags, line[r]}
 	}
 
+	ids := map[[3]byte]int{}
+	blockIDs := map[string]int{}
+	var recordTable, blockIndex, blocks []byte
+	for lo := 0; lo < count; lo += konst.BlockSize {
+		block := make([]byte, konst.BlockSize)
+		for i := range block {
+			id, ok := ids[records[lo+i]]
+			if !ok {
+				id = len(ids)
+				ids[records[lo+i]] = id
+				recordTable = append(recordTable, records[lo+i][:]...)
+			}
+			block[i] = byte(id)
+		}
+		id, ok := blockIDs[string(block)]
+		if !ok {
+			id = len(blockIDs)
+			blockIDs[string(block)] = id
+			blocks = append(blocks, block...)
+		}
+		blockIndex = append(blockIndex, byte(id))
+	}
+	if len(ids) > 256 || len(blockIDs) > 256 {
+		log.Fatalf("%d records and %d blocks do not fit a byte", len(ids), len(blockIDs))
+	}
 	var out strings.Builder
-	fmt.Fprintf(&out, "package text\n\nconst UnicodeVersion = %q\n\nconst asciiLineClasses = %q\n\nconst table = \"\" +\n", *version, line[' ':'~'+1])
-	start := 0
-	for r, record := range records {
-		if r+1 < count && records[r+1] == record {
-			continue
-		}
-		if record != [3]byte{0, 1, 0} {
-			span := []byte{byte(start >> 16), byte(start >> 8), byte(start), byte(r >> 16), byte(r >> 8), byte(r), record[0], record[1], record[2]}
-			fmt.Fprintf(&out, "\t%q +\n", span)
-		}
-		start = r + 1
+	fmt.Fprintf(&out, "package text\n\nconst UnicodeVersion = %q\n\nconst records = %q\n\nconst blockIndex = \"\" +\n", *version, recordTable)
+	for chunk := range slices.Chunk(blockIndex, konst.BlockSize) {
+		fmt.Fprintf(&out, "\t%q +\n", chunk)
+	}
+	out.WriteString("\t\"\"\n\nconst blocks = \"\" +\n")
+	for chunk := range slices.Chunk(blocks, konst.BlockSize) {
+		fmt.Fprintf(&out, "\t%q +\n", chunk)
 	}
 	out.WriteString("\t\"\"\n")
 	src, err := format.Source([]byte(out.String()))

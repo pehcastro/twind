@@ -2,7 +2,6 @@ package text
 
 import (
 	"strings"
-	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/text"
 )
@@ -76,11 +75,14 @@ func lineBreaks(before, after lineClass, spaced, leadingHyphen bool) bool {
 }
 
 type wrapper struct {
-	w     Widths
-	width int
-	lines []string
-	line  []byte
-	used  int
+	w          Widths
+	s          string
+	width      int
+	lines      []string
+	start, end int
+	copied     bool
+	line       []byte
+	used       int
 }
 
 func Wrap(s string, width int) []string {
@@ -88,75 +90,110 @@ func Wrap(s string, width int) []string {
 }
 
 func (w Widths) Wrap(s string, width int) []string {
-	out := wrapper{w: w, width: width}
+	out := wrapper{w: w, s: s, width: width, lines: make([]string, 0, len(s)/max(width, 1)+1)}
+	from := 0
 	for paragraph := range strings.SplitSeq(s, "\n") {
-		w.segments(paragraph, out.place)
+		w.segments(s, from, from+len(paragraph), out.place)
 		out.flush()
+		from += len(paragraph) + 1
 	}
 	return out.lines
 }
 
 func (w Widths) MinContent(s string) int {
 	widest := 0
+	from := 0
 	for paragraph := range strings.SplitSeq(s, "\n") {
-		w.segments(paragraph, func(_ string, width int, _ bool) { widest = max(widest, width) })
+		w.segments(s, from, from+len(paragraph), func(_, _, width int, _ bool) { widest = max(widest, width) })
+		from += len(paragraph) + 1
 	}
 	return widest
 }
 
-func (w Widths) segments(paragraph string, emit func(segment string, width int, spaced bool)) {
+func (w Widths) segments(s string, from, to int, emit func(start, end, width int, spaced bool)) {
 	var before lineClass
-	var pos, start, end, segWidth int
+	start, end, segWidth := from, from, 0
 	var segSpaced, spaced, leadingHyphen bool
-	for cluster := range Graphemes(paragraph) {
-		at := pos
-		pos += len(cluster)
-		if cluster == " " {
+	for pos := from; pos < to; {
+		n, width, after := w.next(s[pos:to])
+		if n == 1 && s[pos] == ' ' {
 			spaced = true
+			pos++
 			continue
 		}
-		r, _ := utf8.DecodeRuneInString(cluster)
-		after := lookup(r).line
-		if end == 0 || lineBreaks(before, after, spaced, leadingHyphen) {
-			emit(paragraph[start:end], segWidth, segSpaced)
-			start, segWidth, segSpaced = at, 0, spaced
+		if end == from || lineBreaks(before, after, spaced, leadingHyphen) {
+			emit(start, end, segWidth, segSpaced)
+			start, segWidth, segSpaced = pos, 0, spaced
 		} else if spaced {
 			segWidth++
 		}
-		segWidth += w.clusterWidth(cluster)
-		leadingHyphen = after == hyphen && (spaced || end == 0)
-		end, before, spaced = pos, after, false
+		segWidth += width
+		leadingHyphen = after == hyphen && (spaced || end == from)
+		pos += n
+		before, spaced = after, false
+		for before <= numeric && pos < to && printableByte(s[pos:to]) {
+			class := lookup(rune(s[pos])).line
+			if class > numeric {
+				break
+			}
+			before = class
+			pos++
+			segWidth++
+		}
+		end = pos
 	}
-	emit(paragraph[start:end], segWidth, segSpaced)
+	emit(start, end, segWidth, segSpaced)
 }
 
-func (o *wrapper) place(segment string, width int, spaced bool) {
+func (o *wrapper) place(start, end, width int, spaced bool) {
 	if width <= o.width {
-		o.put(segment, width, spaced)
+		o.put(start, end, width, spaced)
 		return
 	}
-	if len(o.line) > 0 {
+	if o.length() > 0 {
 		o.flush()
 	}
 	spaced = false
-	for cluster := range Graphemes(segment) {
-		if cluster == " " {
+	for pos := start; pos < end; {
+		n, cluster, _ := o.w.next(o.s[pos:end])
+		if n == 1 && o.s[pos] == ' ' {
 			spaced = true
-			continue
+		} else {
+			o.put(pos, pos+n, cluster, spaced)
+			spaced = false
 		}
-		o.put(cluster, o.w.clusterWidth(cluster), spaced)
-		spaced = false
+		pos += n
 	}
 }
 
-func (o *wrapper) put(s string, width int, spaced bool) {
+func (o *wrapper) length() int {
+	if o.copied {
+		return len(o.line)
+	}
+	return o.end - o.start
+}
+
+func (o *wrapper) put(start, end, width int, spaced bool) {
 	gap := 0
-	if spaced && len(o.line) > 0 {
+	if spaced && o.length() > 0 {
 		gap = 1
 	}
-	if len(o.line) > 0 && o.used+gap+width > o.width {
+	if o.length() > 0 && o.used+gap+width > o.width {
 		o.flush()
 		gap = 0
+	}
+	o.used += gap + width
+	s := o.s[start:end]
+	if o.length() == 0 {
+		o.start, o.end = start, start
+	}
+	if !o.copied && o.end+gap == start && !strings.Contains(s, "  ") {
+		o.end = end
+		return
+	}
+	if !o.copied {
+		o.line = append(o.line[:0], o.s[o.start:o.end]...)
+		o.copied = true
 	}
 	if gap == 1 {
 		o.line = append(o.line, ' ')
@@ -166,13 +203,15 @@ func (o *wrapper) put(s string, width int, spaced bool) {
 			o.line = append(o.line, s[i])
 		}
 	}
-	o.used += gap + width
 }
 
 func (o *wrapper) flush() {
-	o.lines = append(o.lines, string(o.line))
-	o.line = o.line[:0]
-	o.used = 0
+	if o.copied {
+		o.lines = append(o.lines, string(o.line))
+	} else {
+		o.lines = append(o.lines, o.s[o.start:o.end])
+	}
+	o.start, o.end, o.copied, o.used = 0, 0, false, 0
 }
 
 func MinContent(s string) int {
@@ -192,12 +231,13 @@ func (w Widths) Truncate(s string, width int) string {
 		return ""
 	}
 	n, used := 0, 0
-	for cluster := range Graphemes(s) {
-		used += w.clusterWidth(cluster)
+	for n < len(s) {
+		size, cluster, _ := w.next(s[n:])
+		used += cluster
 		if used > room {
 			break
 		}
-		n += len(cluster)
+		n += size
 	}
 	return s[:n] + konst.Ellipsis
 }

@@ -2,7 +2,6 @@ package text
 
 import (
 	"iter"
-	"strings"
 	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/text"
@@ -77,36 +76,23 @@ type props struct {
 }
 
 func lookup(r rune) props {
-	if r >= ' ' && r <= '~' {
-		return props{width: 1, line: lineClass(asciiLineClasses[r-' '])}
+	id := int(blocks[int(blockIndex[r>>konst.BlockShift])<<konst.BlockShift|int(r&(konst.BlockSize-1))])
+	record := records[id*konst.RecordSize:]
+	flags := record[1]
+	return props{
+		class:        breakClass(record[0]),
+		conjunct:     conjunct(flags >> konst.ConjunctShift & konst.ConjunctMask),
+		pictographic: flags&konst.PictographicBit != 0,
+		width:        int(flags & konst.WidthMask),
+		line:         lineClass(record[2]),
 	}
-	lo, hi := 0, len(table)/konst.RecordSize
-	for lo < hi {
-		m := int(uint(lo+hi) >> 1)
-		record := table[m*konst.RecordSize:]
-		switch {
-		case r < rune(record[0])<<16|rune(record[1])<<8|rune(record[2]):
-			hi = m
-		case r > rune(record[3])<<16|rune(record[4])<<8|rune(record[5]):
-			lo = m + 1
-		default:
-			flags := record[7]
-			return props{
-				class:        breakClass(record[6]),
-				conjunct:     conjunct(flags >> konst.ConjunctShift & konst.ConjunctMask),
-				pictographic: flags&konst.PictographicBit != 0,
-				width:        int(flags & konst.WidthMask),
-				line:         lineClass(record[8]),
-			}
-		}
-	}
-	return props{width: 1}
 }
 
 func Graphemes(s string) iter.Seq[string] {
 	return func(yield func(string) bool) {
+		var w Widths
 		for s != "" {
-			n := clusterLen(s)
+			n, _, _ := w.next(s)
 			if !yield(s[:n]) {
 				return
 			}
@@ -115,16 +101,43 @@ func Graphemes(s string) iter.Seq[string] {
 	}
 }
 
-func clusterLen(s string) int {
-	var prev props
-	var regionals int
+func (w *Widths) next(s string) (n, width int, line lineClass) {
+	if printableByte(s) {
+		return 1, 1, lookup(rune(s[0])).line
+	}
+	return w.cluster(s)
+}
+
+func printableByte(s string) bool {
+	return s[0] >= ' ' && s[0] <= '~' && (len(s) == 1 || s[1] < utf8.RuneSelf)
+}
+
+func (w *Widths) cluster(s string) (n, width int, line lineClass) {
+	var first, prev props
+	var runes, regionals int
 	var emoji, indic sequence
-	for pos := 0; pos < len(s); {
-		r, n := utf8.DecodeRuneInString(s[pos:])
+	var vs15, vs16, joined, keycap, modifier bool
+	for n < len(s) {
+		r, size := utf8.DecodeRuneInString(s[n:])
 		cur := lookup(r)
-		if pos > 0 && !joins(prev, cur, regionals, emoji, indic) {
-			return pos
+		if n > 0 && !joins(prev, cur, regionals, emoji, indic) {
+			break
 		}
+		if n == 0 {
+			first = cur
+		}
+		width = max(width, cur.width)
+		switch r {
+		case textPresentation:
+			vs15 = true
+		case emojiPresentation:
+			vs16 = true
+		case zeroWidthJoiner:
+			joined = true
+		case keycapMark:
+			keycap = true
+		}
+		modifier = modifier || r >= modifierFirst && r <= modifierLast
 		if cur.class == regional {
 			regionals++
 		} else {
@@ -148,10 +161,34 @@ func clusterLen(s string) int {
 		default:
 			indic = outside
 		}
-		pos += n
+		runes++
+		n += size
 		prev = cur
 	}
-	return len(s)
+	switch {
+	case width > 0 && vs16:
+		width = 2
+	case width > 0 && vs15:
+		width = 1
+	}
+	c := Classes
+	switch {
+	case runes == 1:
+	case first.class == regional:
+		c = Flag
+	case first.pictographic && joined:
+		c = ZWJ
+	case keycap:
+		c = Keycap
+	case first.pictographic && modifier:
+		c = Modifier
+	case vs16:
+		c = VS16
+	}
+	if c != Classes && w[c] > 0 {
+		width = w[c]
+	}
+	return n, width, first.line
 }
 
 func joins(prev, cur props, regionals int, emoji, indic sequence) bool {
@@ -182,46 +219,10 @@ func Width(s string) int {
 
 func (w Widths) Width(s string) int {
 	total := 0
-	for cluster := range Graphemes(s) {
-		total += w.clusterWidth(cluster)
+	for s != "" {
+		n, width, _ := w.next(s)
+		total += width
+		s = s[n:]
 	}
 	return total
-}
-
-func (w Widths) clusterWidth(cluster string) int {
-	width := 0
-	for _, r := range cluster {
-		width = max(width, lookup(r).width)
-	}
-	switch {
-	case width > 0 && strings.ContainsRune(cluster, emojiPresentation):
-		width = 2
-	case width > 0 && strings.ContainsRune(cluster, textPresentation):
-		width = 1
-	}
-	if c := class(cluster); c != Classes && w[c] > 0 {
-		width = w[c]
-	}
-	return width
-}
-
-func class(cluster string) Class {
-	first, n := utf8.DecodeRuneInString(cluster)
-	if n == len(cluster) {
-		return Classes
-	}
-	p := lookup(first)
-	switch {
-	case p.class == regional:
-		return Flag
-	case p.pictographic && strings.ContainsRune(cluster, zeroWidthJoiner):
-		return ZWJ
-	case strings.ContainsRune(cluster, keycapMark):
-		return Keycap
-	case p.pictographic && strings.ContainsFunc(cluster, func(r rune) bool { return r >= modifierFirst && r <= modifierLast }):
-		return Modifier
-	case strings.ContainsRune(cluster, emojiPresentation):
-		return VS16
-	}
-	return Classes
 }
