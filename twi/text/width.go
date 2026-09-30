@@ -71,6 +71,7 @@ type props struct {
 	class        breakClass
 	conjunct     conjunct
 	pictographic bool
+	emoji        bool
 	width        int
 	line         lineClass
 }
@@ -87,6 +88,7 @@ func lookup(r rune) props {
 		class:        breakClass(record[0]),
 		conjunct:     conjunct(flags >> konst.ConjunctShift & konst.ConjunctMask),
 		pictographic: flags&konst.PictographicBit != 0,
+		emoji:        flags&konst.EmojiBit != 0,
 		width:        int(flags & konst.WidthMask),
 		line:         lineClass(record[2]),
 	}
@@ -96,7 +98,7 @@ func Graphemes(s string) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		var w Widths
 		for s != "" {
-			n, _, _ := w.next(s)
+			n, _ := w.next(s)
 			if !yield(s[:n]) {
 				return
 			}
@@ -105,18 +107,26 @@ func Graphemes(s string) iter.Seq[string] {
 	}
 }
 
-func (w *Widths) next(s string) (n, width int, line lineClass) {
-	if printableByte(s) {
-		return 1, 1, lookup(rune(s[0])).line
+func (w *Widths) next(s string) (n, width int) {
+	if printable(s, 0) != konst.Unprintable {
+		return 1, 1
 	}
-	return w.cluster(s)
+	n, width, _ = w.cluster(s)
+	return n, width
 }
 
-func printableByte(s string) bool {
-	return s[0] >= ' ' && s[0] <= '~' && (len(s) == 1 || s[1] < utf8.RuneSelf)
+func printable(s string, pos int) lineClass {
+	if pos+1 < len(s) && s[pos+1] >= utf8.RuneSelf {
+		return konst.Unprintable
+	}
+	return lineClass(printableLines[s[pos]])
 }
 
 func (w *Widths) cluster(s string) (n, width int, line lineClass) {
+	r, size := utf8.DecodeRuneInString(s)
+	if head := record(r); breakClass(head[0]) == other && !attaches(s[size:]) {
+		return size, int(head[1] & konst.WidthMask), lineClass(head[2])
+	}
 	var first, prev props
 	var runes, regionals int
 	var emoji, indic sequence
@@ -170,9 +180,9 @@ func (w *Widths) cluster(s string) (n, width int, line lineClass) {
 		prev = cur
 	}
 	switch {
-	case width > 0 && vs16:
+	case first.emoji && vs16:
 		width = 2
-	case width > 0 && vs15:
+	case first.emoji && vs15:
 		width = 1
 	}
 	c := Classes
@@ -193,6 +203,15 @@ func (w *Widths) cluster(s string) (n, width int, line lineClass) {
 		width = w[c]
 	}
 	return n, width, first.line
+}
+
+func attaches(s string) bool {
+	if s == "" || s[0] < utf8.RuneSelf {
+		return false
+	}
+	r, _ := utf8.DecodeRuneInString(s)
+	class := breakClass(record(r)[0])
+	return class == extend || class == zwj || class == spacingMark
 }
 
 func joins(prev, cur props, regionals int, emoji, indic sequence) bool {
@@ -224,7 +243,7 @@ func Width(s string) int {
 func (w Widths) Width(s string) int {
 	total := 0
 	for s != "" {
-		n, width, _ := w.next(s)
+		n, width := w.next(s)
 		total += width
 		s = s[n:]
 	}

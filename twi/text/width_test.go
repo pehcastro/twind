@@ -47,6 +47,35 @@ func TestWordBreakTest(t *testing.T) {
 	conformance(t, "WordBreakTest", Words)
 }
 
+func TestVS16(t *testing.T) {
+	cases := []struct {
+		name  string
+		s     string
+		width int
+	}{
+		{"letter vs16", "B\U0000FE0F", 1},
+		{"letter vs16 in a line", "aB\U0000FE0Fc", 3},
+		{"heart vs16", heart, 2},
+		{"heart", "\U00002764", 1},
+		{"heart vs15", "\U00002764\U0000FE0E", 1},
+		{"grin vs15", "\U0001F600\U0000FE0E", 1},
+		{"cjk vs15", "中\U0000FE0E", 2},
+		{"cjk vs16", "中\U0000FE0F", 2},
+		{"keycap", keycap, 2},
+		{"keycap hash", "#\U0000FE0F\U000020E3", 2},
+		{"keycap without vs16", "#\U000020E3", 1},
+		{"flag", brazil, 2},
+		{"lone regional indicator", "\U0001F1E7", 2},
+		{"heart on fire", "\U00002764\U0000FE0F\U0000200D\U0001F525", 2},
+		{"rainbow flag", rainbow, 2},
+	}
+	for _, c := range cases {
+		if got := Width(c.s); got != c.width {
+			t.Errorf("%s: Width(%+q) = %d, want %d", c.name, c.s, got, c.width)
+		}
+	}
+}
+
 func conformance(t *testing.T, name string, segments func(string) iter.Seq[string]) {
 	data, err := os.ReadFile("testdata/" + name + ".txt")
 	if err != nil {

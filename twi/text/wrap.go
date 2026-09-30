@@ -2,7 +2,9 @@ package text
 
 import (
 	"fmt"
+	"math/bits"
 	"strings"
+	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/text"
 )
@@ -136,20 +138,65 @@ func (b Wrapping) Wrap(s string, width int) []string {
 	return out.lines
 }
 
+type segment struct {
+	start, end, width int
+	spaced, squeeze   bool
+}
+
+type coalescer struct {
+	emit       func(segment) int
+	room, need int
+	held       segment
+	holding    bool
+}
+
+func (c *coalescer) spare(seg *segment) int {
+	if seg.squeeze || seg.start != c.held.end+b2i(seg.spaced) {
+		return konst.NoRoom
+	}
+	return c.room - c.need - b2i(seg.spaced)
+}
+
+func (c *coalescer) push(seg segment) {
+	if seg.width > c.spare(&seg) {
+		c.flush()
+		c.room = c.emit(seg)
+		c.held, c.need = segment{end: seg.end}, 0
+		return
+	}
+	if c.holding {
+		c.held.end, c.held.width = seg.end, c.held.width+b2i(seg.spaced)+seg.width
+	} else {
+		c.held, c.holding = seg, true
+	}
+	c.need += b2i(seg.spaced) + seg.width
+}
+
+func (c *coalescer) flush() {
+	if c.holding {
+		c.emit(c.held)
+		c.holding = false
+	}
+}
+
 func (w Widths) MinContent(s string) int {
 	return Wrapping{Widths: w}.MinContent(s)
 }
 
 func (b Wrapping) MinContent(s string) int {
 	widest := 0
-	emit := func(_, _, width int, _ bool) { widest = max(widest, width) }
+	emit := func(seg segment) int {
+		widest = max(widest, seg.width)
+		return konst.NoRoom
+	}
 	if b.Overflow == OverflowWrapAnywhere {
-		emit = func(start, end, _ int, _ bool) {
-			for pos := start; pos < end; {
-				n, cluster, _ := b.Widths.next(s[pos:end])
+		emit = func(seg segment) int {
+			for pos := seg.start; pos < seg.end; {
+				n, cluster := b.Widths.next(s[pos:seg.end])
 				widest = max(widest, cluster)
 				pos += n
 			}
+			return konst.NoRoom
 		}
 	}
 	from := 0
@@ -160,16 +207,21 @@ func (b Wrapping) MinContent(s string) int {
 	return widest
 }
 
-func (b Wrapping) segments(s string, from, to int, emit func(start, end, width int, spaced bool)) {
+func (b Wrapping) segments(s string, from, to int, emit func(segment) int) {
 	if b.Word > WordBreakKeepAll || b.Overflow > OverflowWrapAnywhere || b.Space > SpacePreserve {
 		panic(fmt.Sprintf("text: unknown word-break %d, overflow-wrap %d or white-space %d", b.Word, b.Overflow, b.Space))
 	}
 	keep := b.Space == SpacePreserve
+	s = s[:to]
+	out := coalescer{emit: emit, room: konst.NoRoom}
 	var before lineClass
-	start, end, segWidth, kept := from, from, 0, 0
-	var segSpaced, spaced, leadingHyphen bool
-	for pos := from; pos < to; {
-		n, width, after := b.Widths.next(s[pos:to])
+	seg, end, kept := segment{start: from}, from, 0
+	var spaced, leadingHyphen bool
+	for pos := from; pos < len(s); {
+		n, width, after := 1, 1, printable(s, pos)
+		if after == konst.Unprintable {
+			n, width, after = b.Widths.cluster(s[pos:])
+		}
 		if n == 1 && s[pos] == ' ' {
 			spaced = true
 			pos++
@@ -183,51 +235,210 @@ func (b Wrapping) segments(s string, from, to int, emit func(start, end, width i
 		}
 		keptWhole := b.Word == WordBreakKeepAll && !spaced && before <= ideographic && after <= ideographic
 		if end == from || !keptWhole && lineBreaks(before, after, spaced, leadingHyphen) {
-			emit(start, end, segWidth, segSpaced)
-			start, segWidth, segSpaced = pos, 0, spaced && !keep
+			seg.end = end
+			out.push(seg)
+			seg = segment{start: pos, spaced: spaced && !keep}
+			if e, w, class := b.leap(s, pos, out.spare(&seg)); e > 0 {
+				seg.width, pos, end, before, leadingHyphen, spaced = w, e, e, class, false, false
+				continue
+			}
 		} else if spaced {
-			segWidth += max(kept, 1)
+			seg.width += max(kept, 1)
+			seg.squeeze = seg.squeeze || !keep && pos-end > 1
 		}
-		segWidth += width
+		seg.width += width
+		seg.squeeze = seg.squeeze || n > 1 && (s[pos] == ' ' || s[pos+n-1] == ' ')
 		leadingHyphen = after == hyphen && (spaced || end == from)
 		pos += n
 		before, spaced, kept = after, false, 0
-		for before <= numeric && pos < to && printableByte(s[pos:to]) {
-			class := lookup(rune(s[pos])).line
+		for before <= numeric && pos < len(s) {
+			run, spacedWord := letters(s, pos)
+			pos += run
+			seg.width += run
+			if run > 0 {
+				before = lineClass(printableLines[s[pos-1]])
+			}
+			if spacedWord {
+				seg.end = pos
+				if keep {
+					seg.end++
+				}
+				out.push(seg)
+				pos++
+				seg = segment{start: pos, spaced: !keep}
+				if e, w, class := b.leap(s, pos, out.spare(&seg)); e > 0 {
+					seg.width, pos, before = w, e, class
+					break
+				}
+				continue
+			}
+			if run == konst.ByteLanes {
+				continue
+			}
+			class := printable(s, pos)
 			if class > numeric {
 				break
 			}
 			before = class
 			pos++
-			segWidth++
+			seg.width++
+		}
+		for before == ideographic && b.Word != WordBreakKeepAll && pos < len(s) && s[pos] >= utf8.RuneSelf {
+			r, size := utf8.DecodeRuneInString(s[pos:])
+			head := record(r)
+			if breakClass(head[0]) != other || lineClass(head[2]) != ideographic || attaches(s[pos+size:]) {
+				break
+			}
+			seg.end = pos
+			out.push(seg)
+			seg = segment{start: pos, width: int(head[1] & konst.WidthMask)}
+			pos += size
 		}
 		end = pos
 	}
-	emit(start, end, segWidth, segSpaced)
+	seg.end = end
+	out.push(seg)
+	out.flush()
 }
 
-func (o *wrapper) place(start, end, width int, spaced bool) {
-	if width <= o.width {
-		o.put(start, end, width, spaced)
-		return
+func (b Wrapping) leap(s string, from, spare int) (end, width int, before lineClass) {
+	if spare < konst.LeapMin {
+		return 0, 0, 0
+	}
+	last, spacedNow := lineClass(konst.Unprintable), false
+	run, runWidth := -1, 0
+	for pos, w := from, 0; ; {
+		more := pos < len(s) && w <= spare+1
+		if more && pos+konst.ByteLanes <= len(s) && s[pos] < utf8.RuneSelf {
+			word := lanes(s, pos)
+			low := word &^ konst.HighBits
+			space := equal(word, ' ')
+			visible := ^word & (low + lane(utf8.RuneSelf-' ')) &^ (low + lane(utf8.RuneSelf-'~'-1)) &^ (space & equal(lanes(s, pos-1), ' '))
+			if visible&konst.HighBits == konst.HighBits {
+				if run < 0 {
+					run, runWidth = pos, w
+				}
+				pos, w = pos+konst.ByteLanes, w+konst.ByteLanes
+				continue
+			}
+		}
+		if run >= 0 {
+			if e, cells, class := landing(s, run, pos, spare-runWidth); e > 0 {
+				end, width, before = e, runWidth+cells, class
+			}
+			spacedNow = s[pos-1] == ' '
+			last, run = lineClass(printableLines[s[pos-1-b2i(spacedNow)]]), -1
+		}
+		if !more {
+			return end, width, before
+		}
+		ascii := s[pos] < utf8.RuneSelf
+		class, size, cells := lineClass(printableLines[s[pos]]), 1, 1
+		if !ascii {
+			r, n := utf8.DecodeRuneInString(s[pos:])
+			head := record(r)
+			if breakClass(head[0]) != other {
+				break
+			}
+			class, size, cells = lineClass(head[2]), n, int(head[1]&konst.WidthMask)
+		}
+		if class == konst.Unprintable || class == space && spacedNow {
+			break
+		}
+		switch {
+		case spacedNow && ascii && class <= numeric && last != openPunct && w-1 <= spare:
+			end, width, before = pos-1, w-1, last
+		case !spacedNow && last == ideographic && class == ideographic && b.Word != WordBreakKeepAll && w <= spare:
+			end, width, before = pos, w, ideographic
+		}
+		spacedNow = class == space
+		if !spacedNow {
+			last = class
+		}
+		pos, w = pos+size, w+cells
+	}
+	return end, width, before
+}
+
+func landing(s string, from, to, spare int) (end, width int, before lineClass) {
+	for q := min(to-1, from+spare+1); q >= from+2; q-- {
+		if s[q-1] == ' ' && lineClass(printableLines[s[q]]) <= numeric && lineClass(printableLines[s[q-2]]) != openPunct {
+			return q - 1, q - 1 - from, lineClass(printableLines[s[q-2]])
+		}
+	}
+	return 0, 0, 0
+}
+
+func letters(s string, pos int) (run int, spacedWord bool) {
+	if pos+konst.ByteLanes >= len(s) {
+		return 0, false
+	}
+	w, next := lanes(s, pos), lanes(s, pos+1)
+	plain := alnum(w) &^ (w | next) & konst.HighBits
+	run = bits.TrailingZeros64(^plain&konst.HighBits) / konst.ByteLanes
+	return run, plain&(equal(w, ' ')<<konst.ByteLanes)>>(run*konst.ByteLanes+konst.ByteLanes)&utf8.RuneSelf != 0
+}
+
+func alnum(w uint64) uint64 {
+	low := w &^ konst.HighBits
+	folded := low | lane('a'-'A')
+	letter := (folded + lane(utf8.RuneSelf-'a')) &^ (folded + lane(utf8.RuneSelf-'z'-1))
+	digit := (low + lane(utf8.RuneSelf-'0')) &^ (low + lane(utf8.RuneSelf-'9'-1))
+	return (letter | digit) & konst.HighBits
+}
+
+func b2i(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func equal(w uint64, b byte) uint64 {
+	diff := w ^ lane(b)
+	return ^((diff&lane(utf8.RuneSelf-1) + lane(utf8.RuneSelf-1)) | diff) & konst.HighBits
+}
+
+func lane(b byte) uint64 {
+	return uint64(b) * konst.LowBits
+}
+
+func lanes(s string, pos int) uint64 {
+	s = s[pos : pos+konst.ByteLanes]
+	return uint64(s[0]) | uint64(s[1])<<8 | uint64(s[2])<<16 | uint64(s[3])<<24 |
+		uint64(s[4])<<32 | uint64(s[5])<<40 | uint64(s[6])<<48 | uint64(s[7])<<56
+}
+
+func (o *wrapper) place(seg segment) int {
+	if seg.width <= o.width {
+		o.put(seg)
+		return o.room()
 	}
 	if o.length() > 0 {
 		o.flush()
 	}
-	spaced = false
-	for pos := start; pos < end; {
-		n, cluster, _ := o.w.next(o.s[pos:end])
+	spaced := false
+	for pos := seg.start; pos < seg.end; {
+		n, cluster := o.w.next(o.s[pos:seg.end])
 		switch {
 		case n == 1 && o.s[pos] == ' ' && o.keep:
-			o.put(pos, pos+1, 0, false)
+			o.put(segment{start: pos, end: pos + 1})
 		case n == 1 && o.s[pos] == ' ':
 			spaced = true
 		default:
-			o.put(pos, pos+n, cluster, spaced)
+			o.put(segment{start: pos, end: pos + n, width: cluster, spaced: spaced})
 			spaced = false
 		}
 		pos += n
 	}
+	return o.room()
+}
+
+func (o *wrapper) room() int {
+	if o.keep || o.length() == 0 {
+		return konst.NoRoom
+	}
+	return o.width - o.used
 }
 
 func (o *wrapper) length() int {
@@ -237,26 +448,23 @@ func (o *wrapper) length() int {
 	return o.end - o.start
 }
 
-func (o *wrapper) put(start, end, width int, spaced bool) {
-	gap := 0
-	if spaced && o.length() > 0 {
-		gap = 1
-	}
-	if o.length() > 0 && o.used+gap+width > o.width {
+func (o *wrapper) put(seg segment) {
+	gap := b2i(seg.spaced && o.length() > 0)
+	if o.length() > 0 && o.used+gap+seg.width > o.width {
 		o.flush()
 		gap = 0
 	}
-	s := o.s[start:end]
+	s := o.s[seg.start:seg.end]
 	hanging := 0
 	for o.keep && hanging < len(s) && s[len(s)-1-hanging] == ' ' {
 		hanging++
 	}
-	o.used += gap + width + hanging
+	o.used += gap + seg.width + hanging
 	if o.length() == 0 {
-		o.start, o.end = start, start
+		o.start, o.end = seg.start, seg.start
 	}
-	if !o.copied && o.end+gap == start && (o.keep || !strings.Contains(s, "  ")) {
-		o.end = end
+	if !o.copied && o.end+gap == seg.start && (o.keep || !seg.squeeze) {
+		o.end = seg.end
 		return
 	}
 	if !o.copied {
@@ -304,7 +512,7 @@ func (w Widths) Truncate(s string, width int) string {
 	}
 	n, used := 0, 0
 	for n < len(s) {
-		size, cluster, _ := w.next(s[n:])
+		size, cluster := w.next(s[n:])
 		used += cluster
 		if used > room {
 			break

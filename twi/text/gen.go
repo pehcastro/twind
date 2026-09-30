@@ -41,6 +41,7 @@ func main() {
 	presentation := make([]bool, count)
 	modifier := make([]bool, count)
 	pictographic := make([]bool, count)
+	emoji := make([]bool, count)
 
 	each(fetch(base+"EastAsianWidth.txt"), func(r rune, fields []string) {
 		wide[r] = fields[0] == "W" || fields[0] == "F"
@@ -65,6 +66,8 @@ func main() {
 	})
 	each(fetch(base+"emoji/emoji-data.txt"), func(r rune, fields []string) {
 		switch fields[0] {
+		case "Emoji":
+			emoji[r] = true
 		case "Emoji_Presentation":
 			presentation[r] = true
 		case "Emoji_Modifier":
@@ -91,6 +94,9 @@ func main() {
 		flags := width | conjunct[r]<<konst.ConjunctShift
 		if pictographic[r] {
 			flags |= konst.PictographicBit
+		}
+		if emoji[r] {
+			flags |= konst.EmojiBit
 		}
 		records[r] = [konst.RecordSize]byte{class[r], flags, line[r], word[r]}
 	}
@@ -130,6 +136,14 @@ func main() {
 		fmt.Fprintf(&out, "\t%q +\n", chunk)
 	}
 	out.WriteString("\t\"\"\n")
+	printable := make([]byte, 256)
+	for b := range printable {
+		printable[b] = konst.Unprintable
+		if b >= ' ' && b <= '~' {
+			printable[b] = line[b]
+		}
+	}
+	fmt.Fprintf(&out, "\nconst printableLines = %q\n", printable)
 	src, err := format.Source([]byte(out.String()))
 	must(err)
 	must(os.WriteFile("tables.go", src, 0o644))
