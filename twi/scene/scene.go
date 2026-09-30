@@ -37,14 +37,19 @@ type Node struct {
 	Foreground                             color.Color
 	Bold, Italic, Underline, Strikethrough bool
 	TextAlign                              style.TextAlign
-	Truncate                               bool
+	Truncate, NoWrap                       bool
 	Children                               []Node
 	text                                   Text
 }
 
 type Text struct {
 	clean   string
-	wrapped *map[int][]string
+	wrapped *wrapped
+}
+
+type wrapped struct {
+	widths text.Widths
+	lines  map[int][]string
 }
 
 func Sanitize(raw string) Text {
@@ -52,31 +57,35 @@ func Sanitize(raw string) Text {
 	if clean == "" {
 		return Text{}
 	}
-	return Text{clean, &map[int][]string{}}
+	return Text{clean, &wrapped{lines: map[int][]string{}}}
 }
 
-func (t Text) wrap(width int) []string {
+func (t Text) wrap(w text.Widths, width int) []string {
 	if t.wrapped == nil {
-		return text.Wrap(t.clean, width)
+		return w.Wrap(t.clean, width)
 	}
-	lines, ok := (*t.wrapped)[width]
+	if t.wrapped.widths != w {
+		t.wrapped.widths = w
+		clear(t.wrapped.lines)
+	}
+	lines, ok := t.wrapped.lines[width]
 	if !ok {
-		lines = text.Wrap(t.clean, width)
-		(*t.wrapped)[width] = lines
+		lines = w.Wrap(t.clean, width)
+		t.wrapped.lines[width] = lines
 	}
 	return lines
 }
 
-func (t Text) Size(availableWidth int) (width, height int) {
-	lines := t.wrap(availableWidth)
+func (t Text) Size(w text.Widths, availableWidth int) (width, height int) {
+	lines := t.wrap(w, availableWidth)
 	for _, line := range lines {
-		width = max(width, text.Width(line))
+		width = max(width, w.Width(line))
 	}
 	return width, len(lines)
 }
 
-func (t Text) MinContent() int {
-	return text.MinContent(t.clean)
+func (t Text) MinContent(w text.Widths) int {
+	return w.MinContent(t.clean)
 }
 
 func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
@@ -131,16 +140,18 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	return n
 }
 
-func (n Node) Lines() []string {
+func (n Node) Lines(w text.Widths) []string {
 	if n.text.clean == "" {
 		return nil
 	}
-	if !n.Truncate {
-		return n.text.wrap(n.Content.W)
+	if !n.NoWrap && !n.Truncate {
+		return n.text.wrap(w, n.Content.W)
 	}
 	lines := strings.Split(n.text.clean, "\n")
-	for i, line := range lines {
-		lines[i] = text.Truncate(line, n.Content.W)
+	if n.Truncate {
+		for i, line := range lines {
+			lines[i] = w.Truncate(line, n.Content.W)
+		}
 	}
 	return lines
 }

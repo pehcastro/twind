@@ -8,6 +8,7 @@ import (
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 func TestTopLayerPaintsLastInOpenOrder(t *testing.T) {
@@ -92,8 +93,8 @@ func TestVisibilityHiddenKeepsBoundsPaintsNothing(t *testing.T) {
 	if n.Bounds != r || n.Visibility != style.Hidden {
 		t.Errorf("invisible box: bounds %+v visibility %d, want %+v and hidden", n.Bounds, n.Visibility, r)
 	}
-	if n.Lines() != nil || shows(n.Background) || len(n.Shadows) > 0 || n.Border.Style != style.BorderNone {
-		t.Errorf("invisible box paints: lines %q background %+v shadows %d border %d", n.Lines(), n.Background, len(n.Shadows), n.Border.Style)
+	if n.Lines(text.Widths{}) != nil || shows(n.Background) || len(n.Shadows) > 0 || n.Border.Style != style.BorderNone {
+		t.Errorf("invisible box paints: lines %q background %+v shadows %d border %d", n.Lines(text.Widths{}), n.Background, len(n.Shadows), n.Border.Style)
 	}
 	if boxes := record(page(n)).Layers[0].Boxes; len(boxes) != 1 {
 		t.Errorf("recorded %d boxes, want the page alone", len(boxes))

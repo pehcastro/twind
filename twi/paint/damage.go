@@ -13,9 +13,11 @@ import (
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 type Painter struct {
+	Widths                 text.Widths
 	buf                    *buffer.Buffer
 	width, height, columns int
 	seed                   maphash.Seed
@@ -33,7 +35,7 @@ type Painter struct {
 type shape struct {
 	children               int
 	position               layout.Position
-	z                      int
+	z, top                 int
 	hidden, faded, scrolls bool
 }
 
@@ -108,7 +110,7 @@ func (p *Painter) order(root *scene.Node) {
 
 func (p *Painter) preorder(n *scene.Node) {
 	p.nodes = append(p.nodes, n)
-	p.shapes = append(p.shapes, shape{len(n.Children), n.Position, n.ZIndex, n.Opacity <= 0, n.Opacity < 1, n.Scroll})
+	p.shapes = append(p.shapes, shape{len(n.Children), n.Position, n.ZIndex, n.TopLayer, n.Opacity <= 0, n.Opacity < 1, n.Scroll})
 	for i := range n.Children {
 		p.preorder(&n.Children[i])
 	}
@@ -122,7 +124,7 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 	p.columns = (width + konst.DamageColumns - 1) / konst.DamageColumns
 	p.tiles = append(p.tiles[:0], make([]uint64, p.columns*height)...)
 	p.wide = append(p.wide[:0], make([]bool, height)...)
-	canvas := mix(maphash.Comparable(p.seed, root.Background), uint64(look))
+	canvas := mix(mix(maphash.Comparable(p.seed, root.Background), uint64(look)), maphash.Comparable(p.seed, p.Widths))
 	for i := range p.tiles {
 		p.tiles[i] = canvas
 	}
@@ -147,7 +149,7 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 		}
 		box := mix(p.box(n), p.groups[len(p.groups)-1])
 		p.mark(o.area, box, false)
-		ink, lines, widest, wide := box, n.Lines(), 0, false
+		ink, lines, widest, wide := box, n.Lines(p.Widths), 0, false
 		lines = lines[:min(len(lines), n.Content.H)]
 		for _, line := range lines {
 			ink = mix(ink, maphash.String(p.seed, line))
@@ -275,7 +277,7 @@ func (p *Painter) repaint(buf *buffer.Buffer, root *scene.Node, look Look, span 
 			fade(target(depth), p.layers[depth], n.Opacity, span)
 		case drawStep:
 			if touched := overlap(o.area, span); touched.W > 0 && touched.H > 0 {
-				draw(target(depth), n, look, overlap(n.Clip, span))
+				draw(target(depth), n, look, overlap(n.Clip, span), p.Widths)
 			}
 		}
 	}

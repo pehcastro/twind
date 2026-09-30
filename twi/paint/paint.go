@@ -27,7 +27,7 @@ const (
 	Glyphs
 )
 
-func draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
+func draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect, widths text.Widths) {
 	shadows, insets := n.Shadows, n.InsetShadows
 	if look != Composited {
 		shadows, insets = nil, nil
@@ -67,7 +67,7 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 		shadow(buf, clip, p, lit, s, true)
 	}
 	border(buf, n, look, clip)
-	lines(buf, n, clip)
+	lines(buf, n, clip, widths)
 }
 
 func outline(n *scene.Node) layout.Rect {
@@ -304,7 +304,7 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 	}
 }
 
-func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect) {
+func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widths) {
 	var attr buffer.Attr
 	if n.Bold {
 		attr |= buffer.Bold
@@ -321,7 +321,7 @@ func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect) {
 	ink := buffer.Cell{Grapheme: " ", Fg: n.Foreground, Bg: color.Color{Kind: color.Literal}, Attr: attr}
 	r := n.Content
 	end := r.X + r.W
-	lines := n.Lines()
+	lines := n.Lines(widths)
 	for i, line := range lines[:min(len(lines), r.H)] {
 		y, x := r.Y+i, r.X
 		if y < clip.Y || y >= clip.Y+clip.H {
@@ -330,9 +330,9 @@ func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect) {
 		switch n.TextAlign {
 		case style.TextLeft, style.TextJustify:
 		case style.TextCenter:
-			x += max(r.W-text.Width(line), 0) / 2
+			x += max(r.W-widths.Width(line), 0) / 2
 		case style.TextRight:
-			x += max(r.W-text.Width(line), 0)
+			x += max(r.W-widths.Width(line), 0)
 		default:
 			panic(fmt.Sprintf("paint: unknown text align %d", n.TextAlign))
 		}
@@ -343,7 +343,7 @@ func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect) {
 				}
 				continue
 			}
-			w := text.Width(cluster)
+			w := widths.Width(cluster)
 			if w == 0 {
 				continue
 			}

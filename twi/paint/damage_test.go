@@ -11,6 +11,7 @@ import (
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 const (
@@ -41,7 +42,8 @@ func (s *spec) add(k *spec) {
 
 func words(raw string) *spec {
 	t := scene.Sanitize(raw)
-	return &spec{box: &layout.Box{Measure: t.Size}, style: inked(plain()), text: t}
+	measure := func(available int) (int, int) { return t.Size(text.Widths{}, available) }
+	return &spec{box: &layout.Box{Measure: measure}, style: inked(plain()), text: t}
 }
 
 func inked(s style.ComputedStyle) style.ComputedStyle {
@@ -204,7 +206,7 @@ func reference(buf *buffer.Buffer, root scene.Node, look Look) {
 		buf.Fill(buffer.Rect(whole), buffer.Cell{Grapheme: " ", Bg: bg})
 	}
 	target := buf
-	scene.Walk(&root, func(n *scene.Node) { draw(target, n, look, n.Clip) }, func(n *scene.Node, inside func()) {
+	scene.Walk(&root, func(n *scene.Node) { draw(target, n, look, n.Clip, text.Widths{}) }, func(n *scene.Node, inside func()) {
 		switch {
 		case n.Opacity <= 0:
 		case n.Opacity >= 1:

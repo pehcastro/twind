@@ -15,6 +15,7 @@ import (
 	"github.com/twind-dev/twind/twi/paint"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 type Node struct {
@@ -33,6 +34,7 @@ type Frame struct {
 	Sanitize func(raw string) scene.Text
 	Look     paint.Look
 	Cell     image.Point
+	Widths   text.Widths
 }
 
 type styledBox struct {
@@ -48,6 +50,7 @@ type styledBox struct {
 	truncate bool
 	nowrap   bool
 	anywhere bool
+	widths   text.Widths
 	reverse  bool
 	top      int
 	raw      string
@@ -69,7 +72,7 @@ func Render(root Node, f Frame) (*buffer.Buffer, error) {
 		height = f.Height.Value
 	}
 	buf := buffer.New(f.Width, height)
-	paint.Paint(buf, tree, f.Look)
+	(&paint.Painter{Widths: f.Widths}).Paint(buf, &tree, f.Look)
 	return buf, nil
 }
 
@@ -190,7 +193,7 @@ func (s *styledBox) scene(moved bool, r reclip) scene.Node {
 		return s.node
 	}
 	n := scene.New(s.box, s.computed, s.text)
-	n.Truncate, n.TopLayer = s.truncate, s.top
+	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
 	if s.top > 0 {
 		r.on, r.flow, r.absolute = true, r.viewport, r.viewport
 	}
@@ -277,7 +280,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 	if n.TopLayer != s.top {
 		s.top, t.relayout = n.TopLayer, true
 	}
-	if n.Text != s.raw && s.retext(f, n.Text) {
+	if (n.Text != s.raw || n.Text != "" && f.Widths != s.widths) && s.retext(f, n.Text) {
 		t.relayout = true
 	}
 	old := s.children
@@ -362,20 +365,20 @@ func has(sheet style.Sheet, m *style.Match, children []Node) bool {
 }
 
 func (s *styledBox) retext(f Frame, raw string) (moved bool) {
-	next := styledBox{nowrap: s.nowrap, anywhere: s.anywhere}
+	next := styledBox{nowrap: s.nowrap, anywhere: s.anywhere, widths: f.Widths}
 	if raw != "" {
 		next.text = f.Sanitize(raw)
 	}
 	moved = (s.text == scene.Text{}) != (next.text == scene.Text{})
 	if next.text != (scene.Text{}) {
-		next.natural[0], next.natural[1] = next.text.Size(math.MaxInt)
+		next.natural[0], next.natural[1] = next.text.Size(next.widths, math.MaxInt)
 		next.sizes = map[int][2]int{}
 		for width, size := range s.sizes {
 			w, h := next.measure(width)
 			moved = moved || size != [2]int{w, h}
 		}
 	}
-	s.raw, s.text, s.natural, s.sizes, s.painted = raw, next.text, next.natural, next.sizes, false
+	s.raw, s.text, s.natural, s.sizes, s.widths, s.painted = raw, next.text, next.natural, next.sizes, next.widths, false
 	s.box.Measure = nil
 	if s.text != (scene.Text{}) {
 		s.box.Measure = s.measure
@@ -394,9 +397,9 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 			case s.anywhere:
 				wrapAt = 1
 			default:
-				wrapAt = s.text.MinContent()
+				wrapAt = s.text.MinContent(s.widths)
 			}
-			size[0], size[1] = s.text.Size(wrapAt)
+			size[0], size[1] = s.text.Size(s.widths, wrapAt)
 		}
 		s.sizes[availableWidth] = size
 	}

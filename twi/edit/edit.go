@@ -32,7 +32,8 @@ type state struct {
 }
 
 type Buffer struct {
-	Mode Mode
+	Mode   Mode
+	Widths text.Widths
 	state
 	undo, redo []state
 	last       step
@@ -47,7 +48,7 @@ func (b *Buffer) Selection() (start, end int) {
 
 func (b *Buffer) Cursor() (row, column int) {
 	line := b.lineStart(b.cursor)
-	return strings.Count(b.value[:line], "\n"), text.Width(b.value[line:b.cursor])
+	return strings.Count(b.value[:line], "\n"), b.Widths.Width(b.value[line:b.cursor])
 }
 
 func (b *Buffer) Insert(s string) { b.insert(s, stepOther) }
@@ -245,7 +246,7 @@ func (b *Buffer) vertical(k input.Key) int {
 	}
 	width := 0
 	for g := range text.Graphemes(b.value[line:b.lineEnd(line)]) {
-		if width += text.Width(g); width > b.goal {
+		if width += b.Widths.Width(g); width > b.goal {
 			break
 		}
 		line += len(g)
