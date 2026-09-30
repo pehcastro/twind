@@ -12,15 +12,19 @@ import (
 
 func TestThemeBuiltin(t *testing.T) {
 	seen := map[string]int{}
-	for _, th := range theme.Builtin() {
+	all := theme.Builtin()
+	if all[0].Name != "twind" {
+		t.Errorf("first built-in theme %q, want the default twind", all[0].Name)
+	}
+	for _, th := range all {
 		seen[th.Name]++
-		for tok := theme.Background; tok <= theme.Ring; tok++ {
+		for tok := theme.Background; tok <= theme.DestructiveForeground; tok++ {
 			if th.Tokens[tok].Kind != color.Literal {
 				t.Errorf("%s %d: %s unset", th.Name, th.Scheme, tok)
 			}
 		}
 	}
-	for _, name := range []string{"neutral", "zinc", "slate", "stone", "rose", "blue", "green", "orange", "violet"} {
+	for _, name := range append([]string{"neutral", "zinc", "slate", "stone", "rose", "blue", "green", "orange", "violet"}, owners...) {
 		if seen[name] != 2 {
 			t.Errorf("%s: %d schemes, want light and dark", name, seen[name])
 		}
@@ -79,7 +83,7 @@ func TestThemeSyntaxReadable(t *testing.T) {
 func TestThemeSyntaxHues(t *testing.T) {
 	five := []theme.Token{theme.SyntaxKeyword, theme.SyntaxString, theme.SyntaxNumber, theme.SyntaxFunction, theme.SyntaxComment}
 	for _, th := range theme.Builtin() {
-		if !slices.Contains([]string{"neutral", "zinc", "slate", "stone"}, th.Name) {
+		if slices.Contains([]string{"rose", "blue", "green", "orange", "violet"}, th.Name) {
 			_, comment := chromaHue(th.Tokens[theme.SyntaxComment].RGBA)
 			_, primary := chromaHue(th.Tokens[theme.Primary].RGBA)
 			if d := math.Abs(comment - primary); min(d, 360-d) > 10 {

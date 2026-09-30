@@ -18,7 +18,7 @@ func main() {
 	flag.StringVar(&start.Page, "page", "1", "page to open on: 1 to 7, a page name or a component name")
 	flag.StringVar(&start.Open, "open", "", "open at start: dialog, sheet, spinner, combobox or navigation")
 	flag.BoolVar(&start.Slow, "slow", false, "the dialog opens and closes over 8 s instead of 200 ms, to see it mid-motion")
-	flag.StringVar(&start.Theme, "theme", "zinc-dark", "theme to open with, name-scheme")
+	flag.StringVar(&start.Theme, "theme", "twind-dark", "theme to open with, name-scheme")
 	flag.BoolVar(&start.Picker, "picker", false, "open with the theme picker showing")
 	graphicsName := flag.String("graphics", "", "surface protocol, none, sixel, kitty or iterm2; empty detects it")
 	flag.StringVar(&start.Focus, "focus", "input", "control focused at start: input, theme, or a page name")

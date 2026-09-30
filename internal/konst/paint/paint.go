@@ -23,15 +23,20 @@ const (
 	DashedLines    = "┄┆┄┆"
 	DottedLines    = "┈┊┈┊"
 	DoubleLines    = "═║═║"
-	Hairlines      = "▁▏▔▕"
+	HalfEdges      = "▄▌▀▐"
 	UpperHalf      = "▀"
 	PillCaps       = "▐▌"
-	LowerBlocks    = "▁▂▃▄▅▆▇"
-	LeftBlocks     = "▏▎▍▌▋▊▉"
-	BlockBytes     = len("▁")
 	CellEighths    = 8
-	RingEighths    = 3
 	CoverAlpha     = 0.6
+	ShadowHalfCell = 0.25
+	ShadowFullCell = 0.75
+)
+
+const (
+	ConsoleGlyphs   = " ¯×•…‹›←↑→↓↕√≡─│┄┆┈┊┌┐└┘═║╔╗╚╝╭╮╯╰▀▄█▌▐■▪◊○●◦▴▾"
+	ConsoleMissing  = "⌃⌄⊗✕◧✓⌕◐↗⇅⇧⌘◆◎▣▤⣾⣽⣻⢿⡿⣟⣯⣷▁▂▃▅▆▇▔▏▎▍▋▊▉▕"
+	ConsoleStandIns = "▴▾××≡√>●↑↕↑#◊○■≡|/-\\|/-\\_▄▄▄██¯│▌▌▌██│"
+	ContrastSteps   = 16
 )
 
 const (

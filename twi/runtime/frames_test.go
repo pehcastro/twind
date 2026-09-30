@@ -95,8 +95,8 @@ func TestWidthsAndCellPixelsFromTheBackend(t *testing.T) {
 	} {
 		f := driveFrames(t, frames.Flag, append([]drive.Option{drive.Size(24, 12)}, c.opts...)...).Frame()
 		t.Logf("%s:\n%s", c.name, f.Text())
-		if top, flag := cells(f, c.border-1, 0, 2), cells(f, c.border-1, 1, 3); top != "▁ " || flag != "k▏ " {
-			t.Errorf("%s: top row ends %q and the flag row %q at column %d, want \"▁ \" and \"k▏ \": the right border at column %d", c.name, top, flag, c.border-1, c.border)
+		if top, flag := cells(f, c.border-1, 0, 2), cells(f, c.border-1, 1, 3); top != "─┐" || flag != "k│ " {
+			t.Errorf("%s: top row ends %q and the flag row %q at column %d, want \"─┐\" and \"k│ \": the right border at column %d", c.name, top, flag, c.border-1, c.border)
 		}
 		rows := 0
 		for y := range f.Cells().Height() {

@@ -43,34 +43,31 @@ func painted(w, h int, root scene.Node, look Look) *buffer.Buffer {
 	return buf
 }
 
-func TestHairline(t *testing.T) {
+func TestBorderOnTheFill(t *testing.T) {
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
 	buf := painted(12, 6, page(12, 6, "", card(place(1, 1, 10, 4, one), style.RadiusNone)), Composited)
-	expect(t, buf, "            ", "  ▁▁▁▁▁▁▁▁  ", " ▕        ▏ ", " ▕        ▏ ", "  ▔▔▔▔▔▔▔▔  ", "            ")
-	for _, at := range [][2]int{{2, 1}, {9, 1}, {1, 2}, {10, 3}, {4, 4}, {9, 4}} {
+	expect(t, buf, "            ", " ┌────────┐ ", " │        │ ", " │        │ ", " └────────┘ ", "            ")
+	for _, at := range [][2]int{{1, 1}, {9, 1}, {1, 2}, {10, 3}, {4, 4}, {10, 4}} {
 		c := buf.At(at[0], at[1])
-		if c.Bg != literal(zinc100) || c.Fg != literal(zinc800) {
-			t.Errorf("hairline cell %v: bg %+v fg %+v, want the parent's bg under the border colour", at, c.Bg, c.Fg)
+		if c.Bg != literal(white) || c.Fg != literal(zinc800) {
+			t.Errorf("border cell %v: bg %+v fg %+v, want the border colour on the card's fill", at, c.Bg, c.Fg)
 		}
-	}
-	if c := buf.At(2, 2); c.Bg != literal(white) {
-		t.Errorf("fill cell bg %+v, want white", c.Bg)
 	}
 }
 
-func TestHairlineRounded(t *testing.T) {
+func TestBorderRounded(t *testing.T) {
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
 	text := "abcdefghijkl\nmnopqrstuvwx\nABCDEFGHIJKL\nMNOPQRSTUVWX\nyz"
 	buf := painted(12, 6, page(12, 6, text, card(place(1, 1, 10, 4, one), style.RadiusLg)), Composited)
-	expect(t, buf, "abcdefghijkl", "m ▁▁▁▁▁▁▁▁ x", "A▕        ▏L", "M▕        ▏X", "y ▔▔▔▔▔▔▔▔  ")
+	expect(t, buf, "abcdefghijkl", "m╭────────╮x", "A│        │L", "M│        │X", "y╰────────╯ ")
 }
 
-func TestHairlineOneEdge(t *testing.T) {
+func TestBorderOneEdge(t *testing.T) {
 	buf := painted(6, 3, page(6, 3, "", card(place(1, 0, 4, 2, layout.Edges{Bottom: 1}), style.RadiusLg)), Composited)
-	expect(t, buf, "      ", " ▔▔▔▔ ", "      ")
+	expect(t, buf, "      ", " ──── ", "      ")
 }
 
-func TestHairlinePlain(t *testing.T) {
+func TestBorderPlain(t *testing.T) {
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
 	square := painted(6, 3, page(6, 3, "", card(place(0, 0, 6, 3, one), style.RadiusNone)), Plain)
 	expect(t, square, "┌────┐", "│    │", "└────┘")
@@ -82,7 +79,7 @@ func TestShadow(t *testing.T) {
 	md := style.Shadow{X: 8, Y: 16, Color: literal(shadowMd)}
 	bare := painted(12, 7, page(12, 7, ""), Composited)
 	buf := painted(12, 7, page(12, 7, "", card(place(1, 1, 6, 3, layout.Edges{}), style.RadiusNone, md)), Composited)
-	expect(t, buf, "            ", "            ", "       ▏    ", "       ▏    ", "  ▔▔▔▔▔     ", "            ")
+	expect(t, buf, "            ", "            ", "            ", "            ", "            ", "            ")
 	shade := color.RGBA{R: 227, G: 227, B: 228, A: 255}
 	for y := range 7 {
 		for x := range 12 {
@@ -92,8 +89,8 @@ func TestShadow(t *testing.T) {
 			switch {
 			case inCard:
 			case ring:
-				if got.Bg != want.Bg || !near(got.Fg, shade) {
-					t.Errorf("ring %d,%d: bg %+v fg %+v, want the page bg under black at alpha 18 %+v", x, y, got.Bg, got.Fg, shade)
+				if !near(got.Bg, shade) {
+					t.Errorf("ring %d,%d: bg %+v, want a whole cell of the page under black at alpha 18 %+v", x, y, got.Bg, shade)
 				}
 			case got != want:
 				t.Errorf("cell %d,%d outside the ring changed: %+v, want %+v", x, y, got, want)
@@ -106,9 +103,9 @@ func TestShadowStockMd(t *testing.T) {
 	black := literal(color.RGBA{A: 26})
 	md := []style.Shadow{{Y: 4, Blur: 6, Spread: -1, Color: black}, {Y: 2, Blur: 4, Spread: -2, Color: black}}
 	buf := painted(12, 7, page(12, 7, "", card(place(1, 1, 6, 3, layout.Edges{}), style.RadiusNone, md...)), Composited)
-	expect(t, buf, "            ", "▕      ▏    ", "▕      ▏    ", "▕      ▏    ", " ▔▔▔▔▔▔     ", "            ")
-	if side, below := buf.At(7, 2).Fg, buf.At(3, 4).Fg; !near(side, color.RGBA{R: 219, G: 219, B: 220}) || !near(below, color.RGBA{R: 196, G: 196, B: 197}) {
-		t.Errorf("side %+v below %+v: want one layer at alpha 26 beside, both layers below", side, below)
+	expect(t, buf, "            ", "▐      ▌    ", "▐      ▌    ", "▐      ▌    ", " ▀▀▀▀▀▀     ", "            ")
+	if side, below := buf.At(7, 2).Fg, buf.At(3, 4).Fg; !near(side, color.RGBA{R: 219, G: 219, B: 220}) || !near(below, color.RGBA{R: 219, G: 219, B: 220}) {
+		t.Errorf("side %+v below %+v: want the first layer alone, the second reaches under a quarter cell", side, below)
 	}
 }
 
@@ -129,8 +126,8 @@ func TestShadowNegativeSpread(t *testing.T) {
 func TestShadowStacked(t *testing.T) {
 	md := style.Shadow{X: 8, Y: 16, Color: literal(shadowMd)}
 	buf := painted(6, 4, page(6, 4, "", card(place(0, 0, 3, 2, layout.Edges{}), style.RadiusNone, md, md)), Composited)
-	if c := buf.At(3, 1); c.Grapheme != "▏" || !near(c.Fg, color.RGBA{R: 211, G: 211, B: 212}) {
-		t.Errorf("two stacked shadows: %+v, want ▏ at twice the shade", c)
+	if c := buf.At(3, 1); c.Grapheme != " " || !near(c.Bg, color.RGBA{R: 211, G: 211, B: 212}) {
+		t.Errorf("two stacked shadows: %+v, want a cell at twice the shade", c)
 	}
 }
 
@@ -140,8 +137,8 @@ func TestShadowKeepsText(t *testing.T) {
 	bare := painted(6, 4, page(6, 4, text), Composited)
 	buf := painted(6, 4, page(6, 4, text, card(place(0, 0, 3, 2, layout.Edges{}), style.RadiusNone, md)), Composited)
 	for _, at := range [][2]int{{3, 1}, {1, 2}} {
-		if got, want := buf.At(at[0], at[1]), bare.At(at[0], at[1]); got != want {
-			t.Errorf("text under the shadow at %v: %+v, want %+v", at, got, want)
+		if got, want := buf.At(at[0], at[1]), bare.At(at[0], at[1]); got.Grapheme != want.Grapheme || got.Bg == want.Bg {
+			t.Errorf("text under the shadow at %v: %+v, want %q kept on a shaded cell", at, got, want.Grapheme)
 		}
 	}
 }
@@ -151,8 +148,8 @@ func TestShadowCurrentColor(t *testing.T) {
 	s.Color = literal(red)
 	s.Shadows = []style.Shadow{{X: 8, Y: 16, Color: color.Color{Kind: color.Current}}}
 	buf := painted(6, 4, page(6, 4, "", scene.New(place(0, 0, 3, 2, layout.Edges{}), s, scene.Text{})), Composited)
-	if c := buf.At(3, 1); c.Grapheme != "▏" || c.Fg != literal(red) {
-		t.Errorf("currentColor shadow %+v, want ▏ in the text colour", c)
+	if c := buf.At(3, 1); c.Bg != literal(red) {
+		t.Errorf("currentColor shadow %+v, want a cell in the text colour", c)
 	}
 }
 
@@ -162,8 +159,8 @@ func TestShadowInset(t *testing.T) {
 	s.BorderStyle, s.BorderColor = style.BorderSingle, literal(zinc800)
 	s.InsetShadows = []style.Shadow{{Y: 16, Color: literal(shadowMd), Inset: true}}
 	buf := painted(6, 5, page(6, 5, "", scene.New(place(0, 0, 6, 5, one), s, scene.Text{})), Composited)
-	expect(t, buf, " ▁▁▁▁ ", "▕▔▔▔▔▏", "▕    ▏", "▕    ▏", " ▔▔▔▔ ")
-	if c := buf.At(2, 1); c.Bg != literal(white) || !near(c.Fg, color.RGBA{R: 237, G: 237, B: 237}) {
+	expect(t, buf, "┌────┐", "│    │", "│    │", "│    │", "└────┘")
+	if c := buf.At(2, 1); !near(c.Bg, color.RGBA{R: 237, G: 237, B: 237}) {
 		t.Errorf("inset shade %+v, want black at alpha 18 over white", c)
 	}
 }

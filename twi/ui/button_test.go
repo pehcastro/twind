@@ -15,7 +15,7 @@ func ringed(f drive.Frame, ring color.RGBA) bool {
 	cells := f.Cells()
 	for y := range cells.Height() {
 		for x := range cells.Width() {
-			if c := cells.At(x, y); strings.ContainsAny(c.Grapheme, "▁▂▃▄▅▆▇▏▎▍▌▋▊▉▔▕") && c.Fg.RGBA == ring {
+			if c := cells.At(x, y); strings.ContainsAny(c.Grapheme, "─│▄▌▀▐") && c.Fg.RGBA == ring {
 				return true
 			}
 		}

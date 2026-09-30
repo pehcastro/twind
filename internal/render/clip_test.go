@@ -38,7 +38,7 @@ func TestOverflowHiddenKeepsStart(t *testing.T) {
 		want    []string
 	}{
 		{"w-24 h-4 overflow-hidden", []string{"title", "row 1", "row 2", "row 3", "", "", "", ""}},
-		{"w-24 h-4 overflow-hidden px-1 border", []string{" ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁", "▕ title                ▏", "▕ row 1                ▏", " ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔", "", "", "", ""}},
+		{"w-24 h-4 overflow-hidden px-1 border", []string{"┌──────────────────────┐", "│ title                │", "│ row 1                │", "└──────────────────────┘", "", "", "", ""}},
 	} {
 		app := func(*twi.Runtime) func() twi.Node {
 			return func() twi.Node {

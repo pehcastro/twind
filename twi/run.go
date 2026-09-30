@@ -46,7 +46,7 @@ func New(opts ...RenderOption) *Runtime {
 	if os.Getenv("TWIND_GRAPHICS") != "" {
 		cfg.graphics = nil
 	}
-	r := &Runtime{cfg: cfg}
+	r := &Runtime{cfg: cfg, theme: theme.Default()}
 	if cfg.theme != nil {
 		r.theme = *cfg.theme
 	}

@@ -33,6 +33,31 @@ func over(src, dst color.Color) color.Color {
 	}}
 }
 
+func (p *Painter) paletted() bool { return p.Profile == color.ANSI16 || p.Profile == color.ANSI256 }
+
+func apart(c, from color.Color, p color.Profile) color.Color {
+	index := color.RGBA.ANSI256
+	if p == color.ANSI16 {
+		index = color.RGBA.ANSI16
+	}
+	opaque := func(k color.Color) bool { return k.Kind == color.Literal && k.RGBA.A == math.MaxUint8 }
+	if !opaque(c) || !opaque(from) || c.RGBA == from.RGBA || index(c.RGBA) != index(from.RGBA) {
+		return c
+	}
+	luma := func(k color.RGBA) int { return 299*int(k.R) + 587*int(k.G) + 114*int(k.B) }
+	white, toward := color.RGBA{R: math.MaxUint8, G: math.MaxUint8, B: math.MaxUint8, A: math.MaxUint8}, color.Color{Kind: color.Literal}
+	if lc, lf := luma(c.RGBA), luma(from.RGBA); lc > lf || lc == lf && 2*lf < luma(white) {
+		toward.RGBA = white
+	}
+	for step := 1; step <= konst.ContrastSteps; step++ {
+		toward.RGBA.A = uint8(step * math.MaxUint8 / konst.ContrastSteps)
+		if next := over(toward, c); index(next.RGBA) != index(from.RGBA) {
+			return next
+		}
+	}
+	return c
+}
+
 func visible(buf *buffer.Buffer, clip layout.Rect, x, y int) bool {
 	return x >= max(clip.X, 0) && y >= max(clip.Y, 0) && x < min(clip.X+clip.W, buf.Width()) && y < min(clip.Y+clip.H, buf.Height())
 }

@@ -16,7 +16,7 @@ import (
 //go:generate go run github.com/twind-dev/twind/internal/twirgen
 
 func main() {
-	themeName := flag.String("theme", "zinc-light", "built-in theme, palette-scheme: zinc-dark, violet-light, and so on")
+	themeName := flag.String("theme", "twind-dark", "built-in theme, palette-scheme: zinc-dark, violet-light, and so on")
 	pageName := flag.String("page", "dashboard", "page open at start: dashboard, forms, overlays or settings")
 	open := flag.String("open", "", "on the overlays page, the overlay open at start: "+strings.Join(openable(), ", "))
 	profile := flag.String("profile", "", "force a colour profile: truecolor, 256, 16 or attributes")

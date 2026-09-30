@@ -88,7 +88,7 @@ func TestBreakpointDialogFooter(t *testing.T) {
 		inner := make([]string, len(rows))
 		for i, r := range rows {
 			inner[i] = strings.TrimRight(strings.Map(func(r rune) rune {
-				if strings.ContainsRune("▁▔▕▏", r) {
+				if strings.ContainsRune("─│┌┐└┘╭╮╰╯", r) {
 					return ' '
 				}
 				return r

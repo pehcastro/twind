@@ -12,6 +12,7 @@ import (
 	lkonst "github.com/twind-dev/twind/internal/konst/layout"
 	skonst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/buffer"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/motion"
 	"github.com/twind-dev/twind/twi/paint"
@@ -38,6 +39,7 @@ type Frame struct {
 	Height        layout.Length
 	Sanitize      func(raw string) scene.Text
 	Look          paint.Look
+	Profile       color.Profile
 	Cell          image.Point
 	Widths        text.Widths
 	Now           time.Duration
@@ -91,7 +93,7 @@ func Render(root Node, f Frame) (*buffer.Buffer, error) {
 		height = f.Height.Value
 	}
 	buf := buffer.New(f.Width, height)
-	(&paint.Painter{Widths: f.Widths}).Paint(buf, &tree, f.Look)
+	(&paint.Painter{Widths: f.Widths, Profile: f.Profile}).Paint(buf, &tree, f.Look)
 	return buf, nil
 }
 

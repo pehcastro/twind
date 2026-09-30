@@ -87,8 +87,8 @@ func TestSelectionWidensOnlyWhenTheDragLeavesItsCard(t *testing.T) {
 	s := startSelecting(t)
 	x, y := s.at("bravo", 2)
 	s.d.Down(x, y)
-	bx, by := s.at("▏", 0)
-	s.d.Move(bx, by+2)
+	bx, by := s.at("┐", 0)
+	s.d.Move(bx, by+3)
 	s.highlighted(map[string]string{
 		"alpha": ".....", "bravo": "..###", "charlie": "#######", "delta": "#####", "foxtrot": "#######",
 		"golf": "####", "hotel": "#####", "whole": ".....", "india": ".....", "lima": "....", "mike": "....",

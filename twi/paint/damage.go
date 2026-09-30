@@ -17,6 +17,7 @@ import (
 
 type Painter struct {
 	Widths                 text.Widths
+	Profile                color.Profile
 	buf                    *buffer.Buffer
 	width, height, columns int
 	seed                   maphash.Seed
@@ -157,7 +158,7 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 	p.columns = (width + konst.DamageColumns - 1) / konst.DamageColumns
 	p.tiles = append(p.tiles[:0], make([]uint64, p.columns*height)...)
 	p.wide = append(p.wide[:0], make([]bool, height)...)
-	canvas := mix(mix(maphash.Comparable(p.seed, root.Background), uint64(look)), maphash.Comparable(p.seed, p.Widths))
+	canvas := mix(mix(mix(maphash.Comparable(p.seed, root.Background), uint64(look)), uint64(p.Profile)), maphash.Comparable(p.seed, p.Widths))
 	for i := range p.tiles {
 		p.tiles[i] = canvas
 	}
@@ -231,7 +232,7 @@ func (p *Painter) mark(area layout.Rect, h uint64, wide bool) {
 func mix(h, v uint64) uint64 { return bits.RotateLeft64((h^v)*konst.HashPrime, konst.HashRotate) }
 
 func extent(n *scene.Node) layout.Rect {
-	r := outline(n)
+	r := n.Bounds
 	x0, y0, x1, y1 := r.X, r.Y, r.X+r.W, r.Y+r.H
 	for _, s := range n.Shadows {
 		left, top, right, bottom := reach(s)
@@ -309,7 +310,18 @@ func (p *Painter) repaint(buf *buffer.Buffer, root *scene.Node, look Look, span 
 			fade(target(depth), p.layers[depth], n.Opacity, span)
 		case drawStep:
 			if touched := overlap(p.areas[o.node], span); touched.W > 0 && touched.H > 0 {
-				draw(target(depth), n, look, overlap(n.Clip, span), p.Widths)
+				p.draw(target(depth), n, look, overlap(n.Clip, span))
+			}
+		}
+	}
+	if !p.paletted() {
+		return
+	}
+	for y := span.Y; y < span.Y+span.H; y++ {
+		row := buf.Row(y)
+		for x := span.X; x < span.X+span.W; x++ {
+			if c := &row[x]; c.Grapheme != " " && c.Width != buffer.Continuation {
+				c.Fg = apart(c.Fg, c.Bg, p.Profile)
 			}
 		}
 	}

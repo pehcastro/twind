@@ -20,7 +20,11 @@ func overlayDriver(t *testing.T, width, height int, app drive.App) *drive.Driver
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(app, drive.Size(width, height), drive.Styles(sheet))
+	light := zinc(t, theme.Light)
+	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
+		rt.SetTheme(light)
+		return app(rt)
+	}, drive.Size(width, height), drive.Styles(sheet))
 	d.Advance(settleTime)
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {

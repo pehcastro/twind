@@ -139,8 +139,8 @@ func TestContextMenuRightClick(t *testing.T) {
 	expect("a right click outside the area closes it", !menu.Open && !has(d, "Back"))
 	hit(d, "tab shift+f10")
 	x, y, _ = at(d.Frame(), "Back")
-	rx, ly, _ := at(d.Frame(), "╮")
-	lx := rx - 39
+	rx, ly, _ := at(d.Frame(), "┄╮")
+	lx := rx - 38
 	expect("shift+f10 after a right click opens at the area's corner again", menu.Open && x == lx+4 && y == ly+1)
 }
 
@@ -294,7 +294,7 @@ func TestSidebarCollapse(t *testing.T) {
 			if !ok {
 				return -1
 			}
-			return slices.Index([]rune(strings.Split(d.Frame().Text(), "\n")[y]), '▏')
+			return slices.Index([]rune(strings.Split(d.Frame().Text(), "\n")[y]), '│')
 		}
 		iconX, iconY, _ := at(d.Frame(), "▸")
 		expect("expanded: labels, the sub menu and the badge show", has(d, "Platform") && has(d, "Playground") && has(d, "History") && has(d, "12") && has(d, "Acme Inc"))

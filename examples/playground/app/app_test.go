@@ -180,10 +180,50 @@ func TestPickerOwnsKeys(t *testing.T) {
 		t.Errorf("reopened picker did not start on the applied theme: status %q", got)
 	}
 	run(d, "t")
-	press(d, "up", "up", "up", "up", "up")
+	for range themeIndex("slate-light") + 1 {
+		press(d, "up")
+	}
 	if text := d.Frame().Text(); !strings.Contains(text, "violet-dark") {
 		t.Errorf("cursor wrapped past the first theme to violet-dark but the list does not show it:\n%s", text)
 	}
+}
+
+func TestPickerScheme(t *testing.T) {
+	d := open(t)
+	run(d, "t")
+	press(d, "left")
+	if got := cellAt(t, d, "zinc-light").Bg.RGBA; got != builtinTheme(t, "zinc-light").Tokens[theme.Accent].RGBA {
+		t.Errorf("left on zinc-dark: zinc-light is not the highlighted row (bg %v):\n%s", got, d.Frame().Text())
+	}
+	press(d, "enter")
+	if got := status(d); !strings.Contains(got, "zinc-light") {
+		t.Errorf("left, enter: status %q, want zinc-light applied", got)
+	}
+	run(d, "t")
+	var x, y int
+	for row, line := range lines(d) {
+		if before, after, ok := strings.Cut(line, "scheme"); ok {
+			dark, _, _ := strings.Cut(after, "dark")
+			x, y = utf8.RuneCountInString(before+"scheme"+dark), row
+		}
+	}
+	if y == 0 {
+		t.Fatalf("no scheme toggle in the picker:\n%s", d.Frame().Text())
+	}
+	d.Click(x, y)
+	press(d, "enter")
+	if got := status(d); !strings.Contains(got, "zinc-dark") {
+		t.Errorf("click on dark, enter: status %q, want zinc-dark applied:\n%s", got, d.Frame().Text())
+	}
+}
+
+func builtinTheme(t *testing.T, name string) theme.Theme {
+	t.Helper()
+	i := themeIndex(name)
+	if i < 0 {
+		t.Fatalf("%s: not built in", name)
+	}
+	return theme.Builtin()[i]
 }
 
 func spot(t *testing.T, d *drive.Driver, s string) (int, int) {

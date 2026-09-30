@@ -16,12 +16,9 @@ func TestCornerHidesThePage(t *testing.T) {
 	for _, look := range []Look{Composited, Plain, Glyphs} {
 		buf := painted(12, 5, page(12, 5, text, card(place(1, 1, 10, 3, one), style.RadiusMd)), look)
 		for i, at := range corners {
-			c, want := buf.At(at[0], at[1]), buffer.Cell{Grapheme: " ", Bg: literal(white)}
-			switch look {
-			case Composited:
-				want = buffer.Cell{Grapheme: " ", Fg: literal(zinc950), Bg: literal(zinc100)}
-			case Plain:
-				want = buffer.Cell{Grapheme: rounded[i], Fg: literal(zinc800), Bg: literal(white)}
+			c, want := buf.At(at[0], at[1]), buffer.Cell{Grapheme: rounded[i], Fg: literal(zinc800), Bg: literal(white)}
+			if look == Glyphs {
+				want = buffer.Cell{Grapheme: " ", Bg: literal(white)}
 			}
 			if c != want {
 				t.Errorf("look %d corner %v: %+v, want %+v", look, at, c, want)
@@ -39,7 +36,7 @@ func TestCornerHidesThePage(t *testing.T) {
 	}
 	top := layout.Edges{Top: 1}
 	buf = painted(12, 5, page(12, 5, text, card(place(1, 1, 10, 3, top), style.RadiusMd)), Composited)
-	if c := buf.At(1, 1); c.Grapheme != "▁" {
-		t.Errorf("a top-only border's first cell %+v, want the hairline", c)
+	if c := buf.At(1, 1); c.Grapheme != "─" {
+		t.Errorf("a top-only border's first cell %+v, want the line", c)
 	}
 }

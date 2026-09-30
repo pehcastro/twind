@@ -327,7 +327,7 @@ func TestControlKeys(t *testing.T) {
 	step("type:hi", func() any { return in.Value() }, "hi")
 	focus(&ta.control)
 	step("type:a enter type:b", func() any { return ta.Value() }, "a\nb")
-	if frame := d.Frame().Text(); !regexp.MustCompile(`[▕▋▊] a +[▏▎▍]\n[▕▋▊] b[ \x{a0}]+[▏▎▍]`).MatchString(frame) {
+	if frame := d.Frame().Text(); !regexp.MustCompile(`[│▐] a +[│▌]\n[│▐] b[ \x{a0}]+[│▌]`).MatchString(frame) {
 		t.Errorf("the textarea does not break the line:\n%s", frame)
 	}
 	focus(&cb.control)

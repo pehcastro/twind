@@ -352,15 +352,29 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 	s := c.state
 	first := min(max(s.cursor-pickerRows/2, 0), len(themes)-pickerRows)
+	scheme := func(to theme.Scheme) func(*state) {
+		return func(s *state) {
+			t := themes[s.cursor].WithScheme(to)
+			s.cursor = slices.IndexFunc(themes, func(o theme.Theme) bool { return o.Name == t.Name && o.Scheme == t.Scheme })
+		}
+	}
 	list := append(c.focusable("themes"), twi.Class("flex flex-col rounded-md"+focusRing), twi.OnKeyDown(func(e *twi.Event) {
 		step := map[input.Key]int{input.KeyArrowDown: 1, input.KeyArrowUp: -1}[e.Key.Key]
 		switch {
 		case step != 0:
 			c.update(func(s *state) { s.cursor = (s.cursor + step + len(themes)) % len(themes) })
+		case e.Key.Key == input.KeyArrowLeft || e.Key.Key == input.KeyArrowRight:
+			c.update(scheme(map[input.Key]theme.Scheme{input.KeyArrowLeft: theme.Light, input.KeyArrowRight: theme.Dark}[e.Key.Key]))
 		case e.Key.Key == input.KeyEnter:
 			c.update(apply)
 		}
 	}))
+	toggle := []twi.Node{txt("grow px-1 text-muted-foreground", "← → scheme")}
+	for _, to := range []theme.Scheme{theme.Light, theme.Dark} {
+		label := map[theme.Scheme]string{theme.Light: "light", theme.Dark: "dark"}[to]
+		toggle = append(toggle, twi.Element(twi.Class(pill+activePill), twi.Text(label), twi.OnClick(func(*twi.Event) { c.update(scheme(to)) }),
+			twi.Data("state", map[bool]string{true: "active", false: "inactive"}[themes[s.cursor].Scheme == to])))
+	}
 	for i := first; i < first+pickerRows; i++ {
 		class, mark := "px-1", "  "
 		if i == s.cursor {
@@ -389,6 +403,7 @@ func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 				txt("px-1 text-muted-foreground", "↑ ↓ preview, Enter keeps, Esc restores"),
 			),
 			twi.Element(list...),
+			el("flex flex-row items-center gap-1", toggle...),
 			c.button("close", "self-end rounded-full px-1 bg-secondary text-secondary-foreground hover:bg-secondary/80", "close", closePicker),
 		),
 	)

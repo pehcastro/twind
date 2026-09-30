@@ -57,7 +57,7 @@ func TestOverlaysKeys(t *testing.T) {
 		if i == 3 {
 			x := find(t, d.Frame(), "✕")
 			above := []rune(strings.Split(d.Frame().Text(), "\n")[x.y-1])
-			expect("tab 4 rings the X close, drawn at its opacity-70, and nothing else", len(ringRows(d.Frame(), ring)) == 0 && strings.ContainsRune("▁▂▃", above[x.x]))
+			expect("tab 4 rings the X close, drawn at its opacity-70, and nothing else", len(ringRows(d.Frame(), ring)) == 0 && strings.ContainsRune("▄", above[x.x]))
 			continue
 		}
 		expect("tab "+string(rune('1'+i))+" keeps the focus ring inside the dialog", ringWithin(top, bottom))

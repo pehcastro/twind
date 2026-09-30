@@ -5,7 +5,6 @@ import (
 	"image"
 	"iter"
 	"math"
-	"strings"
 	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/paint"
@@ -28,31 +27,38 @@ const (
 	Glyphs
 )
 
-func draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect, widths text.Widths) {
+func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 	shadows, insets := n.Shadows, n.InsetShadows
 	if look != Composited {
 		shadows, insets = nil, nil
 	}
-	body := outline(n)
+	body := n.Bounds
 	for i := len(shadows) - 1; i >= 0; i-- {
 		left, top, right, bottom := reach(shadows[i])
 		cast := layout.Rect{X: body.X - left, Y: body.Y - top, W: body.W + left + right, H: body.H + top + bottom}
 		shadow(buf, clip, cast, body, shadows[i], false)
 	}
-	fill := n.Bounds
-	if look == Composited && n.Border.Style == style.BorderSingle {
-		fill = n.Padding
-	}
 	bg := n.Background
 	filled := bg.Kind == color.Literal && bg.RGBA.A > 0
+	fill := body
+	pill := look == Composited && filled && n.Border.Radius == style.RadiusFull && body.H == 1 && body.W >= 2
+	if pill {
+		fill.X, fill.W = fill.X+1, fill.W-2
+	}
 	if filled {
 		f, cell := overlap(overlap(fill, clip), layout.Rect{W: buf.Width(), H: buf.Height()}), buffer.Cell{Grapheme: " ", Bg: bg}
+		palette := p.paletted()
 		for y := f.Y; y < f.Y+f.H; y++ {
+			row := buf.Row(y)
 			for x := f.X; x < f.X+f.W; x++ {
+				under := row[x].Bg
 				if translucent(bg) {
 					put(buf, clip, x, y, cell)
 				} else {
 					buf.Set(x, y, cell)
+				}
+				if palette {
+					row[x].Bg = apart(row[x].Bg, under, p.Profile)
 				}
 			}
 		}
@@ -60,27 +66,19 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect, widths
 	if look != Plain && n.Gradient.Kind == style.GradientLinear {
 		gradient(buf, n, fill, look, clip)
 	}
-	if look == Composited && body != n.Bounds {
+	if pill {
 		caps := split(konst.PillCaps)
 		put(buf, clip, body.X, body.Y, buffer.Cell{Grapheme: caps[0], Fg: bg, Bg: color.Color{Kind: color.Literal}})
 		put(buf, clip, body.X+body.W-1, body.Y, buffer.Cell{Grapheme: caps[1], Fg: bg, Bg: color.Color{Kind: color.Literal}})
 	}
 	for _, s := range insets {
-		p := n.Padding
+		pad := n.Padding
 		left, top, right, bottom := reach(s)
-		lit := layout.Rect{X: p.X + right, Y: p.Y + bottom, W: p.W - left - right, H: p.H - top - bottom}
-		shadow(buf, clip, p, lit, s, true)
+		lit := layout.Rect{X: pad.X + right, Y: pad.Y + bottom, W: pad.W - left - right, H: pad.H - top - bottom}
+		shadow(buf, clip, pad, lit, s, true)
 	}
 	border(buf, n, look, clip)
-	lines(buf, n, clip, widths)
-}
-
-func outline(n *scene.Node) layout.Rect {
-	r, bg := n.Bounds, n.Background
-	if n.Border.Radius == style.RadiusFull && r.H == 1 && bg.Kind == color.Literal && bg.RGBA.A > 0 {
-		r.X, r.W = r.X-1, r.W+2
-	}
-	return r
+	lines(buf, n, clip, p.Widths, p.Profile == color.ANSI16)
 }
 
 func split(set string) (glyphs [4]string) {
@@ -92,16 +90,22 @@ func split(set string) (glyphs [4]string) {
 	return glyphs
 }
 
-func reach(s style.Shadow) (left, top, right, bottom int) {
+func depth(s style.Shadow) [4]float64 {
 	blur := float64(s.Blur) * rasterkonst.SigmaPerBlur
-	cells := func(offset style.Pixels, cell float64) int {
-		v := (float64(offset+s.Spread) + blur) / cell
-		if v > 0 {
-			return max(1, int(math.Round(v)))
-		}
-		return int(math.Round(v))
+	cells := func(offset style.Pixels, cell float64) float64 { return (float64(offset+s.Spread) + blur) / cell }
+	return [4]float64{cells(-s.Y, stylekonst.NominalCellY), cells(s.X, stylekonst.NominalCellX), cells(s.Y, stylekonst.NominalCellY), cells(-s.X, stylekonst.NominalCellX)}
+}
+
+func whole(v float64) int {
+	if v > 0 {
+		return max(1, int(math.Round(v)))
 	}
-	return cells(-s.X, stylekonst.NominalCellX), cells(-s.Y, stylekonst.NominalCellY), cells(s.X, stylekonst.NominalCellX), cells(s.Y, stylekonst.NominalCellY)
+	return int(math.Round(v))
+}
+
+func reach(s style.Shadow) (left, top, right, bottom int) {
+	d := depth(s)
+	return whole(d[3]), whole(d[0]), whole(d[1]), whole(d[2])
 }
 
 func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look, clip layout.Rect) {
@@ -128,14 +132,39 @@ func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look, cl
 	}
 }
 
+type ink uint8
+
+const (
+	noInk ink = iota
+	mergeInk
+	thinInk
+	halfInk
+	fullInk
+)
+
 func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, inset bool) {
-	weight := [4]int{1, 1, 1, 1}
+	var weight [4]ink
 	if s.X == 0 && s.Y == 0 && s.Blur == 0 {
-		eighths := func(cell float64) int {
-			return min(max(int(math.Round(float64(s.Spread)*konst.CellEighths/cell)), 1), konst.RingEighths)
+		ring := func(cell float64) ink {
+			if math.Round(float64(s.Spread)*konst.CellEighths/cell) > 1 {
+				return halfInk
+			}
+			return thinInk
 		}
-		v, h := eighths(stylekonst.NominalCellY), eighths(stylekonst.NominalCellX)
-		weight = [4]int{v, h, v, h}
+		v, h := ring(stylekonst.NominalCellY), ring(stylekonst.NominalCellX)
+		if v == thinInk && lit.H == 1 {
+			v = mergeInk
+		}
+		weight = [4]ink{v, h, v, h}
+	} else {
+		for side, v := range depth(s) {
+			switch covered := v - float64(whole(v)-1); {
+			case covered >= konst.ShadowFullCell:
+				weight[side] = fullInk
+			case covered >= konst.ShadowHalfCell:
+				weight[side] = halfInk
+			}
+		}
 	}
 	band := func(v, lo, size, litLo, litSize int) (out, after, fraction bool) {
 		after = v >= litLo+litSize
@@ -170,6 +199,13 @@ func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, i
 			case right:
 				side = 1
 			}
+			switch weight[side] {
+			case noInk:
+				continue
+			case fullInk:
+				put(buf, clip, x, y, buffer.Cell{Grapheme: " ", Bg: s.Color})
+				continue
+			}
 			if !visible(buf, clip, x, y) {
 				continue
 			}
@@ -180,56 +216,23 @@ func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, i
 	}
 }
 
-func edge(dst buffer.Cell, side, weight int, c color.Color) (buffer.Cell, bool) {
-	was, had := edgeOf(dst)
-	ink := over(c, dst.Bg)
-	switch {
-	case dst.Grapheme == " ":
-	case had == 0 || was%2 != side%2:
-		return dst, false
-	case side == was:
-		return block(side, max(weight, had), over(c, dst.Fg), dst.Bg), true
-	case weight < had || weight == had && ink == dst.Fg:
-		return dst, false
-	}
-	return block(side, weight, ink, dst.Bg), true
-}
-
-func edgeOf(c buffer.Cell) (side, weight int) {
-	if len(c.Grapheme) != konst.BlockBytes || c.Attr&^buffer.Inverse != 0 {
-		return 0, 0
-	}
-	inverse := c.Attr == buffer.Inverse
-	if at := strings.Index(konst.Hairlines, c.Grapheme); at >= 2*konst.BlockBytes && !inverse {
-		return at / konst.BlockBytes, 1
-	}
-	for side, set := range [2]string{konst.LowerBlocks, konst.LeftBlocks} {
-		at := strings.Index(set, c.Grapheme)
-		eighths := at/konst.BlockBytes + 1
-		switch {
-		case at < 0:
-		case inverse && eighths >= konst.CellEighths-konst.RingEighths:
-			return side + 2, konst.CellEighths - eighths
-		case !inverse && eighths <= konst.RingEighths:
-			return side, eighths
-		}
-	}
-	return 0, 0
-}
-
-func block(side, weight int, fg, bg color.Color) buffer.Cell {
-	set, eighths, attr := konst.LowerBlocks, weight, buffer.Attr(0)
-	if side%2 == 1 {
-		set = konst.LeftBlocks
+func edge(dst buffer.Cell, side int, weight ink, c color.Color) (buffer.Cell, bool) {
+	thin, half := split(konst.SingleLines), split(konst.HalfEdges)
+	glyph, fg := thin[side], over(c, dst.Fg)
+	if weight == halfInk || dst.Grapheme == half[side] {
+		glyph = half[side]
 	}
 	switch {
-	case side < 2:
-	case weight == 1 || bg.Kind != color.Literal:
-		return buffer.Cell{Grapheme: konst.Hairlines[side*konst.BlockBytes : (side+1)*konst.BlockBytes], Fg: fg, Bg: bg}
+	case dst.Grapheme == half[side]:
+	case weight == mergeInk:
+		return dst, false
+	case dst.Grapheme == thin[side]:
+	case dst.Grapheme == " " || weight == halfInk && dst.Grapheme == half[(side+2)%4]:
+		fg = over(c, dst.Bg)
 	default:
-		eighths, attr = konst.CellEighths-weight, buffer.Inverse
+		return dst, false
 	}
-	return buffer.Cell{Grapheme: set[(eighths-1)*konst.BlockBytes : eighths*konst.BlockBytes], Fg: fg, Bg: bg, Attr: attr}
+	return buffer.Cell{Grapheme: glyph, Fg: fg, Bg: dst.Bg}, true
 }
 
 func glyphs(b scene.Border, look Look) (edges string, corners [4]string) {
@@ -240,10 +243,7 @@ func glyphs(b scene.Border, look Look) (edges string, corners [4]string) {
 	case style.BorderNone:
 		return "", corners
 	case style.BorderSingle:
-		if look == Plain {
-			return konst.SingleLines, rounded(b.Radius)
-		}
-		return konst.Hairlines, corners
+		return konst.SingleLines, rounded(b.Radius)
 	case style.BorderDashed:
 		return konst.DashedLines, rounded(b.Radius)
 	case style.BorderDotted:
@@ -298,33 +298,21 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 			glyph(right, y, edges[1])
 		}
 	}
-	corner := func(x, y int, g string) {
-		if g != "" {
-			glyph(x, y, g)
-			return
-		}
-		if !visible(buf, clip, x, y) {
-			return
-		}
-		if under := buf.At(x, y); under.Grapheme != konst.UpperHalf {
-			buf.Set(x, y, buffer.Cell{Grapheme: " ", Fg: under.Fg, Bg: under.Bg})
-		}
-	}
 	if b.Top && b.Left {
-		corner(r.X, r.Y, corners[0])
+		glyph(r.X, r.Y, corners[0])
 	}
 	if b.Top && b.Right {
-		corner(right, r.Y, corners[1])
+		glyph(right, r.Y, corners[1])
 	}
 	if b.Bottom && b.Left {
-		corner(r.X, bottom, corners[2])
+		glyph(r.X, bottom, corners[2])
 	}
 	if b.Bottom && b.Right {
-		corner(right, bottom, corners[3])
+		glyph(right, bottom, corners[3])
 	}
 }
 
-func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widths) {
+func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widths, console bool) {
 	var attr buffer.Attr
 	if n.Bold {
 		attr |= buffer.Bold
@@ -348,11 +336,30 @@ func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widt
 		}
 		cell := ink
 		cell.Grapheme = g.Cluster
+		if console && len(g.Cluster) > 1 {
+			cell.Grapheme = standIn(g.Cluster)
+		}
 		if g.Width > 1 {
 			cell.Width = buffer.Wide
 		}
 		put(buf, clip, g.X, g.Y, cell)
 	}
+}
+
+func standIn(cluster string) string {
+	want, size := utf8.DecodeRuneInString(cluster)
+	if size != len(cluster) {
+		return cluster
+	}
+	standIns := konst.ConsoleStandIns
+	for _, r := range konst.ConsoleMissing {
+		_, next := utf8.DecodeRuneInString(standIns)
+		if r == want {
+			return standIns[:next]
+		}
+		standIns = standIns[next:]
+	}
+	return cluster
 }
 
 func printable(line string) bool {

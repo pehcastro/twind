@@ -1,5 +1,7 @@
 package theme
 
+//go:generate go run ./gen -pkg theme -out builtin_gen.go css
+
 import "github.com/twind-dev/twind/twi/color"
 
 type Token uint8
@@ -47,6 +49,7 @@ const (
 	SyntaxNamespace
 	SyntaxParameter
 	SyntaxPunctuation
+	DestructiveForeground
 	tokenEnd
 )
 
@@ -62,7 +65,7 @@ func (t Token) String() string {
 		Selection: "selection", SelectionForeground: "selection-foreground",
 		SyntaxKeyword: "syntax-keyword", SyntaxString: "syntax-string", SyntaxNumber: "syntax-number", SyntaxComment: "syntax-comment",
 		SyntaxFunction: "syntax-function", SyntaxConstant: "syntax-constant", SyntaxNamespace: "syntax-namespace",
-		SyntaxParameter: "syntax-parameter", SyntaxPunctuation: "syntax-punctuation",
+		SyntaxParameter: "syntax-parameter", SyntaxPunctuation: "syntax-punctuation", DestructiveForeground: "destructive-foreground",
 	}[t]
 }
 
@@ -85,7 +88,26 @@ const (
 type Tokens [tokenEnd]color.Color
 
 type Theme struct {
-	Name   string
-	Scheme Scheme
-	Tokens Tokens
+	Name    string
+	Scheme  Scheme
+	Tokens  Tokens
+	Schemes [Dark + 1]Tokens
+}
+
+func (t Theme) WithScheme(s Scheme) Theme {
+	t.Scheme, t.Tokens = s, t.Schemes[s]
+	return t
+}
+
+func Default() Theme { return twind() }
+
+func Builtin() []Theme {
+	var out []Theme
+	for _, t := range []Theme{
+		twind(), dream(), mono(), minimal(), dew(), cloud(), sukuna(),
+		neutral(), zinc(), slate(), stone(), rose(), blue(), green(), orange(), violet(),
+	} {
+		out = append(out, t.WithScheme(Light), t.WithScheme(Dark))
+	}
+	return out
 }
