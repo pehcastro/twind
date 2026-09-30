@@ -72,7 +72,7 @@ func TestConsoleModesRestored(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, err := enter(io.Discard, con, Options{Mouse: mouse})
+			b, err := enter(io.Discard, con, Options{Mouse: mouse}, offer{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -117,7 +117,7 @@ func TestConsoleRecords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := enter(io.Discard, con, Options{})
+	b, err := enter(io.Discard, con, Options{}, offer{})
 	if err != nil {
 		t.Fatal(err)
 	}

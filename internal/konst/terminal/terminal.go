@@ -25,16 +25,22 @@ const (
 )
 
 const (
-	EnterScreen = CSI + "?1049h" + CSI + "?25l" + CSI + "?2004h" + CSI + "?1004h"
-	LeaveScreen = CSI + "?1004l" + CSI + "?2004l" + CSI + "?25h" + CSI + "?1049l" + Reset
-	MouseOn     = CSI + "?1003h" + CSI + "?1006h"
-	MouseOff    = CSI + "?1006l" + CSI + "?1003l"
-	KittyPush   = CSI + ">1u"
-	KittyPop    = CSI + "<u"
-	Queries     = CSI + "?2026$p" + CSI + "?u" + CSI + "c"
-	SyncMode    = 2026
-	ModeSet     = 1
-	ModeReset   = 2
+	EnterScreen    = CSI + "?1049h" + CSI + "?25l" + CSI + "?2004h" + CSI + "?1004h"
+	LeaveScreen    = CSI + "?1004l" + CSI + "?2004l" + CSI + "?25h" + CSI + "?1049l" + Reset
+	MouseOn        = CSI + "?1003h" + CSI + "?1006h"
+	MouseOff       = CSI + "?1006l" + CSI + "?1003l"
+	KittyPush      = CSI + ">1u"
+	KittyPop       = CSI + "<u"
+	CellQuery      = CSI + "16t" + CSI + "14t" + CSI + "c"
+	KittyQuery     = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
+	KittyOK        = "\x1b_Gi=31;OK\x1b\\"
+	Queries        = KittyQuery + CSI + "?2026$p" + CSI + "?u" + CellQuery
+	CellReport     = "6"
+	WindowReport   = "4"
+	SixelAttribute = 4
+	SyncMode       = 2026
+	ModeSet        = 1
+	ModeReset      = 2
 )
 
 const (
