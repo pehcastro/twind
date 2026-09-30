@@ -17,10 +17,18 @@ func main() {
 	page := flag.Int("page", 1, "page to open on, 1 to 4")
 	themeName := flag.String("theme", "zinc-dark", "theme to open with, name-scheme")
 	picker := flag.Bool("picker", false, "open with the theme picker showing")
+	graphicsName := flag.String("graphics", "", "surface protocol, none, sixel, kitty or iterm2; empty detects it")
 	flag.Parse()
 	start := state{page: *page - 1, theme: themeIndex(*themeName), picker: *picker}
 	sheet, err := Styles()
+	opts := []twi.RenderOption{twi.Fullscreen(), twi.Styles(sheet)}
+	graphics, known := map[string]terminal.Graphics{"none": terminal.GraphicsNone, "sixel": terminal.GraphicsSixel, "kitty": terminal.GraphicsKitty, "iterm2": terminal.GraphicsITerm2}[*graphicsName]
+	if known {
+		opts = append(opts, twi.Graphics(graphics))
+	}
 	switch {
+	case !known && *graphicsName != "":
+		err = fmt.Errorf("-graphics %q: want none, sixel, kitty or iterm2", *graphicsName)
 	case start.page < 0 || start.page >= len(pages()):
 		err = fmt.Errorf("-page %d: want 1 to %d", *page, len(pages()))
 	case start.theme < 0:
@@ -34,7 +42,7 @@ func main() {
 			}
 			return strconv.Itoa(w) + "x" + strconv.Itoa(h)
 		}}
-		rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
+		rt := twi.New(opts...)
 		err = rt.Run(playground(rt, env, start))
 	}
 	if err != nil {

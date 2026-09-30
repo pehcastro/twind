@@ -1,13 +1,18 @@
 package twi
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"image"
 	"io"
 	"os"
 	"slices"
 	"strings"
 
+	termkonst "github.com/twind-dev/twind/internal/konst/terminal"
 	konst "github.com/twind-dev/twind/internal/konst/twi"
+	"github.com/twind-dev/twind/internal/present"
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
@@ -106,7 +111,7 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 	for _, o := range opts {
 		o(&cfg)
 	}
-	termWidth, _, sizeErr := terminal.Size(w)
+	termWidth, termHeight, sizeErr := terminal.Size(w)
 	if cfg.width <= 0 {
 		cfg.width = konst.DefaultWidth
 		if sizeErr == nil {
@@ -119,16 +124,64 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 	if cfg.theme != nil {
 		cfg.sheet = cfg.sheet.WithTheme(cfg.theme)
 	}
-	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile)})
-	if err != nil {
-		return err
+	if os.Getenv("TWIND_GRAPHICS") != "" {
+		cfg.graphics = nil
 	}
-	if f, ok := w.(*os.File); ok && sizeErr == nil && cfg.profile != color.None {
+	f, ok := w.(*os.File)
+	if ok && sizeErr == nil && cfg.profile != color.None {
 		restore, vtErr := terminal.EnableVirtualTerminal(f)
 		if vtErr != nil {
 			return vtErr
 		}
 		defer func() { err = errors.Join(err, restore()) }()
 	}
+	if ok && sizeErr == nil && cfg.profile > color.Attributes && cfg.width <= termWidth && (cfg.graphics == nil || *cfg.graphics != terminal.GraphicsNone) {
+		caps, cursor, err := terminal.Query(os.Stdin, f)
+		if err != nil {
+			return err
+		}
+		if pixels, err := inline(f, node, cfg, caps, cursor, termHeight); pixels || err != nil {
+			return err
+		}
+	}
+	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile)})
+	if err != nil {
+		return err
+	}
 	return (&terminal.Writer{Out: w, Profile: cfg.profile}).Static(buf)
+}
+
+func inline(out io.Writer, node Node, cfg renderConfig, caps terminal.Capabilities, cursor image.Point, screenRows int) (bool, error) {
+	if cfg.graphics != nil {
+		caps.Graphics = *cfg.graphics
+	}
+	if caps.Graphics == terminal.GraphicsNone || caps.CellPixels.X <= 0 || caps.CellPixels.Y <= 0 {
+		return false, nil
+	}
+	root, err := render.Scene(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width})
+	rows := root.Bounds.H
+	if err != nil || rows >= screenRows {
+		return false, err
+	}
+	lead := rows
+	if cursor.X > 0 {
+		lead++
+	}
+	top := min(cursor.Y+lead, screenRows-1) - rows
+	var buf bytes.Buffer
+	if caps.Sync {
+		buf.WriteString(termkonst.SyncBegin)
+	}
+	buf.WriteString(strings.Repeat("\n", lead))
+	fmt.Fprintf(&buf, "%s%d;%dr%s", termkonst.CSI, top+1, top+rows, termkonst.OriginOn)
+	screen := present.Screen{Out: &buf, Profile: cfg.profile, Graphics: caps.Graphics, Cell: caps.CellPixels}
+	if err := screen.Frame(root, cfg.width, rows); err != nil {
+		return false, err
+	}
+	fmt.Fprintf(&buf, "%s%s%s%d;1H", termkonst.OriginOff, termkonst.RegionReset, termkonst.CSI, top+rows+1)
+	if caps.Sync {
+		buf.WriteString(termkonst.SyncEnd)
+	}
+	_, err = out.Write(buf.Bytes())
+	return true, err
 }

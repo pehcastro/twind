@@ -43,6 +43,7 @@ type Backend struct {
 	opt     Options
 	decoder input.Decoder
 	answers chan answer
+	leave   string
 	asking  atomic.Bool
 	resized atomic.Bool
 	exited  bool
@@ -79,6 +80,34 @@ func Enter(in, out *os.File, opt Options) (*Backend, error) {
 	return enter(out, t, opt, o)
 }
 
+func Query(in, out *os.File) (Capabilities, image.Point, error) {
+	o, err := offered(os.Getenv)
+	if err != nil || o == (offer{GraphicsNone, true}) {
+		return Capabilities{}, image.Point{}, err
+	}
+	t, err := openTTY(in, out, Options{})
+	if err != nil {
+		return Capabilities{}, image.Point{}, nil
+	}
+	return query(out, t, o)
+}
+
+func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
+	events := make(chan input.Event, konst.EventBuffer)
+	b := &Backend{Events: events, out: out, tty: t, answers: make(chan answer, konst.ReplyBuffer)}
+	go b.read(events)
+	raw, replies, err := b.ask(konst.InlineQueries)
+	if err != nil {
+		return Capabilities{}, image.Point{}, err
+	}
+	for _, r := range replies {
+		if r.Kind == input.ReplyCursorPosition && len(r.Params) == 2 {
+			return b.detect(raw, replies, o), image.Pt(r.Params[1]-1, r.Params[0]-1), b.Exit()
+		}
+	}
+	return Capabilities{}, image.Point{}, b.Exit()
+}
+
 func offered(env func(string) string) (offer, error) {
 	switch v := env("TWIND_GRAPHICS"); v {
 	case "":
@@ -107,6 +136,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		tty:     t,
 		opt:     opt,
 		answers: make(chan answer, konst.ReplyBuffer),
+		leave:   konst.LeaveScreen,
 	}
 	go b.read(events)
 	seq := konst.EnterScreen
@@ -279,7 +309,7 @@ func (b *Backend) Exit() error {
 		return nil
 	}
 	b.exited = true
-	seq := konst.LeaveScreen
+	seq := b.leave
 	if b.opt.Mouse {
 		seq = konst.MouseOff + seq
 	}

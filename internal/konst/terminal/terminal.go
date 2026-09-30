@@ -35,6 +35,10 @@ const (
 	KittyQuery     = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 	KittyOK        = "\x1b_Gi=31;OK\x1b\\"
 	Queries        = KittyQuery + CSI + "?2026$p" + CSI + "?u" + CellQuery
+	InlineQueries  = KittyQuery + CSI + "?2026$p" + CSI + "6n" + CellQuery
+	OriginOn       = CSI + "?6h"
+	OriginOff      = CSI + "?6l"
+	RegionReset    = CSI + "r"
 	CellReport     = "6"
 	WindowReport   = "4"
 	SixelAttribute = 4

@@ -65,7 +65,7 @@ func (t *fakeTerminal) Write(p []byte) (int, error) {
 	}
 	t.written.Write(p)
 	answers := t.later
-	if bytes.Contains(p, []byte(konst.Queries)) {
+	if bytes.Contains(p, []byte(konst.Queries)) || bytes.Contains(p, []byte(konst.InlineQueries)) {
 		answers = t.answers
 	} else if !bytes.Contains(p, []byte(konst.CellQuery)) {
 		answers = nil
@@ -317,6 +317,51 @@ func TestEvents(t *testing.T) {
 	}
 	if !strings.HasSuffix(out, konst.MouseOff+konst.LeaveScreen) || !strings.Contains(out, konst.MouseOn) {
 		t.Errorf("mouse on and off missing from %q", out)
+	}
+}
+
+func TestInlineQuery(t *testing.T) {
+	cursorAfterWT := []string{windowsTerminal[0], "\x1b[4;480;800t\x1b[?2026;2$y\x1b[7;3R\x1b[?61;4;6;7;14;21;22;23;24;28;32;42;52c"}
+	cases := []struct {
+		name    string
+		answers []string
+		offer   offer
+		caps    Capabilities
+		cursor  image.Point
+		fenced  bool
+	}{
+		{"windows terminal 1.24", cursorAfterWT, offer{}, Capabilities{Sync: true, Graphics: GraphicsSixel, CellPixels: image.Pt(10, 20)}, image.Pt(2, 6), true},
+		{"forced kitty", cursorAfterWT, offer{GraphicsKitty, true}, Capabilities{Sync: true, Graphics: GraphicsKitty, CellPixels: image.Pt(10, 20)}, image.Pt(2, 6), true},
+		{"no cursor report", windowsTerminal, offer{}, Capabilities{}, image.Point{}, true},
+		{"cursor split over reads", []string{"\x1b[6;20;10t\x1b[1", "2;1R\x1b[?61;4c"}, offer{}, Capabilities{Graphics: GraphicsSixel, CellPixels: image.Pt(10, 20)}, image.Pt(0, 11), true},
+		{"silent", nil, offer{}, Capabilities{}, image.Point{}, false},
+	}
+	for _, tc := range cases {
+		term := newFake(tc.answers...)
+		start := time.Now()
+		caps, cursor, err := query(term, term.tty, tc.offer)
+		took := time.Since(start)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if caps != tc.caps || cursor != tc.cursor {
+			t.Errorf("%s: %+v cursor %v, want %+v %v", tc.name, caps, cursor, tc.caps, tc.cursor)
+		}
+		switch {
+		case tc.fenced && took >= konst.QueryTimeout:
+			t.Errorf("%s: took %v, want the fence", tc.name, took)
+		case !tc.fenced && (took < konst.QueryTimeout || took > 2*konst.QueryTimeout):
+			t.Errorf("%s: took %v, want the %v timeout", tc.name, took, konst.QueryTimeout)
+		}
+		if out := term.written.String(); out != konst.InlineQueries || !strings.Contains(out, "\x1b[6n") || !strings.HasSuffix(out, "\x1b[c") {
+			t.Errorf("%s: wrote %q, want the inline queries alone, the cursor report asked before the fence", tc.name, out)
+		}
+		if term.tty.restored != 1 {
+			t.Errorf("%s: restored %d times, want 1", tc.name, term.tty.restored)
+		}
+		if n := len(term.tty.input); n != 0 {
+			t.Errorf("%s: %d answers left unread", tc.name, n)
+		}
 	}
 }
 
