@@ -41,7 +41,7 @@ func (g *RadioGroup) key(k input.KeyEvent) bool {
 	case d != 0:
 		i = (i + d + n) % n
 	case !space(k):
-		return false
+		return press(k)
 	}
 	g.choose(g.items[i])
 	return true

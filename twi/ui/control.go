@@ -125,11 +125,10 @@ func (c *control) click(act func()) twi.NodeOption {
 
 func (c *control) pressable(accept func(input.KeyEvent) bool, act func()) []twi.NodeOption {
 	return append(c.behave(func(k input.KeyEvent) bool {
-		ok := accept(k)
-		if ok {
+		if accept(k) {
 			act()
 		}
-		return ok
+		return press(k)
 	}), c.click(act))
 }
 

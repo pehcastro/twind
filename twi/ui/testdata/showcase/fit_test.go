@@ -14,7 +14,7 @@ func TestPagesFit(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, size := range [][2]int{{120, 34}, {150, 45}} {
-		for _, name := range []string{"wave1", "tables", "breadcrumbs", "pagination", "items", "button-groups", "fields", "form", "overlays", "tabs"} {
+		for _, name := range []string{"wave1", "tables", "breadcrumbs", "pagination", "items", "button-groups", "fields", "form", "overlays", "tabs", "wave3b"} {
 			d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 				rt.SetTheme(zinc(theme.Light))
 				body, ok := page(rt, name, "", "")

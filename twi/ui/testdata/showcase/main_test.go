@@ -49,6 +49,7 @@ func TestDrivenFrame(t *testing.T) {
 		"form":          {"Email", "shadcn!", "Type your message here.", "https://", "Select status", "Accept terms and conditions", "✓", "Airplane Mode", "●", "Bookmark", "50"},
 		"overlays":      {"Edit Profile", "Show Dialog", "Open Drawer", "Open popover", "Hover", "@nextjs", "Selected: nothing yet", "Team Members"},
 		"tabs":          {"Account", "Password", "Make changes to your account here.", "@peduarte", "Save changes", "Select a fruit", "Coordinated Universal Time"},
+		"wave3b":        {"Product Information", "Our flagship product", "Return Policy", "@radix-ui/primitives", "Show Toast", "Suggestions", "⌘S", "Chosen: nothing yet"},
 	} {
 		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
 			d := driven(t, name, scheme)

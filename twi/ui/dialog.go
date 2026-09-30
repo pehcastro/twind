@@ -10,6 +10,7 @@ type dialogKind uint8
 const (
 	modal dialogKind = iota
 	alert
+	palette
 	sheet
 	drawer
 )
@@ -33,9 +34,17 @@ func NewSheet(rt *twi.Runtime, side Side) *Dialog { return newDialog(rt, sheet, 
 
 func NewDrawer(rt *twi.Runtime, side Side) *Dialog { return newDialog(rt, drawer, side) }
 
-func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
-	if d.kind == modal || d.kind == sheet {
+func (d *Dialog) Content(children ...twi.NodeOption) twi.Node { return d.content(nil, children) }
+
+func (d *Dialog) content(always, children []twi.NodeOption) twi.Node {
+	switch d.kind {
+	case modal, sheet:
 		children = append(children, d.close("absolute top-1 right-2 rounded-xs opacity-70", "", []twi.NodeOption{twi.Text("✕")}))
+	case palette:
+		children = append(children, d.close("absolute top-0 right-1 rounded-xs opacity-70", "", []twi.NodeOption{twi.Text("✕")}))
+	case alert, drawer:
+	default:
+		panic("ui: unknown dialog kind")
 	}
 	if d.kind != alert {
 		children = append(children, twi.OnPointerDownOutside(func() { d.set(false) }))
@@ -45,7 +54,7 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	}
 	d.closes = 0
 	if !d.Open {
-		return closed()
+		return part("hidden", append([]twi.NodeOption{twi.Key("closed")}, always...))
 	}
 	edge := pick("sheet", d.side, map[Side]string{
 		Right:  "h-full w-3/4 max-w-48 border-l",
@@ -64,14 +73,15 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	}
 	boxed := "w-full max-w-64 gap-1 rounded-lg border px-3 py-1 shadow-lg"
 	panel := pick("dialog", d.kind, map[dialogKind]string{
-		modal:  boxed,
-		alert:  boxed,
-		sheet:  "gap-1 shadow-lg " + edge,
-		drawer: edge + pick("drawer", d.side, map[Side]string{Bottom: " max-h-[80%]", Top: " max-h-[80%]", Right: "", Left: ""}),
+		modal:   boxed,
+		alert:   boxed,
+		palette: "w-full max-w-64 overflow-hidden rounded-lg border shadow-lg",
+		sheet:   "gap-1 shadow-lg " + edge,
+		drawer:  edge + pick("drawer", d.side, map[Side]string{Bottom: " max-h-[80%]", Top: " max-h-[80%]", Right: "", Left: ""}),
 	})
-	return part("fixed inset-0 z-50 flex bg-black/50 "+backdrop, []twi.NodeOption{
+	return part("fixed inset-0 z-50 flex bg-black/50 "+backdrop, append([]twi.NodeOption{
 		d.dismissable("relative flex flex-col bg-background text-foreground "+panel, children),
-	})
+	}, always...))
 }
 
 func (d *Dialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node {
@@ -104,19 +114,21 @@ func (d *Dialog) close(classes, ring string, children []twi.NodeOption) twi.Node
 
 func (d *Dialog) Header(children ...twi.NodeOption) twi.Node {
 	return part(pick("dialog", d.kind, map[dialogKind]string{
-		modal:  "flex flex-col text-center sm:text-left",
-		alert:  "flex flex-col text-center sm:text-left",
-		sheet:  "flex flex-col px-2 py-1",
-		drawer: "flex flex-col px-2 py-1 text-center md:text-left",
+		modal:   "flex flex-col text-center sm:text-left",
+		alert:   "flex flex-col text-center sm:text-left",
+		palette: "flex flex-col text-center sm:text-left",
+		sheet:   "flex flex-col px-2 py-1",
+		drawer:  "flex flex-col px-2 py-1 text-center md:text-left",
 	}), children)
 }
 
 func (d *Dialog) Footer(children ...twi.NodeOption) twi.Node {
 	return part(pick("dialog", d.kind, map[dialogKind]string{
-		modal:  "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
-		alert:  "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
-		sheet:  "flex flex-col grow justify-end gap-1 px-2 py-1",
-		drawer: "flex flex-col grow justify-end gap-1 px-2 py-1",
+		modal:   "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+		alert:   "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+		palette: "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+		sheet:   "flex flex-col grow justify-end gap-1 px-2 py-1",
+		drawer:  "flex flex-col grow justify-end gap-1 px-2 py-1",
 	}), children)
 }
 
