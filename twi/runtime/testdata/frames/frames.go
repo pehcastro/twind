@@ -2,6 +2,7 @@ package frames
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
@@ -85,6 +86,24 @@ func Closing(rt *twi.Runtime) func() twi.Node {
 
 func Entering() twi.Node {
 	return twi.Element(twi.Class("animate-in fade-in-0 duration-200 bg-white text-black"), twi.Text("entered"))
+}
+
+func Fading() twi.Node {
+	return twi.Element(twi.Class("relative h-full bg-black text-white"),
+		twi.Text(strings.Repeat("page ", 30)),
+		twi.Element(twi.Class("absolute top-1 left-2 w-12 h-3 bg-zinc-800 animate-in fade-in-0 duration-200"), twi.Text("panel")),
+	)
+}
+
+func Placed() twi.Node {
+	item := func(s string) twi.Node {
+		return twi.Element(twi.Class("px-1 bg-zinc-700 last:hover:bg-sky-500"), twi.Text(s))
+	}
+	word := func(s string) twi.Node { return twi.Element(twi.Class("last:select-none"), twi.Text(s)) }
+	return twi.Element(twi.Class("flex flex-col h-full bg-black text-white"),
+		twi.Element(twi.Class("flex flex-row gap-1"), item("one"), item("two"), item("three")),
+		twi.Element(twi.Class("flex flex-row gap-1"), word("alpha"), word("bravo"), word("charlie")),
+	)
 }
 
 func Pulse(rt *twi.Runtime) func() twi.Node {

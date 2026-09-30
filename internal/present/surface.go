@@ -6,8 +6,6 @@ import (
 	"encoding/binary"
 	"hash/maphash"
 	"image"
-	imagecolor "image/color"
-	"image/draw"
 	"math"
 	"runtime"
 	"slices"
@@ -38,6 +36,7 @@ type worker struct {
 	encoder encoder
 	parts   []part
 	groups  []group
+	spans   []image.Rectangle
 	out     []byte
 }
 
@@ -130,7 +129,16 @@ func (w *worker) collect(s *Screen, f *scene.Frame, t int) {
 func (w *worker) close() {
 	g := w.groups[len(w.groups)-1]
 	w.groups = w.groups[:len(w.groups)-1]
-	if g.own {
+	n := len(w.parts)
+	switch {
+	case !g.own:
+	case w.parts[n-1].step == openGroup:
+		w.parts = w.parts[:n-1]
+	case w.parts[n-2].step == openGroup && w.parts[n-1].step == drawBox && w.parts[n-1].opacity == 0:
+		w.parts[n-1].into, w.parts[n-1].opacity = g.into-1, g.opacity
+		w.parts[n-2] = w.parts[n-1]
+		w.parts = w.parts[:n-1]
+	default:
 		w.parts = append(w.parts, part{step: closeGroup, into: g.into, opacity: g.opacity})
 	}
 }
@@ -145,35 +153,81 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) {
 		}
 	}
 	if len(w.targets) == 0 {
-		w.targets = append(w.targets, &w.view)
+		w.targets, w.spans = append(w.targets, &w.view), append(w.spans, image.Rectangle{})
 	}
+	again := len(s.bases[t]) > 0 && len(parts) >= len(s.bases[t]) && slices.Equal(parts[:len(s.bases[t])], s.bases[t])
+	if !again {
+		n := 0
+		for n < len(parts) && parts[n].step == drawBox && parts[n].into == 0 && parts[n].opacity == 0 {
+			n++
+		}
+		if n == len(parts) {
+			n = 0
+		}
+		s.bases[t] = append(s.bases[t][:0], parts[:n]...)
+	}
+	kept, from := again && s.based[t], 0
+	if again {
+		from = len(s.bases[t])
+	}
+	s.based[t] = again
 	row := slices.Grow(w.line[:0], c.width)[:c.width]
 	w.line = row
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		if y > r.Min.Y && repeats(parts, y) {
-			c.link(y, c.lineOf[y-1])
+			c.link(c.lineOf, y, c.lineOf[y-1])
+			c.link(c.baseOf, y, c.baseOf[y-1])
 			continue
 		}
-		clear(row)
 		u := image.Rect(r.Min.X, y, r.Max.X, y+1)
 		w.view = image.RGBA{Pix: row, Stride: len(row), Rect: u}
-		for _, p := range parts {
-			switch p.step {
-			case openGroup:
-				w.group(p.into, u)
-			case drawBox:
-				if d := p.r.Intersect(u); !d.Empty() {
-					over(w.targets[p.into], d, p.c, d.Min.Sub(p.at))
-				}
-			case closeGroup:
-				alpha := image.NewUniform(imagecolor.Alpha{A: uint8(math.Round(p.opacity * math.MaxUint8))})
-				draw.DrawMask(w.targets[p.into-1], u, w.targets[p.into], u.Min, alpha, image.Point{}, draw.Over)
-			}
+		switch {
+		case kept:
+			copy(row, c.store[c.baseOf[y]])
+		case from > 0:
+			clear(row)
+			w.draw(parts[:from], u)
+			c.link(c.baseOf, y, c.intern(row, maphash.Bytes(s.seed, row)))
+		default:
+			clear(row)
+			c.link(c.baseOf, y, -1)
 		}
+		w.draw(parts[from:], u)
 		if s.Profile == color.ANSI256 {
 			quantise(row)
 		}
-		c.link(y, c.intern(row, maphash.Bytes(s.seed, row)))
+		c.link(c.lineOf, y, c.intern(row, maphash.Bytes(s.seed, row)))
+	}
+}
+
+func (w *worker) draw(parts []part, u image.Rectangle) {
+	for _, p := range parts {
+		switch p.step {
+		case openGroup:
+			w.group(p.into, u)
+		case drawBox:
+			if d := p.r.Intersect(u); !d.Empty() {
+				over(w.targets[p.into], d, p.c, d.Min.Sub(p.at), p.opacity)
+				w.spans[p.into] = w.spans[p.into].Union(d)
+			}
+		case closeGroup:
+			span := w.spans[p.into]
+			w.spans[p.into], w.spans[p.into-1] = image.Rectangle{}, w.spans[p.into-1].Union(span)
+			if span.Empty() {
+				continue
+			}
+			lo, hi := 4*(span.Min.X-u.Min.X), 4*(span.Max.X-u.Min.X)
+			src, dst, a := w.targets[p.into].Pix[lo:hi], w.targets[p.into-1].Pix[lo:hi], alpha(p.opacity)
+			for i := 0; i < len(src); {
+				px, j := binary.LittleEndian.Uint32(src[i:]), i+4
+				for j < len(src) && binary.LittleEndian.Uint32(src[j:]) == px {
+					j += 4
+				}
+				mask(dst[i:j], px, a)
+				i = j
+			}
+			clear(src)
+		}
 	}
 }
 
@@ -231,14 +285,44 @@ func differ(a, b []run) [2]int32 {
 	return [2]int32{lo, hi}
 }
 
-func over(dst *image.RGBA, r image.Rectangle, src *cached, at image.Point) {
+func over(dst *image.RGBA, r image.Rectangle, src *cached, at image.Point, opacity float64) {
+	a := alpha(opacity)
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		d := dst.Pix[dst.PixOffset(r.Min.X, y):dst.PixOffset(r.Max.X, y)]
 		runs := src.lines[src.row[at.Y+y-r.Min.Y]]
 		for x, i := at.X, find(runs, at.X); x < at.X+r.Dx(); i++ {
 			end := min(int(runs[i].end), at.X+r.Dx())
-			flood(d[4*(x-at.X):4*(end-at.X)], runs[i].px)
+			if opacity > 0 {
+				mask(d[4*(x-at.X):4*(end-at.X)], runs[i].px, a)
+			} else {
+				flood(d[4*(x-at.X):4*(end-at.X)], runs[i].px)
+			}
 			x = end
+		}
+	}
+}
+
+func alpha(opacity float64) uint32 { return uint32(math.Round(opacity * math.MaxUint8)) }
+
+func mask(d []uint8, px, alpha uint32) {
+	if px>>24 == 0 {
+		return
+	}
+	const widen = math.MaxUint16 / math.MaxUint8
+	ma := alpha * widen
+	keep := (math.MaxUint16 - (px>>24*widen)*ma/math.MaxUint16) * widen
+	var under, out uint32
+	for i := 0; i < len(d); {
+		if u := binary.LittleEndian.Uint32(d[i:]); i == 0 || u != under {
+			under, out = u, 0
+			for shift := 0; shift < 32; shift += 8 {
+				out |= ((under>>shift&math.MaxUint8)*keep + (px>>shift&math.MaxUint8)*widen*ma) / math.MaxUint16 >> 8 & math.MaxUint8 << shift
+			}
+		}
+		binary.LittleEndian.PutUint32(d[i:], out)
+		pairs, outs := uint64(under)<<32|uint64(under), uint64(out)<<32|uint64(out)
+		for i += 4; i+8 <= len(d) && binary.LittleEndian.Uint64(d[i:]) == pairs; i += 8 {
+			binary.LittleEndian.PutUint64(d[i:], outs)
 		}
 	}
 }
@@ -268,7 +352,7 @@ func flood(d []uint8, px uint32) {
 
 func (w *worker) group(into int, t image.Rectangle) {
 	if len(w.targets) == into {
-		w.targets = append(w.targets, &image.RGBA{})
+		w.targets, w.spans = append(w.targets, &image.RGBA{}), append(w.spans, image.Rectangle{})
 	}
 	g := w.targets[into]
 	n := 4 * t.Dx() * t.Dy()
@@ -276,7 +360,6 @@ func (w *worker) group(into int, t image.Rectangle) {
 		g.Pix = make([]uint8, n)
 	}
 	g.Pix, g.Stride, g.Rect = g.Pix[:n], 4*t.Dx(), t
-	clear(g.Pix)
 }
 
 func (s *Screen) look(b *scene.Box) *cached {

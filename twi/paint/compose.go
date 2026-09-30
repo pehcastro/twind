@@ -47,6 +47,10 @@ func put(buf *buffer.Buffer, clip layout.Rect, x, y int, src buffer.Cell) {
 	}
 	dst := &buf.Row(y)[x]
 	if src.Grapheme == " " && src.Attr == 0 && translucent(src.Bg) {
+		if float64(src.Bg.RGBA.A) >= konst.CoverAlpha*math.MaxUint8 {
+			buf.Set(x, y, buffer.Cell{Grapheme: " ", Bg: over(src.Bg, dst.Bg)})
+			return
+		}
 		dst.Bg = over(src.Bg, dst.Bg)
 		if dst.Fg.Kind == color.Literal {
 			dst.Fg = over(src.Bg, dst.Fg)

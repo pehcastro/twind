@@ -31,6 +31,7 @@ const (
 	BlockBytes     = len("▁")
 	CellEighths    = 8
 	RingEighths    = 3
+	CoverAlpha     = 0.6
 )
 
 const (

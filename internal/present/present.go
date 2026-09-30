@@ -51,6 +51,8 @@ type Screen struct {
 	sending      []int
 	pieces       []piece
 	twins        []int
+	bases        [][]part
+	based        []bool
 	claims       map[twin]int
 	claiming     sync.Mutex
 	painted      atomic.Bool
@@ -214,8 +216,9 @@ func (s *Screen) reset(cols, rows int) {
 			c.free = append(c.free, int32(k))
 		}
 		c.lineOf = slices.Grow(c.lineOf[:0], s.bounds.Dy())[:s.bounds.Dy()]
+		c.baseOf = slices.Grow(c.baseOf[:0], s.bounds.Dy())[:s.bounds.Dy()]
 		for y := range c.lineOf {
-			c.lineOf[y] = -1
+			c.lineOf[y], c.baseOf[y] = -1, -1
 		}
 	}
 	s.tiles, s.tileOf = s.tiles[:0], make([]int, cols*rows)
@@ -232,7 +235,7 @@ func (s *Screen) reset(cols, rows int) {
 	}
 	n := len(s.tiles)
 	s.hashes, s.sent, s.dirty, s.send, s.moved, s.plain = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n), make([]bool, n), make([]bool, n)
-	s.pieces, s.twins, s.claims = make([]piece, n), make([]int, n), map[twin]int{}
+	s.pieces, s.twins, s.claims, s.bases, s.based = make([]piece, n), make([]int, n), map[twin]int{}, make([][]part, n), make([]bool, n)
 	s.samples, s.sampled = make([]color.Color, cols*rows), make([]bool, cols*rows)
 	if s.Graphics == terminal.GraphicsKitty {
 		s.images, s.uses = map[uint64]uint32{}, make([]int, n)

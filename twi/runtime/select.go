@@ -185,7 +185,7 @@ func (r *Runtime) widen(x, y int) {
 
 func (r *Runtime) descend(path []int, visit func(depth int, n *scene.Node, st style.ComputedStyle)) (*scene.Node, render.Node, style.ComputedStyle, bool) {
 	n, node := &r.scene, r.nodes
-	st := r.computed(style.ComputedStyle{}, node)
+	st := r.computed(style.ComputedStyle{}, node, stateOf(&node))
 	for depth := 0; ; depth++ {
 		if visit != nil {
 			visit(depth, n, st)
@@ -197,16 +197,12 @@ func (r *Runtime) descend(path []int, visit func(depth int, n *scene.Node, st st
 		if i >= len(n.Children) || i >= len(node.Children) {
 			return nil, render.Node{}, st, false
 		}
+		st = r.computed(st, node.Children[i], placed(node.Children, i))
 		n, node = &n.Children[i], node.Children[i]
-		st = r.computed(st, node)
 	}
 }
 
-func (r *Runtime) computed(parent style.ComputedStyle, node render.Node) style.ComputedStyle {
-	var state style.NodeState
-	if node.State != nil {
-		state = *node.State
-	}
+func (r *Runtime) computed(parent style.ComputedStyle, node render.Node, state style.NodeState) style.ComputedStyle {
 	return r.cfg.Sheet.WithColumns(r.width).ComputeState(parent, node.Classes, state)
 }
 
@@ -249,7 +245,7 @@ func (r *Runtime) flow() {
 			k++
 		}
 		for i := range min(len(n.Children), len(node.Children)) {
-			walk(&n.Children[i], node.Children[i], r.computed(st, node.Children[i]), append(path, i))
+			walk(&n.Children[i], node.Children[i], r.computed(st, node.Children[i], placed(node.Children, i)), append(path, i))
 		}
 	}
 	walk(n, node, st, slices.Clone(s.root))
@@ -283,11 +279,11 @@ func (s *selection) text() string {
 	return b.String()
 }
 
-func (r *Runtime) copySelection() error {
+func (r *Runtime) Copy(text string) error {
 	if r.cfg.NoClipboard {
 		return nil
 	}
-	_, err := r.out.Write(terminal.Clipboard(r.sel.text()))
+	_, err := r.out.Write(terminal.Clipboard(text))
 	return err
 }
 

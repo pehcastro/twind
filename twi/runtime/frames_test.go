@@ -128,7 +128,7 @@ func TestMotionWakesAtItsPaceAndStops(t *testing.T) {
 			deadline = nil
 		}
 	}
-	woke, most := r.clock.wakes.Load()-wakes, int(window/konst.FrameInterval)+2
+	woke, most := r.clock.wakes.Load()-wakes, int(window/konst.MotionInterval)+2
 	t.Logf("pulsing: %d frames and %d wakes in %v, at most %d frames", count, woke, window, most)
 	if count < most/4 || count > most || woke > int64(3*most) {
 		t.Errorf("pulsing: %d frames and %d wakes in %v, want between %d and %d frames and at most %d wakes", count, woke, window, most/4, most, 3*most)
@@ -147,6 +147,87 @@ func TestMotionWakesAtItsPaceAndStops(t *testing.T) {
 	if woke := r.clock.wakes.Load() - wakes; woke != 0 {
 		t.Errorf("stopped: the runtime woke %d times in 300ms", woke)
 	}
+	if err := r.stop(t); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestFadingPanelCoversThePageText(t *testing.T) {
+	d := driveFrames(t, func(*twi.Runtime) func() twi.Node { return frames.Fading }, drive.Size(24, 6))
+	inside := func(f drive.Frame) (page, panel string) {
+		for y := 1; y < 4; y++ {
+			for x := 2; x < 14; x++ {
+				if g := f.Cells().At(x, y).Grapheme; y == 1 && x < 7 {
+					panel += g
+				} else {
+					page += strings.TrimSpace(g)
+				}
+			}
+		}
+		return page, panel
+	}
+	t.Logf("fade starts:\n%s", d.Frame().Text())
+	if page, _ := inside(d.Frame()); page == "" {
+		t.Errorf("the panel at opacity 0 hides the page text under it")
+	}
+	d.Advance(100 * time.Millisecond)
+	t.Logf("mid-fade:\n%s", d.Frame().Text())
+	if page, panel := inside(d.Frame()); page != "" || panel != "panel" {
+		t.Errorf("mid-fade the panel's box shows %q from the page and %q where its own text is, want no page glyph and panel", page, panel)
+	}
+}
+
+func TestPlacesReachHoverAndSelection(t *testing.T) {
+	d := driveFrames(t, func(*twi.Runtime) func() twi.Node { return frames.Placed }, drive.Size(30, 4))
+	at := func(word string) (int, int) {
+		for y, line := range strings.Split(d.Frame().Text(), "\n") {
+			if x := strings.Index(line, word); x >= 0 {
+				return x, y
+			}
+		}
+		t.Fatalf("no %q in the frame:\n%s", word, d.Frame().Text())
+		return 0, 0
+	}
+	bg := func(word string) color.RGBA { return d.Frame().Cells().At(at(word)).Bg.RGBA }
+	rest := bg("three")
+	d.Move(at("one"))
+	if got := bg("one"); got != rest {
+		t.Errorf("hovering the first item turned it %v, want %v: last:hover: holds only on the last", got, rest)
+	}
+	d.Move(at("three"))
+	if got := bg("three"); got == rest {
+		t.Errorf("hovering the last item left it %v: last:hover: never restyled it", got)
+	}
+	d.Down(0, 1)
+	d.Move(18, 1)
+	d.Up(18, 1)
+	d.Press("ctrl+c")
+	if got := d.Clipboard(); got != "alpha bravo" {
+		t.Errorf("a drag over alpha bravo charlie copied %q, want %q: charlie is last:select-none", got, "alpha bravo")
+	}
+}
+
+func TestCopyWritesTheClipboard(t *testing.T) {
+	app := func(rt *twi.Runtime) func() twi.Node {
+		return func() twi.Node {
+			return twi.Element(twi.OnKey(func(k input.KeyEvent) {
+				if k.Rune == 'y' {
+					if err := rt.Copy("from the app"); err != nil {
+						t.Error(err)
+					}
+				}
+			}), twi.Text("copy"))
+		}
+	}
+	d := driveFrames(t, app, drive.Size(10, 1))
+	d.Press("y")
+	if got := d.Clipboard(); got != "from the app" {
+		t.Errorf("rt.Copy wrote %q to the clipboard, want %q", got, "from the app")
+	}
+	r := launch(newBackend(10, 1), app, twi.NoClipboard())
+	r.next(t)
+	r.b.events <- key('y')
+	r.quiet(t)
 	if err := r.stop(t); err != nil {
 		t.Error(err)
 	}

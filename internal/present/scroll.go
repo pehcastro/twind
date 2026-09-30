@@ -65,7 +65,7 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 		clear(s.splices)
 		move := func(dst, src int) { s.splice(c, dst, c.lineOf[src], lo, hi) }
 		if lo == 0 && hi == c.width {
-			move = func(dst, src int) { c.link(dst, c.lineOf[src]) }
+			move = func(dst, src int) { c.link(c.lineOf, dst, c.lineOf[src]) }
 		}
 		slide(px.Min.Y, px.Max.Y, by.Y, move, func(dst int) { s.splice(c, dst, -1, lo, hi) })
 	}
@@ -117,7 +117,7 @@ func (s *Screen) splice(c *column, y int, from int32, lo, hi int) {
 		k = c.intern(s.spliced, maphash.Bytes(s.seed, s.spliced))
 	}
 	s.splices[pair] = k
-	c.link(y, k)
+	c.link(c.lineOf, y, k)
 }
 
 func slide(lo, hi, by int, move func(dst, src int), blank func(dst int)) {

@@ -18,6 +18,7 @@ import (
 type column struct {
 	width   int
 	lineOf  []int32
+	baseOf  []int32
 	store   [][]uint8
 	spare   []uint8
 	hash    []uint64
@@ -42,14 +43,16 @@ func (c *column) newLine() int32 {
 	return int32(len(c.holders) - 1)
 }
 
-func (c *column) link(y int, k int32) {
-	c.holders[k]++
-	if old := c.lineOf[y]; old >= 0 {
+func (c *column) link(of []int32, y int, k int32) {
+	if k >= 0 {
+		c.holders[k]++
+	}
+	if old := of[y]; old >= 0 {
 		if c.holders[old]--; c.holders[old] == 0 {
 			c.free = append(c.free, old)
 		}
 	}
-	c.lineOf[y] = k
+	of[y] = k
 }
 
 func (c *column) intern(row []uint8, h uint64) int32 {

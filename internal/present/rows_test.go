@@ -99,7 +99,7 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 		c := s.look(&scene.Box{Visual: image.Rect(10, 20, 60, 70), Ops: shifted})
 		s.rasterise(0, nil)
 		got := image.NewRGBA(want.Rect)
-		over(got, got.Rect, c, image.Point{})
+		over(got, got.Rect, c, image.Point{}, 0)
 		for y := range 50 {
 			if !bytes.Equal(got.Pix[y*got.Stride:][:got.Stride], want.Pix[y*want.Stride:][:want.Stride]) {
 				t.Errorf("%s: row %d differs from a full raster", name, y)
@@ -125,12 +125,12 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 			}
 		}
 		copy(windows.Pix, whole.Pix)
-		over(whole, whole.Rect, c, image.Point{})
+		over(whole, whole.Rect, c, image.Point{}, 0)
 		for x := 0; x < 50; x += 7 {
 			r := image.Rect(x, 3, min(x+7, 50), 50)
-			over(windows, r, c, r.Min)
+			over(windows, r, c, r.Min, 0)
 			r = image.Rect(x, 0, min(x+7, 50), 3)
-			over(windows, r, c, r.Min)
+			over(windows, r, c, r.Min, 0)
 		}
 		if !bytes.Equal(whole.Pix, windows.Pix) {
 			t.Errorf("%s: composited in 7 pixel windows differs from one pass over a background", name)

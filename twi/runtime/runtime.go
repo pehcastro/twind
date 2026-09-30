@@ -95,6 +95,8 @@ type Runtime struct {
 	opened        int
 	start         time.Time
 	motionAt      time.Time
+	moving        bool
+	lastMoved     bool
 }
 
 type layer struct {
@@ -191,7 +193,9 @@ func (r *Runtime) loop(b Backend) error {
 			r.drain()
 			return nil
 		}
-		if r.changed.Swap(false) || !r.motionAt.IsZero() && !r.motionAt.After(now) {
+		changed, due := r.changed.Swap(false), !r.motionAt.IsZero() && !r.motionDue().After(now)
+		r.moving = due && !changed && !r.dirty && !r.pointer.moved
+		if changed || due {
 			r.dirty = true
 		}
 		var frameAt time.Time
@@ -207,13 +211,8 @@ func (r *Runtime) loop(b Backend) error {
 		if next.IsZero() || !frameAt.IsZero() && frameAt.Before(next) {
 			next = frameAt
 		}
-		if paced := r.lastFrame.Add(konst.FrameInterval); !r.motionAt.IsZero() {
-			if r.motionAt.After(paced) {
-				paced = r.motionAt
-			}
-			if next.IsZero() || paced.Before(next) {
-				next = paced
-			}
+		if due := r.motionDue(); !r.motionAt.IsZero() && (next.IsZero() || due.Before(next)) {
+			next = due
 		}
 		switch {
 		case next.IsZero():
@@ -235,6 +234,17 @@ func (r *Runtime) loop(b Backend) error {
 	}
 }
 
+func (r *Runtime) motionDue() time.Time {
+	interval := konst.FrameInterval
+	if r.lastMoved {
+		interval = konst.MotionInterval
+	}
+	if paced := r.lastFrame.Add(interval); paced.After(r.motionAt) {
+		return paced
+	}
+	return r.motionAt
+}
+
 func (r *Runtime) drain() {
 	r.mu.Lock()
 	r.queue, r.running = r.running[:0], r.queue
@@ -251,7 +261,7 @@ func (r *Runtime) handle(ev input.Event) error {
 		c := ev.Key == input.KeyRune && ev.Rune == 'c' && !ev.Release
 		switch {
 		case c && r.sel.shown && (ev.Modifiers == input.ModCtrl || ev.Modifiers == input.ModMeta):
-			return r.copySelection()
+			return r.Copy(r.sel.text())
 		case c && ev.Modifiers == input.ModCtrl:
 			r.quitting.Store(true)
 			return nil
@@ -380,12 +390,15 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	if r.screen == nil {
 		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync(), Margins: r.caps.Margins}
 	}
-	r.screen.Cell, r.screen.Widths = cell, r.caps.Widths
+	r.screen.Cell, r.screen.Widths, r.screen.Workers = cell, r.caps.Widths, 0
+	if r.moving {
+		r.screen.Workers = 1
+	}
 	r.flow()
 	if err := r.screen.Frame(r.highlight(root), r.width, r.height); err != nil {
 		return err
 	}
-	r.dirty, r.lastFrame = false, now
+	r.dirty, r.lastFrame, r.lastMoved = false, now, r.moving
 	if capabilities(b) != r.caps {
 		r.Invalidate()
 	}
