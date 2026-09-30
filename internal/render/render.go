@@ -2,11 +2,13 @@ package render
 
 import (
 	"fmt"
+	"image"
 	"math"
 	"reflect"
 	"slices"
 	"strings"
 
+	skonst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/paint"
@@ -17,6 +19,7 @@ import (
 type Node struct {
 	Text     string
 	Classes  []string
+	State    *style.NodeState
 	Children []Node
 }
 
@@ -26,12 +29,16 @@ type Frame struct {
 	Height   layout.Length
 	Sanitize func(raw string) scene.Text
 	Look     paint.Look
+	Cell     image.Point
 }
 
 type styledBox struct {
 	box      *layout.Box
 	classes  []string
+	state    style.NodeState
 	computed style.ComputedStyle
+	truncate bool
+	nowrap   bool
 	raw      string
 	text     scene.Text
 	natural  [2]int
@@ -59,6 +66,7 @@ type Tree struct {
 	root              *styledBox
 	width             int
 	height            layout.Length
+	cell              image.Point
 	restyle, relayout bool
 	cascades          int
 }
@@ -71,9 +79,13 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	if f.Sanitize == nil {
 		f.Sanitize = scene.Sanitize
 	}
+	if f.Cell.X <= 0 || f.Cell.Y <= 0 {
+		f.Cell = image.Pt(skonst.NominalCellX, skonst.NominalCellY)
+	}
 	t.relayout = t.relayout || t.root == nil || f.Width != t.width || f.Height != t.height
+	t.restyle = t.restyle || f.Cell != t.cell
 	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root)
-	t.root, t.width, t.height, t.restyle = styled, f.Width, f.Height, false
+	t.root, t.width, t.height, t.cell, t.restyle = styled, f.Width, f.Height, f.Cell, false
 	if err != nil {
 		return scene.Node{}, err
 	}
@@ -155,6 +167,7 @@ func (s *styledBox) scene(moved bool) scene.Node {
 		return s.node
 	}
 	n := scene.New(s.box, s.computed, s.text)
+	n.Truncate = s.truncate
 	for _, c := range s.children {
 		n.Children = append(n.Children, c.scene(moved))
 	}
@@ -169,10 +182,15 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		t.relayout = true
 	}
 	changed := false
-	if prev == nil || t.restyle || parentChanged || !slices.Equal(s.classes, n.Classes) {
+	var state style.NodeState
+	if n.State != nil {
+		state = *n.State
+	}
+	restate := s.state.States != state.States || !slices.Equal(s.state.Attrs, state.Attrs)
+	if prev == nil || t.restyle || parentChanged || restate || !slices.Equal(s.classes, n.Classes) {
 		t.cascades++
-		computed := f.Sheet.Compute(parent, n.Classes)
-		ls, err := boxStyle(computed)
+		computed := f.Sheet.ComputeState(parent, n.Classes, state)
+		ls, err := boxStyle(parent, computed, f.Cell)
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +200,15 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		if changed = prev == nil || t.restyle || !reflect.DeepEqual(computed, s.computed); changed {
 			s.computed, s.painted = computed, false
 		}
-		s.classes = n.Classes
+		if nowrap := unwrapped(computed.WhiteSpace); nowrap != s.nowrap {
+			s.nowrap, t.relayout = nowrap, true
+			clear(s.sizes)
+		}
+		ellipsis := computed.TextOverflow == style.TextOverflowEllipsis || len(n.Classes) == 0 && parent.TextOverflow == style.TextOverflowEllipsis
+		if truncate := ellipsis && s.nowrap; truncate != s.truncate {
+			s.truncate, s.painted = truncate, false
+		}
+		s.classes, s.state = n.Classes, state
 	}
 	if n.Text != s.raw && s.retext(f, n.Text) {
 		t.relayout = true
@@ -208,7 +234,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 }
 
 func (s *styledBox) retext(f Frame, raw string) (moved bool) {
-	var next styledBox
+	next := styledBox{nowrap: s.nowrap}
 	if raw != "" {
 		next.text = f.Sanitize(raw)
 	}
@@ -233,7 +259,7 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 	size, ok := s.sizes[availableWidth]
 	if !ok {
 		size = s.natural
-		if availableWidth < size[0] {
+		if availableWidth < size[0] && !s.nowrap {
 			size[0], size[1] = s.text.Size(availableWidth)
 		}
 		s.sizes[availableWidth] = size
@@ -241,7 +267,7 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 	return size[0], size[1]
 }
 
-func boxStyle(s style.ComputedStyle) (layout.Style, error) {
+func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, error) {
 	var unsupported []string
 	cells := func(name string, l style.Length) int {
 		if l.Unit != style.Cells {
@@ -258,7 +284,7 @@ func boxStyle(s style.ComputedStyle) (layout.Style, error) {
 			return layout.Length{Unit: layout.Cells, Value: int(math.Round(l.Value))}
 		case style.Percent:
 			return layout.Length{Unit: layout.Percent, Value: int(math.Round(l.Value))}
-		case style.Auto, style.None:
+		case style.Auto, style.None, style.FitContent:
 			return layout.Length{}
 		}
 		panic(fmt.Sprintf("render: unknown length unit %d", l.Unit))
@@ -310,6 +336,15 @@ func boxStyle(s style.ComputedStyle) (layout.Style, error) {
 	case s.OverflowX != style.OverflowVisible || s.OverflowY != style.OverflowVisible:
 		out.Overflow = layout.OverflowHidden
 	}
+	switch s.Wrap {
+	case style.NoWrap:
+	case style.Wrap:
+		out.Wrap = layout.Wrap
+	case style.WrapReverse:
+		out.Wrap = layout.WrapReverse
+	default:
+		panic(fmt.Sprintf("render: unknown flex-wrap %d", s.Wrap))
+	}
 	switch s.Position {
 	case style.PositionStatic:
 	case style.PositionRelative:
@@ -325,6 +360,15 @@ func boxStyle(s style.ComputedStyle) (layout.Style, error) {
 	}
 	if s.BorderStyle == style.BorderNone {
 		out.Border = layout.Edges{}
+	}
+	if s.AspectRatio > 0 {
+		precision := cell.X * cell.Y
+		out.Aspect = layout.Ratio{W: int(math.Round(s.AspectRatio * float64(cell.Y*precision))), H: cell.X * precision}
+	}
+	column := parent.Display != style.DisplayFlex || parent.Direction == style.Column
+	stretched := s.AlignSelf == style.AlignStretch || s.AlignSelf == style.AlignAuto && (parent.AlignItems == style.AlignAuto || parent.AlignItems == style.AlignStretch)
+	if stretched && (column && s.Width.Unit == style.FitContent || !column && s.Height.Unit == style.FitContent) {
+		out.AlignSelf = layout.AlignStart
 	}
 	switch {
 	case s.Display == style.DisplayNone:
@@ -352,4 +396,14 @@ func scrolls(o style.Overflow) bool {
 		return true
 	}
 	panic(fmt.Sprintf("render: unknown overflow %d", o))
+}
+
+func unwrapped(w style.WhiteSpace) bool {
+	switch w {
+	case style.WhiteSpaceNormal, style.WhiteSpacePreWrap:
+		return false
+	case style.WhiteSpaceNowrap, style.WhiteSpacePre:
+		return true
+	}
+	panic(fmt.Sprintf("render: unknown white-space %d", w))
 }
