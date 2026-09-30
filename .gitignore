@@ -16,3 +16,4 @@ CLAUDE.md
 rtk/
 node_modules/
 .twind/head/
+.twind/tools/

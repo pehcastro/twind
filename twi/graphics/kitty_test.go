@@ -46,6 +46,9 @@ func kittyChunks(t *testing.T, out []byte) (string, []kittyChunk, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if chunks[0].keys["o"] != "z" {
+		return s[:i], chunks, compressed
+	}
 	z, err := zlib.NewReader(bytes.NewReader(compressed))
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +100,10 @@ func checkKitty(t *testing.T, img *image.RGBA, out []byte, format string, bpp in
 	}
 	for n, c := range chunks {
 		want := "1"
-		if n == len(chunks)-1 {
+		switch {
+		case len(chunks) == 1:
+			want = ""
+		case n == len(chunks)-1:
 			want = "0"
 		}
 		if c.keys["m"] != want {
@@ -142,12 +148,30 @@ func TestKittyGradientAlphaAndOpaqueSubImage(t *testing.T) {
 	checkKitty(t, tile, k.Encode(nil, tile, Placement{Col: 1, Row: 2, Cols: 10, Rows: 5}, 7, 3), "24", 3)
 }
 
-func TestKittyFlatIsOnePixel(t *testing.T) {
+func TestKittyFlatIsOneRawPixel(t *testing.T) {
 	var k Kitty
-	_, chunks, raw := kittyChunks(t, k.Encode(nil, flatCard(), Placement{Cols: 44, Rows: 8}, 1, 1))
-	c := chunks[0].keys
-	if len(chunks) != 1 || c["s"] != "1" || c["v"] != "1" || c["c"] != "44" || c["r"] != "8" || c["f"] != "24" || !bytes.Equal(raw, []byte{244, 244, 245}) {
-		t.Fatalf("flat tile: %v %v", c, raw)
+	translucent := flatCard()
+	for i := 0; i < len(translucent.Pix); i += 4 {
+		copy(translucent.Pix[i:], []byte{61, 61, 61, 128})
+	}
+	for _, tc := range []struct {
+		name   string
+		img    *image.RGBA
+		format string
+		pixel  []byte
+		size   int
+	}{
+		{"opaque", flatCard(), "24", []byte{244, 244, 245}, 62},
+		{"translucent", translucent, "32", []byte{121, 121, 121, 128}, 66},
+	} {
+		out := k.Encode(k.Encode(nil, noise(40, 40), Placement{Cols: 4, Rows: 2}, 1, 1)[:0], tc.img, Placement{Cols: 44, Rows: 8}, 1, 1)
+		_, chunks, raw := kittyChunks(t, out)
+		c := chunks[0].keys
+		_, compressed := c["o"]
+		_, more := c["m"]
+		if len(chunks) != 1 || compressed || more || c["s"] != "1" || c["v"] != "1" || c["c"] != "44" || c["r"] != "8" || c["f"] != tc.format || !bytes.Equal(raw, tc.pixel) || len(out) != tc.size {
+			t.Errorf("%s flat tile: %d bytes %v %v", tc.name, len(out), c, raw)
+		}
 	}
 }
 
