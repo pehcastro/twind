@@ -1,0 +1,2086 @@
+# commonmark-0.31.2 12 Backslash escapes
+```````````````````````````````` example
+\!\"\#\$\%\&\'\(\)\*\+\,\-\.\/\:\;\<\=\>\?\@\[\\\]\^\_\`\{\|\}\~
+.
+<p>!&quot;#$%&amp;'()*+,-./:;&lt;=&gt;?@[\]^_`{|}~</p>
+````````````````````````````````
+
+# commonmark-0.31.2 13 Backslash escapes
+```````````````````````````````` example
+\→\A\a\ \3\φ\«
+.
+<p>\→\A\a\ \3\φ\«</p>
+````````````````````````````````
+
+# commonmark-0.31.2 15 Backslash escapes
+```````````````````````````````` example
+\\*emphasis*
+.
+<p>\<em>emphasis</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 16 Backslash escapes
+```````````````````````````````` example
+foo\
+bar
+.
+<p>foo<br />
+bar</p>
+````````````````````````````````
+
+# commonmark-0.31.2 17 Backslash escapes
+```````````````````````````````` example
+`` \[\` ``
+.
+<p><code>\[\`</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 19 Backslash escapes
+```````````````````````````````` example
+~~~
+\[\]
+~~~
+.
+<pre><code>\[\]
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 24 Backslash escapes
+```````````````````````````````` example
+``` foo\+bar
+foo
+```
+.
+<pre><code class="language-foo+bar">foo
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 43 Thematic breaks
+```````````````````````````````` example
+***
+---
+___
+.
+<hr />
+<hr />
+<hr />
+````````````````````````````````
+
+# commonmark-0.31.2 44 Thematic breaks
+```````````````````````````````` example
++++
+.
+<p>+++</p>
+````````````````````````````````
+
+# commonmark-0.31.2 46 Thematic breaks
+```````````````````````````````` example
+--
+**
+__
+.
+<p>--
+**
+__</p>
+````````````````````````````````
+
+# commonmark-0.31.2 47 Thematic breaks
+```````````````````````````````` example
+ ***
+  ***
+   ***
+.
+<hr />
+<hr />
+<hr />
+````````````````````````````````
+
+# commonmark-0.31.2 50 Thematic breaks
+```````````````````````````````` example
+_____________________________________
+.
+<hr />
+````````````````````````````````
+
+# commonmark-0.31.2 51 Thematic breaks
+```````````````````````````````` example
+ - - -
+.
+<hr />
+````````````````````````````````
+
+# commonmark-0.31.2 55 Thematic breaks
+```````````````````````````````` example
+_ _ _ _ a
+
+a------
+
+---a---
+.
+<p>_ _ _ _ a</p>
+<p>a------</p>
+<p>---a---</p>
+````````````````````````````````
+
+# commonmark-0.31.2 57 Thematic breaks
+```````````````````````````````` example
+- foo
+***
+- bar
+.
+<ul>
+<li>foo</li>
+</ul>
+<hr />
+<ul>
+<li>bar</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 58 Thematic breaks
+```````````````````````````````` example
+Foo
+***
+bar
+.
+<p>Foo</p>
+<hr />
+<p>bar</p>
+````````````````````````````````
+
+# commonmark-0.31.2 61 Thematic breaks
+```````````````````````````````` example
+- Foo
+- * * *
+.
+<ul>
+<li>Foo</li>
+<li>
+<hr />
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 62 ATX headings
+```````````````````````````````` example
+# foo
+## foo
+### foo
+#### foo
+##### foo
+###### foo
+.
+<h1>foo</h1>
+<h2>foo</h2>
+<h3>foo</h3>
+<h4>foo</h4>
+<h5>foo</h5>
+<h6>foo</h6>
+````````````````````````````````
+
+# commonmark-0.31.2 63 ATX headings
+```````````````````````````````` example
+####### foo
+.
+<p>####### foo</p>
+````````````````````````````````
+
+# commonmark-0.31.2 64 ATX headings
+```````````````````````````````` example
+#5 bolt
+
+#hashtag
+.
+<p>#5 bolt</p>
+<p>#hashtag</p>
+````````````````````````````````
+
+# commonmark-0.31.2 65 ATX headings
+```````````````````````````````` example
+\## foo
+.
+<p>## foo</p>
+````````````````````````````````
+
+# commonmark-0.31.2 66 ATX headings
+```````````````````````````````` example
+# foo *bar* \*baz\*
+.
+<h1>foo <em>bar</em> *baz*</h1>
+````````````````````````````````
+
+# commonmark-0.31.2 67 ATX headings
+```````````````````````````````` example
+#                  foo␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣
+.
+<h1>foo</h1>
+````````````````````````````````
+
+# commonmark-0.31.2 68 ATX headings
+```````````````````````````````` example
+ ### foo
+  ## foo
+   # foo
+.
+<h3>foo</h3>
+<h2>foo</h2>
+<h1>foo</h1>
+````````````````````````````````
+
+# commonmark-0.31.2 71 ATX headings
+```````````````````````````````` example
+## foo ##
+  ###   bar    ###
+.
+<h2>foo</h2>
+<h3>bar</h3>
+````````````````````````````````
+
+# commonmark-0.31.2 72 ATX headings
+```````````````````````````````` example
+# foo ##################################
+##### foo ##
+.
+<h1>foo</h1>
+<h5>foo</h5>
+````````````````````````````````
+
+# commonmark-0.31.2 74 ATX headings
+```````````````````````````````` example
+### foo ### b
+.
+<h3>foo ### b</h3>
+````````````````````````````````
+
+# commonmark-0.31.2 75 ATX headings
+```````````````````````````````` example
+# foo#
+.
+<h1>foo#</h1>
+````````````````````````````````
+
+# commonmark-0.31.2 76 ATX headings
+```````````````````````````````` example
+### foo \###
+## foo #\##
+# foo \#
+.
+<h3>foo ###</h3>
+<h2>foo ###</h2>
+<h1>foo #</h1>
+````````````````````````````````
+
+# commonmark-0.31.2 78 ATX headings
+```````````````````````````````` example
+Foo bar
+# baz
+Bar foo
+.
+<p>Foo bar</p>
+<h1>baz</h1>
+<p>Bar foo</p>
+````````````````````````````````
+
+# commonmark-0.31.2 79 ATX headings
+```````````````````````````````` example
+##␣
+#
+### ###
+.
+<h2></h2>
+<h1></h1>
+<h3></h3>
+````````````````````````````````
+
+# commonmark-0.31.2 119 Fenced code blocks
+```````````````````````````````` example
+```
+<
+ >
+```
+.
+<pre><code>&lt;
+ &gt;
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 120 Fenced code blocks
+```````````````````````````````` example
+~~~
+<
+ >
+~~~
+.
+<pre><code>&lt;
+ &gt;
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 121 Fenced code blocks
+```````````````````````````````` example
+``
+foo
+``
+.
+<p><code>foo</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 122 Fenced code blocks
+```````````````````````````````` example
+```
+aaa
+~~~
+```
+.
+<pre><code>aaa
+~~~
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 123 Fenced code blocks
+```````````````````````````````` example
+~~~
+aaa
+```
+~~~
+.
+<pre><code>aaa
+```
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 124 Fenced code blocks
+```````````````````````````````` example
+````
+aaa
+```
+``````
+.
+<pre><code>aaa
+```
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 126 Fenced code blocks
+```````````````````````````````` example
+```
+.
+<pre><code></code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 128 Fenced code blocks
+```````````````````````````````` example
+> ```
+> aaa
+
+bbb
+.
+<blockquote>
+<pre><code>aaa
+</code></pre>
+</blockquote>
+<p>bbb</p>
+````````````````````````````````
+
+# commonmark-0.31.2 130 Fenced code blocks
+```````````````````````````````` example
+```
+```
+.
+<pre><code></code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 131 Fenced code blocks
+```````````````````````````````` example
+ ```
+ aaa
+aaa
+```
+.
+<pre><code>aaa
+aaa
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 133 Fenced code blocks
+```````````````````````````````` example
+   ```
+   aaa
+    aaa
+  aaa
+   ```
+.
+<pre><code>aaa
+ aaa
+aaa
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 135 Fenced code blocks
+```````````````````````````````` example
+```
+aaa
+  ```
+.
+<pre><code>aaa
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 137 Fenced code blocks
+```````````````````````````````` example
+```
+aaa
+    ```
+.
+<pre><code>aaa
+    ```
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 139 Fenced code blocks
+```````````````````````````````` example
+~~~~~~
+aaa
+~~~ ~~
+.
+<pre><code>aaa
+~~~ ~~
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 140 Fenced code blocks
+```````````````````````````````` example
+foo
+```
+bar
+```
+baz
+.
+<p>foo</p>
+<pre><code>bar
+</code></pre>
+<p>baz</p>
+````````````````````````````````
+
+# commonmark-0.31.2 142 Fenced code blocks
+```````````````````````````````` example
+```ruby
+def foo(x)
+  return 3
+end
+```
+.
+<pre><code class="language-ruby">def foo(x)
+  return 3
+end
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 143 Fenced code blocks
+```````````````````````````````` example
+~~~~    ruby startline=3 $%@#$
+def foo(x)
+  return 3
+end
+~~~~~~~
+.
+<pre><code class="language-ruby">def foo(x)
+  return 3
+end
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 146 Fenced code blocks
+```````````````````````````````` example
+~~~ aa ``` ~~~
+foo
+~~~
+.
+<pre><code class="language-aa">foo
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 147 Fenced code blocks
+```````````````````````````````` example
+```
+``` aaa
+```
+.
+<pre><code>``` aaa
+</code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 219 Paragraphs
+```````````````````````````````` example
+aaa
+
+bbb
+.
+<p>aaa</p>
+<p>bbb</p>
+````````````````````````````````
+
+# commonmark-0.31.2 220 Paragraphs
+```````````````````````````````` example
+aaa
+bbb
+
+ccc
+ddd
+.
+<p>aaa
+bbb</p>
+<p>ccc
+ddd</p>
+````````````````````````````````
+
+# commonmark-0.31.2 222 Paragraphs
+```````````````````````````````` example
+  aaa
+ bbb
+.
+<p>aaa
+bbb</p>
+````````````````````````````````
+
+# commonmark-0.31.2 224 Paragraphs
+```````````````````````````````` example
+   aaa
+bbb
+.
+<p>aaa
+bbb</p>
+````````````````````````````````
+
+# commonmark-0.31.2 226 Paragraphs
+```````````````````````````````` example
+aaa␣␣␣␣␣
+bbb␣␣␣␣␣
+.
+<p>aaa<br />
+bbb</p>
+````````````````````````````````
+
+# commonmark-0.31.2 228 Block quotes
+```````````````````````````````` example
+> # Foo
+> bar
+> baz
+.
+<blockquote>
+<h1>Foo</h1>
+<p>bar
+baz</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 229 Block quotes
+```````````````````````````````` example
+># Foo
+>bar
+> baz
+.
+<blockquote>
+<h1>Foo</h1>
+<p>bar
+baz</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 232 Block quotes
+```````````````````````````````` example
+> # Foo
+> bar
+baz
+.
+<blockquote>
+<h1>Foo</h1>
+<p>bar
+baz</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 233 Block quotes
+```````````````````````````````` example
+> bar
+baz
+> foo
+.
+<blockquote>
+<p>bar
+baz
+foo</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 234 Block quotes
+```````````````````````````````` example
+> foo
+---
+.
+<blockquote>
+<p>foo</p>
+</blockquote>
+<hr />
+````````````````````````````````
+
+# commonmark-0.31.2 235 Block quotes
+```````````````````````````````` example
+> - foo
+- bar
+.
+<blockquote>
+<ul>
+<li>foo</li>
+</ul>
+</blockquote>
+<ul>
+<li>bar</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 237 Block quotes
+```````````````````````````````` example
+> ```
+foo
+```
+.
+<blockquote>
+<pre><code></code></pre>
+</blockquote>
+<p>foo</p>
+<pre><code></code></pre>
+````````````````````````````````
+
+# commonmark-0.31.2 239 Block quotes
+```````````````````````````````` example
+>
+.
+<blockquote>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 242 Block quotes
+```````````````````````````````` example
+> foo
+
+> bar
+.
+<blockquote>
+<p>foo</p>
+</blockquote>
+<blockquote>
+<p>bar</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 244 Block quotes
+```````````````````````````````` example
+> foo
+>
+> bar
+.
+<blockquote>
+<p>foo</p>
+<p>bar</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 245 Block quotes
+```````````````````````````````` example
+foo
+> bar
+.
+<p>foo</p>
+<blockquote>
+<p>bar</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 247 Block quotes
+```````````````````````````````` example
+> bar
+baz
+.
+<blockquote>
+<p>bar
+baz</p>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 248 Block quotes
+```````````````````````````````` example
+> bar
+
+baz
+.
+<blockquote>
+<p>bar</p>
+</blockquote>
+<p>baz</p>
+````````````````````````````````
+
+# commonmark-0.31.2 250 Block quotes
+```````````````````````````````` example
+> > > foo
+bar
+.
+<blockquote>
+<blockquote>
+<blockquote>
+<p>foo
+bar</p>
+</blockquote>
+</blockquote>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 251 Block quotes
+```````````````````````````````` example
+>>> foo
+> bar
+>>baz
+.
+<blockquote>
+<blockquote>
+<blockquote>
+<p>foo
+bar
+baz</p>
+</blockquote>
+</blockquote>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 256 List items
+```````````````````````````````` example
+- one
+
+  two
+.
+<ul>
+<li>
+<p>one</p>
+<p>two</p>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 258 List items
+```````````````````````````````` example
+ -    one
+
+      two
+.
+<ul>
+<li>
+<p>one</p>
+<p>two</p>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 259 List items
+```````````````````````````````` example
+   > > 1.  one
+>>
+>>     two
+.
+<blockquote>
+<blockquote>
+<ol>
+<li>
+<p>one</p>
+<p>two</p>
+</li>
+</ol>
+</blockquote>
+</blockquote>
+````````````````````````````````
+
+# commonmark-0.31.2 261 List items
+```````````````````````````````` example
+-one
+
+2.two
+.
+<p>-one</p>
+<p>2.two</p>
+````````````````````````````````
+
+# commonmark-0.31.2 263 List items
+```````````````````````````````` example
+1.  foo
+
+    ```
+    bar
+    ```
+
+    baz
+
+    > bam
+.
+<ol>
+<li>
+<p>foo</p>
+<pre><code>bar
+</code></pre>
+<p>baz</p>
+<blockquote>
+<p>bam</p>
+</blockquote>
+</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 265 List items
+```````````````````````````````` example
+123456789. ok
+.
+<ol start="123456789">
+<li>ok</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 266 List items
+```````````````````````````````` example
+1234567890. not ok
+.
+<p>1234567890. not ok</p>
+````````````````````````````````
+
+# commonmark-0.31.2 268 List items
+```````````````````````````````` example
+003. ok
+.
+<ol start="3">
+<li>ok</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 276 List items
+```````````````````````````````` example
+-    foo
+
+  bar
+.
+<ul>
+<li>foo</li>
+</ul>
+<p>bar</p>
+````````````````````````````````
+
+# commonmark-0.31.2 277 List items
+```````````````````````````````` example
+-  foo
+
+   bar
+.
+<ul>
+<li>
+<p>foo</p>
+<p>bar</p>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 281 List items
+```````````````````````````````` example
+- foo
+-
+- bar
+.
+<ul>
+<li>foo</li>
+<li></li>
+<li>bar</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 283 List items
+```````````````````````````````` example
+1. foo
+2.
+3. bar
+.
+<ol>
+<li>foo</li>
+<li></li>
+<li>bar</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 291 List items
+```````````````````````````````` example
+  1.  A paragraph
+    with two lines.
+.
+<ol>
+<li>A paragraph
+with two lines.</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 294 List items
+```````````````````````````````` example
+- foo
+  - bar
+    - baz
+      - boo
+.
+<ul>
+<li>foo
+<ul>
+<li>bar
+<ul>
+<li>baz
+<ul>
+<li>boo</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 295 List items
+```````````````````````````````` example
+- foo
+ - bar
+  - baz
+   - boo
+.
+<ul>
+<li>foo</li>
+<li>bar</li>
+<li>baz</li>
+<li>boo</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 296 List items
+```````````````````````````````` example
+10) foo
+    - bar
+.
+<ol start="10">
+<li>foo
+<ul>
+<li>bar</li>
+</ul>
+</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 297 List items
+```````````````````````````````` example
+10) foo
+   - bar
+.
+<ol start="10">
+<li>foo</li>
+</ol>
+<ul>
+<li>bar</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 298 List items
+```````````````````````````````` example
+- - foo
+.
+<ul>
+<li>
+<ul>
+<li>foo</li>
+</ul>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 299 List items
+```````````````````````````````` example
+1. - 2. foo
+.
+<ol>
+<li>
+<ul>
+<li>
+<ol start="2">
+<li>foo</li>
+</ol>
+</li>
+</ul>
+</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 301 Lists
+```````````````````````````````` example
+- foo
+- bar
++ baz
+.
+<ul>
+<li>foo</li>
+<li>bar</li>
+</ul>
+<ul>
+<li>baz</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 302 Lists
+```````````````````````````````` example
+1. foo
+2. bar
+3) baz
+.
+<ol>
+<li>foo</li>
+<li>bar</li>
+</ol>
+<ol start="3">
+<li>baz</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 303 Lists
+```````````````````````````````` example
+Foo
+- bar
+- baz
+.
+<p>Foo</p>
+<ul>
+<li>bar</li>
+<li>baz</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 304 Lists
+```````````````````````````````` example
+The number of windows in my house is
+14.  The number of doors is 6.
+.
+<p>The number of windows in my house is
+14.  The number of doors is 6.</p>
+````````````````````````````````
+
+# commonmark-0.31.2 305 Lists
+```````````````````````````````` example
+The number of windows in my house is
+1.  The number of doors is 6.
+.
+<p>The number of windows in my house is</p>
+<ol>
+<li>The number of doors is 6.</li>
+</ol>
+````````````````````````````````
+
+# commonmark-0.31.2 306 Lists
+```````````````````````````````` example
+- foo
+
+- bar
+
+
+- baz
+.
+<ul>
+<li>
+<p>foo</p>
+</li>
+<li>
+<p>bar</p>
+</li>
+<li>
+<p>baz</p>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 307 Lists
+```````````````````````````````` example
+- foo
+  - bar
+    - baz
+
+
+      bim
+.
+<ul>
+<li>foo
+<ul>
+<li>bar
+<ul>
+<li>
+<p>baz</p>
+<p>bim</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 310 Lists
+```````````````````````````````` example
+- a
+ - b
+  - c
+   - d
+  - e
+ - f
+- g
+.
+<ul>
+<li>a</li>
+<li>b</li>
+<li>c</li>
+<li>d</li>
+<li>e</li>
+<li>f</li>
+<li>g</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 312 Lists
+```````````````````````````````` example
+- a
+ - b
+  - c
+   - d
+    - e
+.
+<ul>
+<li>a</li>
+<li>b</li>
+<li>c</li>
+<li>d
+- e</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 314 Lists
+```````````````````````````````` example
+- a
+- b
+
+- c
+.
+<ul>
+<li>
+<p>a</p>
+</li>
+<li>
+<p>b</p>
+</li>
+<li>
+<p>c</p>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 316 Lists
+```````````````````````````````` example
+- a
+- b
+
+  c
+- d
+.
+<ul>
+<li>
+<p>a</p>
+</li>
+<li>
+<p>b</p>
+<p>c</p>
+</li>
+<li>
+<p>d</p>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 318 Lists
+```````````````````````````````` example
+- a
+- ```
+  b
+
+
+  ```
+- c
+.
+<ul>
+<li>a</li>
+<li>
+<pre><code>b
+
+
+</code></pre>
+</li>
+<li>c</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 319 Lists
+```````````````````````````````` example
+- a
+  - b
+
+    c
+- d
+.
+<ul>
+<li>a
+<ul>
+<li>
+<p>b</p>
+<p>c</p>
+</li>
+</ul>
+</li>
+<li>d</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 321 Lists
+```````````````````````````````` example
+- a
+  > b
+  ```
+  c
+  ```
+- d
+.
+<ul>
+<li>a
+<blockquote>
+<p>b</p>
+</blockquote>
+<pre><code>c
+</code></pre>
+</li>
+<li>d</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 326 Lists
+```````````````````````````````` example
+- a
+  - b
+  - c
+
+- d
+  - e
+  - f
+.
+<ul>
+<li>
+<p>a</p>
+<ul>
+<li>b</li>
+<li>c</li>
+</ul>
+</li>
+<li>
+<p>d</p>
+<ul>
+<li>e</li>
+<li>f</li>
+</ul>
+</li>
+</ul>
+````````````````````````````````
+
+# commonmark-0.31.2 328 Code spans
+```````````````````````````````` example
+`foo`
+.
+<p><code>foo</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 329 Code spans
+```````````````````````````````` example
+`` foo ` bar ``
+.
+<p><code>foo ` bar</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 331 Code spans
+```````````````````````````````` example
+`  ``  `
+.
+<p><code> `` </code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 335 Code spans
+```````````````````````````````` example
+``
+foo
+bar␣␣
+baz
+``
+.
+<p><code>foo bar   baz</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 338 Code spans
+```````````````````````````````` example
+`foo\`bar`
+.
+<p><code>foo\</code>bar`</p>
+````````````````````````````````
+
+# commonmark-0.31.2 339 Code spans
+```````````````````````````````` example
+``foo`bar``
+.
+<p><code>foo`bar</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 341 Code spans
+```````````````````````````````` example
+*foo`*`
+.
+<p>*foo<code>*</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 342 Code spans
+```````````````````````````````` example
+[not a `link](/foo`)
+.
+<p>[not a <code>link](/foo</code>)</p>
+````````````````````````````````
+
+# commonmark-0.31.2 347 Code spans
+```````````````````````````````` example
+```foo``
+.
+<p>```foo``</p>
+````````````````````````````````
+
+# commonmark-0.31.2 348 Code spans
+```````````````````````````````` example
+`foo
+.
+<p>`foo</p>
+````````````````````````````````
+
+# commonmark-0.31.2 349 Code spans
+```````````````````````````````` example
+`foo``bar``
+.
+<p>`foo<code>bar</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 350 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo bar*
+.
+<p><em>foo bar</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 351 Emphasis and strong emphasis
+```````````````````````````````` example
+a * foo bar*
+.
+<p>a * foo bar*</p>
+````````````````````````````````
+
+# commonmark-0.31.2 355 Emphasis and strong emphasis
+```````````````````````````````` example
+foo*bar*
+.
+<p>foo<em>bar</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 356 Emphasis and strong emphasis
+```````````````````````````````` example
+5*6*78
+.
+<p>5<em>6</em>78</p>
+````````````````````````````````
+
+# commonmark-0.31.2 357 Emphasis and strong emphasis
+```````````````````````````````` example
+_foo bar_
+.
+<p><em>foo bar</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 358 Emphasis and strong emphasis
+```````````````````````````````` example
+_ foo bar_
+.
+<p>_ foo bar_</p>
+````````````````````````````````
+
+# commonmark-0.31.2 360 Emphasis and strong emphasis
+```````````````````````````````` example
+foo_bar_
+.
+<p>foo_bar_</p>
+````````````````````````````````
+
+# commonmark-0.31.2 364 Emphasis and strong emphasis
+```````````````````````````````` example
+foo-_(bar)_
+.
+<p>foo-<em>(bar)</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 369 Emphasis and strong emphasis
+```````````````````````````````` example
+*(*foo*)*
+.
+<p><em>(<em>foo</em>)</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 376 Emphasis and strong emphasis
+```````````````````````````````` example
+_foo_bar_baz_
+.
+<p><em>foo_bar_baz</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 378 Emphasis and strong emphasis
+```````````````````````````````` example
+**foo bar**
+.
+<p><strong>foo bar</strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 379 Emphasis and strong emphasis
+```````````````````````````````` example
+** foo bar**
+.
+<p>** foo bar**</p>
+````````````````````````````````
+
+# commonmark-0.31.2 389 Emphasis and strong emphasis
+```````````````````````````````` example
+__foo, __bar__, baz__
+.
+<p><strong>foo, <strong>bar</strong>, baz</strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 393 Emphasis and strong emphasis
+```````````````````````````````` example
+*(**foo**)*
+.
+<p><em>(<strong>foo</strong>)</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 394 Emphasis and strong emphasis
+```````````````````````````````` example
+**Gomphocarpus (*Gomphocarpus physocarpus*, syn.
+*Asclepias physocarpa*)**
+.
+<p><strong>Gomphocarpus (<em>Gomphocarpus physocarpus</em>, syn.
+<em>Asclepias physocarpa</em>)</strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 404 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo [bar](/url)*
+.
+<p><em>foo <a href="/url">bar</a></em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 406 Emphasis and strong emphasis
+```````````````````````````````` example
+_foo __bar__ baz_
+.
+<p><em>foo <strong>bar</strong> baz</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 409 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo *bar**
+.
+<p><em>foo <em>bar</em></em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 410 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo **bar** baz*
+.
+<p><em>foo <strong>bar</strong> baz</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 413 Emphasis and strong emphasis
+```````````````````````````````` example
+***foo** bar*
+.
+<p><em><strong>foo</strong> bar</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 416 Emphasis and strong emphasis
+```````````````````````````````` example
+foo***bar***baz
+.
+<p>foo<em><strong>bar</strong></em>baz</p>
+````````````````````````````````
+
+# commonmark-0.31.2 417 Emphasis and strong emphasis
+```````````````````````````````` example
+foo******bar*********baz
+.
+<p>foo<strong><strong><strong>bar</strong></strong></strong>***baz</p>
+````````````````````````````````
+
+# commonmark-0.31.2 418 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo **bar *baz* bim** bop*
+.
+<p><em>foo <strong>bar <em>baz</em> bim</strong> bop</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 419 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo [*bar*](/url)*
+.
+<p><em>foo <a href="/url"><em>bar</em></a></em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 429 Emphasis and strong emphasis
+```````````````````````````````` example
+**foo*bar*baz**
+.
+<p><strong>foo<em>bar</em>baz</strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 431 Emphasis and strong emphasis
+```````````````````````````````` example
+**foo *bar***
+.
+<p><strong>foo <em>bar</em></strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 432 Emphasis and strong emphasis
+```````````````````````````````` example
+**foo *bar **baz**
+bim* bop**
+.
+<p><strong>foo <em>bar <strong>baz</strong>
+bim</em> bop</strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 437 Emphasis and strong emphasis
+```````````````````````````````` example
+foo *\**
+.
+<p>foo <em>*</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 442 Emphasis and strong emphasis
+```````````````````````````````` example
+**foo*
+.
+<p>*<em>foo</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 443 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo**
+.
+<p><em>foo</em>*</p>
+````````````````````````````````
+
+# commonmark-0.31.2 446 Emphasis and strong emphasis
+```````````````````````````````` example
+**foo***
+.
+<p><strong>foo</strong>*</p>
+````````````````````````````````
+
+# commonmark-0.31.2 461 Emphasis and strong emphasis
+```````````````````````````````` example
+*_foo_*
+.
+<p><em><em>foo</em></em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 464 Emphasis and strong emphasis
+```````````````````````````````` example
+****foo****
+.
+<p><strong><strong>foo</strong></strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 467 Emphasis and strong emphasis
+```````````````````````````````` example
+***foo***
+.
+<p><em><strong>foo</strong></em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 469 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo _bar* baz_
+.
+<p><em>foo _bar</em> baz_</p>
+````````````````````````````````
+
+# commonmark-0.31.2 470 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo __bar *baz bim__ bam*
+.
+<p><em>foo <strong>bar *baz bim</strong> bam</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 471 Emphasis and strong emphasis
+```````````````````````````````` example
+**foo **bar baz**
+.
+<p>**foo <strong>bar baz</strong></p>
+````````````````````````````````
+
+# commonmark-0.31.2 472 Emphasis and strong emphasis
+```````````````````````````````` example
+*foo *bar baz*
+.
+<p>*foo <em>bar baz</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 473 Emphasis and strong emphasis
+```````````````````````````````` example
+*[bar*](/url)
+.
+<p>*<a href="/url">bar*</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 478 Emphasis and strong emphasis
+```````````````````````````````` example
+*a `*`*
+.
+<p><em>a <code>*</code></em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 483 Links
+```````````````````````````````` example
+[link](/uri)
+.
+<p><a href="/uri">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 485 Links
+```````````````````````````````` example
+[link]()
+.
+<p><a href="">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 486 Links
+```````````````````````````````` example
+[link](<>)
+.
+<p><a href="">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 488 Links
+```````````````````````````````` example
+[link](/my uri)
+.
+<p>[link](/my uri)</p>
+````````````````````````````````
+
+# commonmark-0.31.2 490 Links
+```````````````````````````````` example
+[link](foo
+bar)
+.
+<p>[link](foo
+bar)</p>
+````````````````````````````````
+
+# commonmark-0.31.2 495 Links
+```````````````````````````````` example
+[link](\(foo\))
+.
+<p><a href="(foo)">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 496 Links
+```````````````````````````````` example
+[link](foo(and(bar)))
+.
+<p><a href="foo(and(bar))">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 497 Links
+```````````````````````````````` example
+[link](foo(and(bar))
+.
+<p>[link](foo(and(bar))</p>
+````````````````````````````````
+
+# commonmark-0.31.2 498 Links
+```````````````````````````````` example
+[link](foo\(and\(bar\))
+.
+<p><a href="foo(and(bar)">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 501 Links
+```````````````````````````````` example
+[link](#fragment)
+
+[link](https://example.com#fragment)
+
+[link](https://example.com?foo=3#frag)
+.
+<p><a href="#fragment">link</a></p>
+<p><a href="https://example.com#fragment">link</a></p>
+<p><a href="https://example.com?foo=3#frag">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 502 Links
+```````````````````````````````` example
+[link](foo\bar)
+.
+<p><a href="foo%5Cbar">link</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 512 Links
+```````````````````````````````` example
+[link [foo [bar]]](/uri)
+.
+<p><a href="/uri">link [foo [bar]]</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 513 Links
+```````````````````````````````` example
+[link] bar](/uri)
+.
+<p>[link] bar](/uri)</p>
+````````````````````````````````
+
+# commonmark-0.31.2 514 Links
+```````````````````````````````` example
+[link [bar](/uri)
+.
+<p>[link <a href="/uri">bar</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 515 Links
+```````````````````````````````` example
+[link \[bar](/uri)
+.
+<p><a href="/uri">link [bar</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 516 Links
+```````````````````````````````` example
+[link *foo **bar** `#`*](/uri)
+.
+<p><a href="/uri">link <em>foo <strong>bar</strong> <code>#</code></em></a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 518 Links
+```````````````````````````````` example
+[foo [bar](/uri)](/uri)
+.
+<p>[foo <a href="/uri">bar</a>](/uri)</p>
+````````````````````````````````
+
+# commonmark-0.31.2 521 Links
+```````````````````````````````` example
+*[foo*](/uri)
+.
+<p>*<a href="/uri">foo*</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 522 Links
+```````````````````````````````` example
+[foo *bar](baz*)
+.
+<p><a href="baz*">foo *bar</a></p>
+````````````````````````````````
+
+# commonmark-0.31.2 523 Links
+```````````````````````````````` example
+*foo [bar* baz]
+.
+<p><em>foo [bar</em> baz]</p>
+````````````````````````````````
+
+# commonmark-0.31.2 525 Links
+```````````````````````````````` example
+[foo`](/uri)`
+.
+<p>[foo<code>](/uri)</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 633 Hard line breaks
+```````````````````````````````` example
+foo␣␣
+baz
+.
+<p>foo<br />
+baz</p>
+````````````````````````````````
+
+# commonmark-0.31.2 634 Hard line breaks
+```````````````````````````````` example
+foo\
+baz
+.
+<p>foo<br />
+baz</p>
+````````````````````````````````
+
+# commonmark-0.31.2 635 Hard line breaks
+```````````````````````````````` example
+foo␣␣␣␣␣␣␣
+baz
+.
+<p>foo<br />
+baz</p>
+````````````````````````````````
+
+# commonmark-0.31.2 636 Hard line breaks
+```````````````````````````````` example
+foo␣␣
+     bar
+.
+<p>foo<br />
+bar</p>
+````````````````````````````````
+
+# commonmark-0.31.2 638 Hard line breaks
+```````````````````````````````` example
+*foo␣␣
+bar*
+.
+<p><em>foo<br />
+bar</em></p>
+````````````````````````````````
+
+# commonmark-0.31.2 640 Hard line breaks
+```````````````````````````````` example
+`code␣␣
+span`
+.
+<p><code>code   span</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 641 Hard line breaks
+```````````````````````````````` example
+`code\
+span`
+.
+<p><code>code\ span</code></p>
+````````````````````````````````
+
+# commonmark-0.31.2 644 Hard line breaks
+```````````````````````````````` example
+foo\
+.
+<p>foo\</p>
+````````````````````````````````
+
+# commonmark-0.31.2 645 Hard line breaks
+```````````````````````````````` example
+foo␣␣
+.
+<p>foo</p>
+````````````````````````````````
+
+# commonmark-0.31.2 646 Hard line breaks
+```````````````````````````````` example
+### foo\
+.
+<h3>foo\</h3>
+````````````````````````````````
+
+# commonmark-0.31.2 647 Hard line breaks
+```````````````````````````````` example
+### foo␣␣
+.
+<h3>foo</h3>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 198 Tables (extension)
+```````````````````````````````` example
+| foo | bar |
+| --- | --- |
+| baz | bim |
+.
+<table>
+<thead>
+<tr>
+<th>foo</th>
+<th>bar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>baz</td>
+<td>bim</td>
+</tr>
+</tbody>
+</table>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 199 Tables (extension)
+```````````````````````````````` example
+| abc | defghi |
+:-: | -----------:
+bar | baz
+.
+<table>
+<thead>
+<tr>
+<th align="center">abc</th>
+<th align="right">defghi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">bar</td>
+<td align="right">baz</td>
+</tr>
+</tbody>
+</table>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 200 Tables (extension)
+```````````````````````````````` example
+| f\|oo  |
+| ------ |
+| b `\|` az |
+| b **\|** im |
+.
+<table>
+<thead>
+<tr>
+<th>f|oo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>b <code>|</code> az</td>
+</tr>
+<tr>
+<td>b <strong>|</strong> im</td>
+</tr>
+</tbody>
+</table>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 201 Tables (extension)
+```````````````````````````````` example
+| abc | def |
+| --- | --- |
+| bar | baz |
+> bar
+.
+<table>
+<thead>
+<tr>
+<th>abc</th>
+<th>def</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bar</td>
+<td>baz</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>bar</p>
+</blockquote>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 202 Tables (extension)
+```````````````````````````````` example
+| abc | def |
+| --- | --- |
+| bar | baz |
+bar
+
+bar
+.
+<table>
+<thead>
+<tr>
+<th>abc</th>
+<th>def</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bar</td>
+<td>baz</td>
+</tr>
+<tr>
+<td>bar</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>bar</p>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 203 Tables (extension)
+```````````````````````````````` example
+| abc | def |
+| --- |
+| bar |
+.
+<p>| abc | def |
+| --- |
+| bar |</p>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 204 Tables (extension)
+```````````````````````````````` example
+| abc | def |
+| --- | --- |
+| bar |
+| bar | baz | boo |
+.
+<table>
+<thead>
+<tr>
+<th>abc</th>
+<th>def</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bar</td>
+<td></td>
+</tr>
+<tr>
+<td>bar</td>
+<td>baz</td>
+</tr>
+</tbody>
+</table>
+````````````````````````````````
+
+# gfm-0.29.0.gfm.13 205 Tables (extension)
+```````````````````````````````` example
+| abc | def |
+| --- | --- |
+.
+<table>
+<thead>
+<tr>
+<th>abc</th>
+<th>def</th>
+</tr>
+</thead>
+</table>
+````````````````````````````````
