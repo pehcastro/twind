@@ -8,6 +8,7 @@ import (
 	konst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/raster"
+	"github.com/twind-dev/twind/twi/style"
 )
 
 type Frame struct {
@@ -53,6 +54,12 @@ type entry struct {
 	node   *Node
 	key    uint64
 	scroll *context
+	round  *clipper
+}
+
+type clipper struct {
+	node *Node
+	up   *clipper
 }
 
 type chunk struct {
@@ -63,7 +70,7 @@ type chunk struct {
 func (f *Frame) Record(root *Node, cell image.Point) {
 	f.cell, f.screen, f.root = cell, root.Clip, root
 	f.Layers, f.ops, f.boxes = f.Layers[:0], f.ops[:0], f.boxes[:0]
-	f.promote(stack(root, konst.HashSeed), -1, false)
+	f.promote(stack(root, konst.HashSeed, nil), -1, false)
 	opsTo, boxTo := len(f.ops), len(f.boxes)
 	for i := len(f.Layers) - 1; i >= 0; i-- {
 		l := &f.Layers[i]
@@ -88,26 +95,29 @@ func Walk(root *Node, draw func(*Node), group func(n *Node, inside func())) {
 	walk = func(ctx *context) {
 		ctx.visit(func(e entry) { draw(e.node) }, func(c *context) { group(c.node, func() { walk(c) }) })
 	}
-	group(root, func() { walk(stack(root, konst.HashSeed)) })
+	group(root, func() { walk(stack(root, konst.HashSeed, nil)) })
 }
 
-func stack(n *Node, key uint64) *context {
+func stack(n *Node, key uint64, round *clipper) *context {
 	ctx := &context{node: n, key: key}
-	ctx.collect(n, key, ctx)
+	ctx.collect(n, key, ctx, round)
 	byZ := func(a, b *context) int { return cmp.Compare(a.node.ZIndex, b.node.ZIndex) }
 	slices.SortStableFunc(ctx.below, byZ)
 	slices.SortStableFunc(ctx.above, byZ)
 	return ctx
 }
 
-func (ctx *context) collect(n *Node, key uint64, into *context) {
-	into.flow = append(into.flow, entry{node: n, key: key})
+func (ctx *context) collect(n *Node, key uint64, into *context, round *clipper) {
+	into.flow = append(into.flow, entry{node: n, key: key, round: round})
+	if n.HidesOverflow && n.Border.Radius != style.RadiusNone {
+		round = &clipper{node: n, up: round}
+	}
 	for i := range n.Children {
 		c, ck := &n.Children[i], mix(key, uint64(i)+1)
 		positioned := c.Position != layout.PositionStatic
 		switch {
 		case c.Opacity < 1 || c.Position == layout.PositionFixed || positioned && c.ZIndex != 0:
-			switch child := stack(c, ck); {
+			switch child := stack(c, ck, round); {
 			case c.ZIndex < 0:
 				ctx.below = append(ctx.below, child)
 			case c.ZIndex > 0:
@@ -118,13 +128,13 @@ func (ctx *context) collect(n *Node, key uint64, into *context) {
 		case positioned:
 			own := &context{node: c, key: ck}
 			ctx.level = append(ctx.level, own)
-			ctx.collect(c, ck, own)
+			ctx.collect(c, ck, own, round)
 		case c.Scroll:
 			own := &context{node: c, key: ck}
 			into.flow = append(into.flow, entry{scroll: own})
-			ctx.collect(c, ck, own)
+			ctx.collect(c, ck, own, round)
 		default:
-			ctx.collect(c, ck, into)
+			ctx.collect(c, ck, into, round)
 		}
 	}
 }
@@ -187,7 +197,7 @@ func (f *Frame) child(ctx *context, c *chunk) {
 
 func (f *Frame) draw(e entry, c *chunk) {
 	l, start := &f.Layers[c.first], len(f.ops)
-	visual, ok := f.record(e.node, l.Origin, l.Clip)
+	visual, ok := f.record(e.node, e.round, l.Origin, l.Clip)
 	f.commit(e.key, visual, ok, start, c)
 }
 

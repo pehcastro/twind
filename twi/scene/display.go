@@ -15,7 +15,7 @@ import (
 	"github.com/twind-dev/twind/twi/style"
 )
 
-func (f *Frame) record(n *Node, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
+func (f *Frame) record(n *Node, round *clipper, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
 	start := len(f.ops)
 	bounds := f.pixels(n.Bounds).Sub(origin)
 	if bounds.Empty() {
@@ -67,7 +67,7 @@ func (f *Frame) record(n *Node, origin image.Point, layerClip image.Rectangle) (
 	}
 	switch {
 	case ring:
-		f.ops = append(f.ops, raster.Op{Kind: raster.Border, Box: shape, Color: edges.Color.RGBA, Width: konst.BorderPixels})
+		f.ops = append(f.ops, raster.Op{Kind: raster.Border, Box: shape, Color: edges.Color.RGBA, Width: konst.BorderPixels, Dash: dash(edges.Style)})
 	case bordered:
 		s := shape.Rect
 		for _, side := range [...]struct {
@@ -80,27 +80,60 @@ func (f *Frame) record(n *Node, origin image.Point, layerClip image.Rectangle) (
 			{edges.Left, raster.Rect{X: s.X, Y: s.Y, W: konst.BorderPixels, H: s.H}},
 		} {
 			if side.on {
-				f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: side.line}, Color: edges.Color.RGBA})
+				f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: side.line}, Color: edges.Color.RGBA, Dash: dash(edges.Style)})
 			}
 		}
 	}
 	if len(f.ops) == start {
 		return visual, false
 	}
-	return f.clip(start, visual, f.pixels(n.Clip), layerClip, origin)
+	return f.clip(start, visual, f.pixels(n.Clip), layerClip, origin, round)
 }
 
-func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point) (image.Rectangle, bool) {
-	if clip == layerClip {
-		return visual, true
+func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point, round *clipper) (image.Rectangle, bool) {
+	pushed := len(f.ops)
+	if clip != layerClip {
+		if visual = visual.Intersect(clip.Sub(origin)); visual.Empty() {
+			return visual, false
+		}
+		f.ops = append(f.ops, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: rect(clip.Sub(origin))}})
 	}
-	clip = clip.Sub(origin)
-	if visual = visual.Intersect(clip); visual.Empty() {
-		return visual, false
+	seen := visual.Intersect(clip.Sub(origin))
+	for ; round != nil; round = round.up {
+		n := round.node
+		outer, shape := f.pixels(n.Bounds), f.pixels(n.Padding)
+		inset := max(shape.Min.X-outer.Min.X, shape.Min.Y-outer.Min.Y, outer.Max.X-shape.Max.X, outer.Max.Y-shape.Max.Y)
+		r := f.radius(n.Border.Radius) - float64(inset)
+		if r <= 0 || !clip.In(shape) {
+			continue
+		}
+		shape = shape.Sub(origin)
+		reach := int(math.Ceil(min(r, float64(shape.Dx())/2, float64(shape.Dy())/2)))
+		if seen.Min.X >= shape.Min.X+reach && seen.Max.X <= shape.Max.X-reach || seen.Min.Y >= shape.Min.Y+reach && seen.Max.Y <= shape.Max.Y-reach {
+			continue
+		}
+		f.ops = append(f.ops, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: rect(shape), Radii: [4]float64{r, r, r, r}}})
 	}
-	f.ops = slices.Insert(f.ops, start, raster.Op{Kind: raster.Clip, Box: raster.Box{Rect: rect(clip)}})
-	f.ops = append(f.ops, raster.Op{Kind: raster.Pop})
+	pops := len(f.ops) - pushed
+	slices.Reverse(f.ops[start:pushed])
+	slices.Reverse(f.ops[pushed:])
+	slices.Reverse(f.ops[start:])
+	for range pops {
+		f.ops = append(f.ops, raster.Op{Kind: raster.Pop})
+	}
 	return visual, true
+}
+
+func dash(s style.BorderStyle) raster.Dash {
+	switch s {
+	case style.BorderNone, style.BorderSingle, style.BorderDouble:
+		return raster.Solid
+	case style.BorderDashed:
+		return raster.Dashed
+	case style.BorderDotted:
+		return raster.Dotted
+	}
+	panic(fmt.Sprintf("scene: unknown border style %d", s))
 }
 
 func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
@@ -120,7 +153,7 @@ func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (i
 	radius := float64(width) / 2
 	start := len(f.ops)
 	f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: rect(visual), Radii: [4]float64{radius, radius, radius, radius}}, Color: c})
-	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin)
+	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin, nil)
 }
 
 func GradientFill(g style.Gradient, shape raster.Box) raster.Op {

@@ -197,11 +197,18 @@ func TestMean(t *testing.T) {
 func TestTile(t *testing.T) {
 	ops := append(sheet(), Op{Kind: Clip, Box: radius(300, 380, 150, 60, 0)},
 		Op{Kind: Fill, Box: radius(250, 360, 300, 100, 20), Color: hex(0x10b981, 200)},
-		Op{Kind: Pop})
+		Op{Kind: Pop},
+		Op{Kind: Clip, Box: radius(260, 370, 200, 80, 30)},
+		Op{Kind: Opacity, Opacity: 0.7},
+		Op{Kind: Fill, Box: radius(240, 360, 150, 100, 0), Color: hex(0x3b82f6, 255)},
+		Op{Kind: Pop},
+		Op{Kind: Pop},
+		Op{Kind: Border, Box: radius(40, 40, 200, 120, 4), Width: 1, Color: black, Dash: Dashed},
+		Op{Kind: Fill, Box: radius(700, 200, 1, 300, 0), Color: black, Dash: Dotted})
 	bounds := image.Rect(0, 0, 940, 560)
 	full := image.NewRGBA(bounds)
-	new(Raster).Draw(full, ops, bounds)
 	var r Raster
+	r.Draw(full, ops, bounds)
 	for _, tile := range []image.Rectangle{image.Rect(37, 23, 211, 157), image.Rect(270, 350, 480, 470), image.Rect(700, 180, 940, 560)} {
 		part := image.NewRGBA(bounds)
 		r.Draw(part, ops, tile)

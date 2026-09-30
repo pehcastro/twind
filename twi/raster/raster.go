@@ -46,6 +46,7 @@ type Op struct {
 	Stops   []Stop
 	Angle   float64
 	Width   float64
+	Dash    Dash
 	Shadow  BoxShadow
 	Opacity float64
 }
@@ -54,6 +55,7 @@ type layer struct {
 	img     *image.RGBA
 	clip    image.Rectangle
 	opacity float32
+	mask    Box
 	group   bool
 }
 
@@ -115,11 +117,18 @@ func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
 		case Shadow:
 			r.shadow(op)
 		case Opacity:
-			r.layers = append(r.layers, layer{img: r.group(tile), clip: r.top().clip, opacity: float32(op.Opacity), group: true})
+			c := r.top().clip
+			whole := Box{Rect: Rect{float64(c.Min.X), float64(c.Min.Y), float64(c.Dx()), float64(c.Dy())}}
+			r.layers = append(r.layers, layer{img: r.group(tile, c), clip: c, opacity: float32(op.Opacity), mask: whole, group: true})
 		case Clip:
-			b := op.Box.Rect
-			clip := image.Rect(round(b.X), round(b.Y), round(b.X+b.W), round(b.Y+b.H))
-			r.layers = append(r.layers, layer{img: r.top().img, clip: r.top().clip.Intersect(clip), opacity: 1})
+			b := op.Box
+			if b.Radii == [4]float64{} {
+				clip := image.Rect(round(b.X), round(b.Y), round(b.X+b.W), round(b.Y+b.H))
+				r.layers = append(r.layers, layer{img: r.top().img, clip: r.top().clip.Intersect(clip), opacity: 1})
+				continue
+			}
+			c := r.top().clip.Intersect(b.pixels(0))
+			r.layers = append(r.layers, layer{img: r.group(tile, c), clip: c, opacity: 1, mask: b.fit(), group: true})
 		case Pop:
 			r.pop()
 		default:
@@ -160,7 +169,7 @@ func Mean(img *image.RGBA, area image.Rectangle) color.RGBA {
 	return color.RGBA{R: unmul(sum[0]), G: unmul(sum[1]), B: unmul(sum[2]), A: uint8((sum[3] + n/2) / n)}
 }
 
-func (r *Raster) group(tile image.Rectangle) *image.RGBA {
+func (r *Raster) group(tile, area image.Rectangle) *image.RGBA {
 	if r.depth == len(r.groups) {
 		r.groups = append(r.groups, image.RGBA{})
 	}
@@ -170,7 +179,9 @@ func (r *Raster) group(tile image.Rectangle) *image.RGBA {
 		g.Pix = make([]uint8, n)
 	}
 	g.Pix, g.Stride, g.Rect = g.Pix[:n], tile.Dx()*4, tile
-	clear(g.Pix)
+	for y := area.Min.Y; y < area.Max.Y; y++ {
+		clear(g.Pix[g.PixOffset(area.Min.X, y):g.PixOffset(area.Max.X, y)])
+	}
 	r.depth++
 	return g
 }
@@ -186,9 +197,16 @@ func (r *Raster) pop() {
 	r.depth--
 	dst := r.top().img
 	for y := l.clip.Min.Y; y < l.clip.Max.Y; y++ {
-		for x := l.clip.Min.X; x < l.clip.Max.X; x++ {
+		fy := float64(y) + 0.5
+		lo, hi := l.mask.touched(fy, l.clip)
+		fullLo, fullHi := l.mask.full(fy, l.clip)
+		for x := lo; x < hi; x++ {
+			cov := l.opacity
+			if x < fullLo || x >= fullHi {
+				cov *= l.mask.cover(float64(x)+0.5, fy)
+			}
 			i, p := dst.PixOffset(x, y), l.img.Pix[l.img.PixOffset(x, y):]
-			blend(dst.Pix[i:i+4], [4]float32{float32(p[0]), float32(p[1]), float32(p[2]), float32(p[3])}, l.opacity)
+			blend(dst.Pix[i:i+4], [4]float32{float32(p[0]), float32(p[1]), float32(p[2]), float32(p[3])}, cov)
 		}
 	}
 }
@@ -204,7 +222,13 @@ func (r *Raster) fill(op Op) {
 		gx, gy = sin/length, -cos/length
 	}
 	cx, cy := b.X+b.W/2, b.Y+b.H/2
-	opaque := len(op.Stops) == 0 && op.Color.A == math.MaxUint8
+	var dash pattern
+	across := b.W < b.H
+	if op.Dash != Solid {
+		long, gap := dashes(op.Dash, min(b.W, b.H))
+		dash = loop(long, gap, max(b.W, b.H)+gap)
+	}
+	opaque := len(op.Stops) == 0 && op.Color.A == math.MaxUint8 && op.Dash == Solid
 	top := r.top()
 	area := b.pixels(0.5).Intersect(top.clip)
 	if opaque {
@@ -237,6 +261,13 @@ func (r *Raster) fill(op Op) {
 			if len(op.Stops) > 0 {
 				paint = r.sample((fx-cx)*gx + (fy-cy)*gy + 0.5)
 			}
+			switch {
+			case op.Dash == Solid:
+			case across:
+				cov *= dash.cover(fy - b.Y)
+			default:
+				cov *= dash.cover(fx - b.X)
+			}
 			blend(top.img.Pix[i:i+4], paint, cov)
 		}
 	}
@@ -248,6 +279,10 @@ func (r *Raster) border(op Op) {
 	paint := premul(op.Color)
 	top := r.top()
 	area := outer.pixels(0.5).Intersect(top.clip)
+	if op.Dash != Solid {
+		r.dashedBorder(op, outer, inner, area)
+		return
+	}
 	bandLo, bandHi := outer.straight(0)
 	innerLo, innerHi := inner.straight(0)
 	bandLo, bandHi = max(bandLo, innerLo), min(bandHi, innerHi)

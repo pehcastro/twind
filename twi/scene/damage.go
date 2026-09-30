@@ -122,7 +122,7 @@ func hash(ops []raster.Op, at image.Point) uint64 {
 		b, s := op.Box, op.Shadow
 		for _, v := range [...]float64{
 			float64(op.Kind), b.X - x, b.Y - y, b.W, b.H, b.Radii[0], b.Radii[1], b.Radii[2], b.Radii[3],
-			op.Angle, op.Width, op.Opacity, s.X, s.Y, s.Blur, s.Spread,
+			op.Angle, op.Width, op.Opacity, s.X, s.Y, s.Blur, s.Spread, float64(op.Dash),
 		} {
 			h = mix(h, math.Float64bits(v))
 		}

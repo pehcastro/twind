@@ -25,6 +25,7 @@ type Node struct {
 	ZIndex                                 int
 	Opacity                                float64
 	Scroll                                 bool
+	HidesOverflow                          bool
 	ScrollContent                          layout.Rect
 	Background                             color.Color
 	Gradient                               style.Gradient
@@ -73,14 +74,15 @@ func (t Text) Size(availableWidth int) (width, height int) {
 
 func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	n := Node{
-		Bounds:   box.BorderBox,
-		Padding:  box.PaddingBox,
-		Content:  box.ContentBox,
-		Clip:     box.Clip,
-		Position: box.Style.Position,
-		ZIndex:   box.Style.ZIndex,
-		Opacity:  s.Opacity,
-		Scroll:   box.Style.Overflow == layout.OverflowScroll,
+		Bounds:        box.BorderBox,
+		Padding:       box.PaddingBox,
+		Content:       box.ContentBox,
+		Clip:          box.Clip,
+		Position:      box.Style.Position,
+		ZIndex:        box.Style.ZIndex,
+		Opacity:       s.Opacity,
+		Scroll:        box.Style.Overflow == layout.OverflowScroll,
+		HidesOverflow: box.Style.Overflow != layout.OverflowVisible,
 	}
 	if n.Scroll {
 		p := box.PaddingBox
