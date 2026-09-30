@@ -33,7 +33,11 @@ type Easing struct {
 func Linear() Easing { return Easing{kind: linear} }
 
 func CubicBezier(x1, y1, x2, y2 float64) Easing {
-	return Easing{kind: bezier, x1: min(max(x1, 0), 1), y1: y1, x2: min(max(x2, 0), 1), y2: y2}
+	x1, x2 = min(max(x1, 0), 1), min(max(x2, 0), 1)
+	if x1 == y1 && x2 == y2 {
+		return Linear()
+	}
+	return Easing{kind: bezier, x1: x1, y1: y1, x2: x2, y2: y2}
 }
 
 func EaseIn() Easing { return CubicBezier(0.4, 0, 1, 1) }
