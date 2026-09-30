@@ -12,6 +12,7 @@ import (
 type Options struct {
 	Highlight func(language, code string) twi.Node
 	Follow    func(target string)
+	Copy      func(code string)
 }
 
 func Render(p Page, o Options) twi.Node {
@@ -51,15 +52,20 @@ func (o Options) block(b Block, depth int) twi.Node {
 	case Quote:
 		return element("flex flex-col gap-1 border-l-2 pl-1 text-muted-foreground", o.blocks(b.Children, depth))
 	case Code:
-		body := twi.Text(strings.TrimSuffix(b.Code, "\n"))
+		source := strings.TrimSuffix(b.Code, "\n")
+		body := twi.Text(source)
 		if o.Highlight != nil {
 			body = o.Highlight(b.Language, b.Code)
 		}
-		code := []twi.NodeOption{twi.Element(twi.Class("px-1 whitespace-pre overflow-x-auto"), body)}
-		if b.Language != "" {
-			code = append([]twi.NodeOption{twi.Element(twi.Class("border-b px-1 text-muted-foreground"), twi.Text(b.Language))}, code...)
+		box, code := twi.Class("flex flex-col gap-1 rounded-lg border"), twi.Element(twi.Class("px-2 whitespace-pre overflow-x-auto"), body)
+		if b.Language == "" && o.Copy == nil {
+			return twi.Element(box, code)
 		}
-		return element("flex flex-col rounded-md border bg-muted", code)
+		head := []twi.NodeOption{twi.Class("flex flex-row justify-between pl-2 pr-1 text-muted-foreground"), twi.Text(b.Language)}
+		if o.Copy != nil {
+			head = append(head, ui.Button(ui.Ghost, ui.SizeXS, twi.OnClick(func(*twi.Event) { o.Copy(source) }), twi.Text("Copy")))
+		}
+		return twi.Element(box, twi.Element(head...), code)
 	case Table:
 		rows := make([]twi.NodeOption, len(b.Rows))
 		for i, row := range b.Rows {
@@ -72,12 +78,9 @@ func (o Options) block(b Block, depth int) twi.Node {
 				}
 				cells[j] = cell(align, o.inline(c, ""))
 			}
-			if i == len(b.Rows)-1 {
-				cells = append(cells, twi.Class("border-b-0"))
-			}
 			rows[i] = ui.TableRow(cells...)
 		}
-		return twi.Element(twi.Class("rounded-md border"), ui.Table(ui.TableHeader(rows[0]), ui.TableBody(rows[1:]...)))
+		return ui.Table(ui.TableHeader(rows[0]), ui.TableBody(rows[1:]...))
 	case Break:
 		return ui.Separator(ui.Horizontal)
 	case Tag:
