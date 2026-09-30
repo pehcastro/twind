@@ -21,11 +21,13 @@ const (
 	EaseX2          = 0.25
 	EaseY2          = 1
 	RingOffsetWhite = 255
-	MatchedRules    = 64
 	ShadeEntries    = 1024
+	ShadeWays       = 4
 	MaxGridTracks   = 1000
 	MaxMarkers      = 64
 	ClassSlots      = 4
+	KeyBytes        = 32
+	MaxRules        = 1<<15 - 1
 	HashA           = 0xa0761d6478bd642f
 	HashB           = 0xe7037ed1a0b428db
 	CornerBits      = 4
