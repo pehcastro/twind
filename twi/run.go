@@ -73,10 +73,7 @@ func (r *Runtime) Run(app func() Node) error {
 		}
 		b = terminalBackend{t}
 	}
-	return r.Runtime.Run(b, func() runtime.Tree {
-		n := app()
-		return runtime.Tree{Root: n.tree, Keys: n.keys, Events: n.events}
-	})
+	return r.Runtime.Run(b, func() runtime.Tree { return app().runtimeTree() })
 }
 
 type terminalBackend struct{ *terminal.Backend }

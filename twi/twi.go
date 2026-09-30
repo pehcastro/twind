@@ -23,45 +23,93 @@ import (
 	"github.com/twind-dev/twind/twi/theme"
 )
 
-type Node struct {
-	tree    render.Node
+type Node struct{ built *node }
+
+type node struct {
+	tree     render.Node
+	handlers *handlers
+}
+
+type handlers struct {
 	keys    []func(input.KeyEvent)
 	ownKeys int
 	events  runtime.Node
 	behaves bool
 }
 
-type NodeOption interface{ apply(*Node) }
+type NodeOption interface{ apply(*node) }
 
-func (n Node) apply(parent *Node) {
+func (n Node) node() *node {
+	if n.built == nil {
+		return &node{}
+	}
+	return n.built
+}
+
+func (n Node) runtimeTree() runtime.Tree {
+	built := n.node()
+	tree := runtime.Tree{Root: built.tree}
+	if h := built.handlers; h != nil {
+		tree.Keys, tree.Events = h.keys, h.events
+	}
+	return tree
+}
+
+func (n Node) apply(parent *node) {
+	built := n.node()
 	at := len(parent.tree.Children)
-	parent.tree.Children = append(parent.tree.Children, n.tree)
-	parent.keys = append(parent.keys, n.keys...)
-	if n.behaves {
-		n.events.At = []int{at}
-		parent.events.Children = append(parent.events.Children, n.events)
+	parent.tree.Children = append(parent.tree.Children, built.tree)
+	child := built.handlers
+	if child == nil {
 		return
 	}
-	for _, c := range n.events.Children {
-		c.At = append([]int{at}, c.At...)
-		parent.events.Children = append(parent.events.Children, c)
+	own := parent.withHandlers()
+	own.keys = append(own.keys, child.keys...)
+	if child.behaves {
+		events := child.events
+		events.At = []int{at}
+		own.events.Children = append(own.events.Children, events)
+		return
 	}
+	for _, c := range child.events.Children {
+		c.At = append([]int{at}, c.At...)
+		own.events.Children = append(own.events.Children, c)
+	}
+}
+
+func (n *node) withHandlers() *handlers {
+	if n.handlers == nil {
+		n.handlers = &handlers{}
+	}
+	return n.handlers
 }
 
 type onKey func(input.KeyEvent)
 
-func (h onKey) apply(n *Node) {
-	n.keys = slices.Insert(n.keys, n.ownKeys, (func(input.KeyEvent))(h))
-	n.ownKeys++
+func (h onKey) apply(n *node) {
+	own := n.withHandlers()
+	own.keys = slices.Insert(own.keys, own.ownKeys, (func(input.KeyEvent))(h))
+	own.ownKeys++
 }
 
 func OnKey(handler func(input.KeyEvent)) NodeOption { return onKey(handler) }
 
-type classList []string
+type classList struct {
+	names  []string
+	inline [inlineClasses]string
+}
 
-func (c classList) apply(n *Node) { n.tree.Classes = append(n.tree.Classes, c...) }
+const inlineClasses = 8
 
-func (n *Node) state() *style.NodeState {
+func (c *classList) apply(n *node) {
+	if n.tree.Classes == nil && len(c.names) > 0 {
+		n.tree.Classes = c.names
+		return
+	}
+	n.tree.Classes = append(n.tree.Classes, c.names...)
+}
+
+func (n *node) state() *style.NodeState {
 	if n.tree.State == nil {
 		n.tree.State = &style.NodeState{}
 	}
@@ -70,20 +118,20 @@ func (n *Node) state() *style.NodeState {
 
 type attribute style.Attr
 
-func (a attribute) apply(n *Node) {
+func (a attribute) apply(n *node) {
 	state := n.state()
 	state.Attrs = append(state.Attrs, style.Attr(a))
 }
 
 type tag style.Element
 
-func (t tag) apply(n *Node) { n.tree.Element = style.Element(t) }
+func (t tag) apply(n *node) { n.tree.Element = style.Element(t) }
 
 func Tag(element style.Element) NodeOption { return tag(element) }
 
 type at image.Point
 
-func (p at) apply(n *Node) {
+func (p at) apply(n *node) {
 	cell := image.Point(p)
 	n.tree.At = &cell
 }
@@ -93,27 +141,40 @@ func At(x, y int) NodeOption { return at{X: x, Y: y} }
 func Data(name, value string) NodeOption { return attribute{Name: "data-" + name, Value: value} }
 
 func Element(options ...NodeOption) Node {
-	var n Node
+	children := 0
 	for _, o := range options {
-		o.apply(&n)
+		if _, ok := o.(Node); ok {
+			children++
+		}
 	}
-	return n
+	n := &node{}
+	if children > 0 {
+		n.tree.Children = make([]render.Node, 0, children)
+	}
+	for _, o := range options {
+		o.apply(n)
+	}
+	return Node{n}
 }
 
-func Text(s string) Node { return Node{tree: render.Node{Text: s}} }
+func Text(s string) Node { return Node{&node{tree: render.Node{Text: s}}} }
 
 func Class(classes ...string) NodeOption {
-	var list classList
+	list := &classList{}
+	list.names = list.inline[:0]
 	for _, c := range classes {
-		list = append(list, strings.Fields(c)...)
+		for name := range strings.FieldsSeq(c) {
+			list.names = append(list.names, name)
+		}
 	}
+	list.names = slices.Clip(list.names)
 	return list
 }
 
 func Classes(options []NodeOption) (classes []string, rest []NodeOption) {
 	for _, o := range options {
-		if list, ok := o.(classList); ok {
-			classes = append(classes, list...)
+		if list, ok := o.(*classList); ok {
+			classes = append(classes, list.names...)
 		} else {
 			rest = append(rest, o)
 		}
@@ -200,7 +261,7 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 			return err
 		}
 	}
-	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile), Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
+	buf, err := render.Render(node.node().tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile), Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
 	if err != nil {
 		return err
 	}
@@ -214,7 +275,7 @@ func inline(out io.Writer, node Node, cfg renderConfig, caps terminal.Capabiliti
 	if caps.Graphics == terminal.GraphicsNone || caps.CellPixels.X <= 0 || caps.CellPixels.Y <= 0 {
 		return false, nil
 	}
-	root, err := render.Scene(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
+	root, err := render.Scene(node.node().tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
 	rows := root.Bounds.H
 	if err != nil || rows >= screenRows {
 		return false, err

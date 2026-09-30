@@ -8,58 +8,75 @@ import (
 
 type Event = events.Event[*runtime.Elem]
 
+type listener = events.Listener[*runtime.Elem]
+
+func (n *node) behave() *runtime.Node {
+	own := n.withHandlers()
+	own.behaves = true
+	return &own.events
+}
+
+func push[T any](list *[]T, item T) { *list = append(*list, item) }
+
+func always(handler func()) listener { return listener{Handle: func(*Event) { handler() }} }
+
 type behaviour func(*runtime.Node)
 
-func (b behaviour) apply(n *Node) {
-	b(&n.events)
-	n.behaves = true
-}
+func (b behaviour) apply(n *node) { b(n.behave()) }
 
-func OnKeyDown(handler func(*Event)) NodeOption {
-	return behaviour(func(n *runtime.Node) {
-		n.KeyDown = append(n.KeyDown, events.Listener[*runtime.Elem]{Handle: handler})
-	})
-}
+type onKeyDown func(*Event)
 
-func OnFocus(handler func()) NodeOption {
-	return behaviour(func(n *runtime.Node) {
-		n.Focus = append(n.Focus, events.Listener[*runtime.Elem]{Handle: func(*Event) { handler() }})
-	})
-}
+func (h onKeyDown) apply(n *node) { push(&n.behave().KeyDown, listener{Handle: h}) }
 
-func OnBlur(handler func()) NodeOption {
-	return behaviour(func(n *runtime.Node) {
-		n.Blur = append(n.Blur, events.Listener[*runtime.Elem]{Handle: func(*Event) { handler() }})
-	})
-}
+func OnKeyDown(handler func(*Event)) NodeOption { return onKeyDown(handler) }
 
-func OnClick(handler func(*Event)) NodeOption {
-	return behaviour(func(n *runtime.Node) {
-		n.Click = append(n.Click, events.Listener[*runtime.Elem]{Handle: handler})
-	})
-}
+type onFocus func()
 
-func OnPointerDown(handler func(*Event)) NodeOption {
-	return behaviour(func(n *runtime.Node) {
-		n.PointerDown = append(n.PointerDown, events.Listener[*runtime.Elem]{Handle: handler})
-	})
-}
+func (h onFocus) apply(n *node) { push(&n.behave().Focus, always(h)) }
 
-func OnPointerEnter(handler func()) NodeOption {
-	return behaviour(func(n *runtime.Node) {
-		n.Enter = append(n.Enter, events.Listener[*runtime.Elem]{Handle: func(*Event) { handler() }})
-	})
-}
+func OnFocus(handler func()) NodeOption { return onFocus(handler) }
 
-func OnPointerLeave(handler func()) NodeOption {
-	return behaviour(func(n *runtime.Node) {
-		n.Leave = append(n.Leave, events.Listener[*runtime.Elem]{Handle: func(*Event) { handler() }})
-	})
-}
+type onBlur func()
 
-func OnPointerDownOutside(handler func()) NodeOption {
-	return behaviour(func(n *runtime.Node) { n.PointerDownOutside = append(n.PointerDownOutside, handler) })
-}
+func (h onBlur) apply(n *node) { push(&n.behave().Blur, always(h)) }
+
+func OnBlur(handler func()) NodeOption { return onBlur(handler) }
+
+type onClick func(*Event)
+
+func (h onClick) apply(n *node) { push(&n.behave().Click, listener{Handle: h}) }
+
+func OnClick(handler func(*Event)) NodeOption { return onClick(handler) }
+
+type onPointerDown func(*Event)
+
+func (h onPointerDown) apply(n *node) { push(&n.behave().PointerDown, listener{Handle: h}) }
+
+func OnPointerDown(handler func(*Event)) NodeOption { return onPointerDown(handler) }
+
+type onPointerEnter func()
+
+func (h onPointerEnter) apply(n *node) { push(&n.behave().Enter, always(h)) }
+
+func OnPointerEnter(handler func()) NodeOption { return onPointerEnter(handler) }
+
+type onPointerLeave func()
+
+func (h onPointerLeave) apply(n *node) { push(&n.behave().Leave, always(h)) }
+
+func OnPointerLeave(handler func()) NodeOption { return onPointerLeave(handler) }
+
+type onPointerDownOutside func()
+
+func (h onPointerDownOutside) apply(n *node) { push(&n.behave().PointerDownOutside, (func())(h)) }
+
+func OnPointerDownOutside(handler func()) NodeOption { return onPointerDownOutside(handler) }
+
+type onFocusOutside func()
+
+func (h onFocusOutside) apply(n *node) { push(&n.behave().FocusOutside, (func())(h)) }
+
+func OnFocusOutside(handler func()) NodeOption { return onFocusOutside(handler) }
 
 func Focusable() NodeOption { return behaviour(func(n *runtime.Node) { n.Focusable = true }) }
 
@@ -67,8 +84,8 @@ func AutoFocus() NodeOption { return behaviour(func(n *runtime.Node) { n.AutoFoc
 
 type topLayer struct{}
 
-func (topLayer) apply(n *Node) {
-	behaviour(func(n *runtime.Node) { n.TopLayer = true }).apply(n)
+func (topLayer) apply(n *node) {
+	n.behave().TopLayer = true
 	n.tree.TopLayer = 1
 }
 
@@ -76,8 +93,8 @@ func TopLayer() NodeOption { return topLayer{} }
 
 type disabled struct{}
 
-func (disabled) apply(n *Node) {
-	behaviour(func(n *runtime.Node) { n.Disabled = true }).apply(n)
+func (disabled) apply(n *node) {
+	n.behave().Disabled = true
 	n.state().States |= style.StateDisabled
 }
 
@@ -89,10 +106,6 @@ func FocusScope() NodeOption {
 
 func NonModalFocusScope() NodeOption {
 	return behaviour(func(n *runtime.Node) { n.Scope = runtime.NonModalScope })
-}
-
-func OnFocusOutside(handler func()) NodeOption {
-	return behaviour(func(n *runtime.Node) { n.FocusOutside = append(n.FocusOutside, handler) })
 }
 
 func Key(key string) NodeOption { return behaviour(func(n *runtime.Node) { n.Key = key }) }
