@@ -22,6 +22,7 @@ const (
 	EaseY2          = 1
 	RingOffsetWhite = 255
 	MatchedRules    = 64
+	ShadeEntries    = 1024
 )
 
 const PresetTheme = `@theme {

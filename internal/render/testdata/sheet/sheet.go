@@ -18,4 +18,13 @@ const (
 	Wrap     = "flex flex-wrap w-10 gap-x-1"
 	Reverse  = "flex flex-wrap-reverse w-10 gap-x-1"
 	Shrink0  = "shrink-0"
+	Stack    = "flex flex-col md:flex-row gap-x-1"
+	Padded   = "md:p-2 lg:p-4"
+	Footer   = "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+	Button   = "px-2 bg-zinc-800"
+	Dialog   = "border p-1 w-full"
+	Upward   = "flex flex-col-reverse h-4"
+	Leftward = "flex flex-row-reverse w-10 gap-x-1"
+	Wrapped  = "flex flex-row-reverse flex-wrap"
+	Middle   = "justify-center"
 )

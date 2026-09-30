@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sync"
 	"time"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
@@ -177,6 +178,37 @@ type Sheet struct {
 	universal []int
 	byClass   map[string][]int
 	theme     *theme.Theme
+	bounds    []int
+	columns   int
+	shaded    *shadeCache
+}
+
+type shading struct {
+	shadows, inset *Shadow
+	counts         [2]int
+	tints          [2]color.Color
+	ring           Ring
+	tokens         theme.Tokens
+}
+
+type shadeCache struct {
+	mu   sync.Mutex
+	done map[shading][2][]Shadow
+}
+
+func (s Sheet) WithColumns(columns int) Sheet {
+	s.columns = columns
+	return s
+}
+
+func (s Sheet) Band(columns int) int {
+	band, _ := slices.BinarySearch(s.bounds, columns+1)
+	return band
+}
+
+func (s Sheet) Responsive(classes []string) bool {
+	bounded := func(i int) bool { return s.rules[i].When.MinCols != 0 || s.rules[i].When.BelowCols != 0 }
+	return slices.ContainsFunc(s.universal, bounded) || slices.ContainsFunc(classes, func(c string) bool { return slices.ContainsFunc(s.byClass[c], bounded) })
 }
 
 func (s Sheet) WithTheme(t *theme.Theme) Sheet {
@@ -194,16 +226,21 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 	if version != konst.IRVersion {
 		return Sheet{}, VersionError{Got: version}
 	}
-	s := Sheet{rules: rules, byClass: map[string][]int{}}
+	s := Sheet{rules: rules, byClass: map[string][]int{}, shaded: &shadeCache{done: map[shading][2][]Shadow{}}}
 	for i, r := range rules {
-		switch {
-		case r.When.MinCols != 0 || r.When.BelowCols != 0:
-		case r.Class == "":
+		if r.Class == "" {
 			s.universal = append(s.universal, i)
-		default:
+		} else {
 			s.byClass[r.Class] = append(s.byClass[r.Class], i)
 		}
+		for _, bound := range [...]int{r.When.MinCols, r.When.BelowCols} {
+			if bound != 0 {
+				s.bounds = append(s.bounds, bound)
+			}
+		}
 	}
+	slices.Sort(s.bounds)
+	s.bounds = slices.Compact(s.bounds)
 	return s, nil
 }
 
@@ -285,7 +322,8 @@ func (s Sheet) ComputeState(parent ComputedStyle, classes []string, node NodeSta
 	}
 	for _, i := range slices.Compact(matched) {
 		r := &s.rules[i]
-		if r.When.Scheme != SchemeAny && r.When.Scheme != scheme || !node.matches(&r.When) {
+		narrow, wide := r.When.MinCols > s.columns, r.When.BelowCols != 0 && s.columns >= r.When.BelowCols
+		if narrow || wide || r.When.Scheme != SchemeAny && r.When.Scheme != scheme || !node.matches(&r.When) {
 			continue
 		}
 		for j := range r.Decls {
@@ -297,6 +335,29 @@ func (s Sheet) ComputeState(parent ComputedStyle, classes []string, node NodeSta
 			}
 			out.apply(d, parent.Color)
 		}
+	}
+	if out.Shadows != nil || out.InsetShadows != nil || out.Ring.Width > 0 {
+		s.finish(&out)
+	}
+	return out
+}
+
+func (s Sheet) finish(out *ComputedStyle) {
+	key := shading{counts: [2]int{len(out.Shadows), len(out.InsetShadows)}, tints: [2]color.Color{out.ShadowColor, out.InsetShadowColor}, ring: out.Ring}
+	if len(out.Shadows) > 0 {
+		key.shadows = &out.Shadows[0]
+	}
+	if len(out.InsetShadows) > 0 {
+		key.inset = &out.InsetShadows[0]
+	}
+	if s.theme != nil {
+		key.tokens = s.theme.Tokens
+	}
+	s.shaded.mu.Lock()
+	defer s.shaded.mu.Unlock()
+	if done, ok := s.shaded.done[key]; ok {
+		out.Shadows, out.InsetShadows = done[0], done[1]
+		return
 	}
 	out.Shadows = s.shade(out.Shadows, out.ShadowColor)
 	out.InsetShadows = s.shade(out.InsetShadows, out.InsetShadowColor)
@@ -312,7 +373,11 @@ func (s Sheet) ComputeState(parent ComputedStyle, classes []string, node NodeSta
 			out.Shadows = slices.Concat(ring, out.Shadows)
 		}
 	}
-	return out
+	out.Shadows, out.InsetShadows = slices.Clip(out.Shadows), slices.Clip(out.InsetShadows)
+	if len(s.shaded.done) >= konst.ShadeEntries {
+		clear(s.shaded.done)
+	}
+	s.shaded.done[key] = [2][]Shadow{out.Shadows, out.InsetShadows}
 }
 
 func (s Sheet) shade(shadows []Shadow, tint color.Color) []Shadow {

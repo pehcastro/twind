@@ -11,13 +11,19 @@ import (
 func BenchmarkCompute(b *testing.B) {
 	sheet := appSheet(b).WithTheme(builtin(b, "zinc", theme.Dark))
 	parent := sheet.Compute(style.ComputedStyle{}, strings.Fields("text-foreground bg-background"))
-	for name, classes := range map[string][]string{
-		"plain":    strings.Fields("flex flex-col gap-2 p-2 border rounded-lg bg-card text-card-foreground shadow-md"),
-		"variants": strings.Fields("flex flex-col gap-2 p-2 border rounded-lg bg-card text-card-foreground shadow-md hover:bg-muted focus-visible:ring-2 disabled:opacity-50 data-[state=open]:bg-accent"),
+	for _, tc := range []struct {
+		name    string
+		classes []string
+		node    style.NodeState
+	}{
+		{"plain", strings.Fields("flex flex-col gap-2 p-2 border rounded-lg bg-card text-card-foreground shadow-md"), style.NodeState{}},
+		{"variants", strings.Fields("flex flex-col gap-2 p-2 border rounded-lg bg-card text-card-foreground shadow-md hover:bg-muted focus-visible:ring-2 disabled:opacity-50 data-[state=open]:bg-accent"), style.NodeState{}},
+		{"ring", strings.Fields("border shadow-xs focus-visible:ring-ring/50 focus-visible:ring-2"), style.NodeState{States: style.StateFocusVisible}},
 	} {
-		b.Run(name, func(b *testing.B) {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
 			for b.Loop() {
-				sheet.Compute(parent, classes)
+				sheet.ComputeState(parent, tc.classes, tc.node)
 			}
 		})
 	}

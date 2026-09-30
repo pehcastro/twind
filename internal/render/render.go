@@ -39,6 +39,7 @@ type styledBox struct {
 	computed style.ComputedStyle
 	truncate bool
 	nowrap   bool
+	reverse  bool
 	raw      string
 	text     scene.Text
 	natural  [2]int
@@ -63,12 +64,13 @@ func Render(root Node, f Frame) (*buffer.Buffer, error) {
 }
 
 type Tree struct {
-	root              *styledBox
-	width             int
-	height            layout.Length
-	cell              image.Point
-	restyle, relayout bool
-	cascades          int
+	root                       *styledBox
+	width                      int
+	height                     layout.Length
+	cell                       image.Point
+	band                       int
+	restyle, relayout, crossed bool
+	cascades                   int
 }
 
 func (t *Tree) Restyle() { t.restyle = true }
@@ -82,10 +84,13 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	if f.Cell.X <= 0 || f.Cell.Y <= 0 {
 		f.Cell = image.Pt(skonst.NominalCellX, skonst.NominalCellY)
 	}
+	f.Sheet = f.Sheet.WithColumns(f.Width)
+	band := f.Sheet.Band(f.Width)
 	t.relayout = t.relayout || t.root == nil || f.Width != t.width || f.Height != t.height
 	t.restyle = t.restyle || f.Cell != t.cell
+	t.crossed = band != t.band
 	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root)
-	t.root, t.width, t.height, t.cell, t.restyle = styled, f.Width, f.Height, f.Cell, false
+	t.root, t.width, t.height, t.cell, t.band, t.restyle = styled, f.Width, f.Height, f.Cell, band, false
 	if err != nil {
 		return scene.Node{}, err
 	}
@@ -187,7 +192,8 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		state = *n.State
 	}
 	restate := s.state.States != state.States || !slices.Equal(s.state.Attrs, state.Attrs)
-	if prev == nil || t.restyle || parentChanged || restate || !slices.Equal(s.classes, n.Classes) {
+	crossed := t.crossed && f.Sheet.Responsive(n.Classes)
+	if prev == nil || t.restyle || parentChanged || restate || crossed || !slices.Equal(s.classes, n.Classes) {
 		t.cascades++
 		computed := f.Sheet.ComputeState(parent, n.Classes, state)
 		ls, err := boxStyle(parent, computed, f.Cell)
@@ -196,6 +202,9 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		}
 		if prev == nil || ls != s.box.Style {
 			s.box.Style, t.relayout = ls, true
+		}
+		if reverse := reversed(computed); reverse != s.reverse {
+			s.reverse, t.relayout = reverse, true
 		}
 		if changed = prev == nil || t.restyle || !reflect.DeepEqual(computed, s.computed); changed {
 			s.computed, s.painted = computed, false
@@ -227,7 +236,11 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		if err != nil {
 			return nil, err
 		}
-		s.children[i], s.box.Children[i] = child, child.box
+		at := i
+		if s.reverse {
+			at = len(n.Children) - 1 - i
+		}
+		s.children[i], s.box.Children[at] = child, child.box
 		s.painted = s.painted && child.painted
 	}
 	return s, nil
@@ -365,7 +378,7 @@ func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, er
 		precision := cell.X * cell.Y
 		out.Aspect = layout.Ratio{W: int(math.Round(s.AspectRatio * float64(cell.Y*precision))), H: cell.X * precision}
 	}
-	column := parent.Display != style.DisplayFlex || parent.Direction == style.Column
+	column := parent.Display != style.DisplayFlex || parent.Direction == style.Column || parent.Direction == style.ColumnReverse
 	stretched := s.AlignSelf == style.AlignStretch || s.AlignSelf == style.AlignAuto && (parent.AlignItems == style.AlignAuto || parent.AlignItems == style.AlignStretch)
 	if stretched && (column && s.Width.Unit == style.FitContent || !column && s.Height.Unit == style.FitContent) {
 		out.AlignSelf = layout.AlignStart
@@ -377,15 +390,28 @@ func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, er
 		out.Direction = layout.Column
 	case s.Display != style.DisplayFlex:
 		unsupported = append(unsupported, "display")
-	case s.Direction == style.Column:
+	case s.Direction == style.Column || s.Direction == style.ColumnReverse:
 		out.Direction = layout.Column
-	case s.Direction != style.Row:
-		unsupported = append(unsupported, "flex-direction")
+	}
+	if reversed(s) {
+		if s.Wrap != style.NoWrap {
+			unsupported = append(unsupported, "flex-wrap in a reversed direction")
+		}
+		switch out.Justify {
+		case layout.JustifyStart:
+			out.Justify = layout.JustifyEnd
+		case layout.JustifyEnd:
+			out.Justify = layout.JustifyStart
+		}
 	}
 	if len(unsupported) > 0 {
 		return layout.Style{}, fmt.Errorf("twi: layout does not support this %s yet", strings.Join(slices.Compact(unsupported), ", "))
 	}
 	return out, nil
+}
+
+func reversed(s style.ComputedStyle) bool {
+	return s.Display == style.DisplayFlex && (s.Direction == style.RowReverse || s.Direction == style.ColumnReverse)
 }
 
 func scrolls(o style.Overflow) bool {
