@@ -219,6 +219,113 @@ func TestTile(t *testing.T) {
 	}
 }
 
+func TestShadowShapes(t *testing.T) {
+	low := math.Erf(-3 / math.Sqrt2)
+	cdf := func(z float64) float64 { return (math.Erf(min(max(z, -3), 3)/math.Sqrt2) - low) / (-2 * low) }
+	truth := func(shape Box, sigma, x, y float64) float64 {
+		top, bottom := max(shape.Y, y-3*sigma), min(shape.Y+shape.H, y+3*sigma)
+		steps := int(math.Ceil((bottom - top) / 0.05))
+		v := 0.0
+		for i := range steps {
+			t0, t1 := top+float64(i)*(bottom-top)/float64(steps), top+float64(i+1)*(bottom-top)/float64(steps)
+			l, r := shape.extent((t0+t1)/2, 0)
+			v += (cdf((t1-y)/sigma) - cdf((t0-y)/sigma)) * (cdf((r-x)/sigma) - cdf((l-x)/sigma))
+		}
+		return v
+	}
+	for _, c := range []struct {
+		box    Box
+		shadow BoxShadow
+	}{
+		{Box{Rect: Rect{30, 30, 100, 60}, Radii: [4]float64{4, 16, 0, 10}}, BoxShadow{Blur: 8}},
+		{Box{Rect: Rect{30.5, 40.25, 100, 10}, Radii: [4]float64{5, 5, 5, 5}}, BoxShadow{Y: 3, Blur: 6, Spread: 4}},
+		{Box{Rect: Rect{30, 30, 100, 60}, Radii: [4]float64{4, 4, 4, 4}}, BoxShadow{X: -2, Y: 5, Blur: 10, Spread: -6}},
+		{Box{Rect: Rect{40, 40, 80, 24}, Radii: [4]float64{999, 999, 999, 999}}, BoxShadow{Y: 1, Blur: 3}},
+		{Box{Rect: Rect{30, 30, 100, 60}, Radii: [4]float64{12, 12, 12, 12}}, BoxShadow{Blur: 4, Inset: true}},
+	} {
+		img := render(160, 120, Op{Kind: Shadow, Box: c.box, Color: black, Shadow: c.shadow})
+		box := c.box.fit()
+		spread := c.shadow.Spread
+		if c.shadow.Inset {
+			spread = -spread
+		}
+		shape := box.grow(spread).fit()
+		shape.X, shape.Y = shape.X+c.shadow.X, shape.Y+c.shadow.Y
+		worst := 0.0
+		for y := range 120 {
+			for x := range 160 {
+				fx, fy := float64(x)+0.5, float64(y)+0.5
+				mask := float64(box.cover(fx, fy))
+				want := (1 - mask) * truth(shape, c.shadow.Blur/2, fx, fy)
+				if c.shadow.Inset {
+					want = mask * (1 - truth(shape, c.shadow.Blur/2, fx, fy))
+				}
+				worst = max(worst, math.Abs(darkness(img, x, y)-want))
+			}
+		}
+		if worst > 0.015 {
+			t.Errorf("box %+v shadow %+v: alpha off the Gaussian by %.4f", c.box, c.shadow, worst)
+		}
+	}
+
+	hard := render(160, 120, Op{Kind: Shadow, Box: radius(40, 40, 60, 30, 6), Color: black, Shadow: BoxShadow{X: 3, Y: 4, Spread: 2}})
+	grown := render(160, 120, Op{Kind: Fill, Box: radius(41, 42, 64, 34, 8), Color: black})
+	for y := range 120 {
+		for x := range 160 {
+			inside := x >= 39 && x < 101 && y >= 39 && y < 71
+			if got, want := at(hard, x, y), at(grown, x, y); !inside && got != want {
+				t.Fatalf("blur 0 shadow at (%d,%d): %v, the grown box filled %v", x, y, got, want)
+			}
+		}
+	}
+}
+
+func TestReuse(t *testing.T) {
+	bounds := image.Rect(0, 0, 160, 100)
+	page := radius(0, 0, 160, 100, 0)
+	card := radius(20, 20, 120, 60, 10)
+	ops := []Op{
+		{Kind: Fill, Box: page, Angle: 180, Stops: []Stop{{Color: hex(0x0ea5e9, 255), At: 0}, {Color: hex(0xf43f5e, 255), At: 1}}},
+		{Kind: Fill, Box: radius(70, 0, 6, 100, 0), Color: white},
+		{Kind: Shadow, Box: card, Color: hex(0, 90), Shadow: BoxShadow{Y: 3, Blur: 8, Spread: -1}},
+		{Kind: Shadow, Box: card, Color: hex(0, 60), Shadow: BoxShadow{X: 2.5, Y: 1.5}},
+		{Kind: Fill, Box: card, Color: hex(0xffffff, 200)},
+		{Kind: Shadow, Box: radius(21, 21, 118, 58, 9), Color: hex(0, 80), Shadow: BoxShadow{Y: 2, Blur: 4, Inset: true}},
+		{Kind: Border, Box: card, Width: 1, Color: hex(0x3f3f46, 160)},
+	}
+	var r Raster
+	full := image.NewRGBA(bounds)
+	r.Draw(full, ops, bounds)
+	alone := image.NewRGBA(bounds)
+	for y := range bounds.Dy() {
+		for x := range bounds.Dx() {
+			r.Draw(alone, ops, image.Rect(x, y, x+1, y+1))
+			if got, want := at(full, x, y), at(alone, x, y); got != want {
+				t.Fatalf("(%d,%d): %v in the full raster, %v rastered alone", x, y, got, want)
+			}
+		}
+	}
+
+	for _, first := range []Op{
+		{Kind: Fill, Box: page, Color: white},
+		{Kind: Fill, Box: radius(0, 0, 160, 100, 12), Color: white},
+		{Kind: Fill, Box: page, Color: hex(0xffffff, 128)},
+		{Kind: Fill, Box: radius(1, 0, 159, 100, 0), Color: white},
+		ops[0],
+	} {
+		dirty := image.NewRGBA(bounds)
+		for i := range dirty.Pix {
+			dirty.Pix[i] = 0xab
+		}
+		r.Draw(dirty, []Op{first}, bounds)
+		clean := image.NewRGBA(bounds)
+		new(Raster).Draw(clean, []Op{first}, bounds)
+		if !bytes.Equal(dirty.Pix, clean.Pix) {
+			t.Errorf("first op %+v over stale pixels differs from a cleared canvas", first.Box)
+		}
+	}
+}
+
 func tailwind(size string) []BoxShadow {
 	return map[string][]BoxShadow{
 		"sm": {{0, 1, 3, 0, false}, {0, 1, 2, -1, false}},
