@@ -48,6 +48,7 @@ func TestDrivenFrame(t *testing.T) {
 		"fields":        {"Payment Method", "Card Number", "Billing Address", "Submit", "Enter a valid email address.", "Or continue with"},
 		"form":          {"Email", "shadcn!", "Type your message here.", "https://", "Select status", "Accept terms and conditions", "✓", "Airplane Mode", "●", "Bookmark", "50"},
 		"overlays":      {"Edit Profile", "Show Dialog", "Open Drawer", "Open popover", "Hover", "@nextjs", "Selected: nothing yet", "Team Members"},
+		"tabs":          {"Account", "Password", "Make changes to your account here.", "@peduarte", "Save changes", "Select a fruit", "Coordinated Universal Time"},
 	} {
 		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
 			d := driven(t, name, scheme)

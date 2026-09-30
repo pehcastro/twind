@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
@@ -30,7 +31,7 @@ const (
 type control struct {
 	Disabled, Invalid bool
 	rt                *twi.Runtime
-	focused           bool
+	focused, pointed  bool
 }
 
 func (c *control) ring(idle string, at ringAt) string {
@@ -41,7 +42,7 @@ func (c *control) ring(idle string, at ringAt) string {
 }
 
 func (c *control) dataActive(here bool) twi.NodeOption {
-	return twi.Data("active", strconv.FormatBool(c.focused && here))
+	return twi.Data("active", strconv.FormatBool(c.focused && !c.pointed && here))
 }
 
 func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
@@ -51,7 +52,7 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 	}
 	focus := func(on bool) func() {
 		return func() {
-			c.focused = on
+			c.focused, c.pointed = on, false
 			c.rt.Invalidate()
 		}
 	}
@@ -59,7 +60,10 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 	if keys == nil {
 		return options
 	}
-	return append(options, keyDown(c.rt, keys))
+	return append(options, keyDown(c.rt, func(k input.KeyEvent) bool {
+		c.pointed = false
+		return keys(k)
+	}))
 }
 
 func keyDown(rt *twi.Runtime, keys func(input.KeyEvent) bool) twi.NodeOption {
@@ -86,6 +90,19 @@ func press(k input.KeyEvent) bool {
 	return space(k) || k.Key == input.KeyEnter && k.Modifiers == 0
 }
 
+func typed(k input.KeyEvent) bool {
+	return k.Key == input.KeyRune && k.Modifiers&^input.ModShift == 0
+}
+
+func typeahead(n, from int, r rune, text func(int) string) int {
+	for i := range n {
+		if next := (from + 1 + i) % n; strings.HasPrefix(strings.ToLower(text(next)), strings.ToLower(string(r))) {
+			return next
+		}
+	}
+	return from
+}
+
 func arrow(k input.KeyEvent) int {
 	switch k.Key {
 	case input.KeyArrowDown, input.KeyArrowRight:
@@ -99,6 +116,7 @@ func arrow(k input.KeyEvent) int {
 func (c *control) click(act func()) twi.NodeOption {
 	return twi.OnClick(func(*twi.Event) {
 		if !c.Disabled {
+			c.pointed = true
 			act()
 			c.rt.Invalidate()
 		}

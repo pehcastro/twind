@@ -41,8 +41,8 @@ func overlays(rt *twi.Runtime, open string) func() twi.Node {
 		return ui.Field(ui.Vertical, ui.FieldLabel(label(name)), in.Node())
 	}
 	return func() twi.Node {
-		return el("flex flex-row grow gap-8",
-			el("flex flex-col gap-2 w-40",
+		return el("flex flex-row grow gap-4",
+			el("flex flex-col gap-2 w-32 shrink-0",
 				section("Dialog", row(dialog.Trigger(outline, size, label("Edit Profile")), dialog.Content(
 					dialog.Header(dialog.Title(label("Edit profile")), dialog.Description(label("Make changes to your profile here. Click save when you're done."))),
 					el("flex flex-col gap-1", field("Name", name), field("Username", username)),
@@ -65,7 +65,7 @@ func overlays(rt *twi.Runtime, open string) func() twi.Node {
 					),
 				))),
 			),
-			el("flex flex-col gap-2 w-40",
+			el("flex flex-col gap-2 w-32 shrink-0",
 				section("Dropdown menu",
 					menu.Node(menu.Trigger(outline, size, label("Open")), menu.Content(
 						ui.DropdownMenuLabel(label("My Account")),
@@ -97,7 +97,7 @@ func overlays(rt *twi.Runtime, open string) func() twi.Node {
 					text("text-muted-foreground", "Joined December 2021"),
 				))),
 			),
-			el("flex flex-col gap-2 grow",
+			el("flex flex-col gap-2 flex-1",
 				ui.Card(
 					ui.CardHeader(ui.CardTitle(label("Team Members")), ui.CardDescription(label("Invite your team members to collaborate."))),
 					ui.CardContent(el("flex flex-col gap-1",

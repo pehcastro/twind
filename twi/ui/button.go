@@ -2,8 +2,33 @@ package ui
 
 import "github.com/twind-dev/twind/twi"
 
+type onPress struct {
+	twi.NodeOption
+	act func()
+}
+
+func OnPress(act func()) twi.NodeOption {
+	return onPress{twi.OnClick(func(*twi.Event) { act() }), act}
+}
+
 func Button(v Variant, s Size, children ...twi.NodeOption) twi.Node {
-	return part(button(v, s, idleRing(v)), children)
+	return buttonWith(button(v, s, idleRing(v)+" "+focusRing), children)
+}
+
+func buttonWith(classes string, children []twi.NodeOption) twi.Node {
+	options := []twi.NodeOption{twi.Focusable()}
+	for _, c := range children {
+		if p, ok := c.(onPress); ok {
+			options = append(options, twi.OnKeyDown(func(e *twi.Event) {
+				if !e.Key.Release && press(e.Key) {
+					e.PreventDefault()
+					e.StopPropagation()
+					p.act()
+				}
+			}))
+		}
+	}
+	return part(classes, append(options, children...))
 }
 
 func idleRing(v Variant) string {

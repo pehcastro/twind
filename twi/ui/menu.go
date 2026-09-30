@@ -2,7 +2,6 @@ package ui
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
@@ -193,13 +192,8 @@ func (l *menuLevel) key(k input.KeyEvent) bool {
 	case press(k) || k.Key == input.KeyArrowRight && l.items[l.active].sub != nil:
 		l.choose(l.items[l.active])
 	case k.Key == input.KeyArrowRight:
-	case k.Key == input.KeyRune && k.Modifiers&^input.ModShift == 0:
-		for i := range last + 1 {
-			if next := (l.active + 1 + i) % (last + 1); strings.HasPrefix(strings.ToLower(l.items[next].text), strings.ToLower(string(k.Rune))) {
-				l.active = next
-				break
-			}
-		}
+	case typed(k):
+		l.active = typeahead(last+1, l.active, k.Rune, func(i int) string { return l.items[i].text })
 	default:
 		return false
 	}

@@ -15,9 +15,9 @@ import (
 
 func main() {
 	scheme := flag.String("scheme", "light", "zinc scheme, light or dark")
-	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields, form or overlays")
+	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields, form, overlays or tabs")
 	focus := flag.String("focus", "", "on the form page, the control focused at start: email, textarea, checkbox, radio, toggles or otp")
-	open := flag.String("open", "", "on the overlays page, the overlay open at start: dialog, alert, sheet, drawer, menu, menu-sub, popover, tooltip or hovercard")
+	open := flag.String("open", "", "the overlay open at start: on the overlays page dialog, alert, sheet, drawer, menu, menu-sub, popover, tooltip or hovercard, on the tabs page select")
 	flag.Parse()
 	sheet, err := Styles()
 	if err != nil {
@@ -74,6 +74,8 @@ func page(rt *twi.Runtime, name, focus, open string) (func() twi.Node, bool) {
 		return form(rt, focus), true
 	case "overlays":
 		return overlays(rt, open), true
+	case "tabs":
+		return tabsPage(rt, open), true
 	case "wave1":
 		n = wave1()
 	case "tables":
@@ -97,8 +99,8 @@ func page(rt *twi.Runtime, name, focus, open string) (func() twi.Node, bool) {
 func label(s string) twi.Node { return twi.Text(s) }
 
 func wave1() twi.Node {
-	return el("flex flex-row grow gap-4",
-		el("flex flex-col gap-1 w-46",
+	return el("flex flex-row flex-wrap grow gap-x-4 gap-y-1",
+		el("flex flex-col gap-1 shrink-0",
 			section("Button, variants",
 				row(ui.Button(ui.Default, ui.SizeDefault, label("Default")), ui.Button(ui.Destructive, ui.SizeDefault, label("Destructive")), ui.Button(ui.Outline, ui.SizeDefault, label("Outline"))),
 				row(ui.Button(ui.Secondary, ui.SizeDefault, label("Secondary")), ui.Button(ui.Ghost, ui.SizeDefault, label("Ghost")), ui.Button(ui.Link, ui.SizeDefault, label("Link"))),
@@ -125,19 +127,19 @@ func wave1() twi.Node {
 				row(ui.Avatar(ui.SizeSM, ui.AvatarFallback(label("CN"))), ui.Avatar(ui.SizeDefault, ui.AvatarFallback(label("CN"))), ui.Avatar(ui.SizeLG, ui.AvatarFallback(label("LR")))),
 			),
 		),
-		el("flex flex-col gap-1 w-50",
+		el("flex flex-col gap-1 flex-1 min-w-24",
 			section("Progress",
 				ui.Progress(0), ui.Progress(33), ui.Progress(66), ui.Progress(100),
 			),
 			section("Skeleton",
-				row(ui.Skeleton(twi.Class("h-3 w-6 rounded-full")), el("flex flex-col gap-1 grow", ui.Skeleton(twi.Class("h-1 w-36")), ui.Skeleton(twi.Class("h-1 w-28")))),
+				row(ui.Skeleton(twi.Class("h-3 w-6 rounded-full")), el("flex flex-col gap-1 grow", ui.Skeleton(twi.Class("h-1 w-full")), ui.Skeleton(twi.Class("h-1 w-4/5")))),
 			),
 			section("Alert",
 				ui.Alert(ui.Default, ui.AlertTitle(label("Success! Your changes have been saved")), ui.AlertDescription(label("This is an alert with icon, title and description."))),
 				ui.Alert(ui.Destructive, ui.AlertTitle(label("Unable to process your payment.")), ui.AlertDescription(label("Please verify your billing information and try again."))),
 			),
 		),
-		el("flex flex-col gap-1 grow",
+		el("flex flex-col gap-1 w-54 shrink-0",
 			section("Card",
 				ui.Card(
 					ui.CardHeader(ui.CardTitle(label("Login to your account")), ui.CardDescription(label("Enter your email below to login")), ui.CardAction(ui.Button(ui.Link, ui.SizeDefault, label("Sign Up")))),
@@ -227,7 +229,7 @@ func items() twi.Node {
 		))
 	}
 	return el("flex flex-row grow gap-4",
-		el("flex flex-col gap-1 w-56",
+		el("flex flex-col gap-1 flex-1",
 			section("Item",
 				ui.Item(ui.Outline, ui.SizeDefault,
 					ui.ItemContent(ui.ItemTitle(label("Basic Item")), ui.ItemDescription(label("A simple item with title and description."))),
@@ -247,14 +249,14 @@ func items() twi.Node {
 				),
 			),
 		),
-		el("flex flex-col gap-1 w-56",
+		el("flex flex-col gap-1 flex-1",
 			section("Variants",
 				ui.Item(ui.Default, ui.SizeDefault, ui.ItemContent(ui.ItemTitle(label("Default Variant")), ui.ItemDescription(label("Standard styling with subtle background and borders."))), open),
 				ui.Item(ui.Outline, ui.SizeDefault, ui.ItemContent(ui.ItemTitle(label("Outline Variant")), ui.ItemDescription(label("Outlined style with clear borders and transparent background."))), open),
 				ui.Item(ui.Muted, ui.SizeDefault, ui.ItemContent(ui.ItemTitle(label("Muted Variant")), ui.ItemDescription(label("Subdued appearance with muted colors for secondary content."))), open),
 			),
 		),
-		el("flex flex-col gap-1 w-50",
+		el("flex flex-col gap-1 flex-1",
 			section("Group", ui.ItemGroup(people...)),
 		),
 	)
