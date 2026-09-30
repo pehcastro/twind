@@ -98,26 +98,34 @@ func BenchmarkKeyToFrame(b *testing.B) {
 	}
 }
 
-func BenchmarkIdle(b *testing.B) {
+func BenchmarkIdle(b *testing.B) { idle(b) }
+
+func BenchmarkAppIdle(b *testing.B) { idle(b, "-app", "surfaces", "-window", "60s") }
+
+func idle(b *testing.B, args ...string) {
 	exe := filepath.Join(b.TempDir(), "idle.exe")
 	if out, err := exec.Command("go", "build", "-o", exe, "github.com/twind-dev/twind/bench/scenarios/idle").CombinedOutput(); err != nil {
 		b.Fatalf("%v\n%s", err, out)
 	}
-	var cpu, wall, wakes, bytes float64
+	var cpu, wall, wakes, bytes, resident, private, heap float64
 	b.ResetTimer()
 	for range b.N {
-		out, err := exec.Command(exe).Output()
+		out, err := exec.Command(exe, args...).Output()
 		if err != nil {
 			b.Fatal(err)
 		}
-		var c, w, k, n float64
-		if _, err := fmt.Sscan(string(out), &c, &w, &k, &n); err != nil {
+		var c, w, k, n, r, p, h float64
+		if _, err := fmt.Sscan(string(out), &c, &w, &k, &n, &r, &p, &h); err != nil {
 			b.Fatalf("idle printed %q: %v", out, err)
 		}
 		cpu, wall, wakes, bytes = cpu+c, wall+w, wakes+k, bytes+n
+		resident, private, heap = max(resident, r), max(private, p), max(heap, h)
 	}
 	b.StopTimer()
 	b.ReportMetric(100*cpu/wall, "cpu-%")
 	b.ReportMetric(wakes/float64(b.N), "wakeups")
 	b.ReportMetric(bytes/float64(b.N), "idle-bytes")
+	b.ReportMetric(resident/mebi, "rss-MB")
+	b.ReportMetric(private/mebi, "private-MB")
+	b.ReportMetric(heap/mebi, "heap-MB")
 }

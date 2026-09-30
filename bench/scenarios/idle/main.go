@@ -1,27 +1,28 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"image"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 
+	"github.com/twind-dev/twind/bench/scenarios/surfaces"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/terminal"
 	"github.com/twind-dev/twind/twi/testdata/counter"
 )
 
-const (
-	window  = 10 * time.Second
-	columns = 80
-	rows    = 24
-)
-
 type backend struct {
-	events chan input.Event
-	bytes  atomic.Int64
-	drawn  chan struct{}
+	events        chan input.Event
+	bytes         atomic.Int64
+	drawn         chan struct{}
+	width, height int
+	caps          terminal.Capabilities
 }
 
 func (b *backend) Write(p []byte) (int, error) {
@@ -32,9 +33,10 @@ func (b *backend) Write(p []byte) (int, error) {
 }
 
 func (b *backend) Events() <-chan input.Event           { return b.events }
-func (b *backend) Size() (width, height int, err error) { return columns, rows, nil }
+func (b *backend) Size() (width, height int, err error) { return b.width, b.height, nil }
 func (b *backend) Sync() bool                           { return true }
 func (b *backend) Exit() error                          { return nil }
+func (b *backend) Capabilities() terminal.Capabilities  { return b.caps }
 
 type clock struct{ wakes atomic.Int64 }
 
@@ -46,22 +48,46 @@ func (c *clock) Now() time.Time {
 func (c *clock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
 func main() {
-	b := &backend{events: make(chan input.Event), drawn: make(chan struct{})}
+	app := flag.String("app", "counter", "counter, 80x24 without graphics, or surfaces, 120x40 with Sixel and a 10x20 cell")
+	window := flag.Duration("window", 10*time.Second, "idle time measured after the first frame")
+	flag.Parse()
+	b := &backend{events: make(chan input.Event), drawn: make(chan struct{}), width: 80, height: 24}
 	c := &clock{}
-	rt := twi.New(twi.Backend(b, c), twi.ColorProfile(color.TrueColor))
+	opts := []twi.RenderOption{twi.Backend(b, c), twi.ColorProfile(color.TrueColor)}
+	view := counter.New
+	switch *app {
+	case "counter":
+	case "surfaces":
+		sheet, err := surfaces.Styles()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		b.width, b.height = surfaces.Columns, surfaces.Rows
+		b.caps = terminal.Capabilities{Sync: true, Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
+		opts = append(opts, twi.Styles(sheet), twi.Theme(surfaces.Themes()[0]))
+		view = surfaces.App
+	default:
+		fmt.Fprintf(os.Stderr, "-app %q: want counter or surfaces\n", *app)
+		os.Exit(2)
+	}
+	rt := twi.New(opts...)
 	done := make(chan error, 1)
-	go func() { done <- rt.Run(counter.New(rt)) }()
+	go func() { done <- rt.Run(view(rt)) }()
 	<-b.drawn
 
 	bytes, wakes, cpu, start := b.bytes.Load(), c.wakes.Load(), cpuTime(), time.Now()
-	time.Sleep(window)
+	time.Sleep(*window)
 	cpu, wall := cpuTime()-cpu, time.Since(start)
 	bytes, wakes = b.bytes.Load()-bytes, c.wakes.Load()-wakes
+	resident, private := memory()
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
 
 	rt.Quit()
 	if err := <-done; err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Println(cpu.Nanoseconds(), wall.Nanoseconds(), wakes, bytes)
+	fmt.Println(cpu.Nanoseconds(), wall.Nanoseconds(), wakes, bytes, resident, private, stats.HeapInuse)
 }
