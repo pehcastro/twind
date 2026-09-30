@@ -1,0 +1,62 @@
+size 100x30
+frame surfaces
+type text
+press enter
+frame text
+type layout
+press enter
+frame layout
+type counter
+press enter
+frame counter
+type list
+press enter
+frame list
+type motion
+press enter
+frame motion
+move 20 10
+frame hover-017ms
+wait 83.333333ms
+frame hover-100ms
+wait 100ms
+frame hover-200ms
+move 1 2
+type dialog
+press enter
+frame open-017ms
+wait 58.333333ms
+frame open-075ms
+wait 75ms
+frame open-150ms
+wait 100ms
+frame open-250ms
+press escape
+frame close-017ms
+wait 58.333333ms
+frame close-075ms
+wait 75ms
+frame close-150ms
+wait 100ms
+frame close-250ms
+type toast
+press enter
+frame toast-017ms
+wait 3900ms
+frame toast-3917ms
+wait 100ms
+frame toast-4017ms
+type load
+press enter
+frame load-017ms
+wait 2000ms
+frame load-2017ms
+type selection
+press enter
+frame selection
+down 6 12
+move 16 13
+move 22 14
+up 22 14
+press ctrl+c
+frame selected

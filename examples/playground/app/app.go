@@ -13,6 +13,7 @@ import (
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/text"
 	"github.com/twind-dev/twind/twi/theme"
+	"github.com/twind-dev/twind/twi/ui"
 )
 
 //go:generate go run github.com/twind-dev/twind/internal/twirgen
@@ -22,6 +23,7 @@ const (
 	listRows   = 40
 	cardDelay  = 700 * time.Millisecond
 	cardShown  = 3 * time.Second
+	loadFor    = 2 * time.Second
 	focusRing  = " focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"
 	pill       = "shrink-0 rounded-full px-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 )
@@ -36,20 +38,23 @@ type Start struct {
 	Theme        string
 	Picker       bool
 	Focus, Value string
+	Open         string
+	Slow         bool
 }
 
 type state struct {
 	page, count   int
 	theme, cursor int
 	picker, tip   bool
-	card          bool
+	card, loading bool
 	focus         string
 }
 
 type controls struct {
-	state  state
-	update func(func(*state))
-	auto   string
+	state   state
+	update  func(func(*state))
+	command func(*state, string)
+	auto    string
 }
 
 func (c controls) focusable(name string) []twi.NodeOption {
@@ -71,21 +76,40 @@ func (c controls) focusable(name string) []twi.NodeOption {
 	return opts
 }
 
-func (c controls) button(name, class, label string, press func(*state), extra ...twi.NodeOption) twi.Node {
-	return twi.Element(append(append(c.focusable(name), extra...), twi.Class(class+focusRing), twi.Text(label), twi.OnKeyDown(func(e *twi.Event) {
+func (c controls) pressable(name string, press func(*state)) []twi.NodeOption {
+	return append(c.focusable(name), twi.OnKeyDown(func(e *twi.Event) {
 		if e.Key.Key == input.KeyEnter || e.Key.Key == input.KeyRune && e.Key.Rune == ' ' {
 			c.update(press)
 		}
-	}), twi.OnClick(func(*twi.Event) { c.update(press) }))...)
+	}), twi.OnClick(func(*twi.Event) { c.update(press) }))
 }
+
+func (c controls) button(name, class, label string, press func(*state), extra ...twi.NodeOption) twi.Node {
+	return twi.Element(append(append(c.pressable(name, press), extra...), twi.Class(class+focusRing), twi.Text(label))...)
+}
+
+func (c controls) uiButton(name string, v ui.Variant, label string, press func(*state), extra ...twi.NodeOption) twi.Node {
+	return ui.Button(v, ui.SizeDefault, append(append(c.pressable(name, press), extra...), twi.Text(label))...)
+}
+
+type key struct{ press, what string }
 
 type page struct {
 	name string
 	view func(controls) twi.Node
+	keys []key
 }
 
 func pages() []page {
-	return []page{{"surfaces", surfaces}, {"text", textPage}, {"layout", layoutPage}, {"counter", counterPage}, {"list", listPage}}
+	return []page{
+		{"surfaces", surfaces, nil},
+		{"text", textPage, nil},
+		{"layout", layoutPage, nil},
+		{"counter", counterPage, []key{{"+", "increment"}, {"-", "decrement"}}},
+		{"list", listPage, []key{{"wheel", "scroll"}, {"pgdn", "page"}, {"home", "top"}}},
+		{"motion", motionPage, []key{{"d", "dialog"}, {"s", "sheet"}, {"n", "toast"}, {"l", "load"}, {"esc", "close"}}},
+		{"selection", selectionPage, []key{{"drag", "select"}, {"2" + nbsp + "clicks", "word"}, {"3" + nbsp + "clicks", "line"}, {"ctrl+c", "copy"}, {"esc", "clear"}}},
+	}
 }
 
 func themeName(t theme.Theme) string {
@@ -107,7 +131,7 @@ func el(class string, children ...twi.Node) twi.Node {
 func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 
 func App(rt *twi.Runtime) func() twi.Node {
-	return playground(rt, Env{Cwd: "/home/user/twind", Profile: "truecolor", Size: func() string { return "headless" }}, state{theme: themeIndex("zinc-dark")}, "input", "")
+	return playground(rt, Env{Cwd: "/home/user/twind", Profile: "truecolor", Size: func() string { return "headless" }}, state{theme: themeIndex("zinc-dark")}, Start{Focus: "input"})
 }
 
 func New(rt *twi.Runtime, env Env, start Start) (func() twi.Node, error) {
@@ -118,10 +142,13 @@ func New(rt *twi.Runtime, env Env, start Start) (func() twi.Node, error) {
 	if s.theme < 0 {
 		return nil, fmt.Errorf("theme %q: not a built-in theme", start.Theme)
 	}
-	return playground(rt, env, s, start.Focus, start.Value), nil
+	if !slices.Contains([]string{"", "dialog", "sheet"}, start.Open) {
+		return nil, fmt.Errorf("open %q: want dialog or sheet", start.Open)
+	}
+	return playground(rt, env, s, start), nil
 }
 
-func playground(rt *twi.Runtime, env Env, start state, auto, value string) func() twi.Node {
+func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi.Node {
 	themes := theme.Builtin()
 	all := pages()
 	counter := slices.IndexFunc(all, func(p page) bool { return p.name == "counter" })
@@ -133,8 +160,14 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 		change(&s)
 		st.Set(s)
 	}
+	dialog, sheet, toaster := ui.NewDialog(rt), ui.NewSheet(rt, ui.Right), ui.NewToaster(rt)
+	dialog.Open, sheet.Open = opening.Open == "dialog", opening.Open == "sheet"
+	var pace []twi.NodeOption
+	if opening.Slow {
+		pace = append(pace, twi.Class("duration-[8s]"))
+	}
 	openPicker := func(s *state) { s.picker, s.cursor = true, s.theme }
-	var later *twi.Timer
+	var later, loaded *twi.Timer
 	command := func(s *state, cmd string) {
 		n, err := strconv.Atoi(cmd)
 		switch {
@@ -142,9 +175,9 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 			s.page = n - 1
 		case cmd == "t" || cmd == "theme":
 			openPicker(s)
-		case cmd == "+":
+		case cmd == "+" || cmd == "increment":
 			s.page, s.count = counter, s.count+1
-		case cmd == "-":
+		case cmd == "-" || cmd == "decrement":
 			s.page, s.count = counter, max(s.count-1, 0)
 		case cmd == "later":
 			if later != nil {
@@ -155,6 +188,18 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 				update(func(s *state) { s.card = true })
 				later = rt.After(cardShown, func() { update(func(s *state) { s.card = false }) })
 			})
+		case cmd == "dialog":
+			dialog.Open = true
+		case cmd == "sheet":
+			sheet.Open = true
+		case cmd == "toast":
+			toaster.Show("Saved to the playground", "leaves after 4 s, a hover holds it", ui.ToastAction{})
+		case cmd == "load":
+			if loaded != nil {
+				loaded.Stop()
+			}
+			s.loading = true
+			loaded = rt.After(loadFor, func() { update(func(s *state) { s.loading = false }) })
 		case cmd == "q" || cmd == "quit":
 			rt.Quit()
 		default:
@@ -165,14 +210,16 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 			}
 		}
 	}
+	global := []key{{"1-" + strconv.Itoa(len(all)), "page"}, {"t", "theme"}, {"q", "quit"}}
 	field := twi.NewInput(rt)
-	field.Insert(value)
-	field.Placeholder = "Ask twind: a page name or number, theme, later, +, - or quit"
+	field.Insert(opening.Value)
+	field.Placeholder = "Ask twind: a page, theme, dialog, toast, load, later or quit"
 	field.CursorClass, field.SelectionClass, field.PlaceholderClass = "bg-foreground text-background", "bg-primary text-primary-foreground", "text-muted-foreground"
 	return func() twi.Node {
-		c := controls{state: st.Get(), update: update, auto: auto}
+		c := controls{state: st.Get(), update: update, command: command, auto: opening.Focus}
 		s := c.state
 		name := themeName(themes[s.theme])
+		keys := slices.Concat(global, all[s.page].keys)
 		tabs := []twi.Node{
 			txt("shrink-0 rounded-full px-1 bg-emerald-400 text-emerald-950 font-bold", "twind"),
 			txt("shrink h-1 overflow-hidden px-1 text-muted-foreground", text.Truncate(filepath.ToSlash(env.Cwd), 40)),
@@ -190,17 +237,27 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 			twi.OnPointerEnter(func() { update(func(s *state) { s.tip = true }) }),
 			twi.OnPointerLeave(func() { update(func(s *state) { s.tip = false }) }),
 		)...))
+		var hints []twi.Node
+		for _, k := range keys {
+			hints = append(hints, el("flex flex-row gap-1", ui.Kbd(twi.Text(k.press)), twi.Text(k.what)))
+		}
 		root := []twi.NodeOption{
 			twi.Class("flex flex-col h-full bg-background text-foreground"),
 			twi.OnKeyDown(func(e *twi.Event) {
 				r := e.Key.Rune
-				shortcut := strings.ContainsRune("123456789tq", r) || strings.ContainsRune("+-", r) && all[s.page].name == "counter"
-				if e.Key.Key == input.KeyRune && e.Key.Modifiers == 0 && shortcut {
+				if e.Key.Key != input.KeyRune || e.Key.Modifiers != 0 || dialog.Open || sheet.Open {
+					return
+				}
+				if r >= '1' && r <= '9' {
 					update(func(s *state) { command(s, string(r)) })
 				}
+				if i := slices.IndexFunc(keys, func(k key) bool { return k.press == string(r) }); i >= 0 {
+					update(func(s *state) { command(s, keys[i].what) })
+				}
 			}),
-			el("flex flex-row items-center gap-2 px-2 pt-1", tabs...),
+			el("flex flex-row items-center gap-1 px-2 pt-1", tabs...),
 			twi.Element(twi.Key(all[s.page].name), twi.Class("grow relative overflow-hidden flex flex-col justify-center px-3"), all[s.page].view(c)),
+			el("flex flex-row gap-2 px-3 text-muted-foreground", hints...),
 			el(bar,
 				txt("text-emerald-400 font-bold", "▌"),
 				field.Node(append(c.focusable("input"),
@@ -224,6 +281,15 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 				twi.Text("focus "+s.focus),
 				twi.Text(all[s.page].name),
 			),
+			dialog.Content(append(pace,
+				dialog.Header(dialog.Title(twi.Text("Motion")), dialog.Description(twi.Text("fade-in-0 and zoom-in-95 over 200 ms; Escape, a click outside or a button plays it back out"))),
+				dialog.Footer(dialog.Close(ui.Outline, ui.SizeDefault, twi.Text("Cancel")), dialog.Close(ui.Default, ui.SizeDefault, twi.Text("Done"))),
+			)...),
+			sheet.Content(
+				sheet.Header(sheet.Title(twi.Text("Sheet")), sheet.Description(twi.Text("slides in from the right over 500 ms and out over 300 ms"))),
+				sheet.Footer(sheet.Close(ui.Default, ui.SizeDefault, twi.Text("Close"))),
+			),
+			toaster.Node(),
 		}
 		if s.card {
 			root = append(root, el("fixed inset-0 z-50 flex items-center justify-center",

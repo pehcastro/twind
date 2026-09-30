@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/ui"
 )
 
 const nbsp = string(rune(0xa0))
@@ -20,11 +21,16 @@ func heading(title, sub string) twi.Node {
 	)
 }
 
-func card(title, body string) twi.Node {
-	return el("flex-1 flex flex-col px-1 border rounded-lg shadow-md bg-card text-card-foreground",
-		txt("font-bold", title),
-		txt("text-muted-foreground", body),
-	)
+func card(class, title, body string, rest ...twi.Node) twi.Node {
+	header := []twi.NodeOption{ui.CardTitle(twi.Text(title))}
+	if body != "" {
+		header = append(header, ui.CardDescription(twi.Text(body)))
+	}
+	children := []twi.NodeOption{twi.Class(class), ui.CardHeader(header...)}
+	if len(rest) > 0 {
+		children = append(children, ui.CardContent(el("flex flex-col gap-1", rest...)))
+	}
+	return ui.Card(children...)
 }
 
 func surfaces(controls) twi.Node {
@@ -39,9 +45,9 @@ func surfaces(controls) twi.Node {
 		),
 		txt("text-center text-muted-foreground pb-1", "a DOM, real Tailwind and flexbox, drawn in terminal cells"),
 		el("relative flex flex-row gap-2",
-			card("Cards", "bg-card, a hairline border, rounded-lg, shadow-md"),
-			card("Tokens", "background, card, border and primary come from the theme"),
-			card("Compositing", "a popover and a chip float over this row"),
+			card("flex-1", "Cards", "ui.Card: bg-card, a hairline border, rounded-xl, shadow-sm"),
+			card("flex-1", "Tokens", "background, card, border and primary come from the theme"),
+			card("flex-1", "Compositing", "a popover and a chip float over this row"),
 			txt("absolute -top-1 right-3 z-10 rounded-full px-1 bg-primary text-primary-foreground", "floating chip"),
 			el("absolute top-3 right-6 z-20 w-30 flex flex-col px-1 border rounded-md shadow-lg bg-popover text-popover-foreground",
 				txt("font-bold", "Popover"),
@@ -49,10 +55,11 @@ func surfaces(controls) twi.Node {
 			),
 		),
 		el("flex flex-row gap-2 pt-1",
-			txt("rounded-full px-1 bg-secondary text-secondary-foreground", "secondary"),
-			txt("rounded-full px-1 bg-accent text-accent-foreground", "accent"),
-			txt("rounded-full px-1 bg-destructive text-white", "destructive"),
-			txt("rounded-full px-1 bg-emerald-400 text-emerald-950", "emerald"),
+			ui.Badge(ui.Default, twi.Text("default")),
+			ui.Badge(ui.Secondary, twi.Text("secondary")),
+			ui.Badge(ui.Destructive, twi.Text("destructive")),
+			ui.Badge(ui.Outline, twi.Text("outline")),
+			ui.Badge(ui.Default, twi.Class("bg-emerald-400 text-emerald-950"), twi.Text("emerald")),
 		),
 		el("flex flex-row gap-2 items-center",
 			txt("text-muted-foreground", "build"),
@@ -63,9 +70,7 @@ func surfaces(controls) twi.Node {
 }
 
 func textPage(controls) twi.Node {
-	panel := func(title string, body ...twi.Node) twi.Node {
-		return el("flex-1 flex flex-col px-1 border rounded-lg bg-card text-card-foreground", append([]twi.Node{txt("font-bold", title)}, body...)...)
-	}
+	panel := func(title string, body ...twi.Node) twi.Node { return card("flex-1", title, "", body...) }
 	return el("flex flex-col gap-1",
 		heading("Text", "alignment, wrapping, clipping, wide glyphs and hostile input"),
 		el("flex flex-row gap-2",
@@ -163,8 +168,40 @@ func counterPage(c controls) twi.Node {
 			txt("text-muted-foreground pt-1", "count"),
 		),
 		el("flex flex-row gap-3 pt-1",
-			c.button("decrement", "rounded-full px-1 bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50", "- decrement", func(s *state) { s.count = max(s.count-1, 0) }, disabled...),
-			c.button("increment", "rounded-full px-1 bg-primary text-primary-foreground hover:bg-primary/90", "+ increment", func(s *state) { s.count++ }),
+			c.uiButton("decrement", ui.Secondary, "- decrement", func(s *state) { s.count = max(s.count-1, 0) }, disabled...),
+			c.uiButton("increment", ui.Default, "+ increment", func(s *state) { s.count++ }),
+		),
+	)
+}
+
+func motionPage(c controls) twi.Node {
+	hover := "flex-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+	run := func(cmd string) func(*state) { return func(s *state) { c.command(s, cmd) } }
+	loaded := []twi.Node{txt("text-muted-foreground", "three rows fetched, the pulse is gone and so are the frames")}
+	if c.state.loading {
+		loaded = []twi.Node{ui.Skeleton(twi.Class("h-1 w-full animate-pulse")), ui.Skeleton(twi.Class("h-1 w-2/3 animate-pulse"))}
+	}
+	return el("flex flex-col gap-1",
+		heading("Motion", "frames only while something moves; at rest the runtime sleeps"),
+		el("flex flex-row gap-2",
+			card(hover, "Hover", "transition-colors eases this card to accent in 150 ms, and back"),
+			card(hover, "Dialog", "fade-in-0 and zoom-in-95 over 200 ms", c.uiButton("open dialog", ui.Outline, "Open dialog", run("dialog"))),
+			card(hover, "Sheet", "slide-in-from-right, 500 ms in, 300 ms out", c.uiButton("open sheet", ui.Outline, "Open sheet", run("sheet"))),
+		),
+		el("flex flex-row gap-2",
+			card(hover, "Loading", "l loads for 2 s behind an animate-pulse skeleton", loaded...),
+			card(hover, "Toast", "sonner's stack in the corner", c.uiButton("show toast", ui.Outline, "Show toast", run("toast"))),
+		),
+	)
+}
+
+func selectionPage(controls) twi.Node {
+	return el("flex flex-col gap-1",
+		heading("Selection", "drag inside a card: the highlight stays in it, and ctrl+c copies with OSC 52"),
+		el("flex flex-row gap-2",
+			card("flex-1", "A rendering target", "", twi.Text("Application code thinks in nodes, classes, events and focus. Only the renderer knows about cells and escape sequences.")),
+			card("flex-1", "Text is data", "", twi.Text("Nothing that takes a string writes it to the terminal unsanitised. A control byte is shown inert, never obeyed.")),
+			card("flex-1", "Width is never len", "", twi.Text("Width comes from a versioned table, so 漢字 and 한국어 select and copy whole, never half a cell."), txt("select-none text-muted-foreground", "select-none: never copied")),
 		),
 	)
 }

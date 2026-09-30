@@ -14,7 +14,9 @@ import (
 
 func main() {
 	var start app.Start
-	flag.IntVar(&start.Page, "page", 1, "page to open on, 1 to 5")
+	flag.IntVar(&start.Page, "page", 1, "page to open on, 1 to 7")
+	flag.StringVar(&start.Open, "open", "", "overlay open at start: dialog or sheet")
+	flag.BoolVar(&start.Slow, "slow", false, "the dialog opens and closes over 8 s instead of 200 ms, to see it mid-motion")
 	flag.StringVar(&start.Theme, "theme", "zinc-dark", "theme to open with, name-scheme")
 	flag.BoolVar(&start.Picker, "picker", false, "open with the theme picker showing")
 	graphicsName := flag.String("graphics", "", "surface protocol, none, sixel, kitty or iterm2; empty detects it")
