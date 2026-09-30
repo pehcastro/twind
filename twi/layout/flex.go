@@ -1,5 +1,7 @@
 package layout
 
+import "math"
+
 type heightMode uint8
 
 const (
@@ -36,7 +38,7 @@ func Layout(root *Box, width int, height Length) {
 type container struct{ box, clip Rect }
 
 func place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolute, fixed container) {
-	s := b.Style
+	s := &b.Style
 	b.BorderBox = Rect{x, y, w, h}
 	b.PaddingBox = inset(b.BorderBox, s.Border)
 	b.ContentBox = inset(b.PaddingBox, s.Padding)
@@ -57,7 +59,7 @@ func place(b *Box, x, y, w, h int, mode heightMode, clip Rect, absolute, fixed c
 		absolute = container{padding, clip}
 	}
 	for i, c := range b.Children {
-		cs := c.Style
+		cs := &c.Style
 		switch {
 		case !visible(c):
 			hide(c)
@@ -147,7 +149,7 @@ func hide(b *Box) {
 }
 
 func arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
-	s := b.Style
+	s := &b.Style
 	row, fixed := isRow(s.Direction), mode == fixedHeight
 	var shown []int
 	for i, c := range b.Children {
@@ -160,21 +162,22 @@ func arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
 	if row {
 		gap, space, flexing = s.ColumnGap, innerW, true
 	}
-	used := gap * max(len(shown)-1, 0)
 	items := make([]flexItem, len(shown))
-	sizes := make([]int, len(shown))
 	for k, i := range shown {
 		c := b.Children[i]
-		cs, m := c.Style, c.Style.Margin
-		var content bool
+		cs, m := &c.Style, c.Style.Margin
 		if row {
-			used += m.Left + m.Right
-			items[k], content = newItem(cs, cs.Width, cs.MinWidth, cs.MaxWidth, innerW, true)
-			if content {
-				items[k].basis = contentWidth(c, innerW-m.Left-m.Right)
+			items[k] = newItem(cs, cs.Width, cs.MinWidth, cs.MaxWidth, innerW, true)
+			items[k].margins = m.Left + m.Right
+			if w, ok := aspectWidth(cs, innerH, fixed); items[k].content && ok {
+				items[k].basis, items[k].content = w, false
+			}
+			if items[k].content {
+				items[k].basis = intrinsic(c, maxContent)
+			} else {
+				items[k].min = autoMin(c, items[k], innerW)
 			}
 		} else {
-			used += m.Top + m.Bottom
 			a, avail := alignOf(s, cs), innerW-m.Left-m.Right
 			if a == AlignStretch && cs.Width.Unit == Auto {
 				frames[i].W = limit(cs.MinWidth, cs.MaxWidth, innerW, true).clamp(avail)
@@ -182,8 +185,9 @@ func arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
 				frames[i].W = fitWidth(c, avail)
 			}
 			frames[i].X = m.Left + offset(a, avail-frames[i].W)
-			items[k], content = newItem(cs, cs.Height, cs.MinHeight, cs.MaxHeight, innerH, fixed)
-			automatic := cs.MinHeight.Unit == Auto && !clips(cs.Overflow)
+			items[k] = newItem(cs, cs.Height, cs.MinHeight, cs.MaxHeight, innerH, fixed)
+			items[k].margins = m.Top + m.Bottom
+			content, automatic := items[k].content, cs.MinHeight.Unit == Auto && !clips(cs.Overflow)
 			if content || automatic {
 				natural := contentHeight(c, frames[i].W)
 				if content {
@@ -197,59 +201,175 @@ func arrange(b *Box, innerW, innerH int, mode heightMode) ([]Rect, int) {
 				}
 			}
 		}
-		sizes[k] = items[k].clamp(items[k].basis)
 	}
-	if flexing {
-		sizes = flexSizes(items, space-used)
+	var breaks [2]int
+	lines := breaks[:1]
+	if row && s.Wrap != NoWrap {
+		run := -gap
+		for k, it := range items {
+			size := it.clamp(it.basis) + it.margins
+			if k > lines[len(lines)-1] && run+gap+size > space {
+				lines, run = append(lines, k), -gap
+			}
+			run += gap + size
+		}
 	}
-	for _, size := range sizes {
-		used += size
-	}
-	free := 0
-	if flexing {
-		free = space - used
-	}
-	pos, extra := justify(s.Justify, free, len(shown))
-	line := innerH
-	for k, i := range shown {
-		m := b.Children[i].Style.Margin
+	lines = append(lines, len(shown))
+	multi, cross := len(lines) > 2, 0
+	for l := range len(lines) - 1 {
+		first, end := lines[l], lines[l+1]
+		group := items[first:end]
+		spent, sizes := gap*max(len(group)-1, 0), make([]int, len(group))
+		used := spent
+		for k, it := range group {
+			spent += it.margins
+			sizes[k] = it.clamp(it.basis)
+			used += it.margins + sizes[k]
+		}
+		if row && used > space {
+			for k, it := range group {
+				if it.content && it.shrink > 0 {
+					group[k].min = autoMin(b.Children[shown[first+k]], it, innerW)
+				}
+			}
+		}
+		free := 0
+		if flexing {
+			sizes, used = flexSizes(group, space-spent), spent
+			for _, size := range sizes {
+				used += size
+			}
+			free = space - used
+		}
+		pos, extra := justify(s.Justify, free, len(sizes))
+		line := innerH
+		if multi {
+			line = 0
+		}
+		for k, i := range shown[first:end] {
+			m := b.Children[i].Style.Margin
+			if !row {
+				frames[i].Y, frames[i].H = pos+m.Top, sizes[k]
+				pos += m.Top + sizes[k] + m.Bottom + gap + extra[k]
+				continue
+			}
+			frames[i].X, frames[i].W = pos+m.Left, sizes[k]
+			frames[i].H = heightOf(b.Children[i], sizes[k], innerH, fixed)
+			pos += m.Left + sizes[k] + m.Right + gap + extra[k]
+			if mode == measuring || multi {
+				line = max(line, frames[i].H+m.Top+m.Bottom)
+			}
+		}
 		if !row {
-			frames[i].Y, frames[i].H = pos+m.Top, sizes[k]
-			pos += m.Top + sizes[k] + m.Bottom + gap + extra[k]
-			continue
+			return frames, used
 		}
-		frames[i].X, frames[i].W = pos+m.Left, sizes[k]
-		frames[i].H = heightOf(b.Children[i], sizes[k], innerH, fixed)
-		pos += m.Left + sizes[k] + m.Right + gap + extra[k]
-		if mode == measuring {
-			line = max(line, frames[i].H+m.Top+m.Bottom)
+		for _, i := range shown[first:end] {
+			cs, m := &b.Children[i].Style, b.Children[i].Style.Margin
+			a, avail := alignOf(s, cs), line-m.Top-m.Bottom
+			if _, sized := resolve(cs.Height, innerH, fixed); !sized && a == AlignStretch {
+				frames[i].H = limit(cs.MinHeight, cs.MaxHeight, innerH, fixed).clamp(avail)
+			}
+			frames[i].Y = cross + m.Top + offset(a, avail-frames[i].H)
+		}
+		cross += line + s.RowGap
+	}
+	cross = max(cross-s.RowGap, 0)
+	if s.Wrap == WrapReverse {
+		for _, i := range shown {
+			frames[i].Y = cross - frames[i].Y - frames[i].H
 		}
 	}
-	if !row {
-		return frames, used
-	}
-	for _, i := range shown {
-		cs, m := b.Children[i].Style, b.Children[i].Style.Margin
-		a, avail := alignOf(s, cs), line-m.Top-m.Bottom
-		if _, sized := resolve(cs.Height, innerH, fixed); !sized && a == AlignStretch {
-			frames[i].H = limit(cs.MinHeight, cs.MaxHeight, innerH, fixed).clamp(avail)
-		}
-		frames[i].Y = m.Top + offset(a, avail-frames[i].H)
-	}
-	return frames, line
+	return frames, cross
 }
 
 func fitWidth(b *Box, avail int) int {
-	s := b.Style
+	s := &b.Style
 	bounds := limit(s.MinWidth, s.MaxWidth, avail, true)
 	if w, ok := resolve(s.Width, avail, true); ok {
+		return bounds.clamp(w)
+	}
+	if w, ok := aspectWidth(s, 0, false); ok {
 		return bounds.clamp(w)
 	}
 	return bounds.clamp(contentWidth(b, avail))
 }
 
+func autoMin(c *Box, it flexItem, innerW int) int {
+	cs := &c.Style
+	if cs.MinWidth.Unit != Auto || clips(cs.Overflow) {
+		return it.min
+	}
+	least := intrinsic(c, minContent)
+	if w, sized := resolve(cs.Width, innerW, true); sized {
+		least = min(least, w)
+	}
+	return min(least, it.max)
+}
+
+func aspectWidth(s *Style, base int, baseDefinite bool) (int, bool) {
+	if s.Aspect == (Ratio{}) {
+		return 0, false
+	}
+	h, ok := resolve(s.Height, base, baseDefinite)
+	return scale(h, s.Aspect.W, s.Aspect.H), ok
+}
+
+func scale(v, num, den int) int {
+	return (v*num + den/2) / den
+}
+
+type sizing uint8
+
+const (
+	minContent sizing = iota
+	maxContent
+)
+
+func intrinsic(b *Box, mode sizing) int {
+	s := &b.Style
+	frameW, _ := frame(s)
+	if b.Measure != nil {
+		avail := 0
+		if mode == maxContent {
+			avail = math.MaxInt
+		}
+		w, _ := b.Measure(avail)
+		return w + frameW
+	}
+	row := isRow(s.Direction)
+	sums, content, count := row && (mode == maxContent || s.Wrap == NoWrap), 0, 0
+	for _, c := range b.Children {
+		cs := &c.Style
+		if !visible(c) || !flowing(cs.Position) {
+			continue
+		}
+		w, ok := resolve(cs.Width, 0, false)
+		if !ok {
+			w, ok = aspectWidth(cs, 0, false)
+		}
+		if !ok {
+			childMode := mode
+			if row && cs.Shrink == 0 {
+				childMode = maxContent
+			}
+			w = intrinsic(c, childMode)
+		}
+		w = limit(cs.MinWidth, cs.MaxWidth, 0, false).clamp(w) + cs.Margin.Left + cs.Margin.Right
+		if sums {
+			content += w
+		} else {
+			content = max(content, w)
+		}
+		count++
+	}
+	if sums {
+		content += s.ColumnGap * max(count-1, 0)
+	}
+	return content + frameW
+}
+
 func contentWidth(b *Box, avail int) int {
-	s := b.Style
+	s := &b.Style
 	frameW, _ := frame(s)
 	inner := max(avail-frameW, 0)
 	if b.Measure != nil {
@@ -277,7 +397,7 @@ func contentWidth(b *Box, avail int) int {
 }
 
 func heightOf(b *Box, w, base int, baseDefinite bool) int {
-	s := b.Style
+	s := &b.Style
 	h, ok := resolve(s.Height, base, baseDefinite)
 	if !ok {
 		h = contentHeight(b, w)
@@ -286,7 +406,10 @@ func heightOf(b *Box, w, base int, baseDefinite bool) int {
 }
 
 func contentHeight(b *Box, w int) int {
-	frameW, frameH := frame(b.Style)
+	if a := b.Style.Aspect; a != (Ratio{}) {
+		return scale(w, a.H, a.W)
+	}
+	frameW, frameH := frame(&b.Style)
 	inner := max(w-frameW, 0)
 	if b.Measure != nil {
 		_, h := b.Measure(inner)

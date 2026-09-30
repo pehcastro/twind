@@ -25,16 +25,18 @@ func (r bounds) clamp(v int) int {
 
 type flexItem struct {
 	bounds
-	basis, grow, shrink int
+	basis, grow, shrink, margins int
+	content                      bool
 }
 
-func newItem(s Style, size, lo, hi Length, space int, definite bool) (flexItem, bool) {
+func newItem(s *Style, size, lo, hi Length, space int, definite bool) flexItem {
 	it := flexItem{bounds: limit(lo, hi, space, definite), grow: s.Grow, shrink: s.Shrink}
 	var ok bool
 	if it.basis, ok = resolve(s.Basis, space, definite); !ok {
 		it.basis, ok = resolve(size, space, definite)
 	}
-	return it, !ok
+	it.content = !ok
+	return it
 }
 
 func flexSizes(items []flexItem, space int) []int {

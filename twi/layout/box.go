@@ -58,6 +58,16 @@ const (
 	OverflowScroll
 )
 
+type Wrapping uint8
+
+const (
+	NoWrap Wrapping = iota
+	Wrap
+	WrapReverse
+)
+
+type Ratio struct{ W, H int }
+
 type Unit uint8
 
 const (
@@ -82,6 +92,7 @@ type Insets struct {
 type Style struct {
 	Display    Display
 	Direction  Direction
+	Wrap       Wrapping
 	Justify    Justify
 	AlignItems Align
 	AlignSelf  Align
@@ -94,6 +105,7 @@ type Style struct {
 	MinHeight  Length
 	MaxWidth   Length
 	MaxHeight  Length
+	Aspect     Ratio
 	RowGap     int
 	ColumnGap  int
 	Padding    Edges
@@ -170,7 +182,7 @@ func isRow(d Direction) bool {
 	panic(fmt.Sprintf("layout: unknown direction %d", d))
 }
 
-func alignOf(parent, child Style) Align {
+func alignOf(parent, child *Style) Align {
 	a := child.AlignSelf
 	if a == AlignAuto {
 		a = parent.AlignItems
@@ -205,7 +217,7 @@ func resolve(l Length, base int, baseDefinite bool) (int, bool) {
 	panic(fmt.Sprintf("layout: unknown unit %d", l.Unit))
 }
 
-func frame(s Style) (w, h int) {
+func frame(s *Style) (w, h int) {
 	return s.Padding.Left + s.Padding.Right + s.Border.Left + s.Border.Right,
 		s.Padding.Top + s.Padding.Bottom + s.Border.Top + s.Border.Bottom
 }

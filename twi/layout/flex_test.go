@@ -14,7 +14,7 @@ func text(s string) *Box {
 }
 
 func wrap(n int) *Box {
-	return &Box{Measure: func(avail int) (int, int) {
+	return &Box{Style: Style{Shrink: 1}, Measure: func(avail int) (int, int) {
 		avail = max(avail, 1)
 		return min(n, avail), (n + avail - 1) / avail
 	}}
@@ -128,7 +128,7 @@ func TestFlexColumnAutoMin(t *testing.T) {
 	Layout(column, 5, Length{})
 	borders(t, column.Children, Rect{0, 0, 5, 1}, Rect{0, 1, 5, 1})
 
-	row := box(Style{Width: cells(4)}, shrink("abcd", Style{}), shrink("efgh", Style{}))
+	row := box(Style{Width: cells(4)}, shrink("abcd", Style{MinWidth: cells(0)}), shrink("efgh", Style{MinWidth: cells(0)}))
 	Layout(row, 4, Length{})
 	borders(t, row.Children, Rect{0, 0, 2, 1}, Rect{2, 0, 2, 1})
 }
@@ -143,7 +143,7 @@ func TestFlexBasis(t *testing.T) {
 	Layout(root, 20, Length{})
 	borders(t, root.Children, Rect{0, 0, 6, 1}, Rect{6, 0, 5, 1}, Rect{11, 0, 3, 1}, Rect{14, 0, 5, 1})
 
-	flex1 := Style{Basis: cells(0), Grow: 1, Shrink: 1}
+	flex1 := Style{Basis: cells(0), Grow: 1, Shrink: 1, MinWidth: cells(0)}
 	root = box(Style{}, &Box{Style: flex1, Measure: text("a").Measure}, &Box{Style: flex1, Measure: text("abcdef").Measure})
 	Layout(root, 10, Length{})
 	borders(t, root.Children, Rect{0, 0, 5, 1}, Rect{5, 0, 5, 1})
@@ -241,7 +241,7 @@ func TestFlexMinMax(t *testing.T) {
 func TestFlexNested(t *testing.T) {
 	inner := box(Style{}, box(Style{Grow: 1}, text("x")), box(Style{Grow: 1}, text("y")))
 	para := wrap(30)
-	column := box(Style{Direction: Column, Grow: 1, Padding: Edges{1, 1, 1, 1}}, para, inner)
+	column := box(Style{Direction: Column, Grow: 1, Shrink: 1, Padding: Edges{1, 1, 1, 1}}, para, inner)
 	root := box(Style{Padding: Edges{1, 1, 1, 1}, Border: Edges{1, 1, 1, 1}}, column)
 	Layout(root, 30, Length{})
 	borders(t, []*Box{root, column, para, inner, inner.Children[0], inner.Children[1], inner.Children[1].Children[0]},
