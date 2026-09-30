@@ -127,6 +127,28 @@ func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	d.moved(focus)
 }
 
+func (r *Runtime) Focus(key string) bool {
+	e := r.doc.root.keyed(key)
+	if e == nil || !r.focus.Set(&r.doc, e) {
+		return false
+	}
+	r.pointed = true
+	r.refocused()
+	return true
+}
+
+func (e *Elem) keyed(key string) *Elem {
+	if e == nil || e.node.Key == key {
+		return e
+	}
+	for _, c := range e.children {
+		if found := c.keyed(key); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
 func (d *document) first(e *Elem) *Elem {
 	if d.Focusable(e) && !d.Disabled(e) {
 		return e

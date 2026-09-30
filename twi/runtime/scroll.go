@@ -31,24 +31,64 @@ func (r *Runtime) wheel(ev input.MouseEvent) {
 		panic("runtime: unknown mouse button")
 	}
 	if r.pointer.hovered != nil {
-		r.scrollFirst(r.scrollers(r.pointer.hovered), func(*scene.Node) (int, int) { return dx, dy })
+		around, _ := r.scrollers(r.pointer.hovered)
+		r.scrollFirst(around, func(*scene.Node) (int, int) { return dx, dy })
 	}
 }
 
-func (r *Runtime) scrollers(path []int) []scroller {
-	var around []scroller
+func (r *Runtime) scrollers(path []int) (innermostFirst []scroller, target *scene.Node) {
 	n := &r.scene
 	for i := 0; ; i++ {
 		if n.Scroll {
-			around = append(around, scroller{path[:i], n})
+			innermostFirst = append(innermostFirst, scroller{path[:i], n})
 		}
-		if i == len(path) || path[i] >= len(n.Children) {
+		if i == len(path) {
+			target = n
+			break
+		}
+		if path[i] >= len(n.Children) {
 			break
 		}
 		n = &n.Children[path[i]]
 	}
-	slices.Reverse(around)
-	return around
+	slices.Reverse(innermostFirst)
+	return innermostFirst, target
+}
+
+func (r *Runtime) ScrollIntoView(key string) {
+	r.intoView, r.dirty = key, true
+}
+
+func (r *Runtime) scrollIntoView() bool {
+	e := r.doc.root.keyed(r.intoView)
+	r.intoView = ""
+	if e == nil {
+		return false
+	}
+	path := e.path()
+	around, target := r.scrollers(path)
+	if target == nil {
+		return false
+	}
+	at, moved := target.Bounds, false
+	for _, s := range around {
+		if len(s.path) == len(path) {
+			continue
+		}
+		view, content := s.node.Padding, s.node.ScrollContent
+		x, y := view.X-content.X, view.Y-content.Y
+		nx, ny := x, y+at.Y-view.Y
+		switch {
+		case at.X < view.X:
+			nx += at.X - view.X
+		case at.X+at.W > view.X+view.W:
+			nx += min(at.X+at.W-view.X-view.W, at.X-view.X)
+		}
+		nx, ny = max(min(nx, content.W-view.W), 0), max(min(ny, content.H-view.H), 0)
+		moved = r.tree.ScrollTo(s.path, nx, ny) || moved
+		at.X, at.Y = at.X-(nx-x), at.Y-(ny-y)
+	}
+	return moved
 }
 
 func contains(r layout.Rect, x, y int) bool {
@@ -61,7 +101,7 @@ func (r *Runtime) scrollKey(ev input.KeyEvent) {
 		return
 	}
 	path := current.path()
-	around := r.scrollers(path)
+	around, _ := r.scrollers(path)
 	arrows := len(around) > 0 && len(around[0].path) == len(path)
 	var delta func(*scene.Node) (int, int)
 	switch ev.Key {

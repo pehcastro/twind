@@ -87,6 +87,7 @@ type Runtime struct {
 	pointed       bool
 	ringless      bool
 	revealed      *Elem
+	intoView      string
 	lastFrame     time.Time
 	texts, stale  map[string]scene.Text
 	sanitize      func(string) scene.Text
@@ -344,6 +345,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		r.doc.update(tree.Events, &r.focus)
 	}
 	r.keys = tree.Keys
+	graphics, cell := r.surface(r.caps)
 	frame := render.Frame{
 		Sheet:    r.cfg.Sheet,
 		Width:    r.width,
@@ -352,6 +354,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		Cell:     r.caps.CellPixels,
 		Widths:   r.caps.Widths,
 		Now:      now.Sub(r.start),
+		Graphics: graphics != terminal.GraphicsNone,
 	}
 	tree.Root = r.number(tree.Root)
 	r.nodes = tree.Root
@@ -372,26 +375,26 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	if r.pointer.pressed != nil {
 		tree.Root = mark(tree.Root, r.pointer.pressed, style.StateActive, style.StateActive)
 	}
-	root, err := r.tree.Scene(tree.Root, frame)
-	if err != nil {
+	var err error
+	if r.scene, err = r.tree.Scene(tree.Root, frame); err != nil {
 		return err
 	}
-	if current != r.revealed {
-		r.revealed = current
-		if current != nil && r.tree.ScrollIntoView(current.path()) {
-			if root, err = r.tree.Scene(tree.Root, frame); err != nil {
-				return err
-			}
+	moved := current != r.revealed && current != nil && r.tree.ScrollIntoView(current.path())
+	r.revealed = current
+	if r.intoView != "" {
+		moved = r.scrollIntoView() || moved
+	}
+	if moved {
+		if r.scene, err = r.tree.Scene(tree.Root, frame); err != nil {
+			return err
 		}
 	}
-	r.scene = root
 	r.motionAt = time.Time{}
 	if at, moving := r.tree.Wake(); moving {
 		r.motionAt = r.start.Add(at)
 	}
 	r.texts, r.stale = r.stale, r.texts
 	clear(r.texts)
-	graphics, cell := r.surface(r.caps)
 	if r.screen == nil {
 		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync(), Margins: r.caps.Margins}
 	}
@@ -400,7 +403,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		r.screen.Workers = 1
 	}
 	r.flow()
-	if err := r.screen.Frame(r.highlight(root), r.width, r.height); err != nil {
+	if err := r.screen.Frame(r.highlight(r.scene), r.width, r.height); err != nil {
 		return err
 	}
 	r.dirty, r.lastFrame, r.lastMoved = false, now, r.moving
