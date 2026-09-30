@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/tailwind"
 )
 
@@ -43,6 +44,17 @@ func tree(nodes int) twi.Node {
 		opts = append(opts, grow(0))
 	}
 	return twi.Element(opts...)
+}
+
+func keys(rt *twi.Runtime) func() twi.Node {
+	pressed := twi.NewSignal(rt, 0)
+	return func() twi.Node {
+		return twi.Element(
+			twi.OnKey(func(input.KeyEvent) { pressed.Set(pressed.Get() + 1) }),
+			twi.Text("keys "+strconv.Itoa(pressed.Get())),
+			tree(keyNodes-2),
+		)
+	}
 }
 
 func TestStylesFresh(t *testing.T) {

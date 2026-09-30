@@ -20,9 +20,12 @@ type budget struct {
 
 func main() {
 	budgets := map[string]budget{
-		"OneCell/sync=true":  {"bytes/frame", 32, "bytes < 32"},
-		"ColdStart343":       {"p95-ns", 30e6, "p95 < 30 ms"},
-		"Render/nodes=10000": {"heap-MB", 20, "heap < 20 MB"},
+		"OneCell/sync=true":    {"bytes/frame", 32, "bytes < 32"},
+		"ColdStart343":         {"p95-ns", 30e6, "p95 < 30 ms"},
+		"Render/nodes=10000":   {"heap-MB", 20, "heap < 20 MB"},
+		"KeyToFrame/drive":     {"p95-ns", 8e6, "p95 < 8 ms"},
+		"KeyToFrame/sync=true": {"p95-ns", 8e6, "p95 < 8 ms"},
+		"Idle":                 {"cpu-%", 1, "cpu < 1% of a core"},
 	}
 	header := map[string]string{}
 	samples := map[string]map[string][]float64{}
@@ -69,13 +72,20 @@ func main() {
 	if runtime.GOOS == "windows" {
 		system = command("cmd", "/c", "ver")
 	}
-	fmt.Printf("machine: cpu=%q os=%q goos=%s goarch=%s go=%s procs=%s commit=%s date=%s terminal=none width=80\n",
+	fmt.Printf("machine: cpu=%q os=%q goos=%s goarch=%s go=%s procs=%s commit=%s date=%s terminal=none size=80x24\n",
 		header["cpu"], system, header["goos"], header["goarch"], runtime.Version(), procs, commit, time.Now().Format(time.RFC3339))
-	fmt.Println("path: twi.Render and terminal.Writer.Diff into a byte counter; no runtime or driver exists yet")
+	fmt.Println("path: Render, ColdStart and OneCell call twi.Render and terminal.Writer.Diff into a byte counter")
+	fmt.Println("path: KeyToFrame/drive times drive.Press wall clock, fake clock stepped one frame per key; the driver exposes no byte count")
+	fmt.Println("path: KeyToFrame/sync=* time a key event sent to twi.Backend until the frame's one Write returns, clock stepped past the 60 fps throttle")
+	fmt.Println("path: first frame of every KeyToFrame arm is drawn before timing and not sampled; its size is first bytes")
+	fmt.Println("path: Idle runs bench/scenarios/idle, the counter on twi.Backend with the real clock, and reads process CPU time over 10 s after the first frame")
+	if runtime.GOOS == "windows" {
+		fmt.Println("path: Windows counts process CPU time in 15.625 ms ticks, so Idle reads 0 below 0.157% of a core")
+	}
 	fmt.Println("comparable: only against runs on the machine above")
 	fmt.Println()
-	fmt.Println("| scenario | runs | p50 ms | p95 ms | p95 worst ms | bytes/frame | first bytes | heap MB max | B/op | allocs/op | budget | verdict |")
-	fmt.Println("|---|---|---|---|---|---|---|---|---|---|---|---|")
+	fmt.Println("| scenario | runs | p50 ms | p95 ms | p95 worst ms | bytes/frame | first bytes | heap MB max | B/op | allocs/op | cpu % core max | wakeups | idle bytes | budget | verdict |")
+	fmt.Println("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 	var misses []string
 	for _, name := range order {
 		s := samples[name]
@@ -91,10 +101,12 @@ func main() {
 				misses = append(misses, name)
 			}
 		}
-		fmt.Printf("| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+		fmt.Printf("| %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
 			name, len(s["ns/op"]), ms("p50-ns", median), ms("p95-ns", median), ms("p95-ns", slices.Max[[]float64]),
 			cell(s["bytes/frame"], median, 1, 1), cell(s["first-bytes/frame"], median, 1, 0), cell(s["heap-MB"], slices.Max[[]float64], 1, 2),
-			cell(s["B/op"], median, 1, 0), cell(s["allocs/op"], median, 1, 0), target, verdict)
+			cell(s["B/op"], median, 1, 0), cell(s["allocs/op"], median, 1, 0),
+			cell(s["cpu-%"], slices.Max[[]float64], 1, 3), cell(s["wakeups"], slices.Max[[]float64], 1, 0), cell(s["idle-bytes"], slices.Max[[]float64], 1, 0),
+			target, verdict)
 	}
 	fmt.Println()
 	if len(misses) > 0 {

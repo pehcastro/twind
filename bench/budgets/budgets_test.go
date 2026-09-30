@@ -14,9 +14,12 @@ import (
 )
 
 const (
-	columns = 80
-	rows    = 24
-	mebi    = 1 << 20
+	columns    = 80
+	rows       = 24
+	mebi       = 1 << 20
+	keyNodes   = 1000
+	keysPerOp  = 1000
+	noThrottle = time.Second
 )
 
 type counter struct{ n int }
@@ -37,6 +40,10 @@ func measure(b *testing.B, frame func()) {
 		samples[i] = now() - start
 	}
 	b.StopTimer()
+	percentiles(b, samples)
+}
+
+func percentiles(b *testing.B, samples []time.Duration) {
 	slices.Sort(samples)
 	b.ReportMetric(float64(samples[len(samples)/2]), "p50-ns")
 	b.ReportMetric(float64(samples[len(samples)*95/100]), "p95-ns")
