@@ -1,6 +1,7 @@
 package text
 
 import (
+	"iter"
 	"os"
 	"slices"
 	"strconv"
@@ -39,12 +40,20 @@ func TestWidth(t *testing.T) {
 }
 
 func TestGraphemeBreakTest(t *testing.T) {
-	data, err := os.ReadFile("testdata/GraphemeBreakTest.txt")
+	conformance(t, "GraphemeBreakTest", Graphemes)
+}
+
+func TestWordBreakTest(t *testing.T) {
+	conformance(t, "WordBreakTest", Words)
+}
+
+func conformance(t *testing.T, name string, segments func(string) iter.Seq[string]) {
+	data, err := os.ReadFile("testdata/" + name + ".txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(string(data), "# GraphemeBreakTest-"+UnicodeVersion+".txt") {
-		t.Fatalf("GraphemeBreakTest.txt is not Unicode %s", UnicodeVersion)
+	if !strings.HasPrefix(string(data), "# "+name+"-"+UnicodeVersion+".txt") {
+		t.Fatalf("%s.txt is not Unicode %s", name, UnicodeVersion)
 	}
 	run, failed := 0, 0
 	for line := range strings.Lines(string(data)) {
@@ -72,13 +81,13 @@ func TestGraphemeBreakTest(t *testing.T) {
 			}
 		}
 		run++
-		got := slices.Collect(Graphemes(strings.Join(want, "")))
+		got := slices.Collect(segments(strings.Join(want, "")))
 		if !slices.Equal(got, want) {
 			failed++
 			t.Errorf("%s: got %+q", strings.TrimSpace(rule), got)
 		}
 	}
-	t.Logf("GraphemeBreakTest-%s: %d lines run, %d failed", UnicodeVersion, run, failed)
+	t.Logf("%s-%s: %d lines run, %d failed", name, UnicodeVersion, run, failed)
 	if run == 0 {
 		t.Fatal("no lines run")
 	}

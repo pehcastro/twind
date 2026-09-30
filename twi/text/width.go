@@ -75,9 +75,13 @@ type props struct {
 	line         lineClass
 }
 
-func lookup(r rune) props {
+func record(r rune) string {
 	id := int(blocks[int(blockIndex[r>>konst.BlockShift])<<konst.BlockShift|int(r&(konst.BlockSize-1))])
-	record := records[id*konst.RecordSize:]
+	return records[id*konst.RecordSize:]
+}
+
+func lookup(r rune) props {
+	record := record(r)
 	flags := record[1]
 	return props{
 		class:        breakClass(record[0]),

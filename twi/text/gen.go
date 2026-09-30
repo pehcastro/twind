@@ -24,6 +24,7 @@ func main() {
 	base := "https://www.unicode.org/Public/" + *version + "/ucd/"
 	classNames := []string{"Other", "CR", "LF", "Control", "Extend", "ZWJ", "Regional_Indicator", "Prepend", "SpacingMark", "L", "V", "T", "LV", "LVT"}
 	conjunctNames := []string{"None", "Consonant", "Extend", "Linker"}
+	wordNames := []string{"Other", "CR", "LF", "Newline", "Extend", "Format", "ZWJ", "Regional_Indicator", "Katakana", "Hebrew_Letter", "ALetter", "Single_Quote", "Double_Quote", "MidNumLet", "MidLetter", "MidNum", "Numeric", "ExtendNumLet", "WSegSpace"}
 	lineNames := []string{"AL", "NU", "ID", "NS", "SP", "BA", "HY", "BB", "B2", "GL", "WJ", "ZW", "OP", "CL", "CP", "EX", "IS", "SY", "QU", "PR", "PO", "IN"}
 	lineAliases := map[string]string{
 		"XX": "AL", "AI": "AL", "SG": "AL", "SA": "AL", "HL": "AL", "CM": "AL", "ZWJ": "AL",
@@ -35,6 +36,7 @@ func main() {
 	class := make([]byte, count)
 	line := make([]byte, count)
 	conjunct := make([]byte, count)
+	word := make([]byte, count)
 	wide := make([]bool, count)
 	presentation := make([]bool, count)
 	modifier := make([]bool, count)
@@ -45,6 +47,9 @@ func main() {
 	})
 	each(fetch(base+"auxiliary/GraphemeBreakProperty.txt"), func(r rune, fields []string) {
 		class[r] = index(classNames, fields[0])
+	})
+	each(fetch(base+"auxiliary/WordBreakProperty.txt"), func(r rune, fields []string) {
+		word[r] = index(wordNames, fields[0])
 	})
 	each(fetch(base+"LineBreak.txt"), func(r rune, fields []string) {
 		name := fields[0]
@@ -69,7 +74,7 @@ func main() {
 		}
 	})
 
-	records := make([][3]byte, count)
+	records := make([][konst.RecordSize]byte, count)
 	for r := range records {
 		width := byte(1)
 		switch classNames[class[r]] {
@@ -87,10 +92,10 @@ func main() {
 		if pictographic[r] {
 			flags |= konst.PictographicBit
 		}
-		records[r] = [3]byte{class[r], flags, line[r]}
+		records[r] = [konst.RecordSize]byte{class[r], flags, line[r], word[r]}
 	}
 
-	ids := map[[3]byte]int{}
+	ids := map[[konst.RecordSize]byte]int{}
 	blockIDs := map[string]int{}
 	var recordTable, blockIndex, blocks []byte
 	for lo := 0; lo < count; lo += konst.BlockSize {
@@ -128,7 +133,9 @@ func main() {
 	src, err := format.Source([]byte(out.String()))
 	must(err)
 	must(os.WriteFile("tables.go", src, 0o644))
-	must(os.WriteFile("testdata/GraphemeBreakTest.txt", []byte(fetch(base+"auxiliary/GraphemeBreakTest.txt")), 0o644))
+	for _, name := range []string{"GraphemeBreakTest.txt", "WordBreakTest.txt"} {
+		must(os.WriteFile("testdata/"+name, []byte(fetch(base+"auxiliary/"+name)), 0o644))
+	}
 }
 
 func fetch(url string) string {

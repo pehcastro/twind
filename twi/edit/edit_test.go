@@ -122,14 +122,48 @@ func TestGraphemeTypingMarkStaysAfterCluster(t *testing.T) {
 func TestWordMoves(t *testing.T) {
 	var b Buffer
 	b.Insert("foo  bar.baz")
-	for _, at := range []int{9, 5, 0, 0} {
+	for _, at := range []int{5, 0, 0} {
 		press(t, &b, with(left, input.ModCtrl))
 		want(t, &b, "foo  bar.baz", at, at)
 	}
-	for _, at := range []int{3, 8, 12, 12} {
+	for _, at := range []int{3, 12, 12} {
 		press(t, &b, with(right, input.ModAlt))
 		want(t, &b, "foo  bar.baz", at, at)
 	}
+}
+
+func TestWordApostrophe(t *testing.T) {
+	var b Buffer
+	b.Insert("don't stop")
+	for _, at := range []int{6, 0} {
+		press(t, &b, with(left, input.ModCtrl))
+		want(t, &b, "don't stop", at, at)
+	}
+	press(t, &b, with(right, input.ModCtrl))
+	want(t, &b, "don't stop", 5, 5)
+}
+
+func TestWordStaysOnClusters(t *testing.T) {
+	var b Buffer
+	b.Insert("x ؀カ")
+	press(t, &b, with(left, input.ModCtrl))
+	want(t, &b, "x ؀カ", 2, 2)
+	b = Buffer{}
+	b.Insert("aൎ.")
+	press(t, &b, home, with(right, input.ModCtrl))
+	want(t, &b, "aൎ.", 5, 5)
+}
+
+func TestWordDecimal(t *testing.T) {
+	var b Buffer
+	b.Insert("pi 3.14")
+	press(t, &b, with(left, input.ModCtrl))
+	want(t, &b, "pi 3.14", 3, 3)
+	press(t, &b, with(del, input.ModCtrl))
+	want(t, &b, "pi ", 3, 3)
+	b.Insert("3.14")
+	press(t, &b, with(backspace, input.ModCtrl))
+	want(t, &b, "pi ", 3, 3)
 }
 
 func TestWordWide(t *testing.T) {

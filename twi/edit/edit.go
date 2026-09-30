@@ -221,23 +221,27 @@ func isWord(g string) bool {
 }
 
 func (b *Buffer) wordLeft() int {
-	i := b.cursor
-	for _, word := range []bool{false, true} {
-		for i > 0 && isWord(b.value[b.prev(i):i]) == word {
-			i = b.prev(i)
+	left, at := 0, 0
+	for w := range text.Words(b.value) {
+		if at >= b.cursor {
+			break
 		}
+		if isWord(w) {
+			left = at
+		}
+		at += len(w)
 	}
-	return i
+	return b.prev(b.next(left))
 }
 
 func (b *Buffer) wordRight() int {
-	i := b.cursor
-	for _, word := range []bool{false, true} {
-		for i < len(b.value) && isWord(b.value[i:b.next(i)]) == word {
-			i = b.next(i)
+	at := 0
+	for w := range text.Words(b.value) {
+		if at += len(w); at > b.cursor && isWord(w) {
+			return b.next(at - 1)
 		}
 	}
-	return i
+	return len(b.value)
 }
 
 func (b *Buffer) vertical(k input.Key) int {

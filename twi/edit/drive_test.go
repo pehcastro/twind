@@ -9,7 +9,13 @@ import (
 	"github.com/twind-dev/twind/twi/drive"
 )
 
-func TestUndoDrivenTypeOver(t *testing.T) {
+type driveStep struct {
+	typed string
+	key   string
+	want  string
+}
+
+func driveInput(t *testing.T, steps []driveStep) {
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		in := twi.NewInput(rt)
 		return func() twi.Node {
@@ -23,28 +29,42 @@ func TestUndoDrivenTypeOver(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	steps := []struct {
-		do   func()
-		name string
-		want string
-	}{
-		{func() { d.Type("hello world") }, "type", "value hello world[]"},
-		{func() { d.Press("ctrl+left") }, "ctrl+left", "value hello []world"},
-		{func() { d.Press("shift+end") }, "shift+end", "value hello [world]"},
-		{func() { d.Type("there") }, "type over", "value hello there[]"},
-		{func() { d.Press("ctrl+z") }, "ctrl+z", "value hello [world]"},
-		{func() { d.Press("ctrl+z") }, "ctrl+z", "value []"},
-		{func() { d.Press("ctrl+shift+z") }, "ctrl+shift+z", "value hello [world]"},
-	}
 	for _, s := range steps {
-		s.do()
+		d.Type(s.typed)
+		if s.key != "" {
+			d.Press(s.key)
+		}
 		frame := d.Frame().Text()
-		t.Logf("after %s:\n%s", s.name, frame)
+		t.Logf("after %q %s:\n%s", s.typed, s.key, frame)
 		if !slices.Contains(strings.Split(frame, "\n"), s.want) {
-			t.Fatalf("after %s: no %q", s.name, s.want)
+			t.Fatalf("after %q %s: no %q", s.typed, s.key, s.want)
 		}
 	}
 	if err := d.Err(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestUndoDrivenTypeOver(t *testing.T) {
+	driveInput(t, []driveStep{
+		{"hello world", "", "value hello world[]"},
+		{"", "ctrl+left", "value hello []world"},
+		{"", "shift+end", "value hello [world]"},
+		{"there", "", "value hello there[]"},
+		{"", "ctrl+z", "value hello [world]"},
+		{"", "ctrl+z", "value []"},
+		{"", "ctrl+shift+z", "value hello [world]"},
+	})
+}
+
+func TestWordDriven(t *testing.T) {
+	driveInput(t, []driveStep{
+		{"don't stop 3.14", "", "value don't stop 3.14[]"},
+		{"", "ctrl+left", "value don't stop []3.14"},
+		{"", "ctrl+left", "value don't []stop 3.14"},
+		{"", "ctrl+left", "value []don't stop 3.14"},
+		{"", "ctrl+delete", "value [] stop 3.14"},
+		{"", "end", "value stop 3.14[]"},
+		{"", "ctrl+backspace", "value stop []"},
+	})
 }

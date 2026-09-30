@@ -3,8 +3,8 @@ package text
 const (
 	Ellipsis        = "…"
 	BidiVisible     = "<U+%04X>"
-	RecordSize      = 3
-	BlockShift      = 7
+	RecordSize      = 4
+	BlockShift      = 8
 	BlockSize       = 1 << BlockShift
 	WidthMask       = 0b11
 	ConjunctShift   = 2
