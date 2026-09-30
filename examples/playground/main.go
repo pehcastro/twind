@@ -18,8 +18,10 @@ func main() {
 	themeName := flag.String("theme", "zinc-dark", "theme to open with, name-scheme")
 	picker := flag.Bool("picker", false, "open with the theme picker showing")
 	graphicsName := flag.String("graphics", "", "surface protocol, none, sixel, kitty or iterm2; empty detects it")
+	focus := flag.String("focus", "input", "control focused at start: input, theme, or a page name")
+	value := flag.String("value", "", "text the input starts with")
 	flag.Parse()
-	start := state{page: *page - 1, theme: themeIndex(*themeName), picker: *picker}
+	start := state{page: *page - 1, theme: themeIndex(*themeName), picker: *picker, focus: *focus}
 	sheet, err := Styles()
 	opts := []twi.RenderOption{twi.Fullscreen(), twi.Styles(sheet)}
 	graphics, known := map[string]terminal.Graphics{"none": terminal.GraphicsNone, "sixel": terminal.GraphicsSixel, "kitty": terminal.GraphicsKitty, "iterm2": terminal.GraphicsITerm2}[*graphicsName]
@@ -43,7 +45,7 @@ func main() {
 			return strconv.Itoa(w) + "x" + strconv.Itoa(h)
 		}}
 		rt := twi.New(opts...)
-		err = rt.Run(playground(rt, env, start))
+		err = rt.Run(playground(rt, env, start, *value))
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

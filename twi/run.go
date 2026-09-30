@@ -74,7 +74,7 @@ func (r *Runtime) Run(app func() Node) error {
 	}
 	return r.Runtime.Run(b, func() runtime.Tree {
 		n := app()
-		return runtime.Tree{Root: n.tree, Keys: n.keys}
+		return runtime.Tree{Root: n.tree, Keys: n.keys, Events: n.events}
 	})
 }
 

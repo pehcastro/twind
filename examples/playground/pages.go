@@ -27,7 +27,7 @@ func card(title, body string) twi.Node {
 	)
 }
 
-func surfaces(state) twi.Node {
+func surfaces(controls) twi.Node {
 	letter := func(class string, rows ...string) twi.Node { return txt(class, glyphs(rows...)) }
 	return el("flex flex-col gap-1",
 		el("flex flex-row justify-center gap-1",
@@ -62,7 +62,7 @@ func surfaces(state) twi.Node {
 	)
 }
 
-func textPage(state) twi.Node {
+func textPage(controls) twi.Node {
 	panel := func(title string, body ...twi.Node) twi.Node {
 		return el("flex-1 flex flex-col px-1 border rounded-lg bg-card text-card-foreground", append([]twi.Node{txt("font-bold", title)}, body...)...)
 	}
@@ -83,7 +83,7 @@ func textPage(state) twi.Node {
 	)
 }
 
-func layoutPage(state) twi.Node {
+func layoutPage(controls) twi.Node {
 	box := func(class, label string) twi.Node {
 		return txt("px-1 rounded-md bg-secondary text-secondary-foreground "+class, label)
 	}
@@ -115,15 +115,19 @@ func layoutPage(state) twi.Node {
 	)
 }
 
-func counterPage(s state) twi.Node {
+func counterPage(c controls) twi.Node {
 	font := map[rune][3]string{
 		'0': {"█▀█", "█ █", "▀▀▀"}, '1': {"▀█ ", " █ ", "▀▀▀"}, '2': {"▀▀█", "█▀▀", "▀▀▀"},
 		'3': {"▀▀█", " ▀█", "▀▀▀"}, '4': {"█ █", "▀▀█", "  ▀"}, '5': {"█▀▀", "▀▀█", "▀▀▀"},
 		'6': {"█▀▀", "█▀█", "▀▀▀"}, '7': {"▀▀█", "  █", "  ▀"}, '8': {"█▀█", "█▀█", "▀▀▀"},
-		'9': {"█▀█", "▀▀█", "▀▀▀"}, '-': {"   ", "▀▀▀", "   "},
+		'9': {"█▀█", "▀▀█", "▀▀▀"},
 	}
 	var rows [3]string
-	for _, r := range strconv.Itoa(s.count) {
+	decrement, disabled := "rounded-full px-1 bg-secondary text-secondary-foreground", []twi.NodeOption{}
+	if c.state.count == 0 {
+		decrement, disabled = decrement+" opacity-50", []twi.NodeOption{twi.Disabled()}
+	}
+	for _, r := range strconv.Itoa(c.state.count) {
 		for i := range rows {
 			rows[i] += font[r][i] + " "
 		}
@@ -135,8 +139,8 @@ func counterPage(s state) twi.Node {
 			txt("text-muted-foreground pt-1", "count"),
 		),
 		el("flex flex-row gap-3 pt-1",
-			txt("rounded-full px-1 bg-secondary text-secondary-foreground", "- decrement"),
-			txt("rounded-full px-1 bg-primary text-primary-foreground", "+ increment"),
+			c.button("decrement", decrement, "- decrement", func(s *state) { s.count = max(s.count-1, 0) }, disabled...),
+			c.button("increment", "rounded-full px-1 bg-primary text-primary-foreground", "+ increment", func(s *state) { s.count++ }),
 		),
 	)
 }

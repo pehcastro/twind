@@ -14,6 +14,7 @@ import (
 	"github.com/twind-dev/twind/internal/present"
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/events"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/scene"
@@ -35,8 +36,9 @@ type Clock interface {
 }
 
 type Tree struct {
-	Root render.Node
-	Keys []func(input.KeyEvent)
+	Root   render.Node
+	Keys   []func(input.KeyEvent)
+	Events Node
 }
 
 type Config struct {
@@ -68,6 +70,8 @@ type Runtime struct {
 	dirty         bool
 	width, height int
 	keys          []func(input.KeyEvent)
+	doc           document
+	focus         events.FocusManager[*Elem]
 	screen        *present.Screen
 	tree          render.Tree
 	lastFrame     time.Time
@@ -185,6 +189,9 @@ func (r *Runtime) handle(ev input.Event) {
 			r.quitting = true
 			return
 		}
+		if r.focus.Key(&r.doc, ev).DefaultPrevented() {
+			return
+		}
 		for _, h := range r.keys {
 			h(ev)
 		}
@@ -198,6 +205,11 @@ func (r *Runtime) handle(ev input.Event) {
 
 func (r *Runtime) frame(b Backend, now time.Time) error {
 	tree := r.app()
+	r.doc.update(tree.Events, &r.focus)
+	if r.changed.Swap(false) {
+		tree = r.app()
+		r.doc.update(tree.Events, &r.focus)
+	}
 	r.keys = tree.Keys
 	root, err := r.tree.Scene(tree.Root, render.Frame{
 		Sheet:    r.cfg.Sheet,

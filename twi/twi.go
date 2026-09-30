@@ -27,6 +27,8 @@ type Node struct {
 	tree    render.Node
 	keys    []func(input.KeyEvent)
 	ownKeys int
+	events  runtime.Node
+	behaves bool
 }
 
 type NodeOption interface{ apply(*Node) }
@@ -34,6 +36,11 @@ type NodeOption interface{ apply(*Node) }
 func (n Node) apply(parent *Node) {
 	parent.tree.Children = append(parent.tree.Children, n.tree)
 	parent.keys = append(parent.keys, n.keys...)
+	if n.behaves {
+		parent.events.Children = append(parent.events.Children, n.events)
+		return
+	}
+	parent.events.Children = append(parent.events.Children, n.events.Children...)
 }
 
 type onKey func(input.KeyEvent)
