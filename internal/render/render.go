@@ -19,6 +19,7 @@ import (
 
 type Node struct {
 	Text     string
+	Element  style.Element
 	Classes  []string
 	State    *style.NodeState
 	Children []Node
@@ -38,8 +39,14 @@ type styledBox struct {
 	classes  []string
 	state    style.NodeState
 	computed style.ComputedStyle
+	element  style.Element
+	marks    style.Markers
+	near     []int
+	hands    []int
+	related  []int
 	truncate bool
 	nowrap   bool
+	anywhere bool
 	reverse  bool
 	raw      string
 	text     scene.Text
@@ -72,6 +79,8 @@ type Tree struct {
 	band                       int
 	restyle, relayout, crossed bool
 	cascades                   int
+	ancestors                  []*styledBox
+	related                    []int
 }
 
 func (t *Tree) Restyle() { t.restyle = true }
@@ -90,7 +99,8 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	t.relayout = t.relayout || t.root == nil || f.Width != t.width || f.Height != t.height
 	t.restyle = t.restyle || f.Cell != t.cell
 	t.crossed = band != t.band
-	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root)
+	t.ancestors = t.ancestors[:0]
+	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root, nil)
 	t.root, t.width, t.height, t.cell, t.band, t.restyle = styled, f.Width, f.Height, f.Cell, band, false
 	if err != nil {
 		return scene.Node{}, err
@@ -181,7 +191,7 @@ func (s *styledBox) scene(moved bool) scene.Node {
 	return n
 }
 
-func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node) (*styledBox, error) {
+func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node, siblings []*styledBox) (*styledBox, error) {
 	s := prev
 	if s == nil {
 		s = &styledBox{box: &layout.Box{}}
@@ -192,11 +202,18 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 	if n.State != nil {
 		state = *n.State
 	}
-	restate := s.state.States != state.States || !slices.Equal(s.state.Attrs, state.Attrs)
+	reclassed := prev == nil || !slices.Equal(s.classes, n.Classes)
+	if reclassed {
+		s.marks, s.near = f.Sheet.Marks(n.Classes), f.Sheet.Near(n.Classes, s.near[:0])
+	}
+	related := t.relate(f.Sheet, s, n, state, siblings)
+	restate := s.state.States != state.States || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related)
 	crossed := t.crossed && f.Sheet.Responsive(n.Classes)
-	if prev == nil || t.restyle || parentChanged || restate || crossed || !slices.Equal(s.classes, n.Classes) {
+	if reclassed || t.restyle || parentChanged || restate || crossed {
 		t.cascades++
-		computed := f.Sheet.ComputeState(parent, n.Classes, state)
+		computed := f.Sheet.ComputeRelated(parent, n.Classes, state, related)
+		s.related = append(s.related[:0], related...)
+		s.hands = f.Sheet.Hands(n.Classes, state, s.hands[:0])
 		ls, err := boxStyle(parent, computed, f.Cell)
 		if err != nil {
 			return nil, err
@@ -210,15 +227,17 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		if changed = prev == nil || t.restyle || !reflect.DeepEqual(computed, s.computed); changed {
 			s.computed, s.painted = computed, false
 		}
-		if nowrap := unwrapped(computed.WhiteSpace); nowrap != s.nowrap {
-			s.nowrap, t.relayout = nowrap, true
+		nowrap := unwrapped(computed.WhiteSpace)
+		anywhere := computed.WordBreak == style.WordBreakAll || computed.OverflowWrap == style.OverflowWrapAnywhere
+		if nowrap != s.nowrap || anywhere != s.anywhere {
+			s.nowrap, s.anywhere, t.relayout = nowrap, anywhere, true
 			clear(s.sizes)
 		}
 		ellipsis := computed.TextOverflow == style.TextOverflowEllipsis || len(n.Classes) == 0 && parent.TextOverflow == style.TextOverflowEllipsis
 		if truncate := ellipsis && s.nowrap; truncate != s.truncate {
 			s.truncate, s.painted = truncate, false
 		}
-		s.classes, s.state = n.Classes, state
+		s.classes, s.state, s.element = n.Classes, state, n.Element
 	}
 	if n.Text != s.raw && s.retext(f, n.Text) {
 		t.relayout = true
@@ -228,12 +247,13 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		s.children, s.box.Children = make([]*styledBox, len(n.Children)), make([]*layout.Box, len(n.Children))
 		s.painted = false
 	}
+	t.ancestors = append(t.ancestors, s)
 	for i, c := range n.Children {
 		var p *styledBox
 		if i < len(old) {
 			p = old[i]
 		}
-		child, err := t.build(f, p, s.computed, changed, c)
+		child, err := t.build(f, p, s.computed, changed, c, s.children[:i])
 		if err != nil {
 			return nil, err
 		}
@@ -244,11 +264,67 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		s.children[i], s.box.Children[at] = child, child.box
 		s.painted = s.painted && child.painted
 	}
+	t.ancestors = t.ancestors[:len(t.ancestors)-1]
 	return s, nil
 }
 
+func (n Node) text() bool {
+	return n.Text != "" && n.Element == style.ElementAny && n.Classes == nil && n.State == nil && n.Children == nil
+}
+
+func (t *Tree) relate(sheet style.Sheet, s *styledBox, n Node, state style.NodeState, siblings []*styledBox) []int {
+	related := t.related[:0]
+	if n.text() {
+		return related
+	}
+	for _, i := range s.near {
+		if near := &sheet.Rule(i).Near; t.near(sheet, near, n, siblings) {
+			related = append(related, i)
+		}
+	}
+	for depth, a := range t.ancestors {
+		for _, i := range a.hands {
+			target := &sheet.Rule(i).Target
+			if (target.Relation == style.RelationDescendant || depth == len(t.ancestors)-1) && target.Accepts(n.Element, s.marks, state) {
+				related = append(related, i)
+			}
+		}
+	}
+	t.related = related
+	return related
+}
+
+func (t *Tree) near(sheet style.Sheet, m *style.Match, n Node, siblings []*styledBox) bool {
+	switch m.Relation {
+	case style.RelationAncestor:
+		return slices.ContainsFunc(t.ancestors, func(a *styledBox) bool { return m.Accepts(a.element, a.marks, a.state) })
+	case style.RelationPrevious:
+		return slices.ContainsFunc(siblings, func(b *styledBox) bool { return m.Accepts(b.element, b.marks, b.state) })
+	case style.RelationChild, style.RelationDescendant:
+		return has(sheet, m, n.Children)
+	}
+	panic(fmt.Sprintf("render: unknown relation %d", m.Relation))
+}
+
+func has(sheet style.Sheet, m *style.Match, children []Node) bool {
+	for _, c := range children {
+		var state style.NodeState
+		if c.State != nil {
+			state = *c.State
+		}
+		var marks style.Markers
+		if m.Class != "" {
+			marks = sheet.Marks(c.Classes)
+		}
+		if !c.text() && m.Accepts(c.Element, marks, state) || m.Relation == style.RelationDescendant && has(sheet, m, c.Children) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *styledBox) retext(f Frame, raw string) (moved bool) {
-	next := styledBox{nowrap: s.nowrap}
+	next := styledBox{nowrap: s.nowrap, anywhere: s.anywhere}
 	if raw != "" {
 		next.text = f.Sanitize(raw)
 	}
@@ -275,7 +351,11 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 		size = s.natural
 		if availableWidth < size[0] && !s.nowrap {
 			wrapAt := availableWidth
-			if wrapAt == 0 {
+			switch {
+			case wrapAt > 0:
+			case s.anywhere:
+				wrapAt = 1
+			default:
 				wrapAt = s.text.MinContent()
 			}
 			size[0], size[1] = s.text.Size(wrapAt)

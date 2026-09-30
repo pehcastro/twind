@@ -181,7 +181,7 @@ func TestCompileRejects(t *testing.T) {
 		"rem length":       ".w-4 { width: 1rem; }",
 		"mixed calc":       ".w-x { width: calc(100% - 2px); }",
 		"undefined var":    ".p-x { padding: var(--nope); }",
-		"descendant":       ".group:hover .x { color: #fff; }",
+		"adjacent sibling": ".a + .x { color: #fff; }",
 		"unknown value":    ".d-x { display: table; }",
 		"unknown prop":     ".s-x { mask-image: none; }",
 		"percent shadow":   ".s-x { box-shadow: 10% 1px #000; }",

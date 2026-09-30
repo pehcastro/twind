@@ -204,6 +204,12 @@
   }
 }
 @layer utilities {
+  .pointer-events-auto {
+    pointer-events: auto;
+  }
+  .pointer-events-none {
+    pointer-events: none;
+  }
   .col-auto {
     grid-column: auto;
   }
@@ -591,6 +597,28 @@
   .p-2 {
     padding: calc(var(--spacing) * 2);
   }
+  .break-normal {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+  .break-words {
+    overflow-wrap: break-word;
+  }
+  .wrap-anywhere {
+    overflow-wrap: anywhere;
+  }
+  .wrap-break-word {
+    overflow-wrap: break-word;
+  }
+  .wrap-normal {
+    overflow-wrap: normal;
+  }
+  .break-all {
+    word-break: break-all;
+  }
+  .break-keep {
+    word-break: keep-all;
+  }
   .text-clip {
     text-overflow: clip;
   }
@@ -840,10 +868,49 @@
   .ring-inset {
     --tw-ring-inset: inset;
   }
+  :is(.\*\:p-2 > *) {
+    padding: calc(var(--spacing) * 2);
+  }
   @media (hover: hover) {
     .group-hover\:bg-accent:is(:where(.group):hover *) {
       background-color: var(--color-accent);
     }
+  }
+  .group-focus-visible\:ring-2:is(:where(.group):focus-visible *) {
+    --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .group-has-data-\[slot\=x\]\/item\:gap-2:is(:where(.group\/item):has([data-slot="x"]) *) {
+    gap: calc(var(--spacing) * 2);
+  }
+  .group-data-\[disabled\=true\]\:opacity-50:is(:where(.group)[data-disabled="true"] *) {
+    opacity: 50%;
+  }
+  .group-data-\[state\=open\]\:bg-accent:is(:where(.group)[data-state="open"] *) {
+    background-color: var(--color-accent);
+  }
+  .group-data-\[state\=open\]\/item\:bg-muted:is(:where(.group\/item)[data-state="open"] *) {
+    background-color: var(--color-muted);
+  }
+  .group-\[\.foo\]\:bg-accent:is(:where(.group):is(.foo) *) {
+    background-color: var(--color-accent);
+  }
+  .peer-checked\/name\:bg-accent:is(:where(.peer\/name):checked ~ *) {
+    background-color: var(--color-accent);
+  }
+  @media (hover: hover) {
+    .peer-hover\:bg-muted:is(:where(.peer):hover ~ *) {
+      background-color: var(--color-muted);
+    }
+  }
+  .peer-disabled\:opacity-50:is(:where(.peer):disabled ~ *) {
+    opacity: 50%;
+  }
+  .peer-data-\[state\=checked\]\:bg-primary:is(:where(.peer)[data-state="checked"] ~ *) {
+    background-color: var(--color-primary);
+  }
+  .first\:p-1:first-child {
+    padding: var(--spacing);
   }
   .checked\:bg-primary:checked {
     background-color: var(--color-primary);
@@ -885,6 +952,33 @@
   .disabled\:opacity-50:disabled {
     opacity: 50%;
   }
+  :where([data-slot="x"]) .in-data-\[slot\=x\]\:p-1 {
+    padding: var(--spacing);
+  }
+  .has-disabled\:opacity-50:has(:disabled) {
+    opacity: 50%;
+  }
+  .has-aria-invalid\:border-destructive:has([aria-invalid="true"]) {
+    border-color: var(--color-destructive);
+  }
+  .has-data-\[slot\=card-action\]\:grid-cols-\[1fr_auto\]:has([data-slot="card-action"]) {
+    grid-template-columns: 1fr auto;
+  }
+  .has-\[\[data-slot\=x\]\]\:p-2:has(:is([data-slot=x])) {
+    padding: calc(var(--spacing) * 2);
+  }
+  .has-\[select\:disabled\]\:opacity-50:has(:is(select:disabled)) {
+    opacity: 50%;
+  }
+  .has-\[svg\]\:gap-2:has(:is(svg)) {
+    gap: calc(var(--spacing) * 2);
+  }
+  .has-\[\>a\,\>button\]\:p-2:has( > a,  > button) {
+    padding: calc(var(--spacing) * 2);
+  }
+  .has-\[\>svg\]\:px-3:has( > svg) {
+    padding-inline: calc(var(--spacing) * 3);
+  }
   .aria-invalid\:border-destructive[aria-invalid="true"] {
     border-color: var(--color-destructive);
   }
@@ -897,11 +991,22 @@
   .data-disabled\:opacity-50[data-disabled] {
     opacity: 50%;
   }
+  :is(.\*\:data-\[slot\=select-value\]\:flex > *)[data-slot="select-value"] {
+    display: flex;
+  }
+  :is(.\*\*\:data-\[slot\=x\]\:p-1 *)[data-slot="x"] {
+    padding: var(--spacing);
+  }
   .data-\[state\=closed\]\:opacity-0[data-state="closed"] {
     opacity: 0%;
   }
   .data-\[state\=open\]\:bg-accent[data-state="open"] {
     background-color: var(--color-accent);
+  }
+  @media (width >= 220px) {
+    .\32 xl\:flex {
+      display: flex;
+    }
   }
   @media (prefers-color-scheme: dark) {
     .dark\:bg-destructive\/40 {
@@ -936,6 +1041,47 @@
         }
       }
     }
+  }
+  .\[\&_svg\]\:size-4 svg {
+    width: calc(var(--spacing) * 4);
+    height: calc(var(--spacing) * 4);
+  }
+  .\[\&_svg\:not\(\[class\*\=\'size-\'\]\)\]\:size-4 svg:not([class*='size-']) {
+    width: calc(var(--spacing) * 4);
+    height: calc(var(--spacing) * 4);
+  }
+  .\[\&\>\*\]\:p-1 > * {
+    padding: var(--spacing);
+  }
+  .\[\&\>\*\:not\(\:first-child\)\]\:p-1 > :not(:first-child) {
+    padding: var(--spacing);
+  }
+  .\[\&\>\.sr-only\]\:hidden > .sr-only {
+    display: none;
+  }
+  .\[\&\>\[data-slot\=x\]\]\:flex > [data-slot=x] {
+    display: flex;
+  }
+  .\[\&\>a\:hover\]\:underline > a:hover {
+    text-decoration-line: underline;
+  }
+  .\[\&\>span\:last-child\]\:underline > span:last-child {
+    text-decoration-line: underline;
+  }
+  .\[\&\>svg\]\:size-4 > svg {
+    width: calc(var(--spacing) * 4);
+    height: calc(var(--spacing) * 4);
+  }
+  @media (hover: hover) {
+    .group-hover\:\[\&\>svg\]\:shrink-0:is(:where(.group):hover *) > svg {
+      flex-shrink: 0;
+    }
+    .hover\:\[\&\>svg\]\:shrink-0:hover > svg {
+      flex-shrink: 0;
+    }
+  }
+  .\[\&\>video\]\:hidden > video {
+    display: none;
   }
 }
 @layer theme {

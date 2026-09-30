@@ -107,6 +107,9 @@ const (
 	PropJustifyItems
 	PropJustifySelf
 	PropAlignContent
+	PropPointerEvents
+	PropOverflowWrap
+	PropWordBreak
 )
 
 type Declaration struct {
@@ -134,6 +137,9 @@ type Declaration struct {
 	Line         GradientLine
 	WhiteSpace   WhiteSpace
 	TextOverflow TextOverflow
+	OverflowWrap OverflowWrap
+	WordBreak    WordBreak
+	Pointer      PointerEvents
 	Transition   TransitionProperty
 	Keyframes    Keyframes
 	Duration     time.Duration
@@ -183,15 +189,20 @@ type Condition struct {
 }
 
 type Rule struct {
-	Class string
-	When  Condition
-	Decls []Declaration
+	Class  string
+	When   Condition
+	Decls  []Declaration
+	Target Match
+	Near   Match
 }
 
 type Sheet struct {
 	rules     []Rule
 	universal []int
 	byClass   map[string][]int
+	near      map[string][]int
+	hands     map[string][]int
+	marks     map[string]Markers
 	theme     *theme.Theme
 	bounds    []int
 	columns   int
@@ -223,7 +234,42 @@ func (s Sheet) Band(columns int) int {
 
 func (s Sheet) Responsive(classes []string) bool {
 	bounded := func(i int) bool { return s.rules[i].When.MinCols != 0 || s.rules[i].When.BelowCols != 0 }
-	return slices.ContainsFunc(s.universal, bounded) || slices.ContainsFunc(classes, func(c string) bool { return slices.ContainsFunc(s.byClass[c], bounded) })
+	return slices.ContainsFunc(s.universal, bounded) || slices.ContainsFunc(classes, func(c string) bool {
+		return slices.ContainsFunc(s.byClass[c], bounded) || slices.ContainsFunc(s.near[c], bounded) || slices.ContainsFunc(s.hands[c], bounded)
+	})
+}
+
+func (s Sheet) Marks(classes []string) Markers {
+	var marks Markers
+	for _, c := range classes {
+		marks |= s.marks[c]
+	}
+	return marks
+}
+
+func (s Sheet) Near(classes []string, into []int) []int {
+	for _, c := range classes {
+		into = append(into, s.near[c]...)
+	}
+	return into
+}
+
+func (s Sheet) Hands(classes []string, node NodeState, into []int) []int {
+	scheme := s.scheme()
+	for _, c := range classes {
+		for _, i := range s.hands[c] {
+			if when := &s.rules[i].When; s.fits(when, scheme) && node.holds(when.States, when.Attrs) {
+				into = append(into, i)
+			}
+		}
+	}
+	return into
+}
+
+func (s Sheet) Rule(i int) *Rule { return &s.rules[i] }
+
+func (m *Match) Accepts(element Element, marks Markers, node NodeState) bool {
+	return (m.Element == ElementAny || m.Element == element) && marks&m.mark == m.mark && node.holds(m.States, m.Attrs)
 }
 
 func (s Sheet) WithTheme(t *theme.Theme) Sheet {
@@ -241,11 +287,36 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 	if version != konst.IRVersion {
 		return Sheet{}, VersionError{Got: version}
 	}
-	s := Sheet{rules: rules, byClass: map[string][]int{}, shaded: &shadeCache{done: map[shading][2][]Shadow{}}}
-	for i, r := range rules {
-		if r.Class == "" {
+	s := Sheet{
+		rules:   slices.Clone(rules),
+		byClass: map[string][]int{},
+		near:    map[string][]int{},
+		hands:   map[string][]int{},
+		marks:   map[string]Markers{},
+		shaded:  &shadeCache{done: map[shading][2][]Shadow{}},
+	}
+	for i := range s.rules {
+		r := &s.rules[i]
+		for _, m := range [...]*Match{&r.Near, &r.Target} {
+			if m.Class == "" {
+				continue
+			}
+			if _, ok := s.marks[m.Class]; !ok {
+				if len(s.marks) == konst.MaxMarkers {
+					return Sheet{}, fmt.Errorf("style: more than %d group, peer and target classes", konst.MaxMarkers)
+				}
+				s.marks[m.Class] = 1 << len(s.marks)
+			}
+			m.mark = s.marks[m.Class]
+		}
+		switch {
+		case r.Target.Relation != RelationSelf:
+			s.hands[r.Class] = append(s.hands[r.Class], i)
+		case r.Near.Relation != RelationSelf:
+			s.near[r.Class] = append(s.near[r.Class], i)
+		case r.Class == "":
 			s.universal = append(s.universal, i)
-		} else {
+		default:
 			s.byClass[r.Class] = append(s.byClass[r.Class], i)
 		}
 		for _, bound := range [...]int{r.When.MinCols, r.When.BelowCols} {
@@ -259,11 +330,11 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 	return s, nil
 }
 
-func (n NodeState) matches(when *Condition) bool {
-	if when.States&^n.States != 0 {
+func (n NodeState) holds(states State, attrs []Attr) bool {
+	if states&^n.States != 0 {
 		return false
 	}
-	for _, want := range when.Attrs {
+	for _, want := range attrs {
 		if !slices.ContainsFunc(n.Attrs, func(a Attr) bool { return a.Name == want.Name && (want.AnyValue || a.Value == want.Value) }) {
 			return false
 		}
@@ -285,11 +356,31 @@ func (s Sheet) Compute(parent ComputedStyle, classes []string) ComputedStyle {
 }
 
 func (s Sheet) ComputeState(parent ComputedStyle, classes []string, node NodeState) ComputedStyle {
+	return s.ComputeRelated(parent, classes, node, nil)
+}
+
+func (s Sheet) scheme() Scheme {
+	switch {
+	case s.theme == nil:
+		return SchemeAny
+	case s.theme.Scheme == theme.Dark:
+		return SchemeDark
+	}
+	return SchemeLight
+}
+
+func (s Sheet) fits(when *Condition, scheme Scheme) bool {
+	narrow, wide := when.MinCols > s.columns, when.BelowCols != 0 && s.columns >= when.BelowCols
+	return !narrow && !wide && (when.Scheme == SchemeAny || when.Scheme == scheme)
+}
+
+func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeState, related []int) ComputedStyle {
 	var stack [konst.MatchedRules]int
 	matched := append(stack[:0], s.universal...)
 	for _, c := range classes {
 		matched = append(matched, s.byClass[c]...)
 	}
+	matched = append(matched, related...)
 	slices.Sort(matched)
 	ease := Easing{X1: konst.EaseX1, Y1: konst.EaseY1, X2: konst.EaseX2, Y2: konst.EaseY2}
 	out := ComputedStyle{
@@ -323,6 +414,9 @@ func (s Sheet) ComputeState(parent ComputedStyle, classes []string, node NodeSta
 		Cursor:        parent.Cursor,
 		UserSelect:    parent.UserSelect,
 		WhiteSpace:    parent.WhiteSpace,
+		OverflowWrap:  parent.OverflowWrap,
+		WordBreak:     parent.WordBreak,
+		PointerEvents: parent.PointerEvents,
 		Ring: Ring{
 			Color:       color.Color{Kind: color.Current},
 			OffsetColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: konst.RingOffsetWhite, G: konst.RingOffsetWhite, B: konst.RingOffsetWhite, A: konst.RingOffsetWhite}},
@@ -330,18 +424,10 @@ func (s Sheet) ComputeState(parent ComputedStyle, classes []string, node NodeSta
 		Transition: Transition{Properties: TransitionAll, Easing: ease},
 		Animation:  Animation{Iterations: 1, Easing: ease},
 	}
-	scheme := SchemeAny
-	switch {
-	case s.theme == nil:
-	case s.theme.Scheme == theme.Dark:
-		scheme = SchemeDark
-	default:
-		scheme = SchemeLight
-	}
+	scheme := s.scheme()
 	for _, i := range slices.Compact(matched) {
 		r := &s.rules[i]
-		narrow, wide := r.When.MinCols > s.columns, r.When.BelowCols != 0 && s.columns >= r.When.BelowCols
-		if narrow || wide || r.When.Scheme != SchemeAny && r.When.Scheme != scheme || !node.matches(&r.When) {
+		if !s.fits(&r.When, scheme) || r.Target.Relation == RelationSelf && !node.holds(r.When.States, r.When.Attrs) {
 			continue
 		}
 		for j := range r.Decls {
@@ -587,6 +673,12 @@ func (s *ComputedStyle) apply(d *Declaration, inherited color.Color) {
 		s.WhiteSpace = d.WhiteSpace
 	case PropTextOverflow:
 		s.TextOverflow = d.TextOverflow
+	case PropOverflowWrap:
+		s.OverflowWrap = d.OverflowWrap
+	case PropWordBreak:
+		s.WordBreak = d.WordBreak
+	case PropPointerEvents:
+		s.PointerEvents = d.Pointer
 	case PropAspectRatio:
 		s.AspectRatio = d.Number
 	case PropTransitionProperty:

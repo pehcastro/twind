@@ -219,6 +219,67 @@ const (
 	TextOverflowEllipsis
 )
 
+type OverflowWrap uint8
+
+const (
+	OverflowWrapNormal OverflowWrap = iota
+	OverflowWrapBreakWord
+	OverflowWrapAnywhere
+)
+
+type WordBreak uint8
+
+const (
+	WordBreakNormal WordBreak = iota
+	WordBreakAll
+	WordBreakKeepAll
+)
+
+type PointerEvents uint8
+
+const (
+	PointerAuto PointerEvents = iota
+	PointerNone
+)
+
+type Element uint8
+
+const (
+	ElementAny Element = iota
+	ElementA
+	ElementButton
+	ElementImg
+	ElementInput
+	ElementKbd
+	ElementLabel
+	ElementP
+	ElementSelect
+	ElementSpan
+	ElementSVG
+	ElementTextarea
+)
+
+type Relation uint8
+
+const (
+	RelationSelf Relation = iota
+	RelationChild
+	RelationDescendant
+	RelationAncestor
+	RelationPrevious
+)
+
+type Markers uint64
+
+type Match struct {
+	Relation Relation
+	Class    string
+	Element  Element
+	States   State
+	Attrs    []Attr
+	mark     Markers
+}
+
 type Easing struct{ X1, Y1, X2, Y2 float64 }
 
 type TransitionProperty uint8
@@ -369,6 +430,9 @@ type ComputedStyle struct {
 	UserSelect    UserSelect
 	WhiteSpace    WhiteSpace
 	TextOverflow  TextOverflow
+	OverflowWrap  OverflowWrap
+	WordBreak     WordBreak
+	PointerEvents PointerEvents
 	AspectRatio   float64
 
 	Transition Transition

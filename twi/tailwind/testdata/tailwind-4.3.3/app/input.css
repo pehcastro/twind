@@ -6,6 +6,7 @@
   --breakpoint-md: 100px;
   --breakpoint-lg: 140px;
   --breakpoint-xl: 180px;
+  --breakpoint-2xl: 220px;
   --color-background: var(--color-white);
   --color-foreground: var(--color-zinc-950);
   --color-card: var(--color-white);

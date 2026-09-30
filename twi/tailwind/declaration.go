@@ -157,6 +157,15 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 	case "text-overflow":
 		v, p := pick(parts, map[string]style.TextOverflow{"clip": style.TextOverflowClip, "ellipsis": style.TextOverflowEllipsis})
 		return decls{{Property: style.PropTextOverflow, TextOverflow: v}}, p
+	case "overflow-wrap":
+		v, p := pick(parts, map[string]style.OverflowWrap{"normal": style.OverflowWrapNormal, "break-word": style.OverflowWrapBreakWord, "anywhere": style.OverflowWrapAnywhere})
+		return decls{{Property: style.PropOverflowWrap, OverflowWrap: v}}, p
+	case "word-break":
+		v, p := pick(parts, map[string]style.WordBreak{"normal": style.WordBreakNormal, "break-all": style.WordBreakAll, "keep-all": style.WordBreakKeepAll})
+		return decls{{Property: style.PropWordBreak, WordBreak: v}}, p
+	case "pointer-events":
+		v, p := pick(parts, map[string]style.PointerEvents{"auto": style.PointerAuto, "none": style.PointerNone})
+		return decls{{Property: style.PropPointerEvents, Pointer: v}}, p
 	case "aspect-ratio":
 		if strings.EqualFold(text(slices.Concat(parts...)), "auto") {
 			return decls{{Property: style.PropAspectRatio}}, problem{}

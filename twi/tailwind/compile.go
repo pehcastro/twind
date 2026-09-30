@@ -222,14 +222,20 @@ func (c *compiler) themed(layer string, out style.Rule, block []css.Node, warn f
 
 func selectorList(list string) []string {
 	var out []string
-	start := 0
+	start, depth := 0, 0
 	for i := 0; i < len(list); i++ {
 		switch list[i] {
 		case '\\':
 			i++
+		case '(':
+			depth++
+		case ')':
+			depth--
 		case ',':
-			out = append(out, strings.TrimSpace(list[start:i]))
-			start = i + 1
+			if depth == 0 {
+				out = append(out, strings.TrimSpace(list[start:i]))
+				start = i + 1
+			}
 		}
 	}
 	return append(out, strings.TrimSpace(list[start:]))

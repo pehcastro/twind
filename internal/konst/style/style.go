@@ -24,6 +24,7 @@ const (
 	MatchedRules    = 64
 	ShadeEntries    = 1024
 	MaxGridTracks   = 1000
+	MaxMarkers      = 64
 )
 
 const PresetTheme = `@theme {
@@ -32,6 +33,7 @@ const PresetTheme = `@theme {
   --breakpoint-md: 100px;
   --breakpoint-lg: 140px;
   --breakpoint-xl: 180px;
+  --breakpoint-2xl: 220px;
   --color-background: var(--color-white);
   --color-foreground: var(--color-zinc-950);
   --color-card: var(--color-white);
