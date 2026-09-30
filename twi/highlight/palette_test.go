@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	konst "github.com/twind-dev/twind/internal/konst/highlight"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/highlight"
 	"github.com/twind-dev/twind/twi/theme"
@@ -22,20 +23,43 @@ func wcagLuminance(c color.RGBA) float64 {
 	return 0.2126*linear(c.R) + 0.7152*linear(c.G) + 0.0722*linear(c.B)
 }
 
+func TestPaletteSyntaxTokens(t *testing.T) {
+	p := highlight.DefaultPalette()
+	for k, want := range map[highlight.Kind]theme.Token{
+		highlight.Text: theme.Foreground, highlight.Identifier: theme.Foreground,
+		highlight.Keyword: theme.SyntaxKeyword, highlight.String: theme.SyntaxString, highlight.Number: theme.SyntaxNumber,
+		highlight.Comment: theme.SyntaxComment, highlight.Function: theme.SyntaxFunction, highlight.Constant: theme.SyntaxConstant,
+		highlight.Namespace: theme.SyntaxNamespace, highlight.Parameter: theme.SyntaxParameter, highlight.Punctuation: theme.SyntaxPunctuation,
+	} {
+		if p[k] != want {
+			t.Errorf("%s: %s, want %s", k, p[k], want)
+		}
+	}
+	for k := highlight.Text; k <= highlight.Constant; k++ {
+		if name := p[k].String(); name != "foreground" && !strings.HasPrefix(name, "syntax-") {
+			t.Errorf("%s: %q is not a syntax token", k, name)
+		}
+	}
+}
+
 func TestPaletteReadableOnEveryTheme(t *testing.T) {
 	var table strings.Builder
+	p := highlight.DefaultPalette()
 	for _, th := range theme.Builtin() {
-		p := highlight.DefaultPalette(th)
-		bg := wcagLuminance(th.Tokens[theme.Muted].RGBA)
 		scheme := [...]string{theme.Light: "light", theme.Dark: "dark"}[th.Scheme]
 		fmt.Fprintf(&table, "%s-%s", th.Name, scheme)
 		for k := highlight.Text; k <= highlight.Constant; k++ {
 			fg := wcagLuminance(th.Tokens[p[k]].RGBA)
-			ratio := (max(fg, bg) + 0.05) / (min(fg, bg) + 0.05)
-			fmt.Fprintf(&table, " %s=%s:%.1f", k, p[k], ratio)
-			if ratio < 4.5 {
-				t.Errorf("%s %s: %s as %s is %.2f:1 on muted", th.Name, scheme, k, p[k], ratio)
+			lowest := math.Inf(1)
+			for _, surface := range []theme.Token{theme.Muted, theme.Background} {
+				bg := wcagLuminance(th.Tokens[surface].RGBA)
+				ratio := (max(fg, bg) + 0.05) / (min(fg, bg) + 0.05)
+				lowest = min(lowest, ratio)
+				if ratio < konst.ReadableContrast {
+					t.Errorf("%s %s: %s as %s is %.2f:1 on %s", th.Name, scheme, k, p[k], ratio, surface)
+				}
 			}
+			fmt.Fprintf(&table, " %s=%.1f", k, lowest)
 		}
 		table.WriteString("\n")
 	}

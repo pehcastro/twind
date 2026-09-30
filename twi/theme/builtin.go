@@ -97,10 +97,28 @@ func Builtin() []Theme {
 		Light: {Selection: "oklch(0% 0 0)", SelectionForeground: "oklch(1 0 0)"},
 		Dark:  {Selection: "oklch(0.922 0 0)", SelectionForeground: "oklch(0.205 0 0)"},
 	}
-	accent := func(primary, sidebarPrimary [Dark + 1]string, foreground string, chart [5]string) palette {
+	syntax := palette{
+		Light: {
+			SyntaxKeyword: "oklch(0.55 0.19 22)", SyntaxString: "oklch(0.52 0.14 148)", SyntaxNumber: "oklch(0.5 0.18 256)",
+			SyntaxComment: "oklch(0.53 0.035 200)", SyntaxFunction: "oklch(0.49 0.2 295)", SyntaxConstant: "oklch(0.5 0.18 256)",
+			SyntaxNamespace: "oklch(0.49 0.2 295)", SyntaxParameter: "oklch(0.55 0.17 48)", SyntaxPunctuation: "oklch(0.45 0 0)",
+		},
+		Dark: {
+			SyntaxKeyword: "oklch(0.72 0.15 18)", SyntaxString: "oklch(0.8 0.14 150)", SyntaxNumber: "oklch(0.77 0.12 252)",
+			SyntaxComment: "oklch(0.7 0.035 200)", SyntaxFunction: "oklch(0.74 0.14 300)", SyntaxConstant: "oklch(0.77 0.12 252)",
+			SyntaxNamespace: "oklch(0.74 0.14 300)", SyntaxParameter: "oklch(0.81 0.11 58)", SyntaxPunctuation: "oklch(0.72 0 0)",
+		},
+	}
+	accent := func(hue string, primary, sidebarPrimary [Dark + 1]string, foreground string, chart [5]string) palette {
 		p := palette{
-			Light: {Secondary: "oklch(0.967 0.001 286.375)", SecondaryForeground: "oklch(0.21 0.006 285.885)"},
-			Dark:  {Secondary: "oklch(0.274 0.006 286.033)", SecondaryForeground: "oklch(0.985 0 0)"},
+			Light: {
+				Secondary: "oklch(0.967 0.001 286.375)", SecondaryForeground: "oklch(0.21 0.006 285.885)",
+				SyntaxComment: "oklch(0.53 0.04 " + hue + ")", SyntaxPunctuation: "oklch(0.45 0.02 " + hue + ")",
+			},
+			Dark: {
+				Secondary: "oklch(0.274 0.006 286.033)", SecondaryForeground: "oklch(0.985 0 0)",
+				SyntaxComment: "oklch(0.7 0.04 " + hue + ")", SyntaxPunctuation: "oklch(0.72 0.02 " + hue + ")",
+			},
 		}
 		for scheme := Light; scheme <= Dark; scheme++ {
 			p[scheme][Primary], p[scheme][PrimaryForeground] = primary[scheme], foreground
@@ -118,30 +136,30 @@ func Builtin() []Theme {
 		{"zinc", []palette{zinc}},
 		{"slate", []palette{slate}},
 		{"stone", []palette{stone}},
-		{"rose", []palette{neutral, accent(
+		{"rose", []palette{neutral, accent("16.935",
 			[Dark + 1]string{"oklch(0.514 0.222 16.935)", "oklch(0.455 0.188 13.697)"}, [Dark + 1]string{"oklch(0.586 0.253 17.585)", "oklch(0.645 0.246 16.439)"}, "oklch(0.969 0.015 12.422)",
 			[5]string{"oklch(0.81 0.117 11.638)", "oklch(0.645 0.246 16.439)", "oklch(0.586 0.253 17.585)", "oklch(0.514 0.222 16.935)", "oklch(0.455 0.188 13.697)"},
 		), {Dark: {Sidebar: "oklch(0.21 0.006 285.885)"}}}},
-		{"blue", []palette{neutral, accent(
+		{"blue", []palette{neutral, accent("264.376",
 			[Dark + 1]string{"oklch(0.488 0.243 264.376)", "oklch(0.424 0.199 265.638)"}, [Dark + 1]string{"oklch(0.546 0.245 262.881)", "oklch(0.623 0.214 259.815)"}, "oklch(0.97 0.014 254.604)",
 			[5]string{"oklch(0.809 0.105 251.813)", "oklch(0.623 0.214 259.815)", "oklch(0.546 0.245 262.881)", "oklch(0.488 0.243 264.376)", "oklch(0.424 0.199 265.638)"},
 		)}},
-		{"green", []palette{neutral, accent(
+		{"green", []palette{neutral, accent("150.069",
 			[Dark + 1]string{"oklch(0.527 0.154 150.069)", "oklch(0.448 0.119 151.328)"}, [Dark + 1]string{"oklch(0.627 0.194 149.214)", "oklch(0.723 0.219 149.579)"}, "oklch(0.982 0.018 155.826)",
 			[5]string{"oklch(0.871 0.15 154.449)", "oklch(0.723 0.219 149.579)", "oklch(0.627 0.194 149.214)", "oklch(0.527 0.154 150.069)", "oklch(0.448 0.119 151.328)"},
 		)}},
-		{"orange", []palette{neutral, accent(
+		{"orange", []palette{neutral, accent("38.402",
 			[Dark + 1]string{"oklch(0.553 0.195 38.402)", "oklch(0.47 0.157 37.304)"}, [Dark + 1]string{"oklch(0.646 0.222 41.116)", "oklch(0.705 0.213 47.604)"}, "oklch(0.98 0.016 73.684)",
 			[5]string{"oklch(0.837 0.128 66.29)", "oklch(0.705 0.213 47.604)", "oklch(0.646 0.222 41.116)", "oklch(0.553 0.195 38.402)", "oklch(0.47 0.157 37.304)"},
 		)}},
-		{"violet", []palette{neutral, accent(
+		{"violet", []palette{neutral, accent("292.581",
 			[Dark + 1]string{"oklch(0.491 0.27 292.581)", "oklch(0.432 0.232 292.759)"}, [Dark + 1]string{"oklch(0.541 0.281 293.009)", "oklch(0.606 0.25 292.717)"}, "oklch(0.969 0.016 293.756)",
 			[5]string{"oklch(0.811 0.111 293.571)", "oklch(0.606 0.25 292.717)", "oklch(0.541 0.281 293.009)", "oklch(0.491 0.27 292.581)", "oklch(0.432 0.232 292.759)"},
 		)}},
 	} {
 		for scheme := Light; scheme <= Dark; scheme++ {
 			t := Theme{Name: p.name, Scheme: scheme}
-			for _, layer := range append(p.layers, selection) {
+			for _, layer := range append([]palette{selection, syntax}, p.layers...) {
 				for token, value := range layer[scheme] {
 					if value == "" {
 						continue

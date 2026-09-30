@@ -38,6 +38,15 @@ const (
 	Chart5
 	Selection
 	SelectionForeground
+	SyntaxKeyword
+	SyntaxString
+	SyntaxNumber
+	SyntaxComment
+	SyntaxFunction
+	SyntaxConstant
+	SyntaxNamespace
+	SyntaxParameter
+	SyntaxPunctuation
 	tokenEnd
 )
 
@@ -51,6 +60,9 @@ func (t Token) String() string {
 		SidebarAccent: "sidebar-accent", SidebarAccentForeground: "sidebar-accent-foreground", SidebarBorder: "sidebar-border", SidebarRing: "sidebar-ring",
 		Chart1: "chart-1", Chart2: "chart-2", Chart3: "chart-3", Chart4: "chart-4", Chart5: "chart-5",
 		Selection: "selection", SelectionForeground: "selection-foreground",
+		SyntaxKeyword: "syntax-keyword", SyntaxString: "syntax-string", SyntaxNumber: "syntax-number", SyntaxComment: "syntax-comment",
+		SyntaxFunction: "syntax-function", SyntaxConstant: "syntax-constant", SyntaxNamespace: "syntax-namespace",
+		SyntaxParameter: "syntax-parameter", SyntaxPunctuation: "syntax-punctuation",
 	}[t]
 }
 

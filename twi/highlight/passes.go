@@ -3,11 +3,8 @@ package highlight
 import (
 	"slices"
 	"strings"
-)
 
-const (
-	paramScanTokens = 64
-	callScanTokens  = 200
+	konst "github.com/twind-dev/twind/internal/konst/highlight"
 )
 
 type work struct {
@@ -139,7 +136,7 @@ func (w *work) params(start int) int {
 		return -1
 	}
 	bracket, brace := 0, 0
-	for budget := paramScanTokens; k < len(sp) && budget > 0; k++ {
+	for budget := konst.ParamScanTokens; k < len(sp) && budget > 0; k++ {
 		if sp[k].Kind == Text {
 			continue
 		}
@@ -391,7 +388,7 @@ func (w *work) balanced(j int) bool {
 		return false
 	}
 	depth := 0
-	for budget := 1 + callScanTokens; j < len(sp) && budget > 0; j++ {
+	for budget := 1 + konst.CallScanTokens; j < len(sp) && budget > 0; j++ {
 		if sp[j].Kind == Text {
 			continue
 		}

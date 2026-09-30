@@ -28,7 +28,7 @@ Rules are built with the same helpers twinkleplop uses:
 | `enter(s)`, `goto(s)`, `leave()` | `.Enter(s)`, `.Goto(s)`, `.Leave()` |
 | `mode: "probe"`, `fallback: s` | `State{Probe: true, AtEnd: s}` |
 
-`Text` means no token: bytes a rule consumes without a kind, and bytes no rule matches, come out as `Text` spans. `DefaultPalette(theme)` maps each kind to a theme token: for each kind it tries a short list of tokens and keeps the first that reaches 4.5:1 against `muted` in that theme, falling back to `foreground`. Call it again when the theme changes.
+`Text` means no token: bytes a rule consumes without a kind, and bytes no rule matches, come out as `Text` spans. `DefaultPalette()` maps each kind to a theme token: `foreground` for text and identifiers, a `syntax-*` token for the rest (`syntax-keyword`, `syntax-string`, `syntax-number`, `syntax-comment`, `syntax-function`, `syntax-constant`, `syntax-namespace`, `syntax-parameter`, `syntax-punctuation`). Every shipped theme defines them after github-light and github-dark, at 4.5:1 or more against `muted` and `background`, so a theme switch needs no new palette.
 
 ## twinkleplop licence
 

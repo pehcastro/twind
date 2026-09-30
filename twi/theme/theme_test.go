@@ -1,8 +1,11 @@
 package theme_test
 
 import (
+	"math"
+	"slices"
 	"testing"
 
+	konst "github.com/twind-dev/twind/internal/konst/highlight"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/theme"
 )
@@ -20,6 +23,83 @@ func TestThemeBuiltin(t *testing.T) {
 	for _, name := range []string{"neutral", "zinc", "slate", "stone", "rose", "blue", "green", "orange", "violet"} {
 		if seen[name] != 2 {
 			t.Errorf("%s: %d schemes, want light and dark", name, seen[name])
+		}
+	}
+}
+
+func linear(v uint8) float64 {
+	s := float64(v) / 255
+	if s <= 0.04045 {
+		return s / 12.92
+	}
+	return math.Pow((s+0.055)/1.055, 2.4)
+}
+
+func contrast(a, b color.RGBA) float64 {
+	la := 0.2126*linear(a.R) + 0.7152*linear(a.G) + 0.0722*linear(a.B)
+	lb := 0.2126*linear(b.R) + 0.7152*linear(b.G) + 0.0722*linear(b.B)
+	return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+}
+
+func chromaHue(c color.RGBA) (float64, float64) {
+	r, g, b := linear(c.R), linear(c.G), linear(c.B)
+	l := math.Cbrt(0.4122214708*r + 0.5363325363*g + 0.0514459929*b)
+	m := math.Cbrt(0.2119034982*r + 0.6806995451*g + 0.1073969566*b)
+	s := math.Cbrt(0.0883024619*r + 0.2817188376*g + 0.6299787005*b)
+	a := 1.9779984951*l - 2.4285922050*m + 0.4505937099*s
+	bb := 0.0259040371*l + 0.7827717662*m - 0.8086757660*s
+	return math.Hypot(a, bb), math.Mod(math.Atan2(bb, a)*180/math.Pi+360, 360)
+}
+
+func TestThemeSyntaxReadable(t *testing.T) {
+	names := []string{
+		"syntax-keyword", "syntax-string", "syntax-number", "syntax-comment", "syntax-function",
+		"syntax-constant", "syntax-namespace", "syntax-parameter", "syntax-punctuation",
+	}
+	for _, th := range theme.Builtin() {
+		for _, name := range names {
+			tok, ok := theme.ParseToken(name)
+			if !ok {
+				t.Fatalf("%s: not a token", name)
+			}
+			fg := th.Tokens[tok]
+			if fg.Kind != color.Literal {
+				t.Errorf("%s %d: %s unset", th.Name, th.Scheme, name)
+				continue
+			}
+			for _, surface := range []theme.Token{theme.Muted, theme.Background} {
+				if ratio := contrast(fg.RGBA, th.Tokens[surface].RGBA); ratio < konst.ReadableContrast {
+					t.Errorf("%s %d: %s is %.2f:1 on %s", th.Name, th.Scheme, name, ratio, surface)
+				}
+			}
+		}
+	}
+}
+
+func TestThemeSyntaxHues(t *testing.T) {
+	five := []theme.Token{theme.SyntaxKeyword, theme.SyntaxString, theme.SyntaxNumber, theme.SyntaxFunction, theme.SyntaxComment}
+	for _, th := range theme.Builtin() {
+		if !slices.Contains([]string{"neutral", "zinc", "slate", "stone"}, th.Name) {
+			_, comment := chromaHue(th.Tokens[theme.SyntaxComment].RGBA)
+			_, primary := chromaHue(th.Tokens[theme.Primary].RGBA)
+			if d := math.Abs(comment - primary); min(d, 360-d) > 10 {
+				t.Errorf("%s %d: comment hue %.0f is not tinted to primary hue %.0f", th.Name, th.Scheme, comment, primary)
+			}
+			continue
+		}
+		hues := map[theme.Token]float64{}
+		for _, tok := range five {
+			chroma, hue := chromaHue(th.Tokens[tok].RGBA)
+			if chroma < 0.03 {
+				t.Errorf("%s %d: %s has chroma %.3f, no hue", th.Name, th.Scheme, tok, chroma)
+				continue
+			}
+			for other, seen := range hues {
+				if d := math.Abs(hue - seen); min(d, 360-d) < 30 {
+					t.Errorf("%s %d: %s hue %.0f is within 30 of %s hue %.0f", th.Name, th.Scheme, tok, hue, other, seen)
+				}
+			}
+			hues[tok] = hue
 		}
 	}
 }
