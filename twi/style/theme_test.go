@@ -1,7 +1,11 @@
 package style_test
 
 import (
+	"math"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -74,6 +78,78 @@ func TestThemeTokens(t *testing.T) {
 	}
 	if got := sheet.WithTheme(builtin(t, "rose", theme.Dark)).Compute(style.ComputedStyle{}, []string{"bg-primary"}).Background; got != rgba(165, 0, 54, 255) {
 		t.Errorf("rose dark bg-primary %v, want 165,0,54", got)
+	}
+}
+
+func pinnedSheet(t *testing.T, classes ...string) style.Sheet {
+	t.Helper()
+	bin, err := filepath.Abs(filepath.Join("..", "..", ".twind", "bin", "tailwindcss-"+runtime.GOOS+"-"+map[string]string{"amd64": "x64", "arm64": "arm64"}[runtime.GOARCH]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	if _, err := os.Stat(bin); err != nil {
+		t.Skipf("no pinned Tailwind: %v", err)
+	}
+	dir := t.TempDir()
+	manifest, input, output := filepath.Join(dir, "manifest.txt"), filepath.Join(dir, "input.css"), filepath.Join(dir, "output.css")
+	if err := os.WriteFile(manifest, []byte(strings.Join(classes, "\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(input, []byte(tailwind.Input([]string{manifest})), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := exec.Command(bin, "-i", input, "-o", output).CombinedOutput(); err != nil {
+		t.Fatalf("tailwind: %v\n%s", err, msg)
+	}
+	css, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules, _, err := tailwind.Compile(string(css))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sheet, err := style.NewSheet(konst.IRVersion, rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sheet
+}
+
+func TestGradientFollowsTheme(t *testing.T) {
+	gradient := strings.Fields("bg-linear-to-r from-primary to-primary-300")
+	sheet := pinnedSheet(t, append(gradient, "from-primary/40")...)
+	primary300, _ := theme.ParseToken("primary-300")
+	seen := map[[2]color.RGBA]bool{}
+	for _, name := range []string{"twind", "dream", "cloud", "sukuna", "zinc"} {
+		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
+			th := builtin(t, name, scheme)
+			from, to := th.Tokens[theme.Primary], th.Tokens[primary300]
+			g := sheet.WithTheme(th).Compute(style.ComputedStyle{}, gradient).Gradient
+			t.Logf("%s %d: from %v to %v", name, scheme, g.From.Color.RGBA, g.To.Color.RGBA)
+			if g.Kind != style.GradientLinear || g.Direction != style.ToRight || to.Kind != color.Literal || g.From.Color != from || g.To.Color != to {
+				t.Errorf("%s %d: %+v, want linear to right from %v to %v", name, scheme, g, from, to)
+			}
+			faded := from
+			faded.RGBA.A = uint8(math.Round(float64(from.RGBA.A) * 0.4))
+			if got := sheet.WithTheme(th).Compute(style.ComputedStyle{}, []string{"from-primary/40"}).Gradient.From.Color; got != faded {
+				t.Errorf("%s %d: from-primary/40 %v, want %v", name, scheme, got, faded)
+			}
+			seen[[2]color.RGBA{from.RGBA, to.RGBA}] = true
+		}
+	}
+	if len(seen) < 8 {
+		t.Errorf("%d distinct gradients over ten themes, want each theme its own", len(seen))
+	}
+	a, b := builtin(t, "twind", theme.Dark), builtin(t, "cloud", theme.Light)
+	first := sheet.WithTheme(a).Compute(style.ComputedStyle{}, gradient).Gradient
+	switched := sheet.WithTheme(b).Compute(style.ComputedStyle{}, gradient).Gradient
+	back := sheet.WithTheme(a).Compute(style.ComputedStyle{}, gradient).Gradient
+	if switched.From.Color != b.Tokens[theme.Primary] || switched.To.Color != b.Tokens[primary300] || back != first || switched == first {
+		t.Errorf("twind dark %v, cloud light %v, twind dark again %v: want each its own theme's colours", first, switched, back)
 	}
 }
 

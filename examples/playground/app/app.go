@@ -254,7 +254,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 		name := themeName(themes[s.theme])
 		keys := slices.Concat(global, all[s.page].keys)
 		tabs := []twi.Node{
-			txt("shrink-0 rounded-full px-1 bg-emerald-400 text-emerald-950 font-bold", "twind"),
+			txt("shrink-0 rounded-full px-1 bg-linear-to-r from-primary-600 to-primary-400 text-primary-foreground font-bold", "twind"),
 			txt("shrink h-1 overflow-hidden px-1 text-muted-foreground", text.Truncate(filepath.ToSlash(env.Cwd), 40)),
 		}
 		active := func(on bool) twi.NodeOption {
@@ -301,7 +301,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			twi.Element(twi.Key(all[s.page].name), twi.Class("grow relative overflow-hidden flex flex-col justify-center px-3"), all[s.page].view(c)),
 			el("flex flex-row gap-2 px-3 text-muted-foreground", hints...),
 			el("mx-2 flex flex-row items-center gap-1 px-1 border rounded-lg bg-card text-muted-foreground focus-within:border-ring",
-				txt("text-emerald-400 font-bold", "▌"),
+				txt("text-primary font-bold", "▌"),
 				field.Node(append(c.focusable("input"),
 					twi.Class("grow h-1 overflow-hidden flex flex-row text-foreground"),
 					twi.OnKeyDown(func(e *twi.Event) {
@@ -315,7 +315,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 				txt("shrink-0 pl-1 text-foreground", "enter"), txt("shrink-0", "run"),
 			),
 			el("flex flex-row gap-3 px-3 text-muted-foreground",
-				txt("text-emerald-400", "● fullscreen"),
+				txt("text-primary", "● fullscreen"),
 				twi.Text(env.Size()),
 				twi.Text(env.Profile),
 				twi.Text(name),

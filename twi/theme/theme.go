@@ -50,6 +50,28 @@ const (
 	SyntaxParameter
 	SyntaxPunctuation
 	DestructiveForeground
+	Primary50
+	Primary100
+	Primary200
+	Primary300
+	Primary400
+	Primary500
+	Primary600
+	Primary700
+	Primary800
+	Primary900
+	Primary950
+	Accent50
+	Accent100
+	Accent200
+	Accent300
+	Accent400
+	Accent500
+	Accent600
+	Accent700
+	Accent800
+	Accent900
+	Accent950
 	tokenEnd
 )
 
@@ -66,6 +88,10 @@ func (t Token) String() string {
 		SyntaxKeyword: "syntax-keyword", SyntaxString: "syntax-string", SyntaxNumber: "syntax-number", SyntaxComment: "syntax-comment",
 		SyntaxFunction: "syntax-function", SyntaxConstant: "syntax-constant", SyntaxNamespace: "syntax-namespace",
 		SyntaxParameter: "syntax-parameter", SyntaxPunctuation: "syntax-punctuation", DestructiveForeground: "destructive-foreground",
+		Primary50: "primary-50", Primary100: "primary-100", Primary200: "primary-200", Primary300: "primary-300", Primary400: "primary-400", Primary500: "primary-500",
+		Primary600: "primary-600", Primary700: "primary-700", Primary800: "primary-800", Primary900: "primary-900", Primary950: "primary-950",
+		Accent50: "accent-50", Accent100: "accent-100", Accent200: "accent-200", Accent300: "accent-300", Accent400: "accent-400", Accent500: "accent-500",
+		Accent600: "accent-600", Accent700: "accent-700", Accent800: "accent-800", Accent900: "accent-900", Accent950: "accent-950",
 	}[t]
 }
 

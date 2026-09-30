@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/theme"
 )
@@ -79,14 +80,61 @@ func Parse(path string, src []byte) (theme.Theme, []Warning, error) {
 			light: {s.tokens[light], defaults.tokens[light]},
 			dark:  {s.tokens[dark], s.tokens[light], defaults.tokens[dark]},
 		} {
-			at := slices.IndexFunc(layers, func(t theme.Tokens) bool { return t[tok].Kind == color.Literal })
-			if at < 0 {
+			switch at := slices.IndexFunc(layers, func(t theme.Tokens) bool { return t[tok].Kind == color.Literal }); {
+			case at >= 0:
+				th.Schemes[scheme][tok] = layers[at][tok]
+			case tok < theme.Primary50:
 				return th, warnings, Error{path, s.opened[light], "missing --" + tok.String()}
 			}
-			th.Schemes[scheme][tok] = layers[at][tok]
 		}
 	}
+	for scheme := range th.Schemes {
+		ramp(&th.Schemes[scheme])
+	}
 	return th.WithScheme(theme.Dark), warnings, nil
+}
+
+func oklab(c color.RGBA) (l, a, b float64) {
+	lin := func(v uint8) float64 {
+		s := float64(v) / math.MaxUint8
+		if s <= 0.04045 {
+			return s / 12.92
+		}
+		return math.Pow((s+0.055)/1.055, 2.4)
+	}
+	r, g, bl := lin(c.R), lin(c.G), lin(c.B)
+	lc := math.Cbrt(0.4122214708*r + 0.5363325363*g + 0.0514459929*bl)
+	mc := math.Cbrt(0.2119034982*r + 0.6806995451*g + 0.1073969566*bl)
+	sc := math.Cbrt(0.0883024619*r + 0.2817188376*g + 0.6299787005*bl)
+	return 0.2104542553*lc + 0.7936177850*mc - 0.0040720468*sc, 1.9779984951*lc - 2.4285922050*mc + 0.4505937099*sc, 0.0259040371*lc + 0.7827717662*mc - 0.8086757660*sc
+}
+
+func ramp(tokens *theme.Tokens) {
+	for base, first := range map[theme.Token]theme.Token{theme.Primary: theme.Primary50, theme.Accent: theme.Accent50} {
+		l, a, b := oklab(tokens[base].RGBA)
+		chroma, hue, alpha := math.Hypot(a, b), math.Atan2(b, a)*180/math.Pi, float64(tokens[base].RGBA.A)/math.MaxUint8
+		tokens[first+konst.RampSide] = tokens[base]
+		for _, dir := range []int{-1, 1} {
+			target, fade := min(1, max(konst.RampLightest, l+konst.RampSpan)), konst.RampLightFade
+			if dir > 0 {
+				target, fade = max(0, min(konst.RampDarkest, l-konst.RampSpan)), konst.RampDarkFade
+			}
+			for k := 1; k <= konst.RampSide; k++ {
+				tok := first + theme.Token(konst.RampSide+dir*k)
+				if tokens[tok].Kind == color.Literal {
+					continue
+				}
+				f := 1 - math.Pow(1-float64(k)/konst.RampSide, konst.RampEase)
+				step, _ := color.Parse(fmt.Sprintf("oklch(%f %f %f / %f)", l+(target-l)*f, chroma*(1-f*fade), hue, alpha))
+				inner := tokens[first+theme.Token(konst.RampSide+dir*(k-1))]
+				stepL, _, _ := oklab(step.RGBA)
+				if innerL, _, _ := oklab(inner.RGBA); float64(dir)*(stepL-innerL) > 0 {
+					step = inner
+				}
+				tokens[tok] = step
+			}
+		}
+	}
 }
 
 func scan(path, src string) ([]decl, [theme.Dark + 1]int, error) {

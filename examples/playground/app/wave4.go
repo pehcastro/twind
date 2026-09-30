@@ -57,7 +57,7 @@ func aspectRatioPage(c controls) twi.Node {
 	return show("Aspect ratio", "the height follows the width, in the terminal's own cell pixels",
 		row(
 			el("flex flex-col gap-1 "+map[bool]string{true: "w-50", false: "w-30"}[k.wide],
-				ui.AspectRatio(twi.Class("aspect-video rounded-lg bg-linear-to-br from-emerald-400 to-sky-500")),
+				ui.AspectRatio(twi.Class("aspect-video rounded-lg bg-linear-to-br from-primary to-chart-2")),
 				txt("text-muted-foreground", "aspect-video"),
 			),
 			el("flex flex-col gap-1 w-16",
