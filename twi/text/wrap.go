@@ -90,32 +90,44 @@ func Wrap(s string, width int) []string {
 func (w Widths) Wrap(s string, width int) []string {
 	out := wrapper{w: w, width: width}
 	for paragraph := range strings.SplitSeq(s, "\n") {
-		var before lineClass
-		var pos, start, end, segWidth int
-		var segSpaced, spaced, leadingHyphen bool
-		for cluster := range Graphemes(paragraph) {
-			at := pos
-			pos += len(cluster)
-			if cluster == " " {
-				spaced = true
-				continue
-			}
-			r, _ := utf8.DecodeRuneInString(cluster)
-			after := lookup(r).line
-			if end == 0 || lineBreaks(before, after, spaced, leadingHyphen) {
-				out.place(paragraph[start:end], segWidth, segSpaced)
-				start, segWidth, segSpaced = at, 0, spaced
-			} else if spaced {
-				segWidth++
-			}
-			segWidth += w.clusterWidth(cluster)
-			leadingHyphen = after == hyphen && (spaced || end == 0)
-			end, before, spaced = pos, after, false
-		}
-		out.place(paragraph[start:end], segWidth, segSpaced)
+		w.segments(paragraph, out.place)
 		out.flush()
 	}
 	return out.lines
+}
+
+func (w Widths) MinContent(s string) int {
+	widest := 0
+	for paragraph := range strings.SplitSeq(s, "\n") {
+		w.segments(paragraph, func(_ string, width int, _ bool) { widest = max(widest, width) })
+	}
+	return widest
+}
+
+func (w Widths) segments(paragraph string, emit func(segment string, width int, spaced bool)) {
+	var before lineClass
+	var pos, start, end, segWidth int
+	var segSpaced, spaced, leadingHyphen bool
+	for cluster := range Graphemes(paragraph) {
+		at := pos
+		pos += len(cluster)
+		if cluster == " " {
+			spaced = true
+			continue
+		}
+		r, _ := utf8.DecodeRuneInString(cluster)
+		after := lookup(r).line
+		if end == 0 || lineBreaks(before, after, spaced, leadingHyphen) {
+			emit(paragraph[start:end], segWidth, segSpaced)
+			start, segWidth, segSpaced = at, 0, spaced
+		} else if spaced {
+			segWidth++
+		}
+		segWidth += w.clusterWidth(cluster)
+		leadingHyphen = after == hyphen && (spaced || end == 0)
+		end, before, spaced = pos, after, false
+	}
+	emit(paragraph[start:end], segWidth, segSpaced)
 }
 
 func (o *wrapper) place(segment string, width int, spaced bool) {
@@ -161,6 +173,10 @@ func (o *wrapper) flush() {
 	o.lines = append(o.lines, string(o.line))
 	o.line = o.line[:0]
 	o.used = 0
+}
+
+func MinContent(s string) int {
+	return Widths{}.MinContent(s)
 }
 
 func Truncate(s string, width int) string {

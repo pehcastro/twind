@@ -72,6 +72,10 @@ func (t Text) Size(availableWidth int) (width, height int) {
 	return width, len(lines)
 }
 
+func (t Text) MinContent() int {
+	return text.MinContent(t.clean)
+}
+
 func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	n := Node{
 		Bounds:        box.BorderBox,

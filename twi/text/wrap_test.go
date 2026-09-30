@@ -14,6 +14,14 @@ func BenchmarkWrap(b *testing.B) {
 	}
 }
 
+func BenchmarkMinContent(b *testing.B) {
+	paragraph := strings.Repeat("A well-known pangram: the quick brown fox jumps over the lazy dog, see https://example.com/fox 中文排版。 ", 20)
+	b.ReportAllocs()
+	for b.Loop() {
+		MinContent(paragraph)
+	}
+}
+
 func TestWrap(t *testing.T) {
 	cases := []struct {
 		s     string
@@ -65,6 +73,34 @@ func TestBreak(t *testing.T) {
 		if got := Wrap(c.s, c.width); !slices.Equal(got, c.want) {
 			t.Errorf("Wrap(%+q, %d) = %+q, want %+q", c.s, c.width, got, c.want)
 		}
+	}
+}
+
+func TestMinContent(t *testing.T) {
+	cases := []struct {
+		s    string
+		want int
+	}{
+		{"Keyboard shortcuts", 9},
+		{"Profile", 7},
+		{"中文", 2},
+		{"a" + brazil + family + "b", 2},
+		{"e\U00000301e\U00000301e\U00000301", 3},
+		{"a package-level drive", 8},
+		{"no\U000000A0break here", 8},
+		{"wait !", 6},
+		{"  lead  and   gaps  ", 4},
+		{"one\ntwo three", 5},
+		{"https://example.com/docs/wrapping", 12},
+		{"", 0},
+	}
+	for _, c := range cases {
+		if got := MinContent(c.s); got != c.want {
+			t.Errorf("MinContent(%+q) = %d, want %d", c.s, got, c.want)
+		}
+	}
+	if got := (Widths{Flag: 1}).MinContent(brazil + " x"); got != 1 {
+		t.Errorf("MinContent with a flag override = %d, want 1", got)
 	}
 }
 

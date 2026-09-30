@@ -273,7 +273,11 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 	if !ok {
 		size = s.natural
 		if availableWidth < size[0] && !s.nowrap {
-			size[0], size[1] = s.text.Size(availableWidth)
+			wrapAt := availableWidth
+			if wrapAt == 0 {
+				wrapAt = s.text.MinContent()
+			}
+			size[0], size[1] = s.text.Size(wrapAt)
 		}
 		s.sizes[availableWidth] = size
 	}
