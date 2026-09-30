@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,6 +17,8 @@ import (
 
 //go:embed testdata/tailwind-4.3.3/app/output.css
 var compilerCorpus string
+
+const classPackage = "github.com/twind-dev/twind/twi/ui"
 
 type compileFunc func(string) ([]style.Rule, []Warning, error)
 
@@ -44,20 +47,44 @@ func inputs(dir, generated string, compile compileFunc) ([]string, string, error
 	}
 	var hashed strings.Builder
 	fmt.Fprintf(&hashed, "%s%s%#v", Header(""), konst.PresetTheme, rules)
-	var names []string
+	var sources []string
+	add := func(name, path string) error {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		hashed.WriteString(name + "\x00" + strings.ReplaceAll(string(src), "\r\n", "\n") + "\x00")
+		sources = append(sources, path)
+		return nil
+	}
 	for _, e := range entries {
 		if e.IsDir() || e.Name() == generated || filepath.Ext(e.Name()) != ".go" {
 			continue
 		}
-		src, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil {
+		if err := add(e.Name(), filepath.Join(dir, e.Name())); err != nil {
 			return nil, "", err
 		}
-		hashed.WriteString(e.Name() + "\x00" + strings.ReplaceAll(string(src), "\r\n", "\n") + "\x00")
-		names = append(names, e.Name())
+	}
+	list, err := exec.Command("go", "list", "-C", dir, "-deps", "-f", `{{if .DepOnly}}{{.ImportPath}}{{"\t"}}{{.Dir}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .IgnoredGoFiles}}{{"\t"}}{{.}}{{end}}{{end}}`, ".").CombinedOutput()
+	if err != nil {
+		return nil, "", fmt.Errorf("go list: %w\n%s", err, list)
+	}
+	for line := range strings.Lines(string(list)) {
+		fields := strings.Split(strings.TrimRight(line, "\r\n"), "\t")
+		if fields[0] != classPackage && !strings.HasPrefix(fields[0], classPackage+"/") {
+			continue
+		}
+		for _, name := range fields[2:] {
+			if strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			if err := add(fields[0]+"/"+name, filepath.Join(fields[1], name)); err != nil {
+				return nil, "", err
+			}
+		}
 	}
 	sum := sha256.Sum256([]byte(hashed.String()))
-	return names, hex.EncodeToString(sum[:]), nil
+	return sources, hex.EncodeToString(sum[:]), nil
 }
 
 func Header(hash string) string {

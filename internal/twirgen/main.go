@@ -68,7 +68,7 @@ func generate(out, pkg, name, bin string) error {
 	if version := regexp.MustCompile(`v(\d+\.\d+\.\d+)`).FindSubmatch(help); version == nil || string(version[1]) != konst.TailwindVersion {
 		return fmt.Errorf("%s is not Tailwind %s", bin, konst.TailwindVersion)
 	}
-	names, hash, err := tailwind.Inputs(dir, out)
+	sources, hash, err := tailwind.Inputs(dir, out)
 	if err != nil {
 		return err
 	}
@@ -77,10 +77,6 @@ func generate(out, pkg, name, bin string) error {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
-	sources := make([]string, len(names))
-	for i, n := range names {
-		sources[i] = filepath.Join(dir, n)
-	}
 	input, output := filepath.Join(tmp, "input.css"), filepath.Join(tmp, "output.css")
 	if err := os.WriteFile(input, []byte(tailwind.Input(sources)), 0o600); err != nil {
 		return err

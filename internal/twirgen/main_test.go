@@ -10,6 +10,31 @@ import (
 	"github.com/twind-dev/twind/twi/tailwind"
 )
 
+func TestGeneratedTakesImportedComponentClasses(t *testing.T) {
+	dir := filepath.Join("testdata", "uiapp")
+	stale, err := tailwind.Stale(dir, konst.GeneratedFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stale {
+		t.Errorf("%s is stale: run go generate there", filepath.Join(dir, konst.GeneratedFile))
+	}
+	app, err := os.ReadFile(filepath.Join(dir, "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated, err := os.ReadFile(filepath.Join(dir, konst.GeneratedFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(app), "bg-destructive") {
+		t.Fatal("the app writes bg-destructive itself; the fixture proves nothing")
+	}
+	if !strings.Contains(string(generated), `Class: "bg-destructive"`) {
+		t.Error("the app's IR has no bg-destructive rule, the class ui.Button(ui.Destructive, ...) carries")
+	}
+}
+
 func TestGeneratedHello(t *testing.T) {
 	dir := filepath.Join("testdata", "hello")
 	stale, err := tailwind.Stale(dir, konst.GeneratedFile)

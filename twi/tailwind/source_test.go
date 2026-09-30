@@ -29,13 +29,14 @@ func TestStale(t *testing.T) {
 	if _, err := Stale(dir, "twir_gen.go"); err == nil {
 		t.Error("no generated file: no error")
 	}
+	write("go.mod", "module example.com/app\n\ngo 1.26\n")
 	write("main.go", "package main\n\nconst classes = \"flex p-4\"\n")
-	names, hash, err := Inputs(dir, "twir_gen.go")
+	sources, hash, err := Inputs(dir, "twir_gen.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(names, ",") != "main.go" {
-		t.Errorf("sources %q, want main.go only", names)
+	if strings.Join(sources, ",") != filepath.Join(dir, "main.go") {
+		t.Errorf("sources %q, want main.go only", sources)
 	}
 	write("twir_gen.go", Header(hash)+"package main\n\nconst generated = \"p-2 hover:flex\"\n")
 	stale(false, "just generated")
@@ -50,6 +51,66 @@ func TestStale(t *testing.T) {
 	_, hash, _ = Inputs(dir, "twir_gen.go")
 	write("twir_gen.go", strings.Replace(Header(hash), "version=1", "version=0", 1)+"package main\n")
 	stale(true, "an older IR version")
+}
+
+func TestInputsFollowClassPackages(t *testing.T) {
+	write := func(path, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	module := func(button string) string {
+		dir := t.TempDir()
+		write(filepath.Join(dir, "go.mod"), "module github.com/twind-dev/twind\n\ngo 1.26\n")
+		write(filepath.Join(dir, "twi", "ui", "button.go"), "package ui\n\nconst Destructive = \""+button+"\"\n")
+		write(filepath.Join(dir, "twi", "ui", "button_plan9.go"), "package ui\n\nconst plan9 = \"bg-amber-500\"\n")
+		write(filepath.Join(dir, "twi", "ui", "button_test.go"), "package ui\n\nconst testOnly = \"bg-lime-500\"\n")
+		write(filepath.Join(dir, "twi", "uikit", "kit.go"), "package uikit\n\nconst Kit = \"bg-sky-500\"\n")
+		return dir
+	}
+	app := t.TempDir()
+	point := func(twind string) {
+		write(filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.26\n\nrequire github.com/twind-dev/twind v0.0.0\n\nreplace github.com/twind-dev/twind => "+filepath.ToSlash(twind)+"\n")
+	}
+	twind := module("bg-destructive text-white")
+	point(twind)
+	write(filepath.Join(app, "main.go"), "package main\n\nimport (\n\t\"github.com/twind-dev/twind/twi/ui\"\n\t\"github.com/twind-dev/twind/twi/uikit\"\n)\n\nfunc main() { println(ui.Destructive, uikit.Kit) }\n")
+	sources, hash, err := Inputs(app, "twir_gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, s := range sources {
+		names = append(names, filepath.Base(filepath.Dir(s))+"/"+filepath.Base(s))
+	}
+	if got := strings.Join(names, ","); got != filepath.Base(app)+"/main.go,ui/button.go,ui/button_plan9.go" {
+		t.Errorf("sources %s, want the app's main.go and twi/ui's two non-test files, never twi/uikit", got)
+	}
+	write(filepath.Join(app, "twir_gen.go"), Header(hash)+"package main\n")
+	check := func(want bool, why string) {
+		t.Helper()
+		if got, err := Stale(app, "twir_gen.go"); err != nil || got != want {
+			t.Errorf("%s: stale %v, error %v, want stale %v", why, got, err, want)
+		}
+	}
+	check(false, "just generated")
+	point(module("bg-destructive text-white"))
+	check(false, "the same twi/ui at another path")
+	crlf := module("bg-destructive text-white")
+	src, _ := os.ReadFile(filepath.Join(crlf, "twi", "ui", "button.go"))
+	write(filepath.Join(crlf, "twi", "ui", "button.go"), strings.ReplaceAll(string(src), "\n", "\r\n"))
+	point(crlf)
+	check(false, "twi/ui with CRLF line ends")
+	point(module("bg-destructive text-black"))
+	check(true, "a twi/ui class changed")
+	write(filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.26\n")
+	if _, err := Stale(app, "twir_gen.go"); err == nil {
+		t.Error("an import go list cannot resolve: no error")
+	}
 }
 
 func TestStaleWhenCompilerOutputChanges(t *testing.T) {
