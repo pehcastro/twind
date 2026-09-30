@@ -43,6 +43,14 @@ const (
 	ColumnReverse
 )
 
+type Wrapping uint8
+
+const (
+	NoWrap Wrapping = iota
+	Wrap
+	WrapReverse
+)
+
 type Align uint8
 
 const (
@@ -267,6 +275,7 @@ type Gradient struct {
 type ComputedStyle struct {
 	Display    Display
 	Direction  Direction
+	Wrap       Wrapping
 	Grow       float64
 	Shrink     float64
 	Basis      Length

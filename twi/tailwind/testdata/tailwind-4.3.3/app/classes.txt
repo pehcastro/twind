@@ -134,3 +134,9 @@ aspect-square
 aspect-video
 aspect-[4/3]
 aspect-auto
+dark:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]
+shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]
+dark:bg-destructive/40
+flex-wrap
+flex-wrap-reverse
+flex-nowrap

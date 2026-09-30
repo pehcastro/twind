@@ -71,6 +71,9 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 	case "flex-direction":
 		v, p := pick(parts, map[string]style.Direction{"row": style.Row, "column": style.Column, "row-reverse": style.RowReverse, "column-reverse": style.ColumnReverse})
 		return decls{{Property: style.PropDirection, Direction: v}}, p
+	case "flex-wrap":
+		v, p := pick(parts, map[string]style.Wrapping{"nowrap": style.NoWrap, "wrap": style.Wrap, "wrap-reverse": style.WrapReverse})
+		return decls{{Property: style.PropWrap, Wrap: v}}, p
 	case "flex-grow", "flex-shrink", "opacity", "z-index", "--tw-gradient-from-position", "--tw-gradient-via-position", "--tw-gradient-to-position":
 		if len(parts) != 1 {
 			return nil, problem{Unsupported, "expects one value"}

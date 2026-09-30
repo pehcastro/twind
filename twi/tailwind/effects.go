@@ -71,6 +71,9 @@ func (c *compiler) boxShadow(raw []css.Token, v vars) (decls, problem) {
 		}
 		out = append(out, layerDecls...)
 	}
+	if len(out) == 0 {
+		return nil, problem{Unsupported, "box-shadow reads no shadow layer set in its rule"}
+	}
 	return out, worst
 }
 

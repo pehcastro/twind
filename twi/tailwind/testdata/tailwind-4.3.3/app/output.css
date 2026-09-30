@@ -243,6 +243,15 @@
   .animate-spin {
     animation: var(--animate-spin);
   }
+  .flex-nowrap {
+    flex-wrap: nowrap;
+  }
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+  .flex-wrap-reverse {
+    flex-wrap: wrap-reverse;
+  }
   .truncate {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -472,6 +481,13 @@
   }
   .shadow-2xs {
     --tw-shadow: 0 1px var(--tw-shadow-color, rgb(0 0 0 / 0.05));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-\[0_0_0_1px_var\(--color-destructive\)\,0_0_0_3px_color-mix\(in_oklab\,var\(--color-destructive\)_20\%\,transparent\)\] {
+    --tw-shadow: 0 0 0 1px var(--tw-shadow-color, var(--color-destructive)), 0 0 0 3px var(--tw-shadow-color, color-mix(in srgb,oklch(57.7% 0.245 27.325) 20%,transparent));
+    @supports (color: color-mix(in lab, red, red)) {
+      --tw-shadow: 0 0 0 1px var(--tw-shadow-color, var(--color-destructive)), 0 0 0 3px var(--tw-shadow-color, color-mix(in oklab,var(--color-destructive) 20%,transparent));
+    }
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .shadow-\[0_0_0_1px_var\(--color-ring\)\] {
@@ -714,8 +730,27 @@
     background-color: var(--color-accent);
   }
   @media (prefers-color-scheme: dark) {
+    .dark\:bg-destructive\/40 {
+      background-color: color-mix(in srgb, oklch(57.7% 0.245 27.325) 40%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .dark\:bg-destructive\/40 {
+        background-color: color-mix(in oklab, var(--color-destructive) 40%, transparent);
+      }
+    }
     .dark\:bg-zinc-900 {
       background-color: var(--color-zinc-900);
+    }
+    .dark\:shadow-\[0_0_0_1px_var\(--color-destructive\)\,0_0_0_3px_color-mix\(in_oklab\,var\(--color-destructive\)_40\%\,transparent\)\] {
+      --tw-shadow: 0 0 0 1px var(--tw-shadow-color, var(--color-destructive)), 0 0 0 3px var(--tw-shadow-color, color-mix(in srgb,oklch(57.7% 0.245 27.325) 40%,transparent));
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .dark\:shadow-\[0_0_0_1px_var\(--color-destructive\)\,0_0_0_3px_color-mix\(in_oklab\,var\(--color-destructive\)_40\%\,transparent\)\] {
+        --tw-shadow: 0 0 0 1px var(--tw-shadow-color, var(--color-destructive)), 0 0 0 3px var(--tw-shadow-color, color-mix(in oklab,var(--color-destructive) 40%,transparent));
+      }
+    }
+    .dark\:shadow-\[0_0_0_1px_var\(--color-destructive\)\,0_0_0_3px_color-mix\(in_oklab\,var\(--color-destructive\)_40\%\,transparent\)\] {
+      box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
     @media (hover: hover) {
       .dark\:hover\:bg-input\/50:hover {

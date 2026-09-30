@@ -93,6 +93,7 @@ const (
 	PropAnimationDuration
 	PropAnimationEasing
 	PropAnimationIterations
+	PropWrap
 )
 
 type Declaration struct {
@@ -105,6 +106,7 @@ type Declaration struct {
 	Mix          float64
 	Display      Display
 	Direction    Direction
+	Wrap         Wrapping
 	Align        Align
 	Justify      Justify
 	Position     Position
@@ -336,6 +338,8 @@ func (s *ComputedStyle) apply(d *Declaration, inherited color.Color) {
 		s.Display = d.Display
 	case PropDirection:
 		s.Direction = d.Direction
+	case PropWrap:
+		s.Wrap = d.Wrap
 	case PropGrow:
 		s.Grow = d.Number
 	case PropShrink:

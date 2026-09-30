@@ -1,12 +1,15 @@
 package tailwind
 
 import (
+	"math"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/css"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/theme"
 )
@@ -234,4 +237,139 @@ func TestAspect(t *testing.T) {
 		}
 	}
 	quiet(t, hasPrefix("aspect-"))
+}
+
+func TestColorMix(t *testing.T) {
+	const halo40 = "dark:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
+	const halo20 = "shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]"
+	red400, err := color.Parse("oklch(70.4% 0.191 22.216)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	red600, err := color.Parse("oklch(57.7% 0.245 27.325)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	faded := func(c color.Color, mix float64) color.Color {
+		c.RGBA.A = uint8(math.Round(float64(c.RGBA.A) * mix / 100))
+		return c
+	}
+	halo := func(c color.Color, mix float64) []style.Shadow {
+		return []style.Shadow{
+			{Spread: 1, Color: c, Tintable: true, Token: theme.Destructive, Mix: 100},
+			{Spread: 3, Color: faded(c, mix), Tintable: true, Token: theme.Destructive, Mix: mix},
+		}
+	}
+	sheet, _ := compileFixture(t, appFixture)
+	var dark, light theme.Theme
+	for _, th := range theme.Builtin() {
+		switch {
+		case th.Name == "zinc" && th.Scheme == theme.Dark:
+			dark = th
+		case th.Name == "zinc" && th.Scheme == theme.Light:
+			light = th
+		}
+	}
+	destructive := dark.Tokens[theme.Destructive]
+	cases := []struct {
+		name    string
+		sheet   style.Sheet
+		classes string
+		want    []style.Shadow
+	}{
+		{"/40 under zinc dark", sheet.WithTheme(&dark), halo40, halo(destructive, 40)},
+		{"/40 under zinc light", sheet.WithTheme(&light), halo40, nil},
+		{"/20 with no theme", sheet, halo20, halo(red600, 20)},
+		{"/20 under zinc dark", sheet.WithTheme(&dark), halo20, halo(destructive, 20)},
+	}
+	for _, tc := range cases {
+		if got := tc.sheet.Compute(style.ComputedStyle{}, []string{tc.classes}).Shadows; !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("%s: %+v, want %+v", tc.name, got, tc.want)
+		}
+	}
+	rules, _, err := Compile(compilerCorpus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var built []style.Shadow
+	for _, r := range rules {
+		for _, d := range r.Decls {
+			if r.Class == halo40 && d.Property == style.PropShadow {
+				built = d.Shadows
+			}
+		}
+	}
+	if want := halo(red400, 40); !reflect.DeepEqual(built, want) {
+		t.Errorf("%s as built: %+v, want red-400 at 40%%: %+v", halo40, built, want)
+	}
+	if got := sheet.WithTheme(&dark).Compute(style.ComputedStyle{}, []string{"dark:bg-destructive/40"}).Background; got != faded(destructive, 40) {
+		t.Errorf("dark:bg-destructive/40: %+v, want the dark destructive token at 40%%", got)
+	}
+	quiet(t, func(class string) bool {
+		return class == halo40 || class == halo20 || class == "dark:bg-destructive/40"
+	})
+}
+
+func TestNoSilentDrop(t *testing.T) {
+	src, err := os.ReadFile(appFixture + "/output.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes, err := css.Parse(string(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules, warnings, err := Compile(string(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	heard := map[string]bool{}
+	for _, r := range rules {
+		heard[r.Class] = true
+	}
+	for _, w := range warnings {
+		heard[w.Class] = true
+	}
+	var walk func(nodes []css.Node, utilities bool)
+	walk = func(nodes []css.Node, utilities bool) {
+		for _, n := range nodes {
+			switch n := n.(type) {
+			case css.AtRule:
+				walk(n.Block, utilities || n.Name == "layer" && text(n.Prelude) == "utilities")
+			case css.Rule:
+				for _, sel := range selectorList(n.Selector) {
+					if r, _ := selector(sel, style.Condition{}); utilities && !heard[r.Class] {
+						t.Errorf("%s: no rule and no warning", r.Class)
+					}
+				}
+			}
+		}
+	}
+	walk(nodes, false)
+	rules, warnings, err = Compile("@layer utilities { .a { box-shadow: var(--tw-inset-shadow), var(--tw-shadow); } }")
+	if err != nil || len(rules) != 0 || len(warnings) != 1 {
+		t.Errorf("a box-shadow reading only unset layers: rules %+v warnings %v, want one warning", rules, warnings)
+	}
+}
+
+func TestFlexWrap(t *testing.T) {
+	sheet, _ := compileFixture(t, appFixture)
+	for classes, want := range map[string]style.Wrapping{
+		"":                      style.NoWrap,
+		"flex-wrap":             style.Wrap,
+		"flex-wrap-reverse":     style.WrapReverse,
+		"flex-nowrap":           style.NoWrap,
+		"flex-nowrap flex-wrap": style.Wrap,
+	} {
+		if got := sheet.Compute(style.ComputedStyle{}, strings.Fields(classes)).Wrap; got != want {
+			t.Errorf("%q: %d, want %d", classes, got, want)
+		}
+	}
+	if got := sheet.Compute(sheet.Compute(style.ComputedStyle{}, []string{"flex-wrap"}), nil).Wrap; got != style.NoWrap {
+		t.Errorf("child of flex-wrap: %d, want no wrap: flex-wrap is not inherited", got)
+	}
+	if _, warnings, err := Compile("@layer utilities { .a { flex-wrap: sideways; } }"); err != nil || len(warnings) != 1 {
+		t.Errorf("flex-wrap: sideways: error %v warnings %v, want one warning", err, warnings)
+	}
+	quiet(t, hasPrefix("flex-wrap", "flex-nowrap"))
 }

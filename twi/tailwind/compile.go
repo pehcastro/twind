@@ -142,8 +142,30 @@ func (c *compiler) declarations(nodes []css.Node, into tokens) {
 	}
 }
 
-func (c *compiler) walk(nodes []css.Node, sc scope) {
+func siblings(nodes, out []css.Node) []css.Node {
 	for _, n := range nodes {
+		switch n := n.(type) {
+		case css.AtRule:
+			if n.Name == "supports" {
+				out = siblings(n.Block, out)
+				continue
+			}
+		case css.Rule:
+			if last := len(out) - 1; last >= 0 {
+				if prev, ok := out[last].(css.Rule); ok && prev.Selector == n.Selector {
+					prev.Block = slices.Concat(prev.Block, n.Block)
+					out[last] = prev
+					continue
+				}
+			}
+		}
+		out = append(out, n)
+	}
+	return out
+}
+
+func (c *compiler) walk(nodes []css.Node, sc scope) {
+	for _, n := range siblings(nodes, nil) {
 		switch n := n.(type) {
 		case css.AtRule:
 			switch n.Name {
@@ -155,8 +177,6 @@ func (c *compiler) walk(nodes []css.Node, sc scope) {
 			case "media":
 				when, reject := media(sc.when, text(n.Prelude))
 				c.walk(n.Block, scope{layer: sc.layer, when: when, reject: cmp.Or(sc.reject, reject)})
-			case "supports":
-				c.walk(n.Block, sc)
 			}
 		case css.Rule:
 			c.rule(n, sc)
