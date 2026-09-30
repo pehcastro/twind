@@ -42,6 +42,7 @@ func run(cols, rows int, cell image.Point, hold time.Duration, margins bool, nam
 	}
 	trees := map[string][]render.Node{
 		"hello":  {demo.Hello()},
+		"page":   {demo.Page()},
 		"dialog": {demo.Dialog()},
 		"list":   {demo.List(0), demo.List(2)},
 	}
@@ -63,7 +64,7 @@ func run(cols, rows int, cell image.Point, hold time.Duration, margins bool, nam
 			frames = slices.Repeat([]render.Node{demo.Scroller(200)}, len(steps)+1)
 		}
 		if !ok {
-			return errors.New("unknown tree " + name + ", want hello, dialog, list, scroll:N, jump:N or reveal:N")
+			return errors.New("unknown tree " + name + ", want hello, page, dialog, list, scroll:N, jump:N or reveal:N")
 		}
 		if _, err := os.Stdout.WriteString(termkonst.LeaveScreen + termkonst.EnterScreen); err != nil {
 			return err

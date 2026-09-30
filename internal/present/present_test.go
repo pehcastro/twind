@@ -279,7 +279,7 @@ func TestResizeSendsEverything(t *testing.T) {
 	}
 }
 
-func TestKittyKeepsTextTransparent(t *testing.T) {
+func TestKittyKeepsTextOverImagesTransparent(t *testing.T) {
 	s, out := screen(terminal.GraphicsKitty)
 	frame(t, s, tree(t, demo.Dialog()))
 	if !bytes.Contains(out.last(), []byte("\x1b_G")) {
@@ -287,8 +287,8 @@ func TestKittyKeepsTextTransparent(t *testing.T) {
 	}
 	for y := range rows {
 		for x, c := range s.shown.Row(y) {
-			if c.Bg.Kind == color.Literal {
-				t.Fatalf("cell %d,%d has bg %+v under Kitty, want the default so the image shows", x, y, c.Bg)
+			if c.Bg.Kind == color.Literal && s.sent[s.tileOf[y*cols+x]] != 0 {
+				t.Fatalf("cell %d,%d has bg %+v over a Kitty image, want the default so the image shows", x, y, c.Bg)
 			}
 		}
 	}

@@ -16,12 +16,11 @@ func p95(b *testing.B, samples []time.Duration) {
 	b.ReportMetric(float64(samples[len(samples)*95/100].Nanoseconds()), "p95-ns/frame")
 }
 
-func BenchmarkFirstFrameDialog(b *testing.B) {
-	root := tree(b, demo.Dialog())
+func firstFrame(b *testing.B, root scene.Node, g terminal.Graphics) {
 	var samples []time.Duration
 	bytes := 0
 	for b.Loop() {
-		s, out := screen(terminal.GraphicsSixel)
+		s, out := screen(g)
 		start := time.Now()
 		frame(b, s, root)
 		samples = append(samples, time.Since(start))
@@ -29,6 +28,20 @@ func BenchmarkFirstFrameDialog(b *testing.B) {
 	}
 	p95(b, samples)
 	b.ReportMetric(float64(bytes), "bytes/frame")
+}
+
+func BenchmarkFirstFrameDialog(b *testing.B) {
+	firstFrame(b, tree(b, demo.Dialog()), terminal.GraphicsSixel)
+}
+
+func BenchmarkFirstFrameLight(b *testing.B) {
+	root := tree(b, demo.Page())
+	for _, arm := range []struct {
+		name string
+		g    terminal.Graphics
+	}{{"sixel", terminal.GraphicsSixel}, {"kitty", terminal.GraphicsKitty}, {"iterm2", terminal.GraphicsITerm2}} {
+		b.Run(arm.name, func(b *testing.B) { firstFrame(b, root, arm.g) })
+	}
 }
 
 func BenchmarkScrollOneRow(b *testing.B) {

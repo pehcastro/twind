@@ -41,6 +41,30 @@ func Dialog() render.Node {
 	)
 }
 
+func Page() render.Node {
+	card := func(title, body string) render.Node {
+		return el("w-40 flex flex-col gap-1 p-2 border rounded-lg shadow-md bg-card text-card-foreground",
+			text(title),
+			el("text-muted-foreground", text(body)),
+		)
+	}
+	return el("flex flex-col gap-2 p-2 bg-background text-foreground",
+		text("Dashboard  Projects  Settings"),
+		el("flex gap-2",
+			card("Surfaces", "Cards, popovers and pills drawn as pixels under the text"),
+			card("Compositing", "Shadows blend over the page and over each other"),
+		),
+		el("flex gap-2",
+			card("Builds", "1432 passed in 2m 11s on main"),
+			el("w-24 flex flex-col p-1 border rounded-lg shadow-md bg-card text-card-foreground",
+				el("px-1 bg-muted", text("Raft consensus")),
+				el("px-1 bg-accent text-accent-foreground", text("Open settings")),
+				el("px-1", text("Quit")),
+			),
+		),
+	)
+}
+
 var ScrollerPath = []int{0, 1}
 
 func Scroller(rows int) render.Node {

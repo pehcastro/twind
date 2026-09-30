@@ -295,6 +295,12 @@ func (s *Screen) sample(x, y int) color.Color {
 		return s.samples[i]
 	}
 	s.sampled[i], s.samples[i] = true, color.Color{}
+	if s.plain[s.tileOf[i]] {
+		if p := s.surface.Pix[s.surface.PixOffset(x*s.Cell.X, y*s.Cell.Y):]; p[3] > 0 {
+			s.samples[i] = color.Color{Kind: color.Literal, RGBA: color.RGBA{R: p[0], G: p[1], B: p[2], A: math.MaxUint8}}
+		}
+		return s.samples[i]
+	}
 	if m := raster.Mean(s.surface, s.pixels(image.Rect(x, y, x+1, y+1))); m.A > 0 {
 		if s.Graphics == terminal.GraphicsSixel {
 			m.R, m.G, m.B = register(m.R), register(m.G), register(m.B)
@@ -340,6 +346,30 @@ func palette(index uint8) [3]uint8 {
 func register(v uint8) uint8 {
 	percent := (int(v)*graphicskonst.SixelPercent + math.MaxUint8/2) / math.MaxUint8
 	return uint8((percent*math.MaxUint8 + graphicskonst.SixelPercent/2) / graphicskonst.SixelPercent)
+}
+
+func (s *Screen) plainTile(cells image.Rectangle) bool {
+	px, cell := s.pixels(cells), 4*s.Cell.X
+	for y := px.Min.Y; y < px.Max.Y; y += s.Cell.Y {
+		top := s.surface.Pix[s.surface.PixOffset(px.Min.X, y):s.surface.PixOffset(px.Max.X, y)]
+		for at := 0; at < len(top); at += cell {
+			first := binary.LittleEndian.Uint32(top[at:])
+			if a := first >> 24; a != 0 && a != math.MaxUint8 {
+				return false
+			}
+			for i := at + 4; i < at+cell; i += 4 {
+				if binary.LittleEndian.Uint32(top[i:]) != first {
+					return false
+				}
+			}
+		}
+		for py := y + 1; py < y+s.Cell.Y; py++ {
+			if !bytes.Equal(s.surface.Pix[s.surface.PixOffset(px.Min.X, py):s.surface.PixOffset(px.Max.X, py)], top) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (s *Screen) flat(x, y int) bool {

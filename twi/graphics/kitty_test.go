@@ -180,3 +180,12 @@ func TestKittyDelete(t *testing.T) {
 		t.Fatalf("%q", got)
 	}
 }
+
+func TestKittyPlacements(t *testing.T) {
+	if got := string(KittyPlace(nil, Placement{Col: 8, Row: 2, Cols: 8, Rows: 1}, 7, 43)); got != "\x1b[3;9H\x1b_Ga=p,i=7,p=43,c=8,r=1,z=-1,C=1,q=2\x1b\\" {
+		t.Errorf("place: %q", got)
+	}
+	if got := string(KittyUnplace(nil, 7, 43)); got != "\x1b_Ga=d,d=i,i=7,p=43,q=2\x1b\\" {
+		t.Errorf("unplace: %q", got)
+	}
+}

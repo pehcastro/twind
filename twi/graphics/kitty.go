@@ -47,6 +47,14 @@ func (k *Kitty) Encode(dst []byte, img *image.RGBA, at Placement, id, placement 
 	return dst
 }
 
+func KittyPlace(dst []byte, at Placement, id, placement uint32) []byte {
+	return fmt.Appendf(dst, "\x1b[%d;%dH\x1b_Ga=p,i=%d,p=%d,c=%d,r=%d,z=-1,C=1,q=2\x1b\\", at.Row+1, at.Col+1, id, placement, at.Cols, at.Rows)
+}
+
+func KittyUnplace(dst []byte, id, placement uint32) []byte {
+	return fmt.Appendf(dst, "\x1b_Ga=d,d=i,i=%d,p=%d,q=2\x1b\\", id, placement)
+}
+
 func KittyDelete(dst []byte, id uint32) []byte {
 	return fmt.Appendf(dst, "\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", id)
 }
