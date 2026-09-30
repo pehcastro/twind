@@ -64,22 +64,23 @@ func TestTransition(t *testing.T) {
 		}
 	}
 	animations := map[string]style.Animation{
-		"":               {Iterations: 1, Easing: ease},
-		"animate-spin":   {Keyframes: style.KeyframesSpin, Duration: time.Second, Easing: style.Easing{X2: 1, Y2: 1}, Iterations: 1, Infinite: true},
-		"animate-ping":   {Keyframes: style.KeyframesPing, Duration: time.Second, Easing: style.Easing{X2: 0.2, Y2: 1}, Iterations: 1, Infinite: true},
-		"animate-pulse":  {Keyframes: style.KeyframesPulse, Duration: 2 * time.Second, Easing: style.Easing{X1: 0.4, X2: 0.6, Y2: 1}, Iterations: 1, Infinite: true},
-		"animate-bounce": {Keyframes: style.KeyframesBounce, Duration: time.Second, Easing: ease, Iterations: 1, Infinite: true},
-		"animate-none":   {Iterations: 1, Easing: ease},
+		"":               {Iterations: 1, Easing: ease, Enter: still(), Exit: still()},
+		"animate-spin":   {Keyframes: style.KeyframesSpin, Duration: time.Second, Easing: style.Easing{X2: 1, Y2: 1}, Iterations: 1, Infinite: true, Enter: still(), Exit: still()},
+		"animate-ping":   {Keyframes: style.KeyframesPing, Duration: time.Second, Easing: style.Easing{X2: 0.2, Y2: 1}, Iterations: 1, Infinite: true, Enter: still(), Exit: still()},
+		"animate-pulse":  {Keyframes: style.KeyframesPulse, Duration: 2 * time.Second, Easing: style.Easing{X1: 0.4, X2: 0.6, Y2: 1}, Iterations: 1, Infinite: true, Enter: still(), Exit: still()},
+		"animate-bounce": {Keyframes: style.KeyframesBounce, Duration: time.Second, Easing: ease, Iterations: 1, Infinite: true, Enter: still(), Exit: still()},
+		"animate-none":   {Iterations: 1, Easing: ease, Enter: still(), Exit: still()},
 	}
 	for classes, want := range animations {
 		if got := sheet.Compute(style.ComputedStyle{}, strings.Fields(classes)).Animation; got != want {
 			t.Errorf("%q: %+v, want %+v", classes, got, want)
 		}
 	}
-	quiet(t, hasPrefix("transition", "duration-", "ease-", "delay-", "animate-"))
+	quiet(t, func(class string) bool {
+		return hasPrefix("transition", "duration-", "ease-", "delay-", "animate-")(class) && class != "animate-accordion-down" && class != "animate-caret-blink"
+	})
 	for name, src := range map[string]string{
 		"unknown keyframes": ".a { animation: wiggle 1s infinite; }",
-		"two durations":     ".a { animation: spin 1s 2s; }",
 		"steps easing":      ".a { transition-timing-function: steps(4); }",
 		"width transition":  ".a { transition-property: width; }",
 	} {

@@ -117,7 +117,7 @@ func TestCascadeMatrix(t *testing.T) {
 		Margin: all(cells(1)), Position: style.PositionAbsolute,
 		Inset:     style.Edges{Top: cells(1), Right: cells(2), Bottom: cells(0), Left: cells(3)},
 		OverflowX: style.OverflowAuto, OverflowY: style.OverflowHidden, ZIndex: 10,
-		TranslateX:  cells(1),
+		TranslateX: cells(1), ScaleX: 1, ScaleY: 1,
 		BorderWidth: all(cells(2)), BorderStyle: style.BorderDashed,
 		BorderColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 63, G: 63, B: 70, A: 255}},
 		Radius:      style.RadiusFull, Opacity: 0.5,
@@ -125,7 +125,7 @@ func TestCascadeMatrix(t *testing.T) {
 		Gradient:   style.Gradient{From: style.GradientStop{Color: color.Color{Kind: color.Literal}}, Via: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 0.5}, To: style.GradientStop{Color: color.Color{Kind: color.Literal}, Position: 1}},
 		Ring:       style.Ring{Color: color.Color{Kind: color.Current}, OffsetColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}},
 		Transition: style.Transition{Properties: style.TransitionAll, Easing: style.Easing{X1: 0.25, Y1: 0.1, X2: 0.25, Y2: 1}},
-		Animation:  style.Animation{Iterations: 1, Easing: style.Easing{X1: 0.25, Y1: 0.1, X2: 0.25, Y2: 1}},
+		Animation:  style.Animation{Iterations: 1, Easing: style.Easing{X1: 0.25, Y1: 0.1, X2: 0.25, Y2: 1}, Enter: still(), Exit: still()},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("matrix classes:\n got %+v\nwant %+v", got, want)

@@ -114,6 +114,6 @@ func TestComputeMatchesFixture(t *testing.T) {
 		}
 	}
 	if joined := strings.Join(got, "\n") + "\n"; joined != strings.ReplaceAll(string(want), "\r\n", "\n") {
-		t.Errorf("computed styles differ from the b170c89 fixture:\n%s", joined)
+		t.Errorf("computed styles differ from testdata/identity.txt:\n%s", joined)
 	}
 }

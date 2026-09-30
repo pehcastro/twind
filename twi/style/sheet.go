@@ -1,6 +1,7 @@
 package style
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"math/bits"
@@ -111,6 +112,26 @@ const (
 	PropPointerEvents
 	PropOverflowWrap
 	PropWordBreak
+	PropAnimationDelay
+	PropAnimationFill
+	PropScaleX
+	PropScaleY
+	PropEnterOpacity
+	PropEnterScale
+	PropEnterTranslateX
+	PropEnterTranslateY
+	PropEnterDegrees
+	PropExitOpacity
+	PropExitScale
+	PropExitTranslateX
+	PropExitTranslateY
+	PropExitDegrees
+	PropTailwindDuration
+	PropTailwindEasing
+	PropTailwindAnimationDuration
+	PropTailwindAnimationDelay
+	PropTailwindAnimationIterations
+	PropTailwindAnimationFill
 )
 
 type Declaration struct {
@@ -145,6 +166,8 @@ type Declaration struct {
 	Keyframes    Keyframes
 	Duration     time.Duration
 	Easing       Easing
+	Fill         Fill
+	Fallback     bool
 	Tracks       []Track
 	GridLine     GridLine
 	Flow         GridFlow
@@ -436,8 +459,11 @@ func (p Property) inherited() bool {
 
 func initial() ComputedStyle {
 	ease := Easing{X1: konst.EaseX1, Y1: konst.EaseY1, X2: konst.EaseX2, Y2: konst.EaseY2}
+	still := Pose{Opacity: 1, Scale: 1}
 	return ComputedStyle{
 		Shrink:       1,
+		ScaleX:       1,
+		ScaleY:       1,
 		AlignItems:   AlignStretch,
 		JustifyItems: AlignStretch,
 		Justify:      JustifyStretch,
@@ -462,7 +488,7 @@ func initial() ComputedStyle {
 			OffsetColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: konst.RingOffsetWhite, G: konst.RingOffsetWhite, B: konst.RingOffsetWhite, A: konst.RingOffsetWhite}},
 		},
 		Transition: Transition{Properties: TransitionAll, Easing: ease},
-		Animation:  Animation{Iterations: 1, Easing: ease},
+		Animation:  Animation{Iterations: 1, Easing: ease, Enter: still, Exit: still},
 	}
 }
 
@@ -553,7 +579,43 @@ func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeS
 	if out.Shadows != nil || out.InsetShadows != nil || out.Ring.Width > 0 {
 		s.finish(&out)
 	}
+	if out.Animation.Keyframes != KeyframesNone {
+		s.settle(&out, &winners)
+	}
 	return out
+}
+
+func (s Sheet) settle(out *ComputedStyle, winners *[1 << 8]int32) {
+	won := func(p Property) *Declaration {
+		if winners[p] == 0 {
+			return nil
+		}
+		decls := s.rules[winners[p]-1].Decls
+		for i := len(decls) - 1; ; i-- {
+			if decls[i].Property == p {
+				return &decls[i]
+			}
+		}
+	}
+	for _, read := range [...]struct {
+		longhand  Property
+		variables [2]Property
+	}{
+		{PropAnimationDuration, [2]Property{PropTailwindAnimationDuration, PropTailwindDuration}},
+		{PropAnimationEasing, [2]Property{PropTailwindEasing}},
+		{PropAnimationDelay, [2]Property{PropTailwindAnimationDelay}},
+		{PropAnimationIterations, [2]Property{PropTailwindAnimationIterations}},
+		{PropAnimationFill, [2]Property{PropTailwindAnimationFill}},
+	} {
+		if d := won(read.longhand); d == nil || !d.Fallback {
+			continue
+		}
+		if v := cmp.Or(won(read.variables[0]), won(read.variables[1])); v != nil {
+			set := *v
+			set.Property = read.longhand
+			out.apply(&set, color.Color{}, color.Color{})
+		}
+	}
 }
 
 func (s Sheet) finish(out *ComputedStyle) {
@@ -813,6 +875,35 @@ func (s *ComputedStyle) apply(d *Declaration, c, inherited color.Color) {
 		s.Animation.Easing = d.Easing
 	case PropAnimationIterations:
 		s.Animation.Iterations, s.Animation.Infinite = d.Number, d.Flag
+	case PropAnimationDelay:
+		s.Animation.Delay = d.Duration
+	case PropAnimationFill:
+		s.Animation.Fill = d.Fill
+	case PropScaleX:
+		s.ScaleX = d.Number
+	case PropScaleY:
+		s.ScaleY = d.Number
+	case PropEnterOpacity:
+		s.Animation.Enter.Opacity = d.Number
+	case PropEnterScale:
+		s.Animation.Enter.Scale = d.Number
+	case PropEnterTranslateX:
+		s.Animation.Enter.TranslateX = d.Length
+	case PropEnterTranslateY:
+		s.Animation.Enter.TranslateY = d.Length
+	case PropEnterDegrees:
+		s.Animation.Enter.Degrees = d.Number
+	case PropExitOpacity:
+		s.Animation.Exit.Opacity = d.Number
+	case PropExitScale:
+		s.Animation.Exit.Scale = d.Number
+	case PropExitTranslateX:
+		s.Animation.Exit.TranslateX = d.Length
+	case PropExitTranslateY:
+		s.Animation.Exit.TranslateY = d.Length
+	case PropExitDegrees:
+		s.Animation.Exit.Degrees = d.Number
+	case PropTailwindDuration, PropTailwindEasing, PropTailwindAnimationDuration, PropTailwindAnimationDelay, PropTailwindAnimationIterations, PropTailwindAnimationFill:
 	default:
 		panic(fmt.Sprintf("style: unknown property %d", d.Property))
 	}

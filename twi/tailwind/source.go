@@ -24,6 +24,9 @@ import (
 //go:embed testdata/tailwind-4.3.3/app/output.css
 var compilerCorpus string
 
+//go:embed testdata/tailwind-4.3.3/tw-animate-css-1.4.0.css
+var twAnimate string
+
 const classPackage = "github.com/twind-dev/twind/twi/ui"
 
 type compileFunc func(string) ([]style.Rule, []Warning, error)
@@ -35,6 +38,7 @@ func Input(sources []string) string {
 		b.WriteString("@source " + strconv.Quote(filepath.ToSlash(s)) + ";\n")
 	}
 	b.WriteString(konst.PresetTheme)
+	b.WriteString(twAnimate + "\n")
 	return b.String()
 }
 
@@ -110,7 +114,7 @@ func inputs(dir, generated string, compile compileFunc) ([]string, string, error
 		}
 	}
 	candidates := slices.Sorted(maps.Keys(words))
-	sum := sha256.Sum256(fmt.Appendf(nil, "%s%s%#v%s", Header(""), konst.PresetTheme, rules, strings.Join(candidates, "\n")))
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s%s%s%#v%s", Header(""), konst.PresetTheme, twAnimate, rules, strings.Join(candidates, "\n")))
 	return candidates, hex.EncodeToString(sum[:]), nil
 }
 

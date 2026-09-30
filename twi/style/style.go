@@ -309,14 +309,35 @@ const (
 	KeyframesPing
 	KeyframesPulse
 	KeyframesBounce
+	KeyframesEnter
+	KeyframesExit
 )
+
+type Fill uint8
+
+const (
+	FillNone Fill = iota
+	FillForwards
+	FillBackwards
+	FillBoth
+)
+
+type Pose struct {
+	Opacity, Scale         float64
+	TranslateX, TranslateY Length
+	Degrees                float64
+}
 
 type Animation struct {
 	Keyframes  Keyframes
 	Duration   time.Duration
+	Delay      time.Duration
 	Easing     Easing
 	Iterations float64
 	Infinite   bool
+	Fill       Fill
+	Enter      Pose
+	Exit       Pose
 }
 
 type GradientKind uint8
@@ -405,6 +426,8 @@ type ComputedStyle struct {
 	ZIndex      int
 	TranslateX  Length
 	TranslateY  Length
+	ScaleX      float64
+	ScaleY      float64
 	BorderWidth Edges
 	BorderStyle BorderStyle
 	BorderColor color.Color

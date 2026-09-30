@@ -273,7 +273,7 @@ func (c *compiler) block(nodes []css.Node, outer vars, warn func(string, problem
 		switch n := n.(type) {
 		case css.Declaration:
 			prop := strings.ToLower(n.Property)
-			if strings.HasPrefix(prop, "-") && !slices.Contains([]string{"--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to", "--tw-gradient-from-position", "--tw-gradient-via-position", "--tw-gradient-to-position", "--tw-shadow-color", "--tw-inset-shadow-color", "--tw-ring-color", "--tw-ring-inset", "--tw-ring-offset-width", "--tw-ring-offset-color"}, prop) {
+			if strings.HasPrefix(prop, "-") && !tracked(prop) {
 				continue
 			}
 			decls, p := c.declaration(prop, n.Value, v)
@@ -292,6 +292,16 @@ func (c *compiler) block(nodes []css.Node, outer vars, warn func(string, problem
 		}
 	}
 	return out
+}
+
+func tracked(prop string) bool {
+	switch prop {
+	case "--tw-gradient-from", "--tw-gradient-via", "--tw-gradient-to", "--tw-gradient-from-position", "--tw-gradient-via-position", "--tw-gradient-to-position",
+		"--tw-shadow-color", "--tw-inset-shadow-color", "--tw-ring-color", "--tw-ring-inset", "--tw-ring-offset-width", "--tw-ring-offset-color",
+		"--tw-duration", "--tw-ease", "--tw-animation-duration", "--tw-animation-delay", "--tw-animation-iteration-count", "--tw-animation-fill-mode":
+		return true
+	}
+	return strings.HasPrefix(prop, "--tw-enter-") || strings.HasPrefix(prop, "--tw-exit-")
 }
 
 func text(toks []css.Token) string {

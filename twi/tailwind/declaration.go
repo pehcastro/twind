@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
@@ -28,6 +27,8 @@ func (c *compiler) declaration(prop string, raw []css.Token, v vars) (decls, pro
 		return c.boxShadow(raw, v)
 	case "background-image":
 		return c.backgroundImage(raw, v)
+	case "animation":
+		return c.animation(raw, v)
 	}
 	var parts [][]css.Token
 	for _, comp := range components(raw) {
@@ -41,7 +42,7 @@ func (c *compiler) declaration(prop string, raw []css.Token, v vars) (decls, pro
 			parts = append(parts, components(toks)...)
 		}
 	}
-	if slices.ContainsFunc(parts, func(p []css.Token) bool { return p == nil }) && prop != "translate" {
+	if slices.ContainsFunc(parts, func(p []css.Token) bool { return p == nil }) && prop != "translate" && prop != "scale" {
 		if _, p := convert(prop, nil); p.reason == noRendering || p.category == Ignored {
 			return nil, p
 		}
@@ -60,6 +61,9 @@ func (c *compiler) declaration(prop string, raw []css.Token, v vars) (decls, pro
 func convert(prop string, parts [][]css.Token) (decls, problem) {
 	if family, order, ok := edges(prop); ok {
 		return edge(family, order, parts)
+	}
+	if out, p, ok := motion(prop, parts); ok {
+		return out, p
 	}
 	if strings.HasPrefix(prop, "border-") && strings.HasSuffix(prop, "-style") {
 		prop = "border-style"
@@ -172,17 +176,6 @@ func convert(prop string, parts [][]css.Token) (decls, problem) {
 		}
 		n, p := number(slices.Concat(parts...))
 		return decls{{Property: style.PropAspectRatio, Number: n}}, p
-	case "transition-property":
-		return transitionProperty(parts)
-	case "transition-duration", "transition-delay":
-		d, p := duration(slices.Concat(parts...))
-		property := map[string]style.Property{"transition-duration": style.PropTransitionDuration, "transition-delay": style.PropTransitionDelay}[prop]
-		return decls{{Property: property, Duration: d}}, p
-	case "transition-timing-function":
-		e, p := easing(slices.Concat(parts...))
-		return decls{{Property: style.PropTransitionEasing, Easing: e}}, p
-	case "animation":
-		return animation(parts)
 	case "border-style":
 		v, p := pick(parts, borderStyles(), "groove", "ridge", "inset", "outset")
 		return decls{{Property: style.PropBorderStyle, BorderStyle: v}}, p
@@ -422,101 +415,4 @@ func decoration(parts [][]css.Token, shorthand bool) (decls, problem) {
 		}
 	}
 	return decls{{Property: style.PropUnderline, Flag: underline}, {Property: style.PropStrikethrough, Flag: strike}}, skipped
-}
-
-func transitionProperty(parts [][]css.Token) (decls, problem) {
-	fields := map[string]style.TransitionProperty{
-		"all": style.TransitionAll, "none": 0, "color": style.TransitionColor, "background-color": style.TransitionBackground, "border-color": style.TransitionBorderColor,
-		"--tw-gradient-from": style.TransitionGradient, "--tw-gradient-via": style.TransitionGradient, "--tw-gradient-to": style.TransitionGradient,
-		"opacity": style.TransitionOpacity, "box-shadow": style.TransitionShadow, "transform": style.TransitionTranslate, "translate": style.TransitionTranslate,
-		"outline-color": 0, "text-decoration-color": 0, "fill": 0, "stroke": 0, "scale": 0, "rotate": 0, "filter": 0, "-webkit-backdrop-filter": 0, "backdrop-filter": 0,
-		"display": 0, "content-visibility": 0, "overlay": 0, "pointer-events": 0,
-	}
-	var set style.TransitionProperty
-	var p problem
-	for _, name := range commas(slices.Concat(parts...)) {
-		word := strings.ToLower(text(name))
-		field, known := fields[word]
-		if !known {
-			p = problem{Approximated, word + " is not animated"}
-		}
-		set |= field
-	}
-	return decls{{Property: style.PropTransitionProperty, Transition: set}}, p
-}
-
-func duration(toks []css.Token) (time.Duration, problem) {
-	if strings.EqualFold(text(toks), "initial") {
-		return 0, problem{}
-	}
-	q, err := evaluate(toks)
-	scale, ok := map[string]time.Duration{"ms": time.Millisecond, "s": time.Second}[q.unit]
-	if err != nil || !ok {
-		return 0, problem{Unsupported, "duration " + strconv.Quote(text(toks))}
-	}
-	return time.Duration(math.Round(q.value * float64(scale))), problem{}
-}
-
-func easing(toks []css.Token) (style.Easing, problem) {
-	toks = trim(toks)
-	switch strings.ToLower(text(toks)) {
-	case "linear":
-		return style.Easing{X2: 1, Y2: 1}, problem{}
-	case "ease", "initial":
-		return cssEase(), problem{}
-	}
-	unsupported := problem{Unsupported, "timing function " + strconv.Quote(text(toks))}
-	if len(toks) == 0 || toks[0].Kind != css.TokenFunction || !strings.EqualFold(toks[0].Text, "cubic-bezier(") {
-		return style.Easing{}, unsupported
-	}
-	args := commas(toks[1:closing(toks, 0)])
-	if len(args) != 4 {
-		return style.Easing{}, unsupported
-	}
-	var v [4]float64
-	for i, arg := range args {
-		q, err := evaluate(arg)
-		if err != nil || q.unit != "" {
-			return style.Easing{}, unsupported
-		}
-		v[i] = q.value
-	}
-	return style.Easing{X1: v[0], Y1: v[1], X2: v[2], Y2: v[3]}, problem{}
-}
-
-func cssEase() style.Easing {
-	return style.Easing{X1: konst.EaseX1, Y1: konst.EaseY1, X2: konst.EaseX2, Y2: konst.EaseY2}
-}
-
-func animation(parts [][]css.Token) (decls, problem) {
-	keyframes, curve := style.KeyframesNone, cssEase()
-	var length time.Duration
-	iterations, infinite, timed := 1.0, false, false
-	for _, part := range parts {
-		word := strings.ToLower(text(part))
-		named, isName := map[string]style.Keyframes{"none": style.KeyframesNone, "spin": style.KeyframesSpin, "ping": style.KeyframesPing, "pulse": style.KeyframesPulse, "bounce": style.KeyframesBounce}[word]
-		d, dp := duration(part)
-		e, ep := easing(part)
-		n, np := number(part)
-		switch {
-		case isName:
-			keyframes = named
-		case word == "infinite":
-			infinite = true
-		case dp.reason == "" && !timed:
-			length, timed = d, true
-		case ep.reason == "":
-			curve = e
-		case np.reason == "":
-			iterations = n
-		default:
-			return nil, problem{Unsupported, "animation value " + strconv.Quote(word)}
-		}
-	}
-	return decls{
-		{Property: style.PropAnimationKeyframes, Keyframes: keyframes},
-		{Property: style.PropAnimationDuration, Duration: length},
-		{Property: style.PropAnimationEasing, Easing: curve},
-		{Property: style.PropAnimationIterations, Number: iterations, Flag: infinite},
-	}, problem{}
 }
