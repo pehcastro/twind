@@ -8,23 +8,64 @@ import (
 	imagecolor "image/color"
 	"image/draw"
 	"math"
+	"runtime"
 	"slices"
+	"sync"
+	"sync/atomic"
 
-	colorkonst "github.com/twind-dev/twind/internal/konst/color"
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
-	scenekonst "github.com/twind-dev/twind/internal/konst/scene"
+	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
 	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/graphics"
 	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
-	"github.com/twind-dev/twind/twi/terminal"
 )
 
-func (s *Screen) composite(f *scene.Frame, t image.Rectangle) {
-	s.groups, s.parts = s.groups[:0], s.parts[:0]
-	if len(s.targets) == 0 {
-		s.targets = append(s.targets, nil)
+type worker struct {
+	raster  raster.Raster
+	ops     []raster.Op
+	canvas  image.RGBA
+	drawn   []bool
+	line    []uint8
+	view    image.RGBA
+	targets []*image.RGBA
+	rows    [][]byte
+	sixel   graphics.Sixel
+	iterm   graphics.ITerm
+	out     []byte
+}
+
+type pending struct {
+	box *scene.Box
+	c   *cached
+}
+
+type piece struct {
+	w      *worker
+	lo, hi int
+}
+
+func (s *Screen) parallel(n int, do func(w *worker, i int)) {
+	workers := max(min(n, runtime.GOMAXPROCS(0), graphicskonst.Workers), 1)
+	for len(s.workers) < workers {
+		s.workers = append(s.workers, &worker{})
 	}
-	s.targets[0] = s.surface
+	var next atomic.Int64
+	run := func(w *worker) {
+		for i := int(next.Add(1)) - 1; i < n; i = int(next.Add(1)) - 1 {
+			do(w, i)
+		}
+	}
+	var wg sync.WaitGroup
+	for _, w := range s.workers[1:workers] {
+		wg.Go(func() { run(w) })
+	}
+	run(s.workers[0])
+	wg.Wait()
+}
+
+func (s *Screen) collect(f *scene.Frame, t int) {
+	r, start := s.pixels(s.tiles[t]), len(s.parts)
 	for i := range f.Layers {
 		l := &f.Layers[i]
 		for len(s.groups) > 0 && s.groups[len(s.groups)-1].layer != l.Parent {
@@ -43,42 +84,21 @@ func (s *Screen) composite(f *scene.Frame, t image.Rectangle) {
 			into = -1
 		}
 		s.groups = append(s.groups, group{layer: i, into: into, opacity: l.Opacity, own: own})
-		if into < 0 || !l.Visual.Overlaps(t) {
+		if into < 0 || !l.Visual.Overlaps(r) {
 			continue
 		}
 		for j := range l.Boxes {
 			b := &l.Boxes[j]
 			at := b.Visual.Add(l.Origin)
-			if r := at.Intersect(t).Intersect(l.Clip); !r.Empty() {
-				s.parts = append(s.parts, part{step: drawBox, c: s.boxRaster(b), r: r, at: at.Min, into: into})
+			if v := at.Intersect(r).Intersect(l.Clip); !v.Empty() {
+				s.parts = append(s.parts, part{step: drawBox, c: s.look(b), r: v, at: at.Min, into: into})
 			}
 		}
 	}
 	for len(s.groups) > 0 {
 		s.close()
 	}
-	for y := t.Min.Y; y < t.Max.Y; y++ {
-		row := s.surface.Pix[s.surface.PixOffset(t.Min.X, y):s.surface.PixOffset(t.Max.X, y)]
-		if y > t.Min.Y && s.repeats(y) {
-			copy(row, s.surface.Pix[s.surface.PixOffset(t.Min.X, y-1):])
-			continue
-		}
-		clear(row)
-		u := image.Rect(t.Min.X, y, t.Max.X, y+1)
-		for _, p := range s.parts {
-			switch p.step {
-			case openGroup:
-				s.group(p.into, u)
-			case drawBox:
-				if r := p.r.Intersect(u); !r.Empty() {
-					over(s.targets[p.into], r, p.c, r.Min.Sub(p.at))
-				}
-			case closeGroup:
-				alpha := image.NewUniform(imagecolor.Alpha{A: uint8(math.Round(p.opacity * math.MaxUint8))})
-				draw.DrawMask(s.targets[p.into-1], u, s.targets[p.into], u.Min, alpha, image.Point{}, draw.Over)
-			}
-		}
-	}
+	s.spans[t] = [2]int{start, len(s.parts)}
 }
 
 func (s *Screen) close() {
@@ -89,8 +109,44 @@ func (s *Screen) close() {
 	}
 }
 
-func (s *Screen) repeats(y int) bool {
-	for _, p := range s.parts {
+func (w *worker) fill(s *Screen, t int) {
+	r, c := s.lines(t)
+	parts := s.parts[s.spans[t][0]:s.spans[t][1]]
+	if len(w.targets) == 0 {
+		w.targets = append(w.targets, &w.view)
+	}
+	row := slices.Grow(w.line[:0], c.width)[:c.width]
+	w.line = row
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		if y > r.Min.Y && repeats(parts, y) {
+			c.link(y, c.lineOf[y-1])
+			continue
+		}
+		clear(row)
+		u := image.Rect(r.Min.X, y, r.Max.X, y+1)
+		w.view = image.RGBA{Pix: row, Stride: len(row), Rect: u}
+		for _, p := range parts {
+			switch p.step {
+			case openGroup:
+				w.group(p.into, u)
+			case drawBox:
+				if d := p.r.Intersect(u); !d.Empty() {
+					over(w.targets[p.into], d, p.c, d.Min.Sub(p.at))
+				}
+			case closeGroup:
+				alpha := image.NewUniform(imagecolor.Alpha{A: uint8(math.Round(p.opacity * math.MaxUint8))})
+				draw.DrawMask(w.targets[p.into-1], u, w.targets[p.into], u.Min, alpha, image.Point{}, draw.Over)
+			}
+		}
+		if s.Profile == color.ANSI256 {
+			quantise(row)
+		}
+		c.link(y, c.intern(row, maphash.Bytes(s.seed, row)))
+	}
+}
+
+func repeats(parts []part, y int) bool {
+	for _, p := range parts {
 		if p.step != drawBox {
 			continue
 		}
@@ -138,11 +194,11 @@ func blend(d, p []uint8) {
 	}
 }
 
-func (s *Screen) group(into int, t image.Rectangle) {
-	if len(s.targets) == into {
-		s.targets = append(s.targets, &image.RGBA{})
+func (w *worker) group(into int, t image.Rectangle) {
+	if len(w.targets) == into {
+		w.targets = append(w.targets, &image.RGBA{})
 	}
-	g := s.targets[into]
+	g := w.targets[into]
 	n := 4 * t.Dx() * t.Dy()
 	if cap(g.Pix) < n {
 		g.Pix = make([]uint8, n)
@@ -151,47 +207,61 @@ func (s *Screen) group(into int, t image.Rectangle) {
 	clear(g.Pix)
 }
 
-func (s *Screen) boxRaster(b *scene.Box) *cached {
+func (s *Screen) look(b *scene.Box) *cached {
 	if c, ok := s.cache[b.Look]; ok {
 		return c
 	}
+	size, drawn := b.Visual.Size(), 0
+	s.drawn, drawn = plan(s.drawn, b.Ops, float64(b.Visual.Min.Y), size.Y)
+	c := &cached{frame: s.frame, stride: 4 * size.X, row: make([]int32, size.Y), pix: make([]uint8, 0, 4*size.X*drawn), solid: make([][2]int, 0, drawn)}
+	s.cache[b.Look] = c
+	s.pending = append(s.pending, pending{b, c})
+	s.rastered++
+	return c
+}
+
+func (s *Screen) rasterise() {
+	slices.SortStableFunc(s.pending, func(a, b pending) int {
+		return b.box.Visual.Dx()*b.box.Visual.Dy() - a.box.Visual.Dx()*a.box.Visual.Dy()
+	})
+	s.parallel(len(s.pending), func(w *worker, i int) { w.rasterise(s.pending[i].box, s.pending[i].c) })
+	s.pending = s.pending[:0]
+}
+
+func (w *worker) rasterise(b *scene.Box, c *cached) {
 	size := b.Visual.Size()
-	s.ops = append(s.ops[:0], b.Ops...)
-	for i := range s.ops {
-		s.ops[i].Box.X -= float64(b.Visual.Min.X)
-		s.ops[i].Box.Y -= float64(b.Visual.Min.Y)
+	w.ops = append(w.ops[:0], b.Ops...)
+	for i := range w.ops {
+		w.ops[i].Box.X -= float64(b.Visual.Min.X)
+		w.ops[i].Box.Y -= float64(b.Visual.Min.Y)
 	}
-	stride := 4 * size.X
-	c := &cached{stride: stride, row: make([]int32, size.Y), frame: s.frame}
-	s.plan(size.Y)
-	s.lines = s.lines[:0]
+	stride := c.stride
+	w.drawn, _ = plan(w.drawn, w.ops, 0, size.Y)
 	for y := 0; y < size.Y; {
-		if !s.drawn[y] {
+		if !w.drawn[y] {
 			c.row[y] = c.row[y-1]
 			y++
 			continue
 		}
 		end := y + 1
-		for end < size.Y && s.drawn[end] {
+		for end < size.Y && w.drawn[end] {
 			end++
 		}
-		n := len(s.lines)
-		s.lines = slices.Grow(s.lines, stride*(end-y))
-		s.canvas.Pix, s.canvas.Stride, s.canvas.Rect = s.lines[n:n+stride*(end-y)], stride, image.Rect(0, y, size.X, end)
-		s.raster.Draw(&s.canvas, s.ops, s.canvas.Rect)
+		n := len(c.pix)
+		w.canvas.Pix, w.canvas.Stride, w.canvas.Rect = c.pix[n:n+stride*(end-y)], stride, image.Rect(0, y, size.X, end)
+		w.raster.Draw(&w.canvas, w.ops, w.canvas.Rect)
 		for at := n; y < end; y, at = y+1, at+stride {
-			line := s.lines[at : at+stride]
-			if n > 0 && bytes.Equal(line, s.lines[n-stride:n]) {
+			line := c.pix[at : at+stride]
+			if n > 0 && bytes.Equal(line, c.pix[n-stride:n]) {
 				c.row[y] = c.row[y-1]
 				continue
 			}
 			c.row[y] = int32(len(c.solid))
 			c.solid = append(c.solid, solid(line))
-			n += copy(s.lines[n:n+stride], line)
+			n += copy(c.pix[n:n+stride], line)
 		}
-		s.lines = s.lines[:n]
+		c.pix = c.pix[:n]
 	}
-	c.pix = slices.Clone(s.lines)
 	for y, start := 1, 0; y <= size.Y; y++ {
 		if y < size.Y && c.row[y] == c.row[y-1] {
 			continue
@@ -201,46 +271,55 @@ func (s *Screen) boxRaster(b *scene.Box) *cached {
 		}
 		start = y
 	}
-	s.rastered++
-	s.cache[b.Look] = c
-	return c
 }
 
-func (s *Screen) plan(h int) {
-	if cap(s.drawn) < h {
-		s.drawn = make([]bool, h)
-	}
-	s.drawn = s.drawn[:h]
-	clear(s.drawn)
-	for _, op := range s.ops {
-		if op.Kind != raster.Fill && op.Kind != raster.Border || len(op.Stops) > 0 || op.Dash != raster.Solid {
-			for y := range s.drawn {
-				s.drawn[y] = true
-			}
-			return
+func plan(drawn []bool, ops []raster.Op, origin float64, h int) ([]bool, int) {
+	drawn = slices.Grow(drawn[:0], h)[:h]
+	clear(drawn)
+	mark := func(from, to float64) {
+		for y := max(int(math.Floor(from))-1, 0); y <= min(int(math.Ceil(to))+1, h-1); y++ {
+			drawn[y] = true
 		}
 	}
-	if h > 0 {
-		s.drawn[0] = true
-	}
-	for _, op := range s.ops {
-		b, radii, width := op.Box, op.Box.Radii, 0.0
-		if op.Kind == raster.Border {
-			width = op.Width
+	inside := func(y float64) bool { return y > 0 && y < float64(h) }
+	mark(0, 0)
+	for _, op := range ops {
+		b, r := op.Box, op.Box.Radii
+		b.Y -= origin
+		top, bottom := max(r[0], r[1], op.Width), max(r[2], r[3], op.Width)
+		switch {
+		case op.Kind == raster.Opacity || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset:
+			mark(0, float64(h))
+		case op.Kind == raster.Clip && r == [4]float64{} && (inside(b.Y) || inside(b.Y+b.H)):
+			mark(0, float64(h))
+		case op.Kind == raster.Shadow:
+			s := op.Shadow
+			pad := s.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + math.Abs(s.Spread) + 1
+			y, height := b.Y+s.Y-s.Spread, max(b.H+2*s.Spread, 0)
+			mark(y-pad, y+top+pad)
+			mark(y+height-bottom-pad, y+height+pad)
 		}
-		top, bottom := max(radii[0], radii[1], width), max(radii[2], radii[3], width)
-		for _, edge := range [2][2]float64{{b.Y, b.Y + top}, {b.Y + b.H - bottom, b.Y + b.H}} {
-			for y := max(int(math.Floor(edge[0]))-1, 0); y <= min(int(math.Ceil(edge[1]))+1, h-1); y++ {
-				s.drawn[y] = true
-			}
+		if op.Kind != raster.Pop {
+			mark(b.Y, b.Y+top)
+			mark(b.Y+b.H-bottom, b.Y+b.H)
 		}
 	}
+	rows := 0
+	for _, d := range drawn {
+		if d {
+			rows++
+		}
+	}
+	return drawn, rows
 }
 
 func solid(row []uint8) [2]int {
 	var run [2]int
 	start := 0
 	for i := 0; i <= len(row); i += 4 {
+		for i+8 <= len(row) && binary.LittleEndian.Uint64(row[i:])&graphicskonst.AlphaPair == graphicskonst.AlphaPair {
+			i += 8
+		}
 		if i < len(row) && row[i+3] == math.MaxUint8 {
 			continue
 		}
@@ -268,7 +347,7 @@ func (s *Screen) evict(f *scene.Frame) {
 }
 
 func (s *Screen) damage(r image.Rectangle) {
-	r = r.Intersect(s.surface.Rect)
+	r = r.Intersect(s.bounds)
 	cells := image.Rect(r.Min.X/s.Cell.X, r.Min.Y/s.Cell.Y, (r.Max.X+s.Cell.X-1)/s.Cell.X, (r.Max.Y+s.Cell.Y-1)/s.Cell.Y)
 	for y := cells.Min.Y; y < cells.Max.Y; y++ {
 		for x := cells.Min.X; x < cells.Max.X; x++ {
@@ -279,109 +358,4 @@ func (s *Screen) damage(r image.Rectangle) {
 
 func (s *Screen) pixels(cells image.Rectangle) image.Rectangle {
 	return image.Rect(cells.Min.X*s.Cell.X, cells.Min.Y*s.Cell.Y, cells.Max.X*s.Cell.X, cells.Max.Y*s.Cell.Y)
-}
-
-func (s *Screen) hash(r image.Rectangle) uint64 {
-	h := uint64(scenekonst.HashSeed)
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		h = (h ^ maphash.Bytes(s.seed, s.surface.Pix[s.surface.PixOffset(r.Min.X, y):s.surface.PixOffset(r.Max.X, y)])) * scenekonst.HashPrime
-	}
-	return h
-}
-
-func (s *Screen) sample(x, y int) color.Color {
-	i := y*s.cols + x
-	if s.sampled[i] {
-		return s.samples[i]
-	}
-	s.sampled[i], s.samples[i] = true, color.Color{}
-	if s.plain[s.tileOf[i]] {
-		if p := s.surface.Pix[s.surface.PixOffset(x*s.Cell.X, y*s.Cell.Y):]; p[3] > 0 {
-			s.samples[i] = color.Color{Kind: color.Literal, RGBA: color.RGBA{R: p[0], G: p[1], B: p[2], A: math.MaxUint8}}
-		}
-		return s.samples[i]
-	}
-	if m := raster.Mean(s.surface, s.pixels(image.Rect(x, y, x+1, y+1))); m.A > 0 {
-		if s.Graphics == terminal.GraphicsSixel {
-			m.R, m.G, m.B = register(m.R), register(m.G), register(m.B)
-		}
-		m.A = math.MaxUint8
-		s.samples[i] = color.Color{Kind: color.Literal, RGBA: m}
-	}
-	return s.samples[i]
-}
-
-func (s *Screen) quantise(r image.Rectangle) {
-	var from, to [3]uint8
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		row := s.surface.Pix[s.surface.PixOffset(r.Min.X, y):s.surface.PixOffset(r.Max.X, y)]
-		for i := 0; i < len(row); i += 4 {
-			if row[i+3] != math.MaxUint8 {
-				continue
-			}
-			if rgb := [3]uint8(row[i : i+3]); rgb != from {
-				from, to = rgb, palette(color.RGBA{R: rgb[0], G: rgb[1], B: rgb[2]}.ANSI256())
-			}
-			copy(row[i:i+3], to[:])
-		}
-	}
-}
-
-func palette(index uint8) [3]uint8 {
-	if index >= colorkonst.GreyBase {
-		v := uint8(colorkonst.GreyFirstLevel + int(index-colorkonst.GreyBase)*colorkonst.GreyLevelStep)
-		return [3]uint8{v, v, v}
-	}
-	cube := int(index - colorkonst.CubeBase)
-	var rgb [3]uint8
-	for c := 2; c >= 0; c-- {
-		if n := cube % colorkonst.CubeSide; n > 0 {
-			rgb[c] = uint8(colorkonst.CubeFirstLevel + (n-1)*colorkonst.CubeLevelStep)
-		}
-		cube /= colorkonst.CubeSide
-	}
-	return rgb
-}
-
-func register(v uint8) uint8 {
-	percent := (int(v)*graphicskonst.SixelPercent + math.MaxUint8/2) / math.MaxUint8
-	return uint8((percent*math.MaxUint8 + graphicskonst.SixelPercent/2) / graphicskonst.SixelPercent)
-}
-
-func (s *Screen) plainTile(cells image.Rectangle) bool {
-	px, cell := s.pixels(cells), 4*s.Cell.X
-	for y := px.Min.Y; y < px.Max.Y; y += s.Cell.Y {
-		top := s.surface.Pix[s.surface.PixOffset(px.Min.X, y):s.surface.PixOffset(px.Max.X, y)]
-		for at := 0; at < len(top); at += cell {
-			first := binary.LittleEndian.Uint32(top[at:])
-			if a := first >> 24; a != 0 && a != math.MaxUint8 {
-				return false
-			}
-			for i := at + 4; i < at+cell; i += 4 {
-				if binary.LittleEndian.Uint32(top[i:]) != first {
-					return false
-				}
-			}
-		}
-		for py := y + 1; py < y+s.Cell.Y; py++ {
-			if !bytes.Equal(s.surface.Pix[s.surface.PixOffset(px.Min.X, py):s.surface.PixOffset(px.Max.X, py)], top) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (s *Screen) flat(x, y int) bool {
-	r := s.pixels(image.Rect(x, y, x+1, y+1))
-	first := s.surface.Pix[s.surface.PixOffset(r.Min.X, r.Min.Y):][:4]
-	for py := r.Min.Y; py < r.Max.Y; py++ {
-		row := s.surface.Pix[s.surface.PixOffset(r.Min.X, py):s.surface.PixOffset(r.Max.X, py)]
-		for i := 0; i < len(row); i += 4 {
-			if !bytes.Equal(row[i:i+4], first) {
-				return false
-			}
-		}
-	}
-	return true
 }

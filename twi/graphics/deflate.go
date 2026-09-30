@@ -3,7 +3,6 @@ package graphics
 import (
 	"bytes"
 	"encoding/binary"
-	"image"
 	"math/bits"
 	"slices"
 
@@ -29,7 +28,7 @@ type deflater struct {
 	spans     []flatSpan
 	tokens    []uint32
 	rle       []uint32
-	one       image.RGBA
+	one       [1][]byte
 	cur       []byte
 	above     []byte
 	filter    rowFilter
@@ -56,21 +55,19 @@ type deflater struct {
 	fixedDist huffman
 }
 
-func (d *deflater) prepare(img *image.RGBA) *image.RGBA {
-	h := img.Rect.Dy()
-	d.same = slices.Grow(d.same[:0], h)[:h]
-	flat := true
-	for y := range h {
-		r := row(img, y)
-		d.same[y] = y > 0 && bytes.Equal(r, row(img, y-1))
+func (d *deflater) prepare(rows [][]byte) (prepared [][]byte, flat bool) {
+	d.same = slices.Grow(d.same[:0], len(rows))[:len(rows)]
+	flat = true
+	for y, r := range rows {
+		d.same[y] = y > 0 && bytes.Equal(r, rows[y-1])
 		flat = flat && (d.same[y] || y == 0 && bytes.Equal(r[4:], r[:len(r)-4]))
 	}
 	if !flat {
-		return img
+		return rows, false
 	}
-	d.one = image.RGBA{Pix: row(img, 0)[:4], Stride: 4, Rect: image.Rect(0, 0, 1, 1)}
+	d.one = [1][]byte{rows[0][:4]}
 	d.same = d.same[:1]
-	return &d.one
+	return d.one[:], true
 }
 
 func pixel(r []byte, x int) uint32 { return binary.LittleEndian.Uint32(r[4*x:]) }
@@ -106,17 +103,17 @@ func (d *deflater) residual(x int) uint32 {
 	return ((v | graphics.ByteHighBits) - (u &^ graphics.ByteHighBits)) ^ ((v ^ ^u) & graphics.ByteHighBits)
 }
 
-func (d *deflater) zlib(dst []byte, img *image.RGBA, filter rowFilter) ([]byte, int) {
-	if out, ok := d.encode(dst, img, 3, filter); ok {
+func (d *deflater) zlib(dst []byte, rows [][]byte, filter rowFilter) ([]byte, int) {
+	if out, ok := d.encode(dst, rows, 3, filter); ok {
 		return out, 3
 	}
-	out, _ := d.encode(dst, img, 4, filter)
+	out, _ := d.encode(dst, rows, 4, filter)
 	return out, 4
 }
 
-func (d *deflater) encode(dst []byte, img *image.RGBA, bpp int, filter rowFilter) ([]byte, bool) {
+func (d *deflater) encode(dst []byte, rows [][]byte, bpp int, filter rowFilter) ([]byte, bool) {
 	const m = graphics.AdlerModulus
-	w, h := img.Rect.Dx(), img.Rect.Dy()
+	w := len(rows[0]) / 4
 	d.filter, d.bpp, d.lead = filter, bpp, 0
 	if filter == pngUpRows {
 		d.lead = 1
@@ -128,10 +125,10 @@ func (d *deflater) encode(dst []byte, img *image.RGBA, bpp int, filter rowFilter
 	clear(d.lit[:])
 	clear(d.dist[:])
 	var a, b, sum, weight uint64 = 1, 0, 0, 0
-	for y := range h {
-		d.cur, d.above = row(img, y), nil
+	for y, r := range rows {
+		d.cur, d.above = r, nil
 		if y > 0 && (up || filter == pngUpRows) {
-			d.above = row(img, y-1)
+			d.above = rows[y-1]
 		}
 		same := d.same[y] && d.above != nil
 		if !same || filter == pngUpRows {

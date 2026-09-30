@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"image"
 	"slices"
 	"strconv"
 
@@ -54,12 +53,12 @@ type Sixel struct {
 	tail      [graphics.SixelRegisters]int32
 }
 
-func (s *Sixel) Encode(dst []byte, img *image.RGBA, at Placement) []byte {
-	w, h := img.Rect.Dx(), img.Rect.Dy()
-	if w == 0 || h == 0 {
+func (s *Sixel) Encode(dst []byte, rows [][]byte, at Placement) []byte {
+	if len(rows) == 0 || len(rows[0]) == 0 {
 		return dst
 	}
-	s.scan(img)
+	w, h := len(rows[0])/4, len(rows)
+	s.scan(rows)
 	if len(s.colours) == 0 {
 		return dst
 	}
@@ -103,8 +102,8 @@ func sixelRun(dst []byte, ch byte, n int) []byte {
 	return append(strconv.AppendInt(append(dst, '!'), int64(n), 10), ch)
 }
 
-func (s *Sixel) scan(img *image.RGBA) {
-	w := img.Rect.Dx()
+func (s *Sixel) scan(rows [][]byte) {
+	w := len(rows[0]) / 4
 	if s.ids == nil {
 		s.ids = map[uint32]int32{}
 	}
@@ -114,8 +113,7 @@ func (s *Sixel) scan(img *image.RGBA) {
 	s.stretches = s.stretches[:0]
 	s.rows = s.rows[:0]
 	var above []byte
-	for y := range img.Rect.Dy() {
-		pix := row(img, y)
+	for y, pix := range rows {
 		if bytes.Equal(pix, above) {
 			s.rows = append(s.rows, s.rows[y-1])
 			continue

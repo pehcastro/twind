@@ -133,7 +133,7 @@ func TestKittyChunksRGBA(t *testing.T) {
 	img := noise(100, 100)
 	var k Kitty
 	for range 2 {
-		chunks := checkKitty(t, img, k.Encode(nil, img, Placement{Col: 1, Row: 2, Cols: 10, Rows: 5}, 7, 3), "32", 4)
+		chunks := checkKitty(t, img, k.Encode(nil, lines(img), Placement{Col: 1, Row: 2, Cols: 10, Rows: 5}, 7, 3), "32", 4)
 		if len(chunks) < 10 {
 			t.Fatalf("%d chunks for 40000 bytes of noise", len(chunks))
 		}
@@ -143,9 +143,9 @@ func TestKittyChunksRGBA(t *testing.T) {
 func TestKittyGradientAlphaAndOpaqueSubImage(t *testing.T) {
 	var k Kitty
 	img := gradient(100, 100, true)
-	checkKitty(t, img, k.Encode(nil, img, Placement{Col: 1, Row: 2, Cols: 10, Rows: 5}, 7, 3), "32", 4)
+	checkKitty(t, img, k.Encode(nil, lines(img), Placement{Col: 1, Row: 2, Cols: 10, Rows: 5}, 7, 3), "32", 4)
 	tile := gradient(120, 110, false).SubImage(image.Rect(10, 5, 110, 105)).(*image.RGBA)
-	checkKitty(t, tile, k.Encode(nil, tile, Placement{Col: 1, Row: 2, Cols: 10, Rows: 5}, 7, 3), "24", 3)
+	checkKitty(t, tile, k.Encode(nil, lines(tile), Placement{Col: 1, Row: 2, Cols: 10, Rows: 5}, 7, 3), "24", 3)
 }
 
 func TestKittyFlatIsOneRawPixel(t *testing.T) {
@@ -164,7 +164,7 @@ func TestKittyFlatIsOneRawPixel(t *testing.T) {
 		{"opaque", flatCard(), "24", []byte{244, 244, 245}, 62},
 		{"translucent", translucent, "32", []byte{121, 121, 121, 128}, 66},
 	} {
-		out := k.Encode(k.Encode(nil, noise(40, 40), Placement{Cols: 4, Rows: 2}, 1, 1)[:0], tc.img, Placement{Cols: 44, Rows: 8}, 1, 1)
+		out := k.Encode(k.Encode(nil, lines(noise(40, 40)), Placement{Cols: 4, Rows: 2}, 1, 1)[:0], lines(tc.img), Placement{Cols: 44, Rows: 8}, 1, 1)
 		_, chunks, raw := kittyChunks(t, out)
 		c := chunks[0].keys
 		_, compressed := c["o"]

@@ -27,6 +27,20 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 		"shadow":            {{Kind: raster.Shadow, Box: box(8, 8, 30, 30, 5, 5, 5, 5), Color: grey, Shadow: raster.BoxShadow{Y: 3, Blur: 6}}, {Kind: raster.Fill, Box: box(8, 8, 30, 30, 5, 5, 5, 5), Color: ink}},
 		"vertical gradient": {{Kind: raster.Fill, Box: box(0, 0, 50, 50), Color: ink, Stops: []raster.Stop{{Color: ink}, {Color: grey, At: 1}}, Angle: 180}},
 		"dashed border":     {{Kind: raster.Border, Box: box(1, 1, 48, 48), Color: grey, Width: 1, Dash: raster.Dashed}},
+		"offset shadow":     {{Kind: raster.Shadow, Box: box(8, 4, 30, 30, 5, 5, 5, 5), Color: grey, Shadow: raster.BoxShadow{Y: 9, Blur: 10, Spread: 3}}, {Kind: raster.Fill, Box: box(8, 4, 30, 30, 5, 5, 5, 5), Color: ink}},
+		"shrunk shadow":     {{Kind: raster.Shadow, Box: box(8, 8, 30, 30, 5, 5, 5, 5), Color: grey, Shadow: raster.BoxShadow{Y: 5, Blur: 7.5, Spread: -4}}},
+		"inset shadow":      {{Kind: raster.Fill, Box: box(4, 4, 40, 40, 6, 6, 6, 6), Color: ink}, {Kind: raster.Shadow, Box: box(4, 4, 40, 40, 6, 6, 6, 6), Color: grey, Shadow: raster.BoxShadow{Y: 2, Blur: 6, Inset: true}}},
+		"clip across": {
+			{Kind: raster.Clip, Box: box(0, 17, 50, 21)},
+			{Kind: raster.Fill, Box: box(3, 0, 40, 50), Color: ink},
+			{Kind: raster.Pop},
+			{Kind: raster.Fill, Box: box(2, 41, 40, 3), Color: grey},
+		},
+		"rounded clip": {
+			{Kind: raster.Clip, Box: box(6, 12, 36, 28, 9, 9, 9, 9)},
+			{Kind: raster.Fill, Box: box(0, 0, 50, 50), Color: ink},
+			{Kind: raster.Pop},
+		},
 	}
 	for name, ops := range cases {
 		want := image.NewRGBA(image.Rect(0, 0, 50, 50))
@@ -38,9 +52,12 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 		}
 		s, _ := screen(terminal.GraphicsSixel)
 		s.cache = map[uint64]*cached{}
-		c := s.boxRaster(&scene.Box{Visual: image.Rect(10, 20, 60, 70), Ops: shifted})
+		c := s.look(&scene.Box{Visual: image.Rect(10, 20, 60, 70), Ops: shifted})
+		s.rasterise()
+		got := image.NewRGBA(want.Rect)
+		over(got, got.Rect, c, image.Point{})
 		for y := range 50 {
-			if got := c.pix[int(c.row[y])*c.stride:][:c.stride]; !bytes.Equal(got, want.Pix[y*want.Stride:][:want.Stride]) {
+			if !bytes.Equal(got.Pix[y*got.Stride:][:got.Stride], want.Pix[y*want.Stride:][:want.Stride]) {
 				t.Errorf("%s: row %d differs from a full raster", name, y)
 				break
 			}

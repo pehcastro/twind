@@ -41,6 +41,11 @@ const (
 	DeflateFlatSpan        = 64
 	ScalarRun              = 4
 
+	Workers      = 8
+	LineMemoBits = 6
+	LineChunk    = 16
+	AlphaPair    = 0xff000000ff000000
+
 	PNGSignature = "\x89PNG\r\n\x1a\n"
 	PNGOpaque    = 2
 	PNGAlpha     = 6

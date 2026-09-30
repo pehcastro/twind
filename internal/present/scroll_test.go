@@ -53,11 +53,12 @@ func TestScrollMatchesAFreshFrame(t *testing.T) {
 			frame(t, s, root)
 			fresh, _ := screen(terminal.GraphicsSixel)
 			frame(t, fresh, root)
-			if !bytes.Equal(s.surface.Pix, fresh.surface.Pix) {
+			img := s.image()
+			if !bytes.Equal(img.Pix, fresh.image().Pix) {
 				t.Errorf("margins %v, offset %d: the stepped surface differs from a fresh frame", margins, offsets[i])
 			}
 			v := view(root)
-			if above, below := s.surface.RGBAAt(v.X*wt.X+wt.X/2, v.Y*wt.Y-wt.Y/2), s.surface.RGBAAt(v.X*wt.X+wt.X/2, (v.Y+v.H)*wt.Y+wt.Y/2); above != below {
+			if above, below := img.RGBAAt(v.X*wt.X+wt.X/2, v.Y*wt.Y-wt.Y/2), img.RGBAAt(v.X*wt.X+wt.X/2, (v.Y+v.H)*wt.Y+wt.Y/2); above != below {
 				t.Errorf("margins %v, offset %d: the card under the view is %v, above it %v: a row painted outside the view", margins, offsets[i], below, above)
 			}
 			for y := range rows {
@@ -66,7 +67,7 @@ func TestScrollMatchesAFreshFrame(t *testing.T) {
 				}
 			}
 			for tile, sent := range s.sent {
-				if !s.moved[tile] && sent != s.hash(s.pixels(s.tiles[tile])) {
+				if !s.moved[tile] && sent != s.hash(tile) {
 					t.Errorf("margins %v, offset %d: tile %v is believed sent as other pixels than the surface", margins, offsets[i], s.tiles[tile])
 				}
 			}
@@ -112,7 +113,7 @@ func TestScrollOverStaticLayers(t *testing.T) {
 		frame(t, s, root)
 		fresh, _ := screen(terminal.GraphicsSixel)
 		frame(t, fresh, root)
-		if !bytes.Equal(s.surface.Pix, fresh.surface.Pix) {
+		if !bytes.Equal(s.image().Pix, fresh.image().Pix) {
 			t.Errorf("offset %d over a gradient under a popover: the stepped surface differs from a fresh frame", offset)
 		}
 	}

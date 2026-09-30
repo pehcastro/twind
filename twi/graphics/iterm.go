@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
-	"image"
 
 	"github.com/twind-dev/twind/internal/konst/graphics"
 )
@@ -21,20 +20,20 @@ func pngChunk(file []byte, start int) []byte {
 	return binary.BigEndian.AppendUint32(file, crc32.ChecksumIEEE(file[start+4:]))
 }
 
-func (i *ITerm) Encode(dst []byte, img *image.RGBA, at Placement) ([]byte, error) {
-	if img.Rect.Empty() {
-		return dst, nil
+func (i *ITerm) Encode(dst []byte, rows [][]byte, at Placement) []byte {
+	if len(rows) == 0 || len(rows[0]) == 0 {
+		return dst
 	}
-	img = i.z.prepare(img)
+	rows, _ = i.z.prepare(rows)
 	var bpp int
-	i.idat, bpp = i.z.zlib(i.idat[:0], img, pngUpRows)
+	i.idat, bpp = i.z.zlib(i.idat[:0], rows, pngUpRows)
 	colour := byte(graphics.PNGAlpha)
 	if bpp == 3 {
 		colour = graphics.PNGOpaque
 	}
 	i.file = append(i.file[:0], graphics.PNGSignature+"\x00\x00\x00\x00IHDR"...)
-	i.file = binary.BigEndian.AppendUint32(i.file, uint32(img.Rect.Dx()))
-	i.file = binary.BigEndian.AppendUint32(i.file, uint32(img.Rect.Dy()))
+	i.file = binary.BigEndian.AppendUint32(i.file, uint32(len(rows[0])/4))
+	i.file = binary.BigEndian.AppendUint32(i.file, uint32(len(rows)))
 	i.file = pngChunk(append(i.file, 8, colour, 0, 0, 0), len(graphics.PNGSignature))
 	start := len(i.file)
 	i.file = pngChunk(append(append(i.file, "\x00\x00\x00\x00IDAT"...), i.idat...), start)
@@ -43,5 +42,5 @@ func (i *ITerm) Encode(dst []byte, img *image.RGBA, at Placement) ([]byte, error
 	dst = fmt.Appendf(dst, "\x1b[%d;%dH\x1b]1337;File=inline=1;size=%d;width=%d;height=%d;preserveAspectRatio=0;doNotMoveCursor=1:",
 		at.Row+1, at.Col+1, len(i.file), at.Cols, at.Rows)
 	dst = base64.StdEncoding.AppendEncode(dst, i.file)
-	return append(dst, '\a'), nil
+	return append(dst, '\a')
 }

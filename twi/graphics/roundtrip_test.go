@@ -28,7 +28,7 @@ func roundTripKitty(t *testing.T, img *image.RGBA) {
 	t.Helper()
 	var k Kitty
 	for range 2 {
-		_, chunks, raw := kittyChunks(t, k.Encode(nil, img, Placement{Cols: 4, Rows: 2}, 1, 1))
+		_, chunks, raw := kittyChunks(t, k.Encode(nil, lines(img), Placement{Cols: 4, Rows: 2}, 1, 1))
 		bpp := 3
 		if chunks[0].keys["f"] == "32" {
 			bpp = 4
@@ -48,11 +48,7 @@ func roundTripITerm(t *testing.T, img *image.RGBA) {
 	t.Helper()
 	var enc ITerm
 	for range 2 {
-		out, err := enc.Encode(nil, img, Placement{Cols: 4, Rows: 2})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, data, _ := strings.Cut(string(out), ":")
+		_, data, _ := strings.Cut(string(enc.Encode(nil, lines(img), Placement{Cols: 4, Rows: 2})), ":")
 		file, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(data, "\x07"))
 		if err != nil {
 			t.Fatal(err)

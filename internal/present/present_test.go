@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"testing"
 
+	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
 	termkonst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/internal/present/demo"
 	"github.com/twind-dev/twind/internal/render"
@@ -50,6 +51,16 @@ func tree(t testing.TB, n render.Node) scene.Node {
 func screen(g terminal.Graphics) (*Screen, *writes) {
 	out := &writes{}
 	return &Screen{Out: out, Profile: color.TrueColor, Graphics: g, Cell: wt, Sync: true}, out
+}
+
+func (s *Screen) image() *image.RGBA {
+	img := image.NewRGBA(s.bounds)
+	for y := range s.bounds.Dy() {
+		for x := 0; x < s.bounds.Dx(); x += paintkonst.TileColumns * s.Cell.X {
+			copy(img.Pix[img.PixOffset(x, y):], s.column(x).line(y))
+		}
+	}
+	return img
 }
 
 func frame(t testing.TB, s *Screen, root scene.Node) {
@@ -133,6 +144,7 @@ func TestFirstFrameBudget(t *testing.T) {
 func TestSixelTextTakesTheRegisterColour(t *testing.T) {
 	s, _ := screen(terminal.GraphicsSixel)
 	frame(t, s, tree(t, demo.Dialog()))
+	img := s.image()
 	percent := func(v uint8) uint8 {
 		sent := (int(v)*100 + 127) / 255
 		return uint8((sent*255 + 50) / 100)
@@ -147,7 +159,7 @@ func TestSixelTextTakesTheRegisterColour(t *testing.T) {
 				continue
 			}
 			found++
-			m := s.surface.RGBAAt(x*wt.X+wt.X/2, y*wt.Y+wt.Y/2)
+			m := img.RGBAAt(x*wt.X+wt.X/2, y*wt.Y+wt.Y/2)
 			want := color.RGBA{R: percent(m.R), G: percent(m.G), B: percent(m.B), A: 255}
 			if c.Bg.RGBA != want && s.flat(x, y) {
 				t.Fatalf("text %q at %d,%d has bg %+v, want the register colour %+v of the flat surface under it", c.Grapheme, x, y, c.Bg.RGBA, want)
@@ -170,8 +182,9 @@ func TestANSI256SurfaceTakesThePaletteColour(t *testing.T) {
 	s, _ := screen(terminal.GraphicsSixel)
 	s.Profile = color.ANSI256
 	frame(t, s, tree(t, demo.Dialog()))
-	for i := 0; i < len(s.surface.Pix); i += 4 {
-		p := s.surface.Pix[i : i+4]
+	img := s.image()
+	for i := 0; i < len(img.Pix); i += 4 {
+		p := img.Pix[i : i+4]
 		if c := (color.RGBA{R: p[0], G: p[1], B: p[2], A: p[3]}); c.A == 255 && !palette(c) {
 			t.Fatalf("opaque surface pixel %+v at byte %d under ANSI256, want an xterm palette colour", c, i)
 		}
@@ -181,7 +194,7 @@ func TestANSI256SurfaceTakesThePaletteColour(t *testing.T) {
 			if c == (buffer.Cell{}) || c.Width == buffer.Continuation || !s.flat(x, y) {
 				continue
 			}
-			m := s.surface.RGBAAt(x*wt.X, y*wt.Y)
+			m := img.RGBAAt(x*wt.X, y*wt.Y)
 			if under := (color.RGBA{R: m.R, G: m.G, B: m.B, A: 255}).ANSI256(); c.Bg.RGBA.ANSI256() != under {
 				t.Fatalf("text %q at %d,%d has bg index %d over a flat surface of index %d", c.Grapheme, x, y, c.Bg.RGBA.ANSI256(), under)
 			}
@@ -274,8 +287,8 @@ func TestResizeSendsEverything(t *testing.T) {
 	if err := s.Frame(root, cols-10, rows); err != nil {
 		t.Fatal(err)
 	}
-	if s.imageBytes == 0 || s.surface.Rect.Dx() != (cols-10)*wt.X {
-		t.Errorf("after a resize: %d image bytes, surface %v, want a full frame at the new width", s.imageBytes, s.surface.Rect)
+	if s.imageBytes == 0 || s.image().Rect.Dx() != (cols-10)*wt.X {
+		t.Errorf("after a resize: %d image bytes, surface %v, want a full frame at the new width", s.imageBytes, s.bounds)
 	}
 }
 
@@ -337,7 +350,8 @@ func TestOpacityGroupDoesNotDarkenOverlap(t *testing.T) {
 	group.Children = []scene.Node{a, b}
 	page.Children = []scene.Node{group}
 	frame(t, s, page)
-	one, both := s.surface.RGBAAt(15, 10), s.surface.RGBAAt(45, 30)
+	img := s.image()
+	one, both := img.RGBAAt(15, 10), img.RGBAAt(45, 30)
 	if one != both || one.R < 120 || one.R > 135 {
 		t.Errorf("a black pair in an opacity-50 group over white: %+v alone, %+v where they overlap, want both mid grey", one, both)
 	}

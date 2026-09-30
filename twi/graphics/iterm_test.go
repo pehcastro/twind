@@ -15,14 +15,8 @@ func TestITermHeaderAndPNG(t *testing.T) {
 	full := gradient(60, 50, true)
 	tile := full.SubImage(image.Rect(10, 10, 40, 30)).(*image.RGBA)
 	var enc ITerm
-	if _, err := enc.Encode(nil, flatCard(), Placement{}); err != nil {
-		t.Fatal(err)
-	}
-	out, err := enc.Encode(nil, tile, Placement{Col: 4, Row: 0, Cols: 3, Rows: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := string(out)
+	enc.Encode(nil, lines(flatCard()), Placement{})
+	s := string(enc.Encode(nil, lines(tile), Placement{Col: 4, Row: 0, Cols: 3, Rows: 1}))
 	head, data, ok := strings.Cut(s, ":")
 	if !ok || !strings.HasSuffix(data, "\x07") {
 		t.Fatalf("not an OSC 1337 File: %q", s)
@@ -54,10 +48,7 @@ func TestITermHeaderAndPNG(t *testing.T) {
 
 func TestITermFlatIsOnePixel(t *testing.T) {
 	var enc ITerm
-	out, err := enc.Encode(nil, flatCard(), Placement{Cols: 44, Rows: 8})
-	if err != nil {
-		t.Fatal(err)
-	}
+	out := enc.Encode(nil, lines(flatCard()), Placement{Cols: 44, Rows: 8})
 	_, data, _ := strings.Cut(string(out), ":")
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(data, "\x07"))
 	if err != nil {

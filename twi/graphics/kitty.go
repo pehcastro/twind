@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"image"
 
 	"github.com/twind-dev/twind/internal/konst/graphics"
 )
@@ -14,24 +13,24 @@ type Kitty struct {
 	z    deflater
 }
 
-func (k *Kitty) Encode(dst []byte, img *image.RGBA, at Placement, id, placement uint32) []byte {
-	if img.Rect.Empty() {
+func (k *Kitty) Encode(dst []byte, rows [][]byte, at Placement, id, placement uint32) []byte {
+	if len(rows) == 0 || len(rows[0]) == 0 {
 		return dst
 	}
-	img = k.z.prepare(img)
+	rows, flat := k.z.prepare(rows)
 	bpp, compression := 4, ""
-	if img == &k.z.one {
-		p := straight(pixel(img.Pix, 0))
+	if flat {
+		p := straight(pixel(rows[0], 0))
 		if p>>24 == 0xff {
 			bpp = 3
 		}
 		k.file = binary.LittleEndian.AppendUint32(k.file[:0], p)[:bpp]
 	} else {
-		k.file, bpp = k.z.zlib(k.file[:0], img, rawRows)
+		k.file, bpp = k.z.zlib(k.file[:0], rows, rawRows)
 		compression = "o=z,"
 	}
 	dst = fmt.Appendf(dst, "\x1b[%d;%dH\x1b_Ga=T,f=%d,%ss=%d,v=%d,i=%d,p=%d,c=%d,r=%d,z=-1,C=1,q=2",
-		at.Row+1, at.Col+1, 8*bpp, compression, img.Rect.Dx(), img.Rect.Dy(), id, placement, at.Cols, at.Rows)
+		at.Row+1, at.Col+1, 8*bpp, compression, len(rows[0])/4, len(rows), id, placement, at.Cols, at.Rows)
 	for start := 0; start < len(k.file); start += graphics.KittyRawChunk {
 		if start > 0 {
 			dst = append(dst, "\x1b_Gq=2"...)

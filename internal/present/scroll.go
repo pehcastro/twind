@@ -1,9 +1,12 @@
 package present
 
 import (
+	"bytes"
 	"fmt"
+	"hash/maphash"
 	"image"
 
+	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
 	konst "github.com/twind-dev/twind/internal/konst/scene"
 	termkonst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi/buffer"
@@ -55,10 +58,17 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 		s.damage(s.pixels(image.Rect(area.Min.X, dst, area.Max.X, dst+1)))
 	})
 	px := s.pixels(area)
-	row := func(y int) []uint8 {
-		return s.surface.Pix[s.surface.PixOffset(px.Min.X, y):s.surface.PixOffset(px.Max.X, y)]
+	span := paintkonst.TileColumns * s.Cell.X
+	for left := px.Min.X / span * span; left < px.Max.X; left += span {
+		c := s.column(left)
+		lo, hi := 4*(max(px.Min.X, left)-left), 4*(min(px.Max.X, left+span)-left)
+		clear(s.splices)
+		move := func(dst, src int) { s.splice(c, dst, c.lineOf[src], lo, hi) }
+		if lo == 0 && hi == c.width {
+			move = func(dst, src int) { c.link(dst, c.lineOf[src]) }
+		}
+		slide(px.Min.Y, px.Max.Y, by.Y, move, func(dst int) { s.splice(c, dst, -1, lo, hi) })
 	}
-	slide(px.Min.Y, px.Max.Y, by.Y, func(dst, src int) { copy(row(dst), row(src)) }, func(dst int) { clear(row(dst)) })
 	for t, tile := range s.tiles {
 		s.moved[t] = s.moved[t] || tile.Overlaps(area)
 	}
@@ -76,7 +86,9 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 
 func (s *Screen) unshifted(l *scene.Layer, b *scene.Box, dy int, area image.Rectangle) {
 	v := b.Visual.Add(l.Origin).Intersect(l.Clip)
-	band := s.boxRaster(b).uniform
+	c := s.look(b)
+	s.rasterise()
+	band := c.uniform
 	top, bottom := max(v.Min.Y, b.Visual.Min.Y+l.Origin.Y+band[0]), min(v.Max.Y, b.Visual.Min.Y+l.Origin.Y+band[1])
 	outer := image.Rect(v.Min.X, min(v.Min.Y, v.Min.Y+dy), v.Max.X, max(v.Max.Y, v.Max.Y+dy))
 	inner := image.Rect(v.Min.X, max(top, top+dy), v.Max.X, min(bottom, bottom+dy))
@@ -86,6 +98,26 @@ func (s *Screen) unshifted(l *scene.Layer, b *scene.Box, dy int, area image.Rect
 	}
 	s.damage(image.Rect(outer.Min.X, outer.Min.Y, outer.Max.X, inner.Min.Y).Intersect(area))
 	s.damage(image.Rect(outer.Min.X, inner.Max.Y, outer.Max.X, outer.Max.Y).Intersect(area))
+}
+
+func (s *Screen) splice(c *column, y int, from int32, lo, hi int) {
+	pair := [2]int32{c.lineOf[y], from}
+	k, ok := s.splices[pair]
+	switch {
+	case ok:
+	case from >= 0 && bytes.Equal(c.line(y)[lo:hi], c.store[from][lo:hi]):
+		k = pair[0]
+	default:
+		s.spliced = append(s.spliced[:0], c.line(y)...)
+		if from < 0 {
+			clear(s.spliced[lo:hi])
+		} else {
+			copy(s.spliced[lo:hi], c.store[from][lo:hi])
+		}
+		k = c.intern(s.spliced, maphash.Bytes(s.seed, s.spliced))
+	}
+	s.splices[pair] = k
+	c.link(y, k)
 }
 
 func slide(lo, hi, by int, move func(dst, src int), blank func(dst int)) {

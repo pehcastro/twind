@@ -13,12 +13,21 @@ func flatCard() *image.RGBA {
 	return img
 }
 
+func lines(img *image.RGBA) [][]byte {
+	var rows [][]byte
+	for y := img.Rect.Min.Y; y < img.Rect.Max.Y; y++ {
+		rows = append(rows, img.Pix[img.PixOffset(img.Rect.Min.X, y):img.PixOffset(img.Rect.Max.X, y)])
+	}
+	return rows
+}
+
 func benchSixel(b *testing.B, img *image.RGBA) {
 	var s Sixel
 	var buf []byte
+	rows := lines(img)
 	b.ReportAllocs()
 	for b.Loop() {
-		buf = s.Encode(buf[:0], img, Placement{Cols: 44, Rows: 8})
+		buf = s.Encode(buf[:0], rows, Placement{Cols: 44, Rows: 8})
 	}
 	b.ReportMetric(float64(len(buf)), "bytes")
 }
@@ -26,9 +35,10 @@ func benchSixel(b *testing.B, img *image.RGBA) {
 func benchKitty(b *testing.B, img *image.RGBA) {
 	var k Kitty
 	var buf []byte
+	rows := lines(img)
 	b.ReportAllocs()
 	for b.Loop() {
-		buf = k.Encode(buf[:0], img, Placement{Cols: 44, Rows: 8}, 1, 1)
+		buf = k.Encode(buf[:0], rows, Placement{Cols: 44, Rows: 8}, 1, 1)
 	}
 	b.ReportMetric(float64(len(buf)), "bytes")
 }
@@ -36,12 +46,10 @@ func benchKitty(b *testing.B, img *image.RGBA) {
 func benchITerm(b *testing.B, img *image.RGBA) {
 	var enc ITerm
 	var buf []byte
+	rows := lines(img)
 	b.ReportAllocs()
 	for b.Loop() {
-		var err error
-		if buf, err = enc.Encode(buf[:0], img, Placement{Cols: 44, Rows: 8}); err != nil {
-			b.Fatal(err)
-		}
+		buf = enc.Encode(buf[:0], rows, Placement{Cols: 44, Rows: 8})
 	}
 	b.ReportMetric(float64(len(buf)), "bytes")
 }

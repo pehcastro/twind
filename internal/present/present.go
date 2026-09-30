@@ -6,7 +6,6 @@ import (
 	"hash/maphash"
 	"image"
 	"io"
-	"math"
 	"slices"
 
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
@@ -16,7 +15,6 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/graphics"
 	"github.com/twind-dev/twind/twi/paint"
-	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/terminal"
 )
@@ -39,7 +37,18 @@ type Screen struct {
 
 	turn         int
 	scenes       [2]scene.Frame
-	surface      *image.RGBA
+	bounds       image.Rectangle
+	columns      []column
+	workers      []*worker
+	pending      []pending
+	drawn        []bool
+	busy         []int
+	sending      []int
+	pieces       []piece
+	spans        [][2]int
+	tileRows     [][]byte
+	spliced      []uint8
+	splices      map[[2]int32]int32
 	tiles        []image.Rectangle
 	tileOf       []int
 	hashes, sent []uint64
@@ -52,19 +61,11 @@ type Screen struct {
 	cache        map[uint64]*cached
 	groups       []group
 	parts        []part
-	targets      []*image.RGBA
-	ops          []raster.Op
-	canvas       image.RGBA
-	lines        []uint8
-	drawn        []bool
-	raster       raster.Raster
 	seed         maphash.Seed
 	frame        uint64
 	rastered     int
 	imageBytes   int
-	sixel        graphics.Sixel
 	kitty        graphics.Kitty
-	iterm        graphics.ITerm
 }
 
 type cached struct {
@@ -119,9 +120,7 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	s.painter.Paint(s.text, &root, look)
 	s.imageBytes = 0
 	if s.Graphics != terminal.GraphicsNone {
-		if err := s.surfaces(&root); err != nil {
-			return err
-		}
+		s.surfaces(&root)
 	}
 	s.compose()
 	if s.Graphics == terminal.GraphicsNone {
@@ -152,7 +151,7 @@ func (s *Screen) reset(cols, rows int) {
 		s.out.WriteString(termkonst.Reset + termkonst.CSI + "2J")
 	}
 	if s.Cell != s.cell || s.cache == nil {
-		s.cache, s.seed = map[uint64]*cached{}, maphash.MakeSeed()
+		s.cache, s.splices, s.seed = map[uint64]*cached{}, map[[2]int32]int32{}, maphash.MakeSeed()
 	}
 	s.cols, s.rows, s.cell, s.fresh = cols, rows, s.Cell, true
 	s.text, s.shown, s.want = buffer.New(cols, rows), buffer.New(cols, rows), buffer.New(cols, rows)
@@ -165,14 +164,27 @@ func (s *Screen) reset(cols, rows int) {
 	if s.Graphics == terminal.GraphicsNone {
 		return
 	}
-	px := image.Rect(0, 0, cols*s.Cell.X, rows*s.Cell.Y)
-	if s.surface == nil || cap(s.surface.Pix) < 4*px.Dx()*px.Dy() {
-		s.surface = image.NewRGBA(px)
-	}
-	s.surface.Pix, s.surface.Stride, s.surface.Rect = s.surface.Pix[:4*px.Dx()*px.Dy()], 4*px.Dx(), px
+	s.bounds = image.Rect(0, 0, cols*s.Cell.X, rows*s.Cell.Y)
 	band := 1
 	for s.Graphics == terminal.GraphicsSixel && band*s.Cell.Y%graphicskonst.SixelBand != 0 {
 		band++
+	}
+	span := konst.TileColumns * s.Cell.X
+	s.columns = slices.Grow(s.columns[:0], (s.bounds.Dx()+span-1)/span)[:(s.bounds.Dx()+span-1)/span]
+	for i := range s.columns {
+		c := &s.columns[i]
+		if width := 4 * (min(i*span+span, s.bounds.Max.X) - i*span); width != c.width {
+			*c = column{width: width}
+		}
+		c.free = c.free[:0]
+		clear(c.holders)
+		for k := range c.store {
+			c.free = append(c.free, int32(k))
+		}
+		c.lineOf = slices.Grow(c.lineOf[:0], s.bounds.Dy())[:s.bounds.Dy()]
+		for y := range c.lineOf {
+			c.lineOf[y] = -1
+		}
 	}
 	s.tiles, s.tileOf = s.tiles[:0], make([]int, cols*rows)
 	for bottom := rows; bottom > 0; bottom -= band {
@@ -188,6 +200,7 @@ func (s *Screen) reset(cols, rows int) {
 	}
 	n := len(s.tiles)
 	s.hashes, s.sent, s.dirty, s.send, s.moved, s.plain = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n), make([]bool, n), make([]bool, n)
+	s.spans, s.pieces = make([][2]int, n), make([]piece, n)
 	s.samples, s.sampled = make([]color.Color, cols*rows), make([]bool, cols*rows)
 	if s.Graphics == terminal.GraphicsKitty {
 		s.images, s.uses = map[uint64]uint32{}, make([]int, n)
@@ -236,7 +249,7 @@ func blank(c buffer.Cell) bool {
 	return c.Grapheme == " " && c.Attr&(buffer.Underline|buffer.Strikethrough|buffer.Inverse) == 0
 }
 
-func (s *Screen) surfaces(root *scene.Node) error {
+func (s *Screen) surfaces(root *scene.Node) {
 	prev, next := &s.scenes[s.turn], &s.scenes[1-s.turn]
 	s.turn = 1 - s.turn
 	next.Record(root, s.Cell)
@@ -265,25 +278,45 @@ func (s *Screen) surfaces(root *scene.Node) error {
 	if changed {
 		s.frame++
 	}
+	s.parts, s.busy = s.parts[:0], s.busy[:0]
+	for t, dirty := range s.dirty {
+		if !dirty {
+			continue
+		}
+		s.collect(next, t)
+		if column := t % len(s.columns); !slices.Contains(s.busy, column) {
+			s.busy = append(s.busy, column)
+		}
+	}
+	clear(s.pieces)
+	for _, w := range s.workers {
+		w.out = w.out[:0]
+	}
+	s.rasterise()
+	s.parallel(len(s.busy), func(w *worker, i int) {
+		for t := s.busy[i]; t < len(s.tiles); t += len(s.columns) {
+			if !s.dirty[t] {
+				continue
+			}
+			if s.moved[t] {
+				s.sent[t], s.moved[t] = s.hash(t), false
+			}
+			w.fill(s, t)
+			s.hashes[t] = s.hash(t)
+			s.plain[t] = s.Graphics != terminal.GraphicsSixel && s.Profile == color.TrueColor && s.plainTile(t)
+			if s.Graphics != terminal.GraphicsKitty && !s.plain[t] && s.hashes[t] != s.sent[t] {
+				w.encode(s, t)
+			}
+		}
+	})
 	for t, dirty := range s.dirty {
 		if !dirty {
 			continue
 		}
 		cells := s.tiles[t]
-		if s.moved[t] {
-			s.sent[t], s.moved[t] = s.hash(s.pixels(cells)), false
-		}
-		s.composite(next, s.pixels(cells))
-		if s.Profile == color.ANSI256 {
-			s.quantise(s.pixels(cells))
-		}
-		s.hashes[t] = s.hash(s.pixels(cells))
-		s.plain[t] = s.Graphics != terminal.GraphicsSixel && s.Profile == color.TrueColor && s.plainTile(cells)
 		switch {
 		case !s.plain[t]:
-			if s.send[t] = s.hashes[t] != s.sent[t]; !s.send[t] {
-				continue
-			}
+			s.send[t] = s.hashes[t] != s.sent[t]
 		case s.Graphics == terminal.GraphicsKitty && s.sent[t] != 0:
 			s.unplace(t)
 		case s.Graphics == terminal.GraphicsITerm2 && (s.sent[t] != 0 || s.fresh):
@@ -308,28 +341,29 @@ func (s *Screen) surfaces(root *scene.Node) error {
 			}
 		}
 	}
+	s.sending = s.sending[:0]
+	for t, send := range s.send {
+		if send && s.Graphics != terminal.GraphicsKitty && s.pieces[t].w == nil {
+			s.sending = append(s.sending, t)
+		}
+	}
+	s.parallel(len(s.sending), func(w *worker, i int) { w.encode(s, s.sending[i]) })
 	sent := false
 	for t, send := range s.send {
-		if !send {
-			continue
+		if send {
+			s.put(t)
+			sent = true
 		}
-		if err := s.put(t); err != nil {
-			return err
-		}
-		sent = true
 	}
 	if sent {
 		s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
 	}
-	return nil
 }
 
-func (s *Screen) put(t int) error {
+func (s *Screen) put(t int) {
 	cells := s.tiles[t]
-	img := s.surface.SubImage(s.pixels(cells)).(*image.RGBA)
-	at := graphics.Placement{Col: cells.Min.X, Row: cells.Min.Y, Cols: cells.Dx(), Rows: cells.Dy()}
 	start := s.out.Len()
-	if s.underText() && s.sent[t] != 0 && !opaque(img) {
+	if s.underText() && s.sent[t] != 0 && !s.opaque(t) {
 		s.out.WriteString(termkonst.Reset)
 		for y := cells.Min.Y; y < cells.Max.Y; y++ {
 			fmt.Fprintf(&s.out, "%s%d;%dH%s%d%s", termkonst.CSI, y+1, cells.Min.X+1, termkonst.CSI, cells.Dx(), konst.EraseCells)
@@ -338,31 +372,28 @@ func (s *Screen) put(t int) error {
 	if s.Graphics == terminal.GraphicsKitty && s.sent[t] != 0 {
 		s.unplace(t)
 	}
-	dst := s.out.AvailableBuffer()
 	switch s.Graphics {
-	case terminal.GraphicsSixel:
-		dst = s.sixel.Encode(dst, img, at)
+	case terminal.GraphicsSixel, terminal.GraphicsITerm2:
+		p := s.pieces[t]
+		s.out.Write(p.w.out[p.lo:p.hi])
 	case terminal.GraphicsKitty:
+		dst := s.out.AvailableBuffer()
 		slot, placed := s.images[s.hashes[t]]
 		if placed {
-			dst = graphics.KittyPlace(dst, at, konst.KittyFirstImage+slot, uint32(t)+1)
+			dst = graphics.KittyPlace(dst, s.placement(t), konst.KittyFirstImage+slot, uint32(t)+1)
 		} else {
 			slot = uint32(slices.Index(s.uses, 0))
 			s.images[s.hashes[t]] = slot
-			dst = s.kitty.Encode(dst, img, at, konst.KittyFirstImage+slot, uint32(t)+1)
+			s.tileRows = s.tileLines(t, s.tileRows[:0])
+			dst = s.kitty.Encode(dst, s.tileRows, s.placement(t), konst.KittyFirstImage+slot, uint32(t)+1)
 		}
 		s.uses[slot]++
-	case terminal.GraphicsITerm2:
-		var err error
-		if dst, err = s.iterm.Encode(dst, img, at); err != nil {
-			return err
-		}
+		s.out.Write(dst)
 	case terminal.GraphicsNone:
 		panic("present: a tile put without graphics")
 	default:
 		panic(fmt.Sprintf("present: unknown graphics %d", s.Graphics))
 	}
-	s.out.Write(dst)
 	s.imageBytes += s.out.Len() - start
 	s.sent[t] = s.hashes[t]
 	if s.underText() {
@@ -370,17 +401,4 @@ func (s *Screen) put(t int) error {
 			clear(s.shown.Row(y)[cells.Min.X:cells.Max.X])
 		}
 	}
-	return nil
-}
-
-func opaque(img *image.RGBA) bool {
-	for y := img.Rect.Min.Y; y < img.Rect.Max.Y; y++ {
-		row := img.Pix[img.PixOffset(img.Rect.Min.X, y):img.PixOffset(img.Rect.Max.X, y)]
-		for i := 3; i < len(row); i += 4 {
-			if row[i] != math.MaxUint8 {
-				return false
-			}
-		}
-	}
-	return true
 }

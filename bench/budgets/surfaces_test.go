@@ -3,6 +3,7 @@ package budgets_test
 import (
 	"bytes"
 	"image"
+	"runtime"
 	"testing"
 	"time"
 
@@ -39,12 +40,13 @@ func (f *frames) add(p []byte) {
 	f.n++
 	f.bytes += len(p)
 	for {
-		start := bytes.Index(p, []byte("\x1bP"))
-		if kitty := bytes.Index(p, []byte("\x1b_G")); kitty >= 0 && (start < 0 || kitty < start) {
-			start = kitty
-		}
+		start := bytes.IndexByte(p, '\x1b')
 		if start < 0 {
 			return
+		}
+		if !bytes.HasPrefix(p[start:], []byte("\x1bP")) && !bytes.HasPrefix(p[start:], []byte("\x1b_G")) {
+			p = p[start+1:]
+			continue
 		}
 		end := start + bytes.Index(p[start:], []byte("\x1b\\")) + 2
 		f.image += end - start
@@ -118,33 +120,44 @@ type timing struct {
 	out          frames
 	extra        int
 	first, quiet []time.Duration
+	collections  uint32
 }
 
-func (t *timing) frame(be *surfaceBackend, rt *twi.Runtime, begin time.Duration) {
+func (t *timing) frame(b *testing.B, be *surfaceBackend, rt *twi.Runtime, begin time.Duration) {
 	p := <-be.written
 	t.first = append(t.first, t.now()-begin)
 	t.extra += settle(be, rt)
 	t.quiet = append(t.quiet, t.now()-begin)
+	b.StopTimer()
 	t.out.add(p)
+}
+
+func (t *timing) start(b *testing.B) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	t.collections = m.NumGC
+	b.ReportAllocs()
+	b.ResetTimer()
 }
 
 func (t *timing) report(b *testing.B) {
 	b.StopTimer()
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
 	percentiles(b, "", t.first)
 	percentiles(b, "settled-", t.quiet)
 	t.out.report(b)
 	b.ReportMetric(float64(t.extra)/float64(len(t.first)), "extra-bytes/op")
+	b.ReportMetric(float64(m.NumGC-t.collections)/float64(len(t.first)), "gc/op")
 }
 
 func (sc scenario) first(b *testing.B, caps terminal.Capabilities) {
 	t := timing{now: clock(b)}
-	b.ReportAllocs()
-	b.ResetTimer()
+	t.start(b)
 	for range b.N {
 		begin := t.now()
 		be, rt, done := sc.start(caps)
-		t.frame(be, rt, begin)
-		b.StopTimer()
+		t.frame(b, be, rt, begin)
 		stop(b, be, rt, done)
 		b.StartTimer()
 	}
@@ -161,8 +174,7 @@ func (sc scenario) step(b *testing.B, caps terminal.Capabilities, s step) {
 			settle(be, rt)
 		}
 	}
-	b.ReportAllocs()
-	b.ResetTimer()
+	t.start(b)
 	for i := range b.N {
 		if s.before != nil {
 			b.StopTimer()
@@ -171,8 +183,7 @@ func (sc scenario) step(b *testing.B, caps terminal.Capabilities, s step) {
 		}
 		begin := t.now()
 		be.events <- s.timed
-		t.frame(be, rt, begin)
-		b.StopTimer()
+		t.frame(b, be, rt, begin)
 		send(s.after)
 		b.StartTimer()
 	}
