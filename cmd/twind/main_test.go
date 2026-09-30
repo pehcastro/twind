@@ -4,8 +4,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/twind-dev/twind/twi/tailwind"
 )
 
 func scratch(t *testing.T, prefix string) string {
@@ -55,6 +58,72 @@ func TestCheckScratchCopy(t *testing.T) {
 	out.Reset()
 	if err := check([]string{pattern}, &out); err == nil || !strings.Contains(out.String(), "stale ") || !strings.Contains(out.String(), "twir_gen_test.go") {
 		t.Fatalf("a class edited in main.go: want the IR named stale and an error, got %v\n%s", err, out.String())
+	}
+}
+
+func TestBuildAndCheckAgree(t *testing.T) {
+	dir := scratch(t, "agree")
+	ir := filepath.Join(dir, "twir_gen.go")
+	pattern := "./" + filepath.ToSlash(dir)
+	read := func(path string) string {
+		t.Helper()
+		src, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(src)
+	}
+	write := func(path, body string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	app := read(filepath.Join("testdata", "app", "main.go"))
+	write(filepath.Join(dir, "main.go"), app)
+	write(filepath.Join(dir, "main_test.go"), "package main\n")
+	write(ir, read(filepath.Join("testdata", "app", "twir_gen.go")))
+	var out strings.Builder
+	for _, c := range []struct {
+		why   string
+		edit  func()
+		stale bool
+	}{
+		{"a copy of a fresh IR", func() {}, false},
+		{"a class edited in a test", func() {
+			write(filepath.Join(dir, "main_test.go"), "package main\n\nconst fixture = \"bg-lime-500\"\n")
+		}, false},
+		{"a CRLF checkout", func() {
+			for _, path := range []string{filepath.Join(dir, "main.go"), ir} {
+				write(path, strings.ReplaceAll(read(path), "\n", "\r\n"))
+			}
+		}, false},
+		{"a class edited in the app", func() {
+			write(filepath.Join(dir, "main.go"), strings.Replace(app, "text-red-500", "text-blue-500", 1))
+		}, true},
+		{"an IR written by another compiler", func() {
+			hash := regexp.MustCompile(`hash=[0-9a-f]+`)
+			write(ir, hash.ReplaceAllString(read(ir), "hash="+strings.Repeat("0", 64)))
+		}, true},
+	} {
+		c.edit()
+		out.Reset()
+		checked := check([]string{pattern}, &out) != nil
+		stale, err := tailwind.Stale(dir, "twir_gen.go")
+		if err != nil {
+			t.Fatal(err)
+		}
+		before := read(ir)
+		if err := build([]string{pattern}, &out); err != nil {
+			if strings.Contains(out.String(), "no .twind/bin/") {
+				t.Skip("no pinned Tailwind in .twind/bin")
+			}
+			t.Fatalf("%s: build: %v\n%s", c.why, err, out.String())
+		}
+		rebuilt := read(ir) != before
+		if checked != c.stale || stale != c.stale || rebuilt != c.stale {
+			t.Errorf("%s: check stale %v, test stale %v, build rewrote %v, want %v\n%s", c.why, checked, stale, rebuilt, c.stale, out.String())
+		}
 	}
 }
 

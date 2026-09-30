@@ -53,6 +53,62 @@ func TestStale(t *testing.T) {
 	stale(true, "an older IR version")
 }
 
+func TestStaleTakesTestFilesOnlyForATestIR(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	generate := func(ir string) {
+		t.Helper()
+		_, hash, err := Inputs(dir, ir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		write(ir, Header(hash)+"package main\n")
+	}
+	stale := func(ir string, want bool, why string) {
+		t.Helper()
+		if got, err := Stale(dir, ir); err != nil || got != want {
+			t.Errorf("%s: %s stale %v, error %v, want stale %v", why, ir, got, err, want)
+		}
+	}
+	write("go.mod", "module example.com/app\n\ngo 1.26\n")
+	write("main.go", "package main\n\nconst classes = \"flex p-4\"\n")
+	write("main_test.go", "package main\n")
+	generate("twir_gen.go")
+	sources, _, err := Inputs(dir, "twir_gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(sources, ",") != filepath.Join(dir, "main.go") {
+		t.Errorf("sources of a package IR %q, want main.go only", sources)
+	}
+	write("main_test.go", "package main\n\nconst fixture = \"bg-lime-500\"\n")
+	stale("twir_gen.go", false, "a class edited in a test beside a package IR")
+	generate("twir_gen_test.go")
+	stale("twir_gen.go", false, "a second IR written beside it")
+	sources, _, err = Inputs(dir, "twir_gen_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(sources, ",") != filepath.Join(dir, "main.go")+","+filepath.Join(dir, "main_test.go") {
+		t.Errorf("sources of a test IR %q, want main.go and main_test.go", sources)
+	}
+	write("main_test.go", "package main\n\nconst fixture = \"bg-sky-500\"\n")
+	stale("twir_gen_test.go", true, "a class edited in a test beside a test IR")
+	generate("twir_gen_test.go")
+	src, err := os.ReadFile(filepath.Join(dir, "twir_gen_test.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	write("twir_gen_test.go", strings.ReplaceAll(string(src), "\n", "\r\n"))
+	stale("twir_gen_test.go", false, "a CRLF checkout of the IR")
+	stale("twir_gen.go", false, "the other IR regenerated")
+}
+
 func TestInputsFollowClassPackages(t *testing.T) {
 	write := func(path, body string) {
 		t.Helper()

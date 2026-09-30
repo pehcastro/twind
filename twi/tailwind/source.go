@@ -53,15 +53,20 @@ func inputs(dir, generated string, compile compileFunc) ([]string, string, error
 		if err != nil {
 			return err
 		}
+		if strings.HasPrefix(string(src), "// "+konst.IRMagic+" ") {
+			return nil
+		}
 		hashed.WriteString(name + "\x00" + strings.ReplaceAll(string(src), "\r\n", "\n") + "\x00")
 		sources = append(sources, path)
 		return nil
 	}
+	testIR := strings.HasSuffix(generated, "_test.go")
 	for _, e := range entries {
-		if e.IsDir() || e.Name() == generated || filepath.Ext(e.Name()) != ".go" {
+		name := e.Name()
+		if e.IsDir() || name == generated || filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") && !testIR {
 			continue
 		}
-		if err := add(e.Name(), filepath.Join(dir, e.Name())); err != nil {
+		if err := add(name, filepath.Join(dir, name)); err != nil {
 			return nil, "", err
 		}
 	}
