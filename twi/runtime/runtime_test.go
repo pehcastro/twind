@@ -38,10 +38,10 @@ func newBackend(width, height int) *backend {
 }
 
 func (b *backend) Write(p []byte) (int, error) {
-	b.frames <- string(p)
 	if b.zoom != (image.Point{}) {
 		b.caps.CellPixels, b.zoom = b.zoom, image.Point{}
 	}
+	b.frames <- string(p)
 	return len(p), nil
 }
 
@@ -594,6 +594,44 @@ func TestQuitBeforeRunDrawsNothing(t *testing.T) {
 	}
 	if n := len(r.b.frames); n != 0 {
 		t.Fatalf("Quit before Run still drew %d frames", n)
+	}
+}
+
+var sixelSize = regexp.MustCompile(`\x1bP0;1q"1;1;(\d+);(\d+)`)
+
+func drawnAt(t *testing.T, frame string, cell image.Point) {
+	t.Helper()
+	sizes := sixelSize.FindAllStringSubmatch(frame, -1)
+	if len(sizes) == 0 {
+		t.Fatalf("no tile in the frame, want tiles for a %v cell: %q", cell, frame)
+	}
+	for _, m := range sizes {
+		w, _ := strconv.Atoi(m[1])
+		h, _ := strconv.Atoi(m[2])
+		if w%cell.X != 0 || h%cell.Y != 0 {
+			t.Fatalf("a %dx%d tile in the frame, want whole %v cells", w, h, cell)
+		}
+	}
+}
+
+func TestCellChangeDrawsTheNextFrameAtTheNewCell(t *testing.T) {
+	b := newBackend(40, 15)
+	b.caps = terminal.Capabilities{Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
+	r := surfaces(t, b)
+	drawnAt(t, r.next(t), image.Pt(10, 20))
+	b.zoom = image.Pt(12, 24)
+	r.b.events <- input.ResizeEvent{Width: 40, Height: 15, Cell: image.Pt(12, 24)}
+	drawnAt(t, r.next(t), image.Pt(12, 24))
+	r.quiet(t)
+	r.b.events <- input.ResizeEvent{Width: 36, Height: 15}
+	drawnAt(t, r.next(t), image.Pt(12, 24))
+	r.quiet(t)
+	b.zoom = image.Pt(14, 28)
+	r.b.events <- input.ResizeEvent{Width: 40, Height: 15}
+	r.next(t)
+	drawnAt(t, r.next(t), image.Pt(14, 28))
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
 	}
 }
 

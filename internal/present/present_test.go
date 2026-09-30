@@ -152,10 +152,10 @@ func TestSixelTextTakesTheRegisterColour(t *testing.T) {
 	found := 0
 	for y := range rows {
 		for x, c := range s.shown.Row(y) {
-			if blank(s.text.At(x, y)) && c != (buffer.Cell{}) {
+			if blank(s.text.At(x, y)) && c.Grapheme != "" {
 				t.Fatalf("blank cell %d,%d written as %+v, want it left to the image", x, y, c)
 			}
-			if c == (buffer.Cell{}) || c.Width == buffer.Continuation {
+			if c.Grapheme == "" || c.Width == buffer.Continuation {
 				continue
 			}
 			found++

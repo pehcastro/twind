@@ -114,7 +114,7 @@ func TestPlainAgainDropsTheImage(t *testing.T) {
 		if c := s.shown.At(9, 2); g == terminal.GraphicsKitty && c.Bg != (color.Color{}) {
 			t.Errorf("kitty: cell 9,2 under the ramp again has bg %+v, want the default", c.Bg)
 		}
-		if c := s.shown.At(10, 2); g == terminal.GraphicsITerm2 && c != (buffer.Cell{}) {
+		if c := s.shown.At(10, 2); g == terminal.GraphicsITerm2 && c.Grapheme != "" {
 			t.Errorf("iterm2: blank cell 10,2 under the ramp again is %+v, want it left to the image", c)
 		}
 	}

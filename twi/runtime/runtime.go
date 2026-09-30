@@ -97,6 +97,7 @@ type Runtime struct {
 	motionAt      time.Time
 	moving        bool
 	lastMoved     bool
+	zoomed        image.Point
 }
 
 type layer struct {
@@ -285,6 +286,9 @@ func (r *Runtime) handle(ev input.Event) error {
 		r.refocused()
 	case input.ResizeEvent:
 		r.width, r.height, r.dirty = ev.Width, ev.Height, true
+		if ev.Cell != (image.Point{}) {
+			r.zoomed = ev.Cell
+		}
 	case input.PasteEvent, input.FocusEvent, input.ReplyEvent:
 	default:
 		panic(fmt.Sprintf("runtime: unknown event %T", ev))
@@ -331,7 +335,7 @@ func (r *Runtime) draw(b Backend, now time.Time) error {
 func (r *Runtime) Widths() text.Widths { return r.caps.Widths }
 
 func (r *Runtime) frame(b Backend, now time.Time) error {
-	r.caps = capabilities(b)
+	r.caps = r.capabilities(b)
 	tree := r.app()
 	r.doc.update(tree.Events, &r.focus)
 	if r.changed.Swap(false) {
@@ -399,7 +403,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		return err
 	}
 	r.dirty, r.lastFrame, r.lastMoved = false, now, r.moving
-	if capabilities(b) != r.caps {
+	if r.capabilities(b) != r.caps {
 		r.Invalidate()
 	}
 	return nil
@@ -433,11 +437,19 @@ func lift(n render.Node, path []int, order int) render.Node {
 	return n
 }
 
-func capabilities(b Backend) terminal.Capabilities {
-	if reporter, ok := b.(interface{ Capabilities() terminal.Capabilities }); ok {
-		return reporter.Capabilities()
+func (r *Runtime) capabilities(b Backend) terminal.Capabilities {
+	reporter, ok := b.(interface{ Capabilities() terminal.Capabilities })
+	if !ok {
+		return terminal.Capabilities{}
 	}
-	return terminal.Capabilities{}
+	caps := reporter.Capabilities()
+	if caps.CellPixels == r.zoomed {
+		r.zoomed = image.Point{}
+	}
+	if r.zoomed != (image.Point{}) {
+		caps.CellPixels = r.zoomed
+	}
+	return caps
 }
 
 func (r *Runtime) surface(caps terminal.Capabilities) (terminal.Graphics, image.Point) {

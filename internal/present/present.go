@@ -6,6 +6,7 @@ import (
 	"hash/maphash"
 	"image"
 	"io"
+	"math"
 	"slices"
 	"strconv"
 	"sync"
@@ -66,6 +67,7 @@ type Screen struct {
 	hashes, sent []uint64
 	dirty, send  []bool
 	moved, plain []bool
+	needs        []need
 	images       map[uint64]uint32
 	uses         []int
 	samples      []color.Color
@@ -106,6 +108,14 @@ type group struct {
 	opacity float64
 	own     bool
 }
+
+type need uint8
+
+const (
+	keep need = iota
+	erase
+	either
+)
 
 type step uint8
 
@@ -236,7 +246,7 @@ func (s *Screen) reset(cols, rows int) {
 	n := len(s.tiles)
 	s.hashes, s.sent, s.dirty, s.send, s.moved, s.plain = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n), make([]bool, n), make([]bool, n)
 	s.pieces, s.twins, s.claims, s.bases, s.based = make([]piece, n), make([]int, n), map[twin]int{}, make([][]part, n), make([]bool, n)
-	s.samples, s.sampled = make([]color.Color, cols*rows), make([]bool, cols*rows)
+	s.samples, s.sampled, s.needs = make([]color.Color, cols*rows), make([]bool, cols*rows), make([]need, cols)
 	if s.Graphics == terminal.GraphicsKitty {
 		s.images, s.uses = map[uint64]uint32{}, make([]int, n)
 		if s.kitty == nil {
@@ -273,7 +283,6 @@ func (s *Screen) underText() bool {
 }
 
 func (s *Screen) compose() {
-	underImage := buffer.Cell{}
 	for y := range s.rows {
 		text, shown, want := s.text.Row(y), s.shown.Row(y), s.want.Row(y)
 		for x, c := range text {
@@ -283,8 +292,8 @@ func (s *Screen) compose() {
 				c.Bg = s.sample(x, y)
 			case s.Graphics == terminal.GraphicsKitty:
 				c.Bg = color.Color{}
-			case blank(c) && shown[x] == underImage:
-				c = underImage
+			case blank(c) && shown[x].Grapheme == "":
+				c = shown[x]
 			case blank(c):
 				c = buffer.Cell{Grapheme: " ", Bg: s.sample(x, y)}
 			default:
@@ -366,10 +375,11 @@ func (s *Screen) surfaces(next *scene.Frame, changed bool) {
 				w.encode(s, t)
 			}
 			cells, painted := s.tiles[t], s.underText() && s.painted.Load()
+			grounded := s.underText() && !s.plain[t] && s.hashes[t] != s.sent[t]
 			for y := cells.Min.Y; y < cells.Max.Y; y++ {
 				clear(s.sampled[y*s.cols+cells.Min.X : y*s.cols+cells.Max.X])
-				for x := cells.Min.X; painted && x < cells.Max.X; x++ {
-					if !blank(s.text.At(x, y)) {
+				for x := cells.Min.X; (painted || grounded) && x < cells.Max.X; x++ {
+					if grounded || !blank(s.text.At(x, y)) {
 						s.sample(x, y)
 					}
 				}
@@ -408,11 +418,10 @@ func (s *Screen) transmit() {
 		}
 	}
 	if s.underText() && !s.fresh {
-		underImage := buffer.Cell{}
 		for y := range s.rows {
 			shown, text := s.shown.Row(y), s.text.Row(y)
 			for x := range shown {
-				if t := s.tileOf[y*s.cols+x]; shown[x] != underImage && blank(text[x]) && !s.send[t] && !s.plain[t] && !s.flat(x, y) {
+				if t := s.tileOf[y*s.cols+x]; shown[x].Grapheme != "" && blank(text[x]) && !s.send[t] && !s.plain[t] && !s.flat(x, y) {
 					s.send[t] = true
 				}
 			}
@@ -432,27 +441,23 @@ func (s *Screen) transmit() {
 		}
 	}
 	s.out.Grow(size)
-	sent := false
+	if !slices.Contains(s.send, true) {
+		return
+	}
+	if s.underText() {
+		s.ground()
+	}
 	for t, send := range s.send {
 		if send {
 			s.put(t)
-			sent = true
 		}
 	}
-	if sent {
-		s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
-	}
+	s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
 }
 
 func (s *Screen) put(t int) {
 	cells := s.tiles[t]
 	start := s.out.Len()
-	if s.underText() && s.sent[t] != 0 && !s.opaque(t) {
-		s.out.WriteString(termkonst.Reset)
-		for y := cells.Min.Y; y < cells.Max.Y; y++ {
-			fmt.Fprintf(&s.out, "%s%d;%dH%s%d%s", termkonst.CSI, y+1, cells.Min.X+1, termkonst.CSI, cells.Dx(), konst.EraseCells)
-		}
-	}
 	if s.Graphics == terminal.GraphicsKitty && s.sent[t] != 0 {
 		s.unplace(t)
 	}
@@ -486,9 +491,46 @@ func (s *Screen) put(t int) {
 	}
 	s.imageBytes += s.out.Len() - start
 	s.sent[t] = s.hashes[t]
-	if s.underText() {
-		for y := cells.Min.Y; y < cells.Max.Y; y++ {
-			clear(s.shown.Row(y)[cells.Min.X:cells.Max.X])
+}
+
+func (s *Screen) ground() {
+	eraser, dst := terminal.Writer{Profile: s.Profile}, s.out.AvailableBuffer()
+	for y := range s.rows {
+		shown, text := s.shown.Row(y), s.text.Row(y)
+		for x := range shown {
+			t := s.tileOf[y*s.cols+x]
+			if s.needs[x] = keep; !s.send[t] {
+				continue
+			}
+			ground := buffer.Cell{Bg: s.sample(x, y)}
+			if ground.Bg.RGBA.A != math.MaxUint8 {
+				ground.Bg = color.Color{}
+			}
+			switch {
+			case !blank(text[x]):
+				s.needs[x] = either
+			case shown[x] != ground || ground.Bg.RGBA.A == 0 && s.sent[t] != 0:
+				s.needs[x] = erase
+			}
+			shown[x] = ground
+			if x > 0 && x == s.tiles[t].Min.X && text[x].Width == buffer.Continuation {
+				shown[x-1] = buffer.Cell{Grapheme: "\x00"}
+			}
+		}
+		for x := 0; x < len(shown); x++ {
+			if s.needs[x] != erase {
+				continue
+			}
+			n := 1
+			for i := x + 1; i < len(shown) && s.needs[i] != keep && shown[i] == shown[x]; i++ {
+				if s.needs[i] == erase {
+					n = i - x + 1
+				}
+			}
+			dst = eraser.Erase(dst, x, y, n, shown[x].Bg)
+			x += n - 1
 		}
 	}
+	s.imageBytes += len(dst)
+	s.out.Write(dst)
 }

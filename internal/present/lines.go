@@ -113,22 +113,6 @@ func (s *Screen) hash(t int) uint64 {
 	return h
 }
 
-func (s *Screen) opaque(t int) bool {
-	r, c := s.lines(t)
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		if y > r.Min.Y && c.lineOf[y] == c.lineOf[y-1] {
-			continue
-		}
-		row := c.line(y)
-		for i := 3; i < len(row); i += 4 {
-			if row[i] != math.MaxUint8 {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func (s *Screen) area(x, y int) (r image.Rectangle, c *column, at int) {
 	r = s.pixels(image.Rect(x, y, x+1, y+1))
 	return r, s.column(r.Min.X), 4 * (r.Min.X % (konst.TileColumns * s.Cell.X))
@@ -160,11 +144,12 @@ func (s *Screen) sample(x, y int) color.Color {
 		}
 		y += n
 	}
-	if n := s.Cell.X * s.Cell.Y; (sum[3]+n/2)/n == 0 {
+	n := s.Cell.X * s.Cell.Y
+	if (sum[3]+n/2)/n == 0 {
 		return s.samples[i]
 	}
 	unmul := func(v int) uint8 { return uint8((v*math.MaxUint8 + sum[3]/2) / sum[3]) }
-	m := color.RGBA{R: unmul(sum[0]), G: unmul(sum[1]), B: unmul(sum[2]), A: math.MaxUint8}
+	m := color.RGBA{R: unmul(sum[0]), G: unmul(sum[1]), B: unmul(sum[2]), A: uint8(max(1, sum[3]/n))}
 	if s.Graphics == terminal.GraphicsSixel {
 		m.R, m.G, m.B = register(m.R), register(m.G), register(m.B)
 	}

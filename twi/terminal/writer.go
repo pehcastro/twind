@@ -61,6 +61,17 @@ func (w *Writer) Diff(prev, cur *buffer.Buffer) error {
 	return w.flush()
 }
 
+func (w *Writer) Erase(dst []byte, x, y, n int, bg color.Color) []byte {
+	w.buf = dst
+	w.style(buffer.Cell{Bg: bg})
+	w.move(x, y)
+	w.buf = append(w.buf, konst.CSI...)
+	w.param(n)
+	w.buf[len(w.buf)-1] = 'X'
+	dst, w.buf = w.buf, nil
+	return dst
+}
+
 func (w *Writer) Static(b *buffer.Buffer) error {
 	w.buf = w.buf[:0]
 	w.pen, w.penKnown = pen{}, true
