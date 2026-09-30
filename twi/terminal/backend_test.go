@@ -74,10 +74,12 @@ func (t *fakeTerminal) Write(p []byte) (int, error) {
 		return 0, errors.New("terminal gone")
 	}
 	t.written.Write(p)
-	answers := t.later
-	if bytes.Contains(p, []byte(konst.Queries)) || bytes.Contains(p, []byte(konst.InlineQueries)) {
-		answers = t.answers
-	} else if !bytes.Contains(p, []byte(konst.CellQuery)) {
+	answers := t.answers
+	switch {
+	case bytes.Contains(p, []byte(konst.Queries)) || bytes.Contains(p, []byte(konst.InlineQueries)):
+	case bytes.Contains(p, []byte(konst.CellQuery)):
+		answers = t.later
+	case !bytes.HasSuffix(p, []byte(konst.Fence)):
 		answers = nil
 	}
 	send := func() {
@@ -668,6 +670,41 @@ func TestProbeOrder(t *testing.T) {
 		w[c] = 7
 		if got := w.Width(clusters[c]); got != 7 {
 			t.Errorf("probe %d %+q measures %d under an override of 7 for its class", c, clusters[c], got)
+		}
+	}
+}
+
+func TestProbeReturnsEveryAnswer(t *testing.T) {
+	version := "\x1bP>|WezTerm 20260929\x1b\\"
+	pointer := "\x1b]22;default\x07"
+	cases := []struct {
+		name    string
+		answers []string
+		fenced  bool
+	}{
+		{"wezterm", []string{version + "\x1b[>1;277;0c\x1b[?1003;2$y", pointer + "\x1bP1$r0;38:2::1:2:3m\x1b\\\x1b[?65;4;6;18;22;52c"}, true},
+		{"split inside a control string", []string{"\x1bP>|Wez", "Term 20260929\x1b\\\x1b[?62c"}, true},
+		{"silent", nil, false},
+	}
+	for _, tc := range cases {
+		term := newFake(tc.answers...)
+		start := time.Now()
+		_, raw, _, err := probe(term, term.tty, konst.DoctorQueries+konst.Fence)
+		took := time.Since(start)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := strings.Join(tc.answers, ""); string(raw) != want {
+			t.Errorf("%s: raw %q, want %q", tc.name, raw, want)
+		}
+		if tc.fenced != (took < konst.QueryTimeout) || took > 2*konst.QueryTimeout {
+			t.Errorf("%s: took %v, fenced %v", tc.name, took, tc.fenced)
+		}
+		if out := term.written.String(); out != konst.DoctorQueries+konst.Fence {
+			t.Errorf("%s: wrote %q, want the queries and the fence alone", tc.name, out)
+		}
+		if term.tty.restored != 1 {
+			t.Errorf("%s: restored %d times, want 1", tc.name, term.tty.restored)
 		}
 	}
 }

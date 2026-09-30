@@ -102,20 +102,37 @@ func Query(in, out *os.File) (Capabilities, image.Point, error) {
 	return query(out, t, o)
 }
 
-func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
-	events := make(chan input.Event, konst.EventBuffer)
-	b := &Backend{Events: events, out: out, tty: t, opt: Options{NoMouse: true}, answers: make(chan answer, konst.ReplyBuffer)}
-	go b.read(events)
-	raw, replies, err := b.ask(konst.Probes + konst.InlineQueries)
+func Probe(in, out *os.File, queries string) ([]byte, error) {
+	t, err := openTTY(in, out, Options{NoMouse: true})
 	if err != nil {
+		return nil, err
+	}
+	_, raw, _, err := probe(out, t, queries+konst.Fence)
+	return raw, err
+}
+
+func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
+	b, raw, replies, err := probe(out, t, konst.Probes+konst.InlineQueries)
+	if b == nil {
 		return Capabilities{}, image.Point{}, err
 	}
 	for _, r := range replies {
 		if r.Kind == input.ReplyCursorPosition && len(r.Params) == 2 {
-			return b.detect(raw, replies, o), image.Pt(r.Params[1]-1, r.Params[0]-1), b.Exit()
+			return b.detect(raw, replies, o), image.Pt(r.Params[1]-1, r.Params[0]-1), err
 		}
 	}
-	return Capabilities{}, image.Point{}, b.Exit()
+	return Capabilities{}, image.Point{}, err
+}
+
+func probe(out io.Writer, t tty, queries string) (*Backend, []byte, []input.ReplyEvent, error) {
+	events := make(chan input.Event, konst.EventBuffer)
+	b := &Backend{Events: events, out: out, tty: t, opt: Options{NoMouse: true}, answers: make(chan answer, konst.ReplyBuffer)}
+	go b.read(events)
+	raw, replies, err := b.ask(queries)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return b, raw, replies, b.Exit()
 }
 
 func offered(env func(string) string) (offer, error) {

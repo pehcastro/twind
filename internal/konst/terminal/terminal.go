@@ -33,7 +33,8 @@ const (
 	MouseOff      = CSI + "?1006l" + CSI + "?1003l"
 	KittyPush     = CSI + ">1u"
 	KittyPop      = CSI + "<u"
-	CellQuery     = CSI + "16t" + CSI + "14t" + CSI + "c"
+	Fence         = CSI + "c"
+	CellQuery     = CSI + "16t" + CSI + "14t" + Fence
 	KittyQuery    = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 	KittyOK       = "\x1b_Gi=31;OK\x1b\\"
 	MarginsQuery  = CSI + "?69$p"
@@ -99,5 +100,31 @@ const (
 const (
 	OSC          = "\x1b]"
 	BEL          = "\x07"
+	ESC          = 0x1b
+	BELByte      = 0x07
+	DCS          = "\x1bP"
+	ST           = "\x1b\\"
 	ClipboardSet = OSC + "52;c;"
+)
+
+const (
+	VersionQuery       = CSI + ">0q"
+	SecondaryQuery     = CSI + ">c"
+	MouseAnyMode       = 1003
+	MouseSGRMode       = 1006
+	PasteMode          = 2004
+	DoctorModes        = CSI + "?1003$p" + CSI + "?1006$p" + CSI + "?2004$p"
+	TruecolorProbe     = "1;2;3"
+	TruecolorQuery     = CSI + "38;2;" + TruecolorProbe + "m" + DCS + "$qm" + ST + Reset
+	TruecolorAnswer    = "1$r"
+	ClipboardCap       = "4d73"
+	ClipboardQuery     = DCS + "+q" + ClipboardCap + ST
+	ClipboardAnswer    = "1+r"
+	ClipboardAttribute = 52
+	VersionAnswer      = ">|"
+	SecondaryParams    = 3
+	PointerQuery       = OSC + "22;?__current__" + ST
+	PointerAnswer      = "22;"
+	KeyboardQuery      = CSI + "?u"
+	DoctorQueries      = VersionQuery + SecondaryQuery + KeyboardQuery + DoctorModes + TruecolorQuery + ClipboardQuery + PointerQuery
 )
