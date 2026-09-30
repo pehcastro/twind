@@ -1,0 +1,11 @@
+size 120x34
+frame start
+press t
+frame picker
+press down
+press enter
+frame dark
+press tab
+press tab
+press enter
+frame dialog

@@ -1,0 +1,20 @@
+# {{.Name}}
+
+A fullscreen Twind app: a sidebar, cards, a dialog and a light and dark theme picker, styled with Tailwind classes and twi/ui components.
+
+    go run .                                    run it: t picks the theme, tab moves focus, enter opens, q quits
+    go test ./...                               check the styles are fresh and replay testdata/demo.twd
+    go tool twind drive testdata/demo.twd       write each frame of the script to frames/
+
+`go run . -theme Dark` opens in the dark theme.
+
+## Styles
+
+`twir_gen.go` holds the Style IR compiled from the Tailwind classes in this package and the twi/ui components it imports. It is committed, so the app builds with the Go toolchain alone. After changing a class, `go tool twind build` regenerates it with the Tailwind executable in `.twind/bin/`, and `go tool twind check` says whether it is stale.
+
+## Before the first Twind release
+
+Twind has no published version yet. Point the module at a checkout:
+
+    go mod edit -replace github.com/twind-dev/twind=../twind
+    go mod tidy

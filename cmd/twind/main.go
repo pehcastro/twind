@@ -10,10 +10,11 @@ import (
 	"strings"
 )
 
-const usage = `twind builds, checks and drives Twind programs.
+const usage = `twind creates, builds, checks and drives Twind programs.
 
 usage: twind <verb> [arguments]
 
+  new    [-module path] dir            write a new fullscreen app into a new or empty directory
   build  [packages]                    regenerate each package's Style IR through its twirgen go:generate line
   check  [packages]                    report every stale Style IR, without Tailwind
   drive  [-out dir] script [package]   run a driver script headless and write its frames
@@ -26,7 +27,7 @@ Exit status: 0 done, 1 a stale IR or a failed build, run or query, 2 a usage err
 `
 
 func main() {
-	verbs := map[string]func([]string, io.Writer) error{"build": build, "check": check, "drive": drive, "doctor": doctor}
+	verbs := map[string]func([]string, io.Writer) error{"new": newApp, "build": build, "check": check, "drive": drive, "doctor": doctor}
 	if len(os.Args) < 2 || verbs[os.Args[1]] == nil {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
