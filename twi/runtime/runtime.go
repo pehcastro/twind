@@ -375,7 +375,12 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 			return err
 		}
 	}
-	for pass := 1; r.measure() && pass < konst.MeasurePasses; pass++ {
+	for pass := 1; ; pass++ {
+		moved := r.measure()
+		r.scrolled()
+		if pass == konst.MeasurePasses || !r.changed.Swap(false) && !moved {
+			break
+		}
 		tree = r.app()
 		r.doc.update(tree.Events, &r.focus)
 		if r.scene, err = r.tree.Scene(r.marked(tree), frame); err != nil {

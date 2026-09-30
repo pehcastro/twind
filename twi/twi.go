@@ -261,7 +261,7 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 			return err
 		}
 	}
-	buf, err := render.Render(node.node().tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile), Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
+	buf, err := render.Render(node.node().tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile), Profile: cfg.profile, Cell: caps.CellPixels, Widths: caps.Widths, ReducedMotion: true})
 	if err != nil {
 		return err
 	}

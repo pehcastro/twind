@@ -418,7 +418,6 @@ func TestOnThisPageClickScrollsToTheHeading(t *testing.T) {
 }
 
 func TestOnThisPageFollowsTheWheel(t *testing.T) {
-	t.Skip("the app cannot see the page's scroll offset or a heading's position: needs a runtime scroll event and element bounds, see TWI-162 Log")
 	d := open(t)
 	jump(t, d, "Button")
 	left, breadcrumb := spot(t, d, "Docs ›")
@@ -437,8 +436,14 @@ func TestOnThisPageFollowsTheWheel(t *testing.T) {
 		t.Errorf("wheel down until Variants reaches the top: current entry %q, want Variants:\n%s", got, d.Frame().Text())
 	}
 	d.Wheel(left+2, top+2, -40)
-	if got, _ := onThisPage(t, d); got != "Usage" {
-		t.Errorf("wheel back to the top: current entry %q, want Usage", got)
+	current, rows := onThisPage(t, d)
+	if current != "Usage" {
+		t.Errorf("wheel back to the top: current entry %q, want Usage", current)
+	}
+	d.Click(right+1, rows[3])
+	d.Move(left, top+10)
+	if got, _ := onThisPage(t, d); got != "API reference" {
+		t.Errorf("a click on API reference, which the page cannot scroll to the top: current entry %q, want API reference:\n%s", got, d.Frame().Text())
 	}
 }
 

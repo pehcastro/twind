@@ -3,6 +3,7 @@ package docsapp
 import (
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"io/fs"
 	"slices"
@@ -43,6 +44,8 @@ type site struct {
 	themes              []theme.Theme
 	palette             *ui.CommandDialog
 	sidebar             *ui.Sidebar
+	area, body          *twi.Ref
+	heads               map[string]*twi.Ref
 	page, theme, trying int
 	section             int
 	picker              bool
@@ -82,6 +85,9 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 		themes:  theme.Builtin(),
 		palette: ui.NewCommandDialog(rt),
 		sidebar: ui.NewSidebar(rt),
+		area:    twi.NewRef(rt),
+		body:    twi.NewRef(rt),
+		heads:   map[string]*twi.Ref{},
 	}
 }
 
@@ -281,8 +287,8 @@ func (s *site) content(e entry) twi.Node {
 	if s.page+1 < len(s.entries) {
 		pager = append(pager, step(s.page+1, s.entries[s.page+1].title+" ›"))
 	}
-	return ui.ScrollArea(twi.Key("page-"+e.slug), twi.Class("flex-1 min-w-0 px-3 py-1"),
-		el("flex flex-col shrink-0 gap-1",
+	return ui.ScrollArea(twi.Key("page-"+e.slug), twi.Class("flex-1 min-w-0 px-3 py-1"), twi.Measure(s.area), twi.OnScroll(func(image.Point) { s.track(e) }),
+		el("flex flex-col shrink-0 gap-1", twi.Measure(s.body),
 			ui.Breadcrumb(ui.BreadcrumbList(
 				ui.BreadcrumbItem(ui.BreadcrumbLink(twi.Text("Docs"))), ui.BreadcrumbSeparator(),
 				ui.BreadcrumbItem(ui.BreadcrumbLink(twi.Text(e.group))), ui.BreadcrumbSeparator(),
@@ -310,7 +316,10 @@ func (s *site) sections(e entry) twi.Node {
 		}
 		section := []twi.NodeOption{markdown.Render(markdown.Page{Blocks: blocks[:end]}, options)}
 		if b := blocks[0]; b.Kind == markdown.Heading && outlined(b.Level) {
-			section = append(section, twi.Key("section-"+b.ID))
+			if s.heads[b.ID] == nil {
+				s.heads[b.ID] = twi.NewRef(s.rt)
+			}
+			section = append(section, twi.Key("section-"+b.ID), twi.Measure(s.heads[b.ID]))
 			if b.Level == 2 {
 				section = append(section, twi.Class("not-first:mt-1"))
 			}
@@ -322,9 +331,27 @@ func (s *site) sections(e entry) twi.Node {
 
 func outlined(level int) bool { return level == 2 || level == 3 }
 
+func anchors(e entry) []markdown.Anchor {
+	return slices.DeleteFunc(slices.Clone(e.page.Anchors), func(a markdown.Anchor) bool { return !outlined(a.Level) })
+}
+
+func (s *site) track(e entry) {
+	current, area := 0, s.area.Bounds()
+	for i, a := range anchors(e) {
+		if head := s.heads[a.ID]; head != nil && !head.Bounds().Empty() && head.Bounds().Min.Y <= area.Min.Y {
+			current = i
+		}
+	}
+	clickedBelowTheLastTop := s.section > current && s.body.Bounds().Max.Y < area.Max.Y
+	if current != s.section && !clickedBelowTheLastTop {
+		s.section = current
+		s.rt.Invalidate()
+	}
+}
+
 func (s *site) outline(e entry) twi.Node {
 	items := []twi.NodeOption{txt("font-medium", "On this page")}
-	for i, a := range slices.DeleteFunc(slices.Clone(e.page.Anchors), func(a markdown.Anchor) bool { return !outlined(a.Level) }) {
+	for i, a := range anchors(e) {
 		class := "text-muted-foreground"
 		if i == s.section {
 			class = "text-foreground"

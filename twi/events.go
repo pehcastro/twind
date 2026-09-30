@@ -1,6 +1,8 @@
 package twi
 
 import (
+	"image"
+
 	"github.com/twind-dev/twind/twi/events"
 	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/style"
@@ -77,6 +79,12 @@ type onFocusOutside func()
 func (h onFocusOutside) apply(n *node) { push(&n.behave().FocusOutside, (func())(h)) }
 
 func OnFocusOutside(handler func()) NodeOption { return onFocusOutside(handler) }
+
+type onScroll func(image.Point)
+
+func (h onScroll) apply(n *node) { push(&n.behave().Scroll, (func(image.Point))(h)) }
+
+func OnScroll(handler func(offset image.Point)) NodeOption { return onScroll(handler) }
 
 func Focusable() NodeOption { return behaviour(func(n *runtime.Node) { n.Focusable = true }) }
 

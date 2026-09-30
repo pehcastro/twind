@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"image"
 	"slices"
 
 	"github.com/twind-dev/twind/internal/render"
@@ -26,14 +27,17 @@ type Node struct {
 	KeyDown, Focus, Blur             []events.Listener[*Elem]
 	Click, Enter, Leave, PointerDown []events.Listener[*Elem]
 	PointerDownOutside, FocusOutside []func()
+	Scroll                           []func(image.Point)
 	Children                         []Node
 }
 
 type Elem struct {
-	node     Node
-	parent   *Elem
-	children []*Elem
-	frame    uint64
+	node        Node
+	parent      *Elem
+	children    []*Elem
+	frame       uint64
+	offset      image.Point
+	offsetKnown bool
 }
 
 type document struct {
@@ -46,6 +50,7 @@ type document struct {
 	autos   []*Elem
 	layers  []*Elem
 	refs    []*Elem
+	scrolls []*Elem
 	focused *Elem
 }
 
@@ -82,7 +87,7 @@ func (d *document) Listeners(e *Elem, t events.Type) []events.Listener[*Elem] {
 
 func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	d.frame++
-	d.scopes, d.loose, d.autos, d.layers, d.refs = d.scopes[:0], d.loose[:0], d.autos[:0], d.layers[:0], d.refs[:0]
+	d.scopes, d.loose, d.autos, d.layers, d.refs, d.scrolls = d.scopes[:0], d.loose[:0], d.autos[:0], d.layers[:0], d.refs[:0], d.scrolls[:0]
 	if d.root == nil {
 		d.root = &Elem{}
 	}
@@ -241,6 +246,9 @@ func (d *document) attach(e *Elem, n Node) {
 	}
 	if n.Measure != nil {
 		d.refs = append(d.refs, e)
+	}
+	if len(n.Scroll) > 0 {
+		d.scrolls = append(d.scrolls, e)
 	}
 	kept := len(e.children) == len(n.Children)
 	for i := 0; kept && i < len(n.Children); i++ {
