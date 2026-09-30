@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -83,28 +84,35 @@ func TestBuildAndCheckAgree(t *testing.T) {
 	write(filepath.Join(dir, "main.go"), app)
 	write(filepath.Join(dir, "main_test.go"), "package main\n")
 	write(ir, read(filepath.Join("testdata", "app", "twir_gen.go")))
+	edit := func(from, to string) func() {
+		return func() {
+			write(filepath.Join(dir, "main.go"), strings.Replace(read(filepath.Join(dir, "main.go")), from, to, 1))
+		}
+	}
 	var out strings.Builder
 	for _, c := range []struct {
 		why   string
 		edit  func()
 		stale bool
+		rules string
 	}{
-		{"a copy of a fresh IR", func() {}, false},
+		{"a copy of a fresh IR", func() {}, false, "px-1 text-red-500"},
 		{"a class edited in a test", func() {
 			write(filepath.Join(dir, "main_test.go"), "package main\n\nconst fixture = \"bg-lime-500\"\n")
-		}, false},
+		}, false, "px-1 text-red-500"},
+		{"a code-only edit in the app", edit("func main() {}", "func main() { println(twice(drive), os, testing) }\n\nfunc twice(s string) string { return s + s }"), false, "px-1 text-red-500"},
 		{"a CRLF checkout", func() {
 			for _, path := range []string{filepath.Join(dir, "main.go"), ir} {
 				write(path, strings.ReplaceAll(read(path), "\n", "\r\n"))
 			}
-		}, false},
-		{"a class edited in the app", func() {
-			write(filepath.Join(dir, "main.go"), strings.Replace(app, "text-red-500", "text-blue-500", 1))
-		}, true},
+		}, false, "px-1 text-red-500"},
+		{"a class edited in the app", edit("text-red-500", "text-blue-500"), true, "px-1 text-blue-500"},
+		{"a class added in the app", edit(`Class("`, `Class("font-bold `), true, "font-bold px-1 text-blue-500"},
+		{"a class removed in the app", edit("px-1 ", ""), true, "font-bold text-blue-500"},
 		{"an IR written by another compiler", func() {
 			hash := regexp.MustCompile(`hash=[0-9a-f]+`)
 			write(ir, hash.ReplaceAllString(read(ir), "hash="+strings.Repeat("0", 64)))
-		}, true},
+		}, true, "font-bold text-blue-500"},
 	} {
 		c.edit()
 		out.Reset()
@@ -123,6 +131,14 @@ func TestBuildAndCheckAgree(t *testing.T) {
 		rebuilt := read(ir) != before
 		if checked != c.stale || stale != c.stale || rebuilt != c.stale {
 			t.Errorf("%s: check stale %v, test stale %v, build rewrote %v, want %v\n%s", c.why, checked, stale, rebuilt, c.stale, out.String())
+		}
+		var rules []string
+		for _, m := range regexp.MustCompile(`Class: "([^"]+)"`).FindAllStringSubmatch(read(ir), -1) {
+			rules = append(rules, m[1])
+		}
+		slices.Sort(rules)
+		if got := strings.Join(rules, " "); got != c.rules {
+			t.Errorf("%s: the IR after build holds %q, want %q", c.why, got, c.rules)
 		}
 	}
 }

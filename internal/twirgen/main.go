@@ -68,7 +68,7 @@ func generate(out, pkg, name, bin string) error {
 	if version := regexp.MustCompile(`v(\d+\.\d+\.\d+)`).FindSubmatch(help); version == nil || string(version[1]) != konst.TailwindVersion {
 		return fmt.Errorf("%s is not Tailwind %s", bin, konst.TailwindVersion)
 	}
-	sources, hash, err := tailwind.Inputs(dir, out)
+	candidates, hash, err := tailwind.Inputs(dir, out)
 	if err != nil {
 		return err
 	}
@@ -77,8 +77,11 @@ func generate(out, pkg, name, bin string) error {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
-	input, output := filepath.Join(tmp, "input.css"), filepath.Join(tmp, "output.css")
-	if err := os.WriteFile(input, []byte(tailwind.Input(sources)), 0o600); err != nil {
+	manifest, input, output := filepath.Join(tmp, "manifest.txt"), filepath.Join(tmp, "input.css"), filepath.Join(tmp, "output.css")
+	if err := os.WriteFile(manifest, []byte(strings.Join(candidates, "\n")), 0o600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(input, []byte(tailwind.Input([]string{manifest})), 0o600); err != nil {
 		return err
 	}
 	if msg, err := exec.Command(bin, "-i", input, "-o", output).CombinedOutput(); err != nil {

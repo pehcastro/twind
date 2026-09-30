@@ -1,13 +1,19 @@
 package tailwind
 
 import (
+	"bytes"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -45,19 +51,34 @@ func inputs(dir, generated string, compile compileFunc) ([]string, string, error
 	if err != nil {
 		return nil, "", err
 	}
-	var hashed strings.Builder
-	fmt.Fprintf(&hashed, "%s%s%#v", Header(""), konst.PresetTheme, rules)
-	var sources []string
-	add := func(name, path string) error {
+	words := map[string]bool{}
+	add := func(path string) error {
 		src, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		if strings.HasPrefix(string(src), "// "+konst.IRMagic+" ") {
+		if bytes.HasPrefix(src, []byte("// "+konst.IRMagic+" ")) {
 			return nil
 		}
-		hashed.WriteString(name + "\x00" + strings.ReplaceAll(string(src), "\r\n", "\n") + "\x00")
-		sources = append(sources, path)
+		file, err := parser.ParseFile(token.NewFileSet(), path, src, parser.SkipObjectResolution)
+		if err != nil {
+			return err
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.ImportSpec:
+				return false
+			case *ast.BasicLit:
+				if n.Kind != token.STRING {
+					return true
+				}
+				text, _ := strconv.Unquote(n.Value)
+				for _, word := range strings.Fields(text) {
+					words[word] = true
+				}
+			}
+			return true
+		})
 		return nil
 	}
 	testIR := strings.HasSuffix(generated, "_test.go")
@@ -66,7 +87,7 @@ func inputs(dir, generated string, compile compileFunc) ([]string, string, error
 		if e.IsDir() || name == generated || filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") && !testIR {
 			continue
 		}
-		if err := add(name, filepath.Join(dir, name)); err != nil {
+		if err := add(filepath.Join(dir, name)); err != nil {
 			return nil, "", err
 		}
 	}
@@ -83,13 +104,14 @@ func inputs(dir, generated string, compile compileFunc) ([]string, string, error
 			if strings.HasSuffix(name, "_test.go") {
 				continue
 			}
-			if err := add(fields[0]+"/"+name, filepath.Join(fields[1], name)); err != nil {
+			if err := add(filepath.Join(fields[1], name)); err != nil {
 				return nil, "", err
 			}
 		}
 	}
-	sum := sha256.Sum256([]byte(hashed.String()))
-	return sources, hex.EncodeToString(sum[:]), nil
+	candidates := slices.Sorted(maps.Keys(words))
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s%s%#v%s", Header(""), konst.PresetTheme, rules, strings.Join(candidates, "\n")))
+	return candidates, hex.EncodeToString(sum[:]), nil
 }
 
 func Header(hash string) string {
