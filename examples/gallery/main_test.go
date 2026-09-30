@@ -144,6 +144,31 @@ func TestQuitsOnQOutsideFieldsAndDialogs(t *testing.T) {
 	}
 }
 
+func TestFormsPlanSelectAndSave(t *testing.T) {
+	a, opts := app(t)
+	d := drive.New(a, opts...)
+	defer func() { _ = d.Close() }()
+	for _, k := range []string{"down", "enter", "tab", "tab", "tab", "tab", "enter"} {
+		d.Press(k)
+	}
+	if text := d.Frame().Text(); !strings.Contains(text, "Enterprise") || !strings.Contains(text, "Free") {
+		t.Errorf("enter on the plan trigger did not open its list:\n%s", text)
+	}
+	d.Press("down")
+	d.Press("enter")
+	if text := d.Frame().Text(); !strings.Contains(text, "Team") || strings.Contains(text, "Enterprise") {
+		t.Errorf("down and enter did not choose Team and close:\n%s", text)
+	}
+	for y, line := range strings.Split(d.Frame().Text(), "\n") {
+		if x := strings.Index(line, "Save changes"); x >= 0 {
+			d.Click(len([]rune(line[:x])), y)
+		}
+	}
+	if text := d.Frame().Text(); !strings.Contains(text, "Profile updated.") {
+		t.Errorf("a click on Save changes did not save:\n%s", text)
+	}
+}
+
 func TestParseRejectsUnknownFlags(t *testing.T) {
 	for _, c := range [][3]string{{"zinc-dusk", "dashboard", ""}, {"zinc-dark", "home", ""}, {"zinc-dark", "overlays", "drawer"}} {
 		if _, err := parse(c[0], c[1], c[2]); err == nil {

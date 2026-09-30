@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/ui"
 )
 
@@ -14,8 +13,8 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 	email.Placeholder = "m@example.com"
 	bio := ui.NewTextarea(rt)
 	bio.Placeholder = "Tell us a little bit about yourself"
-	plan := ui.NewNativeSelect(rt)
-	plan.Options, plan.Value = []string{"Free", "Pro", "Team", "Enterprise"}, "Pro"
+	plan := ui.NewSelect(rt)
+	plan.Value = "pro"
 	terms, notify := ui.NewCheckbox(rt), ui.NewSwitch(rt)
 	notify.Checked = true
 	density := ui.NewRadioGroup(rt)
@@ -26,9 +25,9 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 	volume.Value = 50
 	code := ui.NewInputOTP(rt, 6)
 	saved := false
-	save := onKeys(rt, func(k input.KeyEvent) bool {
-		saved = saved || pressed(k)
-		return pressed(k)
+	save := twi.OnClick(func(*twi.Event) {
+		saved = true
+		rt.Invalidate()
 	})
 	field := func(label string, children ...twi.NodeOption) twi.Node {
 		return ui.Field(ui.Vertical, append([]twi.NodeOption{ui.FieldLabel(twi.Text(label))}, children...)...)
@@ -51,7 +50,9 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 					field("Username", name.Node()),
 					field("Email", email.Node()),
 					field("Bio", bio.Node()),
-					field("Plan", plan.Node()),
+					field("Plan", plan.Node(twi.Class("w-full"), plan.Trigger(twi.Class("w-full")), plan.Content(
+						plan.Item("free", "Free"), plan.Item("pro", "Pro"), plan.Item("team", "Team"), plan.Item("enterprise", "Enterprise"),
+					))),
 				),
 				el("flex flex-col w-26 shrink-0 gap-2",
 					labelled(terms.Node(), "Accept terms"),
@@ -72,7 +73,7 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 				status,
 				el("grow"),
 				ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Cancel")),
-				ui.Button(ui.Default, ui.SizeDefault, twi.Class(focusRing), twi.Focusable(), save, twi.Text("Save changes")),
+				ui.Button(ui.Default, ui.SizeDefault, save, twi.Text("Save changes")),
 			),
 		)
 	}

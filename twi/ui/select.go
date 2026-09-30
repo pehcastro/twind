@@ -46,8 +46,8 @@ func (s *Select) Trigger(children ...twi.NodeOption) twi.Node {
 		}
 		s.open()
 	})
-	return part("flex flex-row h-1 items-center justify-between gap-2 rounded-md px-1 whitespace-nowrap dark:bg-input/30 dark:hover:bg-input/50 "+s.ring(inputRing, onSelf),
-		slices.Concat(keys, []twi.NodeOption{toggle, value, part("text-muted-foreground opacity-50", []twi.NodeOption{twi.Text("⌄")})}, children))
+	return part(fade+"flex flex-row h-1 items-center justify-between gap-2 rounded-md px-1 whitespace-nowrap dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:text-muted-foreground [&_svg]:shrink-0 [&_svg]:pointer-events-none "+s.ring(inputRing, onSelf),
+		slices.Concat(keys, []twi.NodeOption{toggle, value, icon("⌄", "opacity-50")}, children))
 }
 
 func (s *Select) Content(children ...twi.NodeOption) twi.Node {
@@ -73,7 +73,7 @@ func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node 
 	}
 	var mark []twi.NodeOption
 	if value == s.Value {
-		mark = []twi.NodeOption{twi.Text("✓")}
+		mark = []twi.NodeOption{icon("✓", "")}
 	}
 	highlight := twi.OnPointerEnter(func() {
 		if s.active != at {

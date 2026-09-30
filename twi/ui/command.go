@@ -33,6 +33,8 @@ type Command struct {
 	input              *twi.Input
 	selected, searched string
 	visible            []string
+	scored, rows       []commandRow
+	spans              [][2]int
 	offset             int
 	chosen             func()
 }
@@ -56,7 +58,7 @@ func (c *Command) Node(children ...twi.NodeOption) twi.Node {
 func (c *Command) Input(placeholder string) twi.Node {
 	c.input.Placeholder = placeholder
 	return part("flex flex-row shrink-0 items-center gap-1 border-b px-1", []twi.NodeOption{
-		part("shrink-0 opacity-50", []twi.NodeOption{twi.Text("⌕")}),
+		icon("⌕", "shrink-0 opacity-50"),
 		c.input.Node(twi.Class("flex flex-row grow h-1 min-w-0 overflow-hidden")),
 	})
 }
@@ -96,39 +98,44 @@ type commandRow struct {
 
 func (c *Command) List(groups ...CommandGroup) twi.Node {
 	search := c.input.Value()
-	var shown [][]commandRow
+	c.scored, c.spans = c.scored[:0], c.spans[:0]
 	for _, g := range groups {
-		if g.separator {
-			if search == "" {
-				shown = append(shown, []commandRow{{kind: separatorRow}})
+		from := len(c.scored)
+		switch {
+		case g.separator && search == "":
+			c.scored = append(c.scored, commandRow{kind: separatorRow})
+		case !g.separator:
+			if g.heading != "" {
+				c.scored = append(c.scored, commandRow{kind: headingRow, heading: g.heading})
 			}
+			items := len(c.scored)
+			for i := range g.items {
+				if s := score(g.items[i].value, search); s > 0 {
+					c.scored = append(c.scored, commandRow{kind: itemRow, item: &g.items[i], score: s})
+				}
+			}
+			if len(c.scored) == items {
+				c.scored = c.scored[:from]
+				continue
+			}
+			slices.SortStableFunc(c.scored[items:], func(a, b commandRow) int { return b.score - a.score })
+			c.scored[from].score = c.scored[items].score
+		default:
 			continue
 		}
-		var rows []commandRow
-		for i := range g.items {
-			if s := score(g.items[i].value, search); s > 0 {
-				rows = append(rows, commandRow{kind: itemRow, item: &g.items[i], score: s})
-			}
-		}
-		if len(rows) == 0 {
-			continue
-		}
-		slices.SortStableFunc(rows, func(a, b commandRow) int { return b.score - a.score })
-		if g.heading != "" {
-			rows = slices.Insert(rows, 0, commandRow{kind: headingRow, heading: g.heading, score: rows[0].score})
-		}
-		shown = append(shown, rows)
+		c.spans = append(c.spans, [2]int{from, len(c.scored)})
 	}
 	if search != "" {
-		slices.SortStableFunc(shown, func(a, b []commandRow) int { return b[0].score - a[0].score })
+		slices.SortStableFunc(c.spans, func(a, b [2]int) int { return c.scored[b[0]].score - c.scored[a[0]].score })
 	}
-	var rows []commandRow
-	for i, g := range shown {
+	c.rows = c.rows[:0]
+	for i, s := range c.spans {
 		if i > 0 && search != "" {
-			rows = append(rows, commandRow{kind: spacerRow})
+			c.rows = append(c.rows, commandRow{kind: spacerRow})
 		}
-		rows = append(rows, g...)
+		c.rows = append(c.rows, c.scored[s[0]:s[1]]...)
 	}
+	rows := c.rows
 	c.visible = c.visible[:0]
 	for _, r := range rows {
 		if r.kind == itemRow {
@@ -150,8 +157,9 @@ func (c *Command) List(groups ...CommandGroup) twi.Node {
 		}
 	}
 	c.offset = min(max(c.offset, at-commandRows+1), max(len(rows)-commandRows, 0))
-	var window []twi.NodeOption
-	for _, r := range rows[c.offset:min(c.offset+commandRows, len(rows))] {
+	shown := rows[c.offset:min(c.offset+commandRows, len(rows))]
+	window := make([]twi.NodeOption, 0, len(shown))
+	for _, r := range shown {
 		window = append(window, c.row(r))
 	}
 	return part("flex flex-col shrink-0 px-1", window)
@@ -170,7 +178,7 @@ func (c *Command) row(r commandRow) twi.Node {
 		panic("ui: unknown command row")
 	}
 	value := r.item.value
-	classes := "relative flex flex-row items-center gap-1 rounded-sm px-1 select-none"
+	classes := "relative flex flex-row items-center gap-1 rounded-sm px-1 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none"
 	selected := value == c.selected
 	if selected {
 		classes += " bg-accent text-accent-foreground"

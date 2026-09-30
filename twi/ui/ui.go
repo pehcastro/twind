@@ -2,8 +2,10 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/style"
 )
 
 type Variant uint8
@@ -46,5 +48,16 @@ func pick[K Variant | Size | Orientation | Align | Side | Alignment | dialogKind
 }
 
 func part(classes string, children []twi.NodeOption) twi.Node {
-	return twi.Element(append([]twi.NodeOption{twi.Class(classes)}, children...)...)
+	return twi.Element(merged(classes, children)...)
+}
+
+func merged(classes string, options []twi.NodeOption) []twi.NodeOption {
+	if caller, rest := twi.Classes(options); len(caller) > 0 {
+		classes, options = Merge(classes, strings.Join(caller, " ")), rest
+	}
+	return append([]twi.NodeOption{twi.Class(classes)}, options...)
+}
+
+func icon(glyph, classes string) twi.Node {
+	return part(classes, []twi.NodeOption{twi.Tag(style.ElementSVG), twi.Text(glyph)})
 }

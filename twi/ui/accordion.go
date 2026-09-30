@@ -40,7 +40,7 @@ func (a *Accordion) Node(children ...twi.NodeOption) twi.Node {
 			a.rt.Invalidate()
 		}
 	})
-	return part("flex flex-col", slices.Concat(a.behave(nil), []twi.NodeOption{own}, children))
+	return part(fade+"flex flex-col", slices.Concat(a.behave(nil), []twi.NodeOption{own}, children))
 }
 
 func (a *Accordion) Item(value string, children ...twi.NodeOption) twi.Node {
@@ -64,7 +64,7 @@ func (a *Accordion) Trigger(value string, children ...twi.NodeOption) twi.Node {
 			a.toggle(value)
 		})},
 		children,
-		[]twi.NodeOption{part("shrink-0 text-muted-foreground", []twi.NodeOption{twi.Text(chevron)})},
+		[]twi.NodeOption{icon(chevron, "shrink-0 text-muted-foreground")},
 	))
 }
 

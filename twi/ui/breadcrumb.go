@@ -23,12 +23,12 @@ func BreadcrumbPage(children ...twi.NodeOption) twi.Node {
 }
 
 func BreadcrumbSeparator(children ...twi.NodeOption) twi.Node {
-	if len(children) == 0 {
-		children = []twi.NodeOption{twi.Text("›")}
+	if _, content := twi.Classes(children); len(content) == 0 {
+		children = append(children, icon("›", ""))
 	}
 	return part("", children)
 }
 
 func BreadcrumbEllipsis(children ...twi.NodeOption) twi.Node {
-	return part("flex flex-row w-3 items-center justify-center", append([]twi.NodeOption{twi.Text("…")}, children...))
+	return part("flex flex-row w-3 items-center justify-center", append([]twi.NodeOption{icon("…", "")}, children...))
 }

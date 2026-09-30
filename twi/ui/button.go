@@ -2,33 +2,8 @@ package ui
 
 import "github.com/twind-dev/twind/twi"
 
-type onPress struct {
-	twi.NodeOption
-	act func()
-}
-
-func OnPress(act func()) twi.NodeOption {
-	return onPress{twi.OnClick(func(*twi.Event) { act() }), act}
-}
-
 func Button(v Variant, s Size, children ...twi.NodeOption) twi.Node {
-	return buttonWith(button(v, s, idleRing(v)+" "+focusRing), children)
-}
-
-func buttonWith(classes string, children []twi.NodeOption) twi.Node {
-	options := []twi.NodeOption{twi.Focusable()}
-	for _, c := range children {
-		if p, ok := c.(onPress); ok {
-			options = append(options, twi.OnKeyDown(func(e *twi.Event) {
-				if !e.Key.Release && press(e.Key) {
-					e.PreventDefault()
-					e.StopPropagation()
-					p.act()
-				}
-			}))
-		}
-	}
-	return part(classes, append(options, children...))
+	return part(button(v, s, idleRing(v)+" "+focusRing), append([]twi.NodeOption{twi.Focusable()}, children...))
 }
 
 func idleRing(v Variant) string {
@@ -39,7 +14,7 @@ func idleRing(v Variant) string {
 }
 
 func button(v Variant, s Size, ring string) string {
-	return "flex flex-row shrink-0 items-center justify-center gap-1 rounded-md font-medium select-none disabled:opacity-50 " +
+	return "flex flex-row shrink-0 items-center justify-center gap-1 rounded-md font-medium select-none disabled:opacity-50 [&_svg]:shrink-0 [&_svg]:pointer-events-none " +
 		pick("button", v, map[Variant]string{
 			Default:     "bg-primary text-primary-foreground hover:bg-primary/90",
 			Destructive: "bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive/60",

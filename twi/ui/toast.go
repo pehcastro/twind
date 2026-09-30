@@ -135,13 +135,13 @@ func (t *Toaster) Node() twi.Node {
 }
 
 func (t *Toaster) toast(s *toast) twi.Node {
-	var icon []twi.NodeOption
+	var mark []twi.NodeOption
 	switch s.kind {
 	case ToastDefault:
 	case ToastSuccess:
-		icon = []twi.NodeOption{part("shrink-0", []twi.NodeOption{twi.Text("✓")})}
+		mark = []twi.NodeOption{icon("✓", "shrink-0")}
 	case ToastError:
-		icon = []twi.NodeOption{part("shrink-0", []twi.NodeOption{twi.Text("⊗")})}
+		mark = []twi.NodeOption{icon("⊗", "shrink-0")}
 	default:
 		panic("ui: unknown toast kind")
 	}
@@ -151,17 +151,17 @@ func (t *Toaster) toast(s *toast) twi.Node {
 	}
 	var action []twi.NodeOption
 	if s.action.Label != "" {
-		action = []twi.NodeOption{Button(Default, SizeXS, OnPress(func() {
+		action = []twi.NodeOption{Button(Default, SizeXS, twi.OnClick(func(*twi.Event) {
 			if s.action.OnClick != nil {
 				s.action.OnClick()
 			}
 			t.dismiss(s)
 		}), twi.Text(s.action.Label))}
 	}
-	closeButton := part("absolute top-0 right-1 text-muted-foreground hover:text-foreground", []twi.NodeOption{twi.OnClick(func(*twi.Event) { t.dismiss(s) }), twi.Text("✕")})
+	closeButton := part("absolute top-0 right-1 text-muted-foreground hover:text-foreground", []twi.NodeOption{twi.OnClick(func(*twi.Event) { t.dismiss(s) }), icon("✕", "")})
 	return part("relative flex flex-row items-center gap-1 shrink-0 rounded-lg border bg-popover px-2 py-1 text-popover-foreground shadow-lg", slices.Concat(
 		[]twi.NodeOption{twi.Key(strconv.Itoa(s.id))},
-		icon,
+		mark,
 		[]twi.NodeOption{part("flex flex-col grow min-w-0", body)},
 		action,
 		[]twi.NodeOption{closeButton},

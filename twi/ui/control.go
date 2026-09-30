@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	fade              = "disabled:opacity-50 "
 	inputRing         = "shadow-[0_0_0_1px_var(--color-input)]"
 	primaryRing       = "shadow-[0_0_0_1px_var(--color-primary)]"
 	invalidRing       = "shadow-[0_0_0_1px_var(--color-destructive)]"
@@ -46,9 +47,8 @@ func (c *control) dataActive(here bool) twi.NodeOption {
 }
 
 func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
-	options := []twi.NodeOption{twi.Class("disabled:opacity-50")}
 	if c.Disabled {
-		return append(options, twi.Disabled())
+		return []twi.NodeOption{twi.Disabled()}
 	}
 	focus := func(on bool) func() {
 		return func() {
@@ -56,7 +56,7 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 			c.rt.Invalidate()
 		}
 	}
-	options = append(options, twi.Focusable(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)))
+	options := []twi.NodeOption{twi.Focusable(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false))}
 	if keys == nil {
 		return options
 	}

@@ -15,7 +15,7 @@ func tabsPage(rt *twi.Runtime, open string) func() twi.Node {
 	zone.Value = "utc"
 	saved := "nothing saved yet"
 	save := func(what string) twi.NodeOption {
-		return ui.OnPress(func() {
+		return twi.OnClick(func(*twi.Event) {
 			saved = what
 			rt.Invalidate()
 		})

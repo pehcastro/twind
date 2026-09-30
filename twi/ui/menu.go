@@ -99,7 +99,7 @@ func (s *DropdownMenuSub) Node(children ...twi.NodeOption) twi.Node {
 }
 
 func (s *DropdownMenuSub) Trigger(text string, children ...twi.NodeOption) twi.Node {
-	return s.parent.add(menuItem{text: text, sub: s}, "", append(children, part("pl-2 text-muted-foreground", []twi.NodeOption{twi.Text("›")})))
+	return s.parent.add(menuItem{text: text, sub: s}, "", append(children, icon("›", "pl-2 text-muted-foreground")))
 }
 
 func (s *DropdownMenuSub) Content(children ...twi.NodeOption) twi.Node {
@@ -152,7 +152,7 @@ func (l *menuLevel) add(it menuItem, classes string, children []twi.NodeOption) 
 		m.rt.Invalidate()
 	})
 	choose := m.click(func() { l.choose(it) })
-	return part("relative flex flex-row items-center rounded-sm px-2 select-none "+classes, append([]twi.NodeOption{highlight, choose, part("grow", []twi.NodeOption{twi.Text(it.text)})}, children...))
+	return part("relative flex flex-row items-center rounded-sm px-2 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none "+classes, append([]twi.NodeOption{highlight, choose, part("grow", []twi.NodeOption{twi.Text(it.text)})}, children...))
 }
 
 func (l *menuLevel) Item(text string, children ...twi.NodeOption) twi.Node {
@@ -170,7 +170,7 @@ func (l *menuLevel) RadioItem(text string, value *string, children ...twi.NodeOp
 func indicator(on bool, mark string) twi.Node {
 	var children []twi.NodeOption
 	if on {
-		children = []twi.NodeOption{twi.Text(mark)}
+		children = []twi.NodeOption{icon(mark, "")}
 	}
 	return part("absolute left-1 flex", children)
 }

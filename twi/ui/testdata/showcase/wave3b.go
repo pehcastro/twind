@@ -83,10 +83,10 @@ func wave3b(rt *twi.Runtime, open string) func() twi.Node {
 						repos.Content(twi.Class("gap-1"), repo("@radix-ui/colors"), repo("@stitches/react")),
 					)),
 					section("Sonner",
-						row(ui.Button(outline, size, ui.OnPress(event), label("Show Toast"))),
+						row(ui.Button(outline, size, twi.OnClick(func(*twi.Event) { event() }), label("Show Toast"))),
 						row(
-							ui.Button(outline, size, ui.OnPress(func() { toaster.Success("Event has been created", "", ui.ToastAction{}) }), label("Success")),
-							ui.Button(outline, size, ui.OnPress(func() { toaster.Error("Event has not been created", "", ui.ToastAction{}) }), label("Error")),
+							ui.Button(outline, size, twi.OnClick(func(*twi.Event) { toaster.Success("Event has been created", "", ui.ToastAction{}) }), label("Success")),
+							ui.Button(outline, size, twi.OnClick(func(*twi.Event) { toaster.Error("Event has not been created", "", ui.ToastAction{}) }), label("Error")),
 						),
 					),
 				),

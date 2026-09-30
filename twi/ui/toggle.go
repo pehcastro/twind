@@ -8,7 +8,7 @@ import (
 )
 
 func toggle(c *control, v Variant, s Size, on bool, at ringAt) string {
-	classes := "flex flex-row shrink-0 items-center justify-center gap-1 h-1 rounded-md font-medium select-none " +
+	classes := fade + "flex flex-row shrink-0 items-center justify-center gap-1 h-1 rounded-md font-medium select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none " +
 		pick("toggle", s, map[Size]string{SizeDefault: "min-w-4 px-1", SizeSM: "min-w-3 px-1", SizeLG: "min-w-5 px-1"})
 	if on {
 		classes += " bg-accent text-accent-foreground"
@@ -56,7 +56,7 @@ func (g *ToggleGroup) Item(value string, options ...twi.NodeOption) twi.Node {
 func (g *ToggleGroup) Node(options ...twi.NodeOption) twi.Node {
 	g.items, g.built = g.built, nil
 	g.active = min(g.active, max(len(g.items)-1, 0))
-	return part("flex flex-row items-center gap-1 rounded-md", append(g.behave(g.key), options...))
+	return part(fade+"flex flex-row items-center gap-1 rounded-md", append(g.behave(g.key), options...))
 }
 
 func (g *ToggleGroup) key(k input.KeyEvent) bool {

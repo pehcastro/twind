@@ -32,7 +32,7 @@ func (in *Input) Node(options ...twi.NodeOption) twi.Node {
 }
 
 func (in *Input) field(classes string, options []twi.NodeOption) twi.Node {
-	return in.Input.Node(slices.Concat(in.behave(nil), []twi.NodeOption{twi.Class("flex flex-row h-1 min-w-0 px-1 overflow-hidden " + classes)}, options)...)
+	return in.Input.Node(append(in.behave(nil), merged(fade+"flex flex-row h-1 min-w-0 px-1 overflow-hidden "+classes, options)...)...)
 }
 
 type Textarea struct {
@@ -63,7 +63,7 @@ func (t *Textarea) field(classes string, options []twi.NodeOption) twi.Node {
 		rows = append(rows, t.row(line, from))
 		from += len(line) + 1
 	}
-	return part("flex flex-col min-h-4 px-1 overflow-hidden "+classes, slices.Concat(keys, rows, options))
+	return part(fade+"flex flex-col min-h-4 px-1 overflow-hidden "+classes, slices.Concat(keys, rows, options))
 }
 
 func (t *Textarea) row(line string, from int) twi.Node {

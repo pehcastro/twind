@@ -20,6 +20,6 @@ func (s *Switch) Node(options ...twi.NodeOption) twi.Node {
 		track, thumb = "justify-end bg-primary", "bg-background dark:bg-primary-foreground"
 	}
 	keys := s.pressable(press, flip(&s.Checked, s.OnChange))
-	return part("flex flex-row w-4 h-1 shrink-0 items-center rounded-full "+track+" "+s.ring("", onSelf),
+	return part(fade+"flex flex-row w-4 h-1 shrink-0 items-center rounded-full "+track+" "+s.ring("", onSelf),
 		slices.Concat(keys, []twi.NodeOption{part("w-2 h-1 rounded-full "+thumb, nil)}, options))
 }

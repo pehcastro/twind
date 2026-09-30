@@ -29,7 +29,7 @@ func TestButtonKeys(t *testing.T) {
 	var heard []rune
 	d := overlayDriver(t, 80, 12, func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(light)
-		count := func(n *int) twi.NodeOption { return OnPress(func() { *n++; rt.Invalidate() }) }
+		count := func(n *int) twi.NodeOption { return twi.OnClick(func(*twi.Event) { *n++; rt.Invalidate() }) }
 		bubbled := twi.OnKeyDown(func(e *twi.Event) {
 			if e.Key.Key == input.KeyEnter {
 				enters++
@@ -60,11 +60,11 @@ func TestButtonKeys(t *testing.T) {
 	hit(d, "enter")
 	expect("enter on Three, which has no press, bubbles to the page", one == 1 && two == 0 && enters == 1)
 	hit(d, "shift+tab enter space")
-	expect("shift+tab back to One, enter and space press it once each", one == 3 && enters == 1)
+	expect("shift+tab back to One, enter and space press it once each, and the keys bubble as in a browser", one == 3 && enters == 2 && string(heard) == " ")
 	hit(d, "ctrl+enter x")
-	expect("ctrl+enter and a letter do not press it, both reach the page", one == 3 && enters == 2 && string(heard) == "x")
+	expect("ctrl+enter and a letter do not press it, both reach the page", one == 3 && enters == 3 && string(heard) == " x")
 	hit(d, "tab tab enter")
-	expect("the pagination link takes focus and fires on enter without bubbling", link == 1 && enters == 2)
+	expect("the pagination link takes focus and fires once on enter", link == 1 && enters == 4)
 	x, y, _ = at(d.Frame(), "Two")
 	d.Click(x, y)
 	expect("a click on the disabled Two does nothing", two == 0)

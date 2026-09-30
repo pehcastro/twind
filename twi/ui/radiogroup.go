@@ -21,7 +21,7 @@ func (g *RadioGroup) Item(value string, options ...twi.NodeOption) twi.Node {
 	g.built = append(g.built, value)
 	var dot []twi.NodeOption
 	if value == g.Value {
-		dot = []twi.NodeOption{twi.Text("●")}
+		dot = []twi.NodeOption{icon("●", "")}
 	}
 	circle := part("flex flex-row w-2 h-1 shrink-0 items-center justify-center rounded-full text-primary dark:bg-input/30 "+g.ring(inputRing, onItem), append(dot, g.dataActive(active)))
 	return part("flex flex-row items-center gap-3", append([]twi.NodeOption{circle, g.click(func() { g.choose(value) })}, options...))
@@ -29,7 +29,7 @@ func (g *RadioGroup) Item(value string, options ...twi.NodeOption) twi.Node {
 
 func (g *RadioGroup) Node(options ...twi.NodeOption) twi.Node {
 	g.items, g.built = g.built, nil
-	return part("flex flex-col gap-1", append(g.behave(g.key), options...))
+	return part(fade+"flex flex-col gap-1", append(g.behave(g.key), options...))
 }
 
 func (g *RadioGroup) key(k input.KeyEvent) bool {
