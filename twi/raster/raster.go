@@ -59,44 +59,52 @@ type layer struct {
 	group   bool
 }
 
-type strip struct{ lo, at, n int }
-
-type corner struct {
-	top, step    float64
-	first, count int
-}
-
-type side struct {
-	lo, hi  int
-	corners [2]int
-	edge    []float64
-	sign    float64
+type memo struct {
+	along, t float64
+	cov      float32
+	in, out  uint32
 }
 
 type Raster struct {
-	layers  []layer
-	groups  []image.RGBA
-	depth   int
-	phi     [konst.PhiSteps + 1]float64
-	ramp    [konst.GradientSteps + 1][4]float32
-	left    []float64
-	right   []float64
-	row     []float64
-	solid   []uint8
-	rows    repeat
-	flatLo  int
-	flatHi  int
-	tables  []float64
-	strips  []strip
-	corners [4]corner
-	sides   [2]side
+	layers   []layer
+	groups   []image.RGBA
+	depth    int
+	phi      [konst.PhiSteps + 1]float64
+	ramp     [konst.GradientSteps + 1][4]float32
+	memo     []memo
+	solid    []uint8
+	rows     repeat
+	first    int
+	same     []bool
+	frames   []frame
+	hide     image.Rectangle
+	hider    int
+	index    int
+	outlines []outline
+	shapes   int
+	left     []float64
+	right    []float64
+	row      []float64
+	flatLo   int
+	flatHi   int
+	tables   []float64
+	strips   []strip
+	corners  [4]corner
+	sides    [2]side
 }
 
 func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
 	tile = tile.Intersect(dst.Bounds())
+	r.plan(ops, tile)
+	r.depth = 0
 	if !covers(ops, tile) {
 		for y := tile.Min.Y; y < tile.Max.Y; y++ {
-			clear(dst.Pix[dst.PixOffset(tile.Min.X, y):dst.PixOffset(tile.Max.X, y)])
+			if r.skip(y) {
+				continue
+			}
+			for _, run := range r.open(y, tile.Min.X, tile.Max.X) {
+				clear(dst.Pix[dst.PixOffset(run[0], y):dst.PixOffset(run[1], y)])
+			}
 		}
 	}
 	if r.phi[konst.PhiSteps] == 0 {
@@ -106,9 +114,9 @@ func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
 			r.phi[i] = (math.Erf(t/math.Sqrt2) - low) / (-2 * low)
 		}
 	}
-	r.depth = 0
 	r.layers = append(r.layers[:0], layer{img: dst, clip: tile, opacity: 1})
-	for _, op := range ops {
+	for i, op := range ops {
+		r.index = i
 		switch op.Kind {
 		case Fill:
 			r.fill(op)
@@ -137,6 +145,15 @@ func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
 	}
 	for len(r.layers) > 1 {
 		r.pop()
+	}
+	var src []uint8
+	for y := tile.Min.Y; y < tile.Max.Y; y++ {
+		row := dst.Pix[dst.PixOffset(tile.Min.X, y):dst.PixOffset(tile.Max.X, y)]
+		if !r.skip(y) {
+			src = row
+			continue
+		}
+		copy(row, src)
 	}
 }
 
@@ -195,15 +212,17 @@ func (r *Raster) pop() {
 		return
 	}
 	r.depth--
-	dst := r.top().img
+	dst, mask := r.top().img, r.outline(l.mask)
 	for y := l.clip.Min.Y; y < l.clip.Max.Y; y++ {
-		fy := float64(y) + 0.5
-		lo, hi := l.mask.touched(fy, l.clip)
-		fullLo, fullHi := l.mask.full(fy, l.clip)
+		if r.skip(y) {
+			continue
+		}
+		lo, hi := mask.touched(y, l.clip)
+		fullLo, fullHi := mask.full(y, l.clip)
 		for x := lo; x < hi; x++ {
 			cov := l.opacity
 			if x < fullLo || x >= fullHi {
-				cov *= l.mask.cover(float64(x)+0.5, fy)
+				cov *= mask.cover(x, y)
 			}
 			i, p := dst.PixOffset(x, y), l.img.Pix[l.img.PixOffset(x, y):]
 			blend(dst.Pix[i:i+4], [4]float32{float32(p[0]), float32(p[1]), float32(p[2]), float32(p[3])}, cov)
@@ -228,38 +247,55 @@ func (r *Raster) fill(op Op) {
 		long, gap := dashes(op.Dash, min(b.W, b.H))
 		dash = loop(long, gap, max(b.W, b.H)+gap)
 	}
-	opaque := len(op.Stops) == 0 && op.Color.A == math.MaxUint8 && op.Dash == Solid
+	uniform := len(op.Stops) == 0 && op.Dash == Solid
+	opaque := uniform && op.Color.A == math.MaxUint8
 	top := r.top()
 	area := b.pixels(0.5).Intersect(top.clip)
-	if opaque {
+	if opaque && !area.Empty() {
 		r.solid = resize(r.solid, 4*area.Dx())
-		for i := 0; i < len(r.solid); i += 4 {
-			r.solid[i], r.solid[i+1], r.solid[i+2], r.solid[i+3] = op.Color.R, op.Color.G, op.Color.B, op.Color.A
+		r.solid[0], r.solid[1], r.solid[2], r.solid[3] = op.Color.R, op.Color.G, op.Color.B, op.Color.A
+		for n := 4; n < len(r.solid); n *= 2 {
+			copy(r.solid[n:], r.solid[:n])
 		}
 	}
+	if len(op.Stops) > 0 {
+		r.memo = resize(r.memo, area.Dx())
+		for i := range r.memo {
+			r.memo[i] = memo{along: (float64(area.Min.X+i) + 0.5 - cx) * gx, t: math.NaN()}
+		}
+	}
+	o := r.outline(b)
 	bandLo, bandHi := b.straight(0)
 	var lo, hi, fullLo, fullHi int
 	banded := false
 	for y := area.Min.Y; y < area.Max.Y; y++ {
+		if r.skip(y) {
+			continue
+		}
 		fy := float64(y) + 0.5
 		band := fy >= bandLo && fy <= bandHi
 		if !banded || !band {
-			lo, hi = b.touched(fy, area)
-			fullLo, fullHi = b.full(fy, area)
+			lo, hi = o.touched(y, area)
+			fullLo, fullHi = o.full(y, area)
 		}
 		banded = band
+		down := (fy - cy) * gy
 		for x, i := lo, top.img.PixOffset(lo, y); x < hi; x, i = x+1, i+4 {
 			fx := float64(x) + 0.5
 			cov := float32(1)
 			if x < fullLo || x >= fullHi {
-				cov = b.cover(fx, fy)
-			} else if opaque {
-				n := copy(top.img.Pix[i:i+(fullHi-x)*4], r.solid)
-				x, i = fullHi-1, i+n-4
+				cov = o.cover(x, y)
+			} else if uniform {
+				for _, run := range r.open(y, x, fullHi) {
+					pix := top.img.Pix[top.img.PixOffset(run[0], y):top.img.PixOffset(run[1], y)]
+					if opaque {
+						copy(pix, r.solid)
+					} else {
+						flood(pix, paint, 1)
+					}
+				}
+				x, i = fullHi-1, top.img.PixOffset(fullHi-1, y)
 				continue
-			}
-			if len(op.Stops) > 0 {
-				paint = r.sample((fx-cx)*gx + (fy-cy)*gy + 0.5)
 			}
 			switch {
 			case op.Dash == Solid:
@@ -268,7 +304,18 @@ func (r *Raster) fill(op Op) {
 			default:
 				cov *= dash.cover(fx - b.X)
 			}
-			blend(top.img.Pix[i:i+4], paint, cov)
+			px := top.img.Pix[i : i+4 : i+4]
+			if len(op.Stops) == 0 {
+				blend(px, paint, cov)
+				continue
+			}
+			m := &r.memo[x-area.Min.X]
+			t, in := m.along+down+0.5, binary.LittleEndian.Uint32(px)
+			if t != m.t || cov != m.cov || in != m.in {
+				blend(px, r.sample(t), cov)
+				m.t, m.cov, m.in, m.out = t, cov, in, binary.LittleEndian.Uint32(px)
+			}
+			binary.LittleEndian.PutUint32(px, m.out)
 		}
 	}
 }
@@ -279,8 +326,9 @@ func (r *Raster) border(op Op) {
 	paint := premul(op.Color)
 	top := r.top()
 	area := outer.pixels(0.5).Intersect(top.clip)
+	out, in := r.outline(outer), r.outline(inner)
 	if op.Dash != Solid {
-		r.dashedBorder(op, outer, inner, area)
+		r.dashedBorder(op, out, in, area)
 		return
 	}
 	bandLo, bandHi := outer.straight(0)
@@ -288,15 +336,18 @@ func (r *Raster) border(op Op) {
 	bandLo, bandHi = max(bandLo, innerLo), min(bandHi, innerHi)
 	r.rows.y = math.MinInt
 	for y := area.Min.Y; y < area.Max.Y; y++ {
+		if r.skip(y) {
+			continue
+		}
 		fy := float64(y) + 0.5
 		band := fy >= bandLo && fy <= bandHi
 		if band && r.rows.again(top.img, y) {
 			continue
 		}
-		lo, hi := outer.touched(fy, area)
-		fullLo, fullHi := outer.full(fy, area)
-		holeLo, holeHi := inner.full(fy, area)
-		edgeLo, edgeHi := inner.touched(fy, area)
+		lo, hi := out.touched(y, area)
+		fullLo, fullHi := out.full(y, area)
+		holeLo, holeHi := in.full(y, area)
+		edgeLo, edgeHi := in.touched(y, area)
 		spans := [2][2]int{{lo, max(lo, min(holeLo, hi))}, {max(lo, min(holeHi, hi)), hi}}
 		if band {
 			r.rows.keep(top.img, y, spans)
@@ -308,8 +359,14 @@ func (r *Raster) border(op Op) {
 			flood(top.img.Pix[top.img.PixOffset(a, y):top.img.PixOffset(b, y)], paint, 1)
 			for _, p := range [2][2]int{{sp[0], a}, {b, sp[1]}} {
 				for x, i := p[0], top.img.PixOffset(p[0], y); x < p[1]; x, i = x+1, i+4 {
-					fx := float64(x) + 0.5
-					blend(top.img.Pix[i:i+4], paint, max(outer.cover(fx, fy)-inner.cover(fx, fy), 0))
+					outside, inside := float32(1), float32(0)
+					if x < fullLo || x >= fullHi {
+						outside = out.cover(x, y)
+					}
+					if x >= edgeLo && x < edgeHi {
+						inside = in.cover(x, y)
+					}
+					blend(top.img.Pix[i:i+4], paint, max(outside-inside, 0))
 				}
 			}
 		}
@@ -317,6 +374,13 @@ func (r *Raster) border(op Op) {
 }
 
 func flood(pix []uint8, src [4]float32, cov float32) {
+	if len(pix) > 4 && bytes.Equal(pix[4:], pix[:len(pix)-4]) {
+		blend(pix[:4], src, cov)
+		for n := 4; n < len(pix); n *= 2 {
+			copy(pix[n:], pix[:n])
+		}
+		return
+	}
 	var in, out uint32
 	for i := 0; i < len(pix); i += 4 {
 		px := pix[i : i+4 : i+4]
@@ -362,265 +426,11 @@ func (p *repeat) keep(img *image.RGBA, y int, spans [2][2]int) {
 	}
 }
 
-func (r *Raster) shadow(op Op) {
-	box := op.Box.fit()
-	s := op.Shadow
-	spread := s.Spread
-	if s.Inset {
-		spread = -spread
-	}
-	shape := box.grow(spread).fit()
-	shape.X += s.X
-	shape.Y += s.Y
-	sigma := s.Blur * konst.SigmaPerBlur
-	reach := sigma * konst.ShadowReach
-	paint := premul(op.Color)
-	top := r.top()
-	area := shape.pixels(reach + 0.5)
-	if s.Inset {
-		area = box.pixels(0.5)
-	}
-	area = area.Intersect(top.clip)
-	if area.Empty() {
-		return
-	}
-	per := konst.PhiSteps / (2 * reach)
-	if sigma > 0 {
-		r.profile(shape, per, reach, area)
-	}
-	r.row = resize(r.row, area.Dx())
-	row, ax := r.row, area.Min.X
-	bandLo, bandHi := box.straight(0)
-	shapeLo, shapeHi := shape.straight(reach)
-	bandLo, bandHi = max(bandLo, shapeLo), min(bandHi, shapeHi)
-	r.rows.y = math.MinInt
-	for y := area.Min.Y; y < area.Max.Y; y++ {
-		fy := float64(y) + 0.5
-		band := fy >= bandLo && fy <= bandHi
-		if band && r.rows.again(top.img, y) {
-			continue
-		}
-		anyLo, anyHi := box.touched(fy, area)
-		fullLo, fullHi := box.full(fy, area)
-		spans := [2][2]int{{anyLo, anyLo}, {anyLo, anyHi}}
-		if !s.Inset {
-			spans = [2][2]int{{area.Min.X, fullLo}, {fullHi, area.Max.X}}
-		}
-		if band {
-			r.rows.keep(top.img, y, spans)
-		}
-		rims := [2][2]int{{anyLo, min(fullLo, anyHi)}, {max(fullHi, anyLo), anyHi}}
-		flat, flatLo, flatHi := 0.0, ax, ax
-		weight := 0.0
-		if sigma > 0 {
-			weight = r.cdf((shape.Y+shape.H-fy)*per) - r.cdf((shape.Y-fy)*per)
-			if weight <= 0 && !s.Inset {
-				continue
-			}
-			flat, flatLo, flatHi = weight, r.flatLo, r.flatHi
-			if r.near(0, fy, reach) || r.near(3, fy, reach) {
-				flatLo = max(flatLo, r.sides[0].hi)
-			}
-			if r.near(1, fy, reach) || r.near(2, fy, reach) {
-				flatHi = min(flatHi, r.sides[1].lo)
-			}
-			for _, rim := range rims {
-				if max(rim[0], flatLo) < min(rim[1], flatHi) {
-					flatHi = flatLo
-				}
-			}
-		}
-		if s.Inset {
-			flat = 1 - flat
-		}
-		var parts [4][2]int
-		for n, sp := range spans {
-			lo := min(max(flatLo, sp[0]), sp[1])
-			hi := min(max(flatHi, lo), sp[1])
-			parts[2*n], parts[2*n+1] = [2]int{sp[0], lo}, [2]int{hi, sp[1]}
-		}
-		for _, p := range parts {
-			part := row[p[0]-ax : p[1]-ax]
-			if sigma == 0 {
-				for i := range part {
-					part[i] = float64(shape.cover(float64(p[0]+i)+0.5, fy))
-				}
-				continue
-			}
-			left, right := r.left[p[0]-ax:p[1]-ax], r.right[p[0]-ax:p[1]-ax]
-			for i := range part {
-				part[i] = weight * (right[i] - left[i])
-			}
-		}
-		if sigma > 0 {
-			r.notches(fy, per, reach, spans, ax)
-		}
-		for _, p := range parts {
-			for x := p[0]; s.Inset && x < p[1]; x++ {
-				row[x-ax] = 1 - row[x-ax]
-			}
-		}
-		for _, rim := range rims {
-			for x := rim[0]; x < rim[1]; x++ {
-				mask := float64(box.cover(float64(x)+0.5, fy))
-				if !s.Inset {
-					mask = 1 - mask
-				}
-				row[x-ax] *= mask
-			}
-		}
-		for _, p := range parts {
-			for x, i := p[0], top.img.PixOffset(p[0], y); x < p[1]; x, i = x+1, i+4 {
-				blend(top.img.Pix[i:i+4:i+4], paint, float32(row[x-ax]))
-			}
-		}
-		for n := range spans {
-			flood(top.img.Pix[top.img.PixOffset(parts[2*n][1], y):top.img.PixOffset(parts[2*n+1][0], y)], paint, float32(flat))
-		}
-	}
-}
-
-func (r *Raster) profile(shape Box, per, reach float64, area image.Rectangle) {
-	x0, x1 := shape.X, shape.X+shape.W
-	r.left, r.right = resize(r.left, area.Dx()), resize(r.right, area.Dx())
-	r.flatLo, r.flatHi = area.Max.X, area.Max.X
-	for i := range r.left {
-		fx := float64(area.Min.X+i) + 0.5
-		r.left[i], r.right[i] = r.cdf((x0-fx)*per), r.cdf((x1-fx)*per)
-		if r.right[i]-r.left[i] == 1 {
-			r.flatLo = min(r.flatLo, area.Min.X+i)
-			r.flatHi = area.Min.X + i + 1
-		}
-	}
-	r.strips, r.tables = r.strips[:0], r.tables[:0]
-	for c, rad := range shape.Radii {
-		n := int(math.Ceil(rad * konst.ShadowStrips / (2 * reach)))
-		k := &r.corners[c]
-		*k = corner{top: shape.Y, first: len(r.strips), count: n}
-		if n == 0 {
-			continue
-		}
-		k.step = rad / float64(n)
-		if c >= 2 {
-			k.top = shape.Y + shape.H - rad
-		}
-		edge := func(f float64) float64 {
-			d := rad - f*k.step
-			if c >= 2 {
-				d = rad - d
-			}
-			width := rad - math.Sqrt(max(rad*rad-d*d, 0))
-			if c == 1 || c == 2 {
-				return x1 - width
-			}
-			return x0 + width
-		}
-		for j := range n {
-			first, last := edge(float64(j)), edge(float64(j+1))
-			m := min(konst.StripSamples, 1+int(math.Abs(last-first)*konst.StripSamples/reach))
-			var edges [konst.StripSamples]float64
-			for i := range m {
-				edges[i] = edge(float64(j) + (float64(i)+0.5)/float64(m))
-			}
-			lo, hi := int(math.Floor(min(first, last)-reach)), int(math.Ceil(max(first, last)+reach))
-			r.strips = append(r.strips, strip{lo: lo, at: len(r.tables), n: hi - lo})
-			for x := lo; x < hi; x++ {
-				sum := 0.0
-				for _, e := range edges[:m] {
-					sum += r.cdf((e - float64(x) - 0.5) * per)
-				}
-				r.tables = append(r.tables, sum/float64(m))
-			}
-		}
-	}
-	zones := [2][2]float64{{x0 - reach, x0 + max(shape.Radii[0], shape.Radii[3]) + reach}, {x1 - max(shape.Radii[1], shape.Radii[2]) - reach, x1 + reach}}
-	for s, z := range zones {
-		lo := min(max(int(math.Floor(z[0])), area.Min.X), area.Max.X)
-		hi := max(min(int(math.Ceil(z[1])), area.Max.X), lo)
-		edge := r.left
-		if s == 1 {
-			edge = r.right
-		}
-		r.sides[s] = side{lo: lo, hi: hi, corners: [2][2]int{{0, 3}, {1, 2}}[s], edge: edge[lo-area.Min.X : hi-area.Min.X], sign: float64(1 - 2*s)}
-	}
-}
-
-func (r *Raster) notches(fy, per, reach float64, spans [2][2]int, ax int) {
-	for _, sd := range r.sides {
-		total := 0.0
-		for _, c := range sd.corners {
-			if !r.near(c, fy, reach) {
-				continue
-			}
-			k := r.corners[c]
-			j0 := max(int(math.Floor((fy-reach-k.top)/k.step)), 0)
-			j1 := min(int(math.Ceil((fy+reach-k.top)/k.step)), k.count)
-			below := r.cdf((k.top + float64(j0)*k.step - fy) * per)
-			for j := j0; j < j1; j++ {
-				above := r.cdf((k.top + float64(j+1)*k.step - fy) * per)
-				w := sd.sign * (above - below)
-				below = above
-				if w == 0 {
-					continue
-				}
-				total += w
-				st := r.strips[k.first+j]
-				for _, sp := range spans {
-					lo, hi := max(sp[0], sd.lo), min(sp[1], sd.hi)
-					if lo >= hi {
-						continue
-					}
-					mid, end := min(max(st.lo, lo), hi), min(st.lo+st.n, hi)
-					for i := range r.row[lo-ax : mid-ax] {
-						r.row[lo-ax+i] -= w
-					}
-					if mid < end {
-						row, table := r.row[mid-ax:end-ax], r.tables[st.at+mid-st.lo:st.at+end-st.lo]
-						for i := range row {
-							row[i] -= w * table[i]
-						}
-					}
-				}
-			}
-		}
-		if total == 0 {
-			continue
-		}
-		for _, sp := range spans {
-			lo, hi := max(sp[0], sd.lo), min(sp[1], sd.hi)
-			if lo >= hi {
-				continue
-			}
-			row, edge := r.row[lo-ax:hi-ax], sd.edge[lo-sd.lo:hi-sd.lo]
-			for i := range row {
-				row[i] += total * edge[i]
-			}
-		}
-	}
-}
-
-func (r *Raster) near(c int, fy, reach float64) bool {
-	k := r.corners[c]
-	return k.count > 0 && fy+reach > k.top && fy-reach < k.top+float64(k.count)*k.step
-}
-
 func resize[T any](s []T, n int) []T {
 	if cap(s) < n {
 		return make([]T, n)
 	}
 	return s[:n]
-}
-
-func (r *Raster) cdf(t float64) float64 {
-	u := t + konst.PhiSteps/2
-	switch {
-	case u <= 0:
-		return 0
-	case u >= konst.PhiSteps:
-		return 1
-	}
-	i := int(u)
-	return r.phi[i] + (u-float64(i))*(r.phi[i+1]-r.phi[i])
 }
 
 func (r *Raster) gradient(stops []Stop) {
@@ -692,7 +502,7 @@ func srgb(lab [3]float64) [3]float64 {
 		if v <= 0.0031308 {
 			return 12.92 * v
 		}
-		return 1.055*math.Pow(v, 1/2.4) - 0.055
+		return 1.055*math.Exp(1/2.4*math.Log(v)) - 0.055
 	}
 	return [3]float64{
 		encode(4.0767416621*l - 3.3077115913*m + 0.2309699292*s),
@@ -707,10 +517,11 @@ func premul(c color.RGBA) [4]float32 {
 }
 
 func blend(dst []uint8, src [4]float32, cov float32) {
-	if src[3]*cov < 0.5 {
+	a := src[3] * cov
+	if a < 0.5 {
 		return
 	}
-	k := 1 - src[3]*cov/math.MaxUint8
+	k := 1 - a/math.MaxUint8
 	for c, v := range src {
 		dst[c] = uint8(v*cov + float32(dst[c])*k + 0.5)
 	}
@@ -776,27 +587,6 @@ func curve(r, d float64) float64 {
 		return 0
 	}
 	return r - math.Sqrt(max(r*r-into*into, 0))
-}
-
-func (b Box) full(fy float64, area image.Rectangle) (int, int) {
-	if fy < b.Y+0.5 || fy > b.Y+b.H-0.5 {
-		return area.Min.X, area.Min.X
-	}
-	left, right := b.extent(fy, -0.5)
-	return within(int(math.Ceil(left-0.5)), int(math.Floor(right-0.5))+1, area)
-}
-
-func (b Box) touched(fy float64, area image.Rectangle) (int, int) {
-	if fy <= b.Y-0.5 || fy >= b.Y+b.H+0.5 {
-		return area.Min.X, area.Min.X
-	}
-	left, right := b.extent(fy, 0.5)
-	return within(int(math.Floor(left-0.5))+1, int(math.Ceil(right-0.5)), area)
-}
-
-func within(lo, hi int, area image.Rectangle) (int, int) {
-	lo = min(max(lo, area.Min.X), area.Max.X)
-	return lo, max(lo, min(hi, area.Max.X))
 }
 
 func (b Box) cover(px, py float64) float32 {

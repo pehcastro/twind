@@ -73,23 +73,23 @@ func (b Box) along(px, py float64) float64 {
 	return at
 }
 
-func (r *Raster) dashedBorder(op Op, outer, inner Box, area image.Rectangle) {
-	line := outer.inset(op.Width / 2)
+func (r *Raster) dashedBorder(op Op, outer, inner *outline, area image.Rectangle) {
+	line := outer.box.inset(op.Width / 2)
 	dash, gap := dashes(op.Dash, op.Width)
 	p := loop(dash, gap, line.perimeter())
 	p.phase = p.dash / 2
 	paint, img := premul(op.Color), r.top().img
 	for y := area.Min.Y; y < area.Max.Y; y++ {
 		fy := float64(y) + 0.5
-		lo, hi := outer.touched(fy, area)
-		holeLo, holeHi := inner.full(fy, area)
+		lo, hi := outer.touched(y, area)
+		holeLo, holeHi := inner.full(y, area)
 		for x := lo; x < hi; x++ {
 			if x >= holeLo && x < holeHi {
 				x = holeHi - 1
 				continue
 			}
 			fx := float64(x) + 0.5
-			if cov := max(outer.cover(fx, fy)-inner.cover(fx, fy), 0); cov > 0 {
+			if cov := max(outer.cover(x, y)-inner.cover(x, y), 0); cov > 0 {
 				i := img.PixOffset(x, y)
 				blend(img.Pix[i:i+4], paint, cov*p.cover(line.along(fx, fy)))
 			}

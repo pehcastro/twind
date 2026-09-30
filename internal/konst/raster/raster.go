@@ -7,6 +7,8 @@ const (
 	StripSamples  = 8
 	PhiSteps      = 1024
 	GradientSteps = 256
+	Quiet         = 0.4999
+	OutlineWindow = 4
 )
 
 const (
