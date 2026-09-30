@@ -6,9 +6,15 @@ const (
 	SixelZero      = '?'
 	SixelMinRepeat = 4
 	SixelPercent   = 100
-	SixelSkip      = 32
+	SixelPixelBits = 32
+	SixelBlock     = 8
+	SixelLeap      = 32
+	SixelLaneLow   = 0x7fffffff7fffffff
 	SixelCacheBits = 8
 	SixelCacheHash = 0x9e3779b1
+	SixelWord      = 8
+	SixelByteBits  = 8
+	SixelSpread    = 0x0101010101010101
 	KittyChunk     = 4096
 	KittyRawChunk  = KittyChunk / 4 * 3
 
