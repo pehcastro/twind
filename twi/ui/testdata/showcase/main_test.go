@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -85,7 +86,7 @@ func ringRows(f drive.Frame, ring color.RGBA) []int {
 	cells := f.Cells()
 	for y := range cells.Height() {
 		for x := range cells.Width() {
-			if c := cells.At(x, y); strings.Contains("▁▏▔▕", c.Grapheme) && c.Fg.RGBA == ring && !slices.Contains(rows, y) {
+			if c := cells.At(x, y); strings.ContainsAny(c.Grapheme, "▁▂▃▄▅▆▇▏▎▍▌▋▊▉▔▕") && c.Fg.RGBA == ring && !slices.Contains(rows, y) {
 				rows = append(rows, y)
 			}
 		}
@@ -127,7 +128,8 @@ func TestFormKeys(t *testing.T) {
 		f := d.Frame()
 		y := find(t, f, anchor).y + below
 		row := strings.Split(f.Text(), "\n")[y]
-		return f.Cells().At(len([]rune(row[:strings.Index(row, s)])), y).Bg.RGBA
+		before, _, _ := strings.Cut(row, s)
+		return f.Cells().At(len([]rune(before)), y).Bg.RGBA
 	}
 	expect := func(what string, ok bool) {
 		t.Helper()
@@ -138,7 +140,7 @@ func TestFormKeys(t *testing.T) {
 
 	focused("Email", 2, 1)
 	d.Type("m@example.com")
-	expect("the email input holds what was typed", strings.Contains(line("m@example.com"), "▕ m@example.com"))
+	expect("the email input holds what was typed", regexp.MustCompile(`[▕▋▊] m@example\.com`).MatchString(line("m@example.com")))
 
 	d.Press("tab")
 	expect("the invalid username takes focus with its destructive ring, so no ring-coloured cell is left", len(ringRows(d.Frame(), ring)) == 0)
@@ -196,7 +198,7 @@ func TestFormKeys(t *testing.T) {
 	d.Type("123456")
 	otp := strings.Split(d.Frame().Text(), "\n")[find(t, d.Frame(), "Input OTP").y+2]
 	expect("typing fills the six slots", strings.Contains(strings.Map(func(r rune) rune {
-		if strings.ContainsRune("▁▏▔▕ ", r) {
+		if strings.ContainsRune("▁▂▃▄▅▆▇▏▎▍▌▋▊▉▔▕ ", r) {
 			return -1
 		}
 		return r

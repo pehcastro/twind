@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	rkonst "github.com/twind-dev/twind/internal/konst/runtime"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
@@ -233,6 +234,32 @@ func TestHundredSetsOneFrame(t *testing.T) {
 	close(release)
 	if f := r.next(t); !strings.HasSuffix(f, "2") {
 		t.Fatalf("frame after 100 dispatched sets is %q", f)
+	}
+	r.quiet(t)
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHandlerDispatchDrawsOnce(t *testing.T) {
+	var s *twi.Signal[int]
+	r := start(func(rt *twi.Runtime) func() twi.Node {
+		s = twi.NewSignal(rt, 0)
+		return func() twi.Node {
+			return twi.Element(
+				twi.OnKey(func(input.KeyEvent) {
+					s.Set(s.Get() + 1)
+					rt.Dispatch(func() { s.Set(s.Get() + 10) })
+				}),
+				twi.Text("n="+strconv.Itoa(s.Get())),
+			)
+		}
+	})
+	r.next(t)
+	time.Sleep(3 * rkonst.FrameInterval)
+	r.b.events <- key('x')
+	if f := r.next(t); !strings.HasSuffix(f, "11") {
+		t.Fatalf("the frame after a key whose handler sets and dispatches is %q, want n=11", f)
 	}
 	r.quiet(t)
 	if err := r.stop(t); err != nil {

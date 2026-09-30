@@ -14,6 +14,7 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/runtime/testdata/pill"
 )
 
 type backend struct {
@@ -96,6 +97,36 @@ func BenchmarkKeyToFrame(b *testing.B) {
 			b.ReportMetric(float64(total)/float64(len(samples)), "bytes/frame")
 		})
 	}
+}
+
+func BenchmarkFocusToFrame(b *testing.B) {
+	sheet, err := pill.Styles()
+	if err != nil {
+		b.Fatal(err)
+	}
+	now := clock(b)
+	be := &backend{events: make(chan input.Event), written: make(chan int), sync: true}
+	rt := twi.New(twi.Backend(be, &steppingClock{}), twi.Styles(sheet), twi.ColorProfile(color.TrueColor))
+	done := make(chan error, 1)
+	go func() { done <- rt.Run(pill.Many(focusPills)(rt)) }()
+	<-be.written
+	samples := make([]time.Duration, 0, b.N)
+	total := 0
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		start := now()
+		be.events <- input.KeyEvent{Key: input.KeyTab}
+		total += <-be.written
+		samples = append(samples, now()-start)
+	}
+	b.StopTimer()
+	rt.Quit()
+	if err := <-done; err != nil {
+		b.Fatal(err)
+	}
+	percentiles(b, "", samples)
+	b.ReportMetric(float64(total)/float64(len(samples)), "bytes/frame")
 }
 
 func BenchmarkIdle(b *testing.B) { idle(b) }

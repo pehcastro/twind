@@ -28,7 +28,7 @@ func NewInput(rt *twi.Runtime) *Input {
 }
 
 func (in *Input) Node(options ...twi.NodeOption) twi.Node {
-	return in.field("w-full rounded-md dark:bg-input/30 "+in.ring(inputRing, true), options)
+	return in.field("w-full rounded-md dark:bg-input/30 "+in.ring(inputRing, onSelf), options)
 }
 
 func (in *Input) field(classes string, options []twi.NodeOption) twi.Node {
@@ -46,7 +46,7 @@ func NewTextarea(rt *twi.Runtime) *Textarea {
 }
 
 func (t *Textarea) Node(options ...twi.NodeOption) twi.Node {
-	return t.field("w-full rounded-md dark:bg-input/30 "+t.ring(inputRing, true), options)
+	return t.field("w-full rounded-md dark:bg-input/30 "+t.ring(inputRing, onSelf), options)
 }
 
 func (t *Textarea) field(classes string, options []twi.NodeOption) twi.Node {
@@ -131,5 +131,5 @@ func group(c *control, field twi.Node, addons []Addon) twi.Node {
 		at[a.align] = append(at[a.align], a.node)
 	}
 	middle := part("flex flex-row items-center w-full", slices.Concat(at[InlineStart], []twi.NodeOption{field}, at[InlineEnd]))
-	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.ring(inputRing, true), slices.Concat(at[BlockStart], []twi.NodeOption{middle}, at[BlockEnd]))
+	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.ring(inputRing, onGroup), slices.Concat(at[BlockStart], []twi.NodeOption{middle}, at[BlockEnd]))
 }

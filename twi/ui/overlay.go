@@ -48,7 +48,7 @@ func (o *overlay) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Nod
 }
 
 func (o *overlay) trigger(v Variant, s Size, keys func(input.KeyEvent) bool, children []twi.NodeOption) twi.Node {
-	return part(button(v, s, o.ring(idleRing(v), true)), slices.Concat(o.behave(keys), children))
+	return part(button(v, s, o.ring(idleRing(v), onSelf)), slices.Concat(o.behave(keys), children))
 }
 
 func (o *overlay) dismissable(classes string, children []twi.NodeOption) twi.Node {
@@ -110,7 +110,7 @@ func (h *hint) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 			h.rt.Invalidate()
 		}
 	}
-	return part(button(v, s, h.ring(idleRing(v), true)), append([]twi.NodeOption{
+	return part(button(v, s, h.ring(idleRing(v), onSelf)), append([]twi.NodeOption{
 		twi.Focusable(), twi.OnFocus(show(true)), twi.OnBlur(show(false)),
 		keyDown(h.rt, func(k input.KeyEvent) bool {
 			hide := escape(k) && h.Open

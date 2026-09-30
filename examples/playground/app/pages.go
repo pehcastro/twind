@@ -147,9 +147,9 @@ func counterPage(c controls) twi.Node {
 		'9': {"█▀█", "▀▀█", "▀▀▀"},
 	}
 	var rows [3]string
-	decrement, disabled := "rounded-full px-1 bg-secondary text-secondary-foreground", []twi.NodeOption{}
+	var disabled []twi.NodeOption
 	if c.state.count == 0 {
-		decrement, disabled = decrement+" opacity-50", []twi.NodeOption{twi.Disabled()}
+		disabled = []twi.NodeOption{twi.Disabled()}
 	}
 	for _, r := range strconv.Itoa(c.state.count) {
 		for i := range rows {
@@ -163,7 +163,7 @@ func counterPage(c controls) twi.Node {
 			txt("text-muted-foreground pt-1", "count"),
 		),
 		el("flex flex-row gap-3 pt-1",
-			c.button("decrement", decrement, "- decrement", func(s *state) { s.count = max(s.count-1, 0) }, disabled...),
+			c.button("decrement", "rounded-full px-1 bg-secondary text-secondary-foreground disabled:opacity-50", "- decrement", func(s *state) { s.count = max(s.count-1, 0) }, disabled...),
 			c.button("increment", "rounded-full px-1 bg-primary text-primary-foreground", "+ increment", func(s *state) { s.count++ }),
 		),
 	)

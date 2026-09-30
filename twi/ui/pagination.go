@@ -22,11 +22,11 @@ func PaginationLink(isActive bool, children ...twi.NodeOption) twi.Node {
 }
 
 func PaginationPrevious(children ...twi.NodeOption) twi.Node {
-	return Button(Ghost, SizeXS, append([]twi.NodeOption{twi.Text("‹"), twi.Text("Previous")}, children...)...)
+	return Button(Ghost, SizeXS, append([]twi.NodeOption{twi.Text("‹"), part("hidden sm:block", []twi.NodeOption{twi.Text("Previous")})}, children...)...)
 }
 
 func PaginationNext(children ...twi.NodeOption) twi.Node {
-	return Button(Ghost, SizeXS, append([]twi.NodeOption{twi.Text("Next"), twi.Text("›")}, children...)...)
+	return Button(Ghost, SizeXS, append([]twi.NodeOption{part("hidden sm:block", []twi.NodeOption{twi.Text("Next")}), twi.Text("›")}, children...)...)
 }
 
 func PaginationEllipsis(children ...twi.NodeOption) twi.Node {

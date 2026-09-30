@@ -38,7 +38,7 @@ func (s *NativeSelect) Node(options ...twi.NodeOption) twi.Node {
 		}
 		return true
 	})
-	return part("flex flex-row h-1 items-center gap-1 px-1 rounded-md dark:bg-input/30 "+s.ring(inputRing, true), slices.Concat(keys, []twi.NodeOption{
+	return part("flex flex-row h-1 items-center gap-1 px-1 rounded-md dark:bg-input/30 "+s.ring(inputRing, onSelf), slices.Concat(keys, []twi.NodeOption{
 		part("grow", []twi.NodeOption{twi.Text(s.Value)}),
 		part("text-muted-foreground opacity-50", []twi.NodeOption{twi.Text("⌄")}),
 	}, options))

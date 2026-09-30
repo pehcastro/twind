@@ -61,10 +61,9 @@ type Runtime struct {
 	changed  atomic.Bool
 	quitting atomic.Bool
 
-	mu       sync.Mutex
-	queue    []func()
-	running  []func()
-	restyles []func()
+	mu      sync.Mutex
+	queue   []func()
+	running []func()
 
 	app           func() Tree
 	dirty         bool
@@ -115,10 +114,11 @@ func (r *Runtime) Invalidate() {
 }
 
 func (r *Runtime) Restyle(apply func()) {
-	r.mu.Lock()
-	r.restyles = append(r.restyles, apply)
-	r.mu.Unlock()
-	r.wakeUp()
+	r.Dispatch(func() {
+		apply()
+		r.tree.Restyle()
+		r.dirty = true
+	})
 }
 
 func (r *Runtime) wakeUp() {
@@ -153,19 +153,10 @@ func (r *Runtime) loop(b Backend) error {
 	var throttle <-chan time.Time
 	for {
 		now := r.cfg.Clock.Now()
+		r.drain()
 		if r.quitting.Load() {
+			r.drain()
 			return nil
-		}
-		r.mu.Lock()
-		restyles := r.restyles
-		r.restyles = nil
-		r.mu.Unlock()
-		for _, apply := range restyles {
-			apply()
-		}
-		if restyles != nil {
-			r.tree.Restyle()
-			r.dirty = true
 		}
 		if r.changed.Swap(false) {
 			r.dirty = true
@@ -184,17 +175,20 @@ func (r *Runtime) loop(b Backend) error {
 			}
 			r.handle(ev)
 		case <-r.wake:
-			r.mu.Lock()
-			r.queue, r.running = r.running[:0], r.queue
-			r.mu.Unlock()
-			for _, f := range r.running {
-				f()
-			}
-			clear(r.running)
 		case <-throttle:
 			throttle = nil
 		}
 	}
+}
+
+func (r *Runtime) drain() {
+	r.mu.Lock()
+	r.queue, r.running = r.running[:0], r.queue
+	r.mu.Unlock()
+	for _, f := range r.running {
+		f()
+	}
+	clear(r.running)
 }
 
 func (r *Runtime) handle(ev input.Event) {
@@ -241,11 +235,15 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		Height:   layout.Length{Unit: layout.Cells, Value: r.height},
 		Sanitize: r.sanitize,
 	}
+	current, ok := r.focus.Current()
+	if ok {
+		tree.Root = focused(tree.Root, current.path())
+	}
 	root, err := r.tree.Scene(tree.Root, frame)
 	if err != nil {
 		return err
 	}
-	if current, _ := r.focus.Current(); current != r.revealed {
+	if current != r.revealed {
 		r.revealed = current
 		if current != nil && r.tree.ScrollIntoView(current.path()) {
 			if root, err = r.tree.Scene(tree.Root, frame); err != nil {

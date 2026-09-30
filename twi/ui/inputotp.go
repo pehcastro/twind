@@ -31,7 +31,7 @@ func (o *InputOTP) Slot(i int) twi.Node {
 	case active && o.focused:
 		content = []twi.NodeOption{part("text-foreground", []twi.NodeOption{twi.Text("│")})}
 	}
-	return part("flex flex-row w-3 h-1 shrink-0 items-center justify-center dark:bg-input/30 "+o.ring(inputRing, active), content)
+	return part("flex flex-row w-3 h-1 shrink-0 items-center justify-center dark:bg-input/30 "+o.ring(inputRing, onItem), append(content, o.dataActive(active)))
 }
 
 func (o *InputOTP) Node(options ...twi.NodeOption) twi.Node {

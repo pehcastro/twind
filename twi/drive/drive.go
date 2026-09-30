@@ -158,7 +158,7 @@ func (d *Driver) feed(b []byte) {
 
 func (d *Driver) settle() {
 	done := make(chan struct{})
-	d.rt.Dispatch(func() { close(done) })
+	d.rt.Dispatch(func() { d.rt.Dispatch(func() { close(done) }) })
 	select {
 	case <-done:
 	case <-d.exited:

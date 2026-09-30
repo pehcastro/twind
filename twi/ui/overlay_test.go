@@ -124,6 +124,36 @@ func TestDialogKeys(t *testing.T) {
 	}
 }
 
+func TestDialogFooterFollowsSm(t *testing.T) {
+	for _, width := range []int{70, 120} {
+		d := overlayDriver(t, width, 16, func(rt *twi.Runtime) func() twi.Node {
+			rt.SetTheme(zinc(t, theme.Dark))
+			dlg := NewDialog(rt)
+			dlg.Open = true
+			return func() twi.Node {
+				return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
+					dlg.Content(
+						dlg.Header(dlg.Title(twi.Text("Edit profile")), dlg.Description(twi.Text("Make changes here."))),
+						dlg.Footer(dlg.Close(Outline, SizeDefault, twi.Text("Cancel")), dlg.Close(Default, SizeDefault, twi.Text("Save"))),
+					),
+				)
+			}
+		})
+		f := d.Frame()
+		t.Logf("%d columns:\n%s", width, f.Text())
+		cancelX, cancelY, _ := at(f, "Cancel")
+		saveX, saveY, _ := at(f, "Save")
+		titleX, _, _ := at(f, "Edit profile")
+		descriptionX, _, _ := at(f, "Make changes here.")
+		if wide := width >= 80; wide != (cancelY == saveY && cancelX < saveX) || !wide != (saveY < cancelY) {
+			t.Errorf("%d columns: Cancel at %d,%d, Save at %d,%d; want a column with Save first below sm, a row with Save last from sm", width, cancelX, cancelY, saveX, saveY)
+		}
+		if wide := width >= 80; wide != (titleX == descriptionX) {
+			t.Errorf("%d columns: title at %d, description at %d; want centred below sm, left from sm", width, titleX, descriptionX)
+		}
+	}
+}
+
 func TestDialogKinds(t *testing.T) {
 	for _, c := range []struct {
 		name  string
@@ -379,14 +409,10 @@ func TestOverlayStates(t *testing.T) {
 		a, b := m.Item("A"), s.Node(s.Trigger("B"), s.Content(s.Item("C")))
 		return m.Node(m.Trigger(Ghost, SizeDefault, twi.Text("open")), m.Content(a, b))
 	}
-	trigger := func(focused bool) twi.Node {
-		p := NewPopover(rt)
-		p.focused = focused
-		return p.Trigger(Outline, SizeDefault, twi.Text("open"))
-	}
-	closes := func(focus int) twi.Node {
+	trigger := NewPopover(rt).Trigger(Outline, SizeDefault, twi.Text("open"))
+	closes := func() twi.Node {
 		d := NewDialog(rt)
-		d.Open, d.focus = true, focus
+		d.Open = true
 		return d.Content(d.Footer(d.Close(Outline, SizeDefault, twi.Text("Cancel")), d.Close(Default, SizeDefault, twi.Text("Save"))))
 	}
 	tip := func() twi.Node {
@@ -423,19 +449,21 @@ func TestOverlayStates(t *testing.T) {
 		{"sub content: absolute right of its trigger, shadow-lg", light, menu(0, true), []int{1, 0, 1, 1}, func(s style.ComputedStyle) bool {
 			return s.Position == style.PositionAbsolute && s.Inset.Left == percent(100) && s.ZIndex == 50 && shadowed(s) && s.Background == light.Tokens[theme.Popover]
 		}},
-		{"outline trigger focused: the focus ring replaces the border ring on the button itself", light, trigger(true), nil, func(s style.ComputedStyle) bool {
-			return halo(s, light.Tokens[theme.Ring], scaled(light, theme.Ring, 0.5)) && s.Background == light.Tokens[theme.Background]
-		}},
-		{"outline trigger idle: the button's border ring", light, trigger(false), nil, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
-		{"focused Close: the focus ring on its button", light, closes(1), []int{0, 0, 0}, func(s style.ComputedStyle) bool {
-			return halo(s, light.Tokens[theme.Ring], scaled(light, theme.Ring, 0.5))
-		}},
-		{"the other Close keeps its own look", light, closes(1), []int{0, 0, 1}, func(s style.ComputedStyle) bool {
-			return len(s.Shadows) == 0 && s.Background == light.Tokens[theme.Primary]
-		}},
-		{"Close not focused: the outline button's border ring", light, closes(2), []int{0, 0, 0}, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
+		{"outline trigger idle: the button's border ring", light, trigger, nil, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
 		{"tooltip: bg-foreground text-background above the trigger", light, tip(), []int{1, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Foreground] && s.Color == light.Tokens[theme.Background]
 		}},
+	})
+	checkFocused(t, []focusCase{
+		{"outline trigger focused: the focus ring replaces the border ring on the button itself", light, trigger, []int{}, nil, func(s style.ComputedStyle) bool {
+			return halo(s, light.Tokens[theme.Ring], scaled(light, theme.Ring, 0.5)) && s.Background == light.Tokens[theme.Background]
+		}},
+		{"focused Close: the focus ring on its button", light, closes(), []int{0, 0, 0}, []int{0, 0, 0}, func(s style.ComputedStyle) bool {
+			return halo(s, light.Tokens[theme.Ring], scaled(light, theme.Ring, 0.5))
+		}},
+		{"the other Close keeps its own look", light, closes(), []int{0, 0, 0}, []int{0, 0, 1}, func(s style.ComputedStyle) bool {
+			return len(s.Shadows) == 0 && s.Background == light.Tokens[theme.Primary]
+		}},
+		{"Close not focused: the outline button's border ring", light, closes(), []int{0, 0, 1}, []int{0, 0, 0}, func(s style.ComputedStyle) bool { return ring(s, light.Tokens[theme.Border]) }},
 	})
 }

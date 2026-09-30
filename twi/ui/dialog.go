@@ -78,9 +78,6 @@ func (d *Dialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 func (d *Dialog) close(classes, ring string, children []twi.NodeOption) twi.Node {
 	d.closes++
 	here := d.closes
-	if d.focus == here {
-		ring = focusRing
-	}
 	focus := func(on bool) func() {
 		return func() {
 			switch {
@@ -89,10 +86,9 @@ func (d *Dialog) close(classes, ring string, children []twi.NodeOption) twi.Node
 			case d.focus == here:
 				d.focus = 0
 			}
-			d.rt.Invalidate()
 		}
 	}
-	return part(classes+" "+ring, append([]twi.NodeOption{
+	return part(classes+" "+ring+" "+focusRing, append([]twi.NodeOption{
 		twi.Focusable(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)),
 		keyDown(d.rt, func(k input.KeyEvent) bool {
 			if press(k) {
@@ -105,17 +101,17 @@ func (d *Dialog) close(classes, ring string, children []twi.NodeOption) twi.Node
 
 func (d *Dialog) Header(children ...twi.NodeOption) twi.Node {
 	return part(pick("dialog", d.kind, map[dialogKind]string{
-		modal:  "flex flex-col",
-		alert:  "flex flex-col",
+		modal:  "flex flex-col text-center sm:text-left",
+		alert:  "flex flex-col text-center sm:text-left",
 		sheet:  "flex flex-col px-2 py-1",
-		drawer: "flex flex-col px-2 py-1 text-center",
+		drawer: "flex flex-col px-2 py-1 text-center md:text-left",
 	}), children)
 }
 
 func (d *Dialog) Footer(children ...twi.NodeOption) twi.Node {
 	return part(pick("dialog", d.kind, map[dialogKind]string{
-		modal:  "flex flex-row justify-end gap-2",
-		alert:  "flex flex-row justify-end gap-2",
+		modal:  "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+		alert:  "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
 		sheet:  "flex flex-col grow justify-end gap-1 px-2 py-1",
 		drawer: "flex flex-col grow justify-end gap-1 px-2 py-1",
 	}), children)

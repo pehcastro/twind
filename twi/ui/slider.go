@@ -51,6 +51,6 @@ func (s *Slider) Node(options ...twi.NodeOption) twi.Node {
 	})
 	return part("relative flex flex-row w-full h-1 items-center rounded-full bg-muted select-none", slices.Concat(keys, []twi.NodeOption{
 		part("h-1 rounded-full bg-primary "+strings.Fields(indicatorWidths)[percent], nil),
-		part("w-2 h-1 shrink-0 rounded-full bg-white "+s.ring(primaryRing, true), nil),
+		part("w-2 h-1 shrink-0 rounded-full bg-white "+s.ring(primaryRing, onItem), []twi.NodeOption{s.dataActive(true)}),
 	}, options))
 }

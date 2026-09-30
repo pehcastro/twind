@@ -3,10 +3,18 @@ package runtime_test
 import (
 	"strings"
 	"testing"
+	"time"
 
+	rkonst "github.com/twind-dev/twind/internal/konst/runtime"
+	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/buffer"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/runtime"
+	"github.com/twind-dev/twind/twi/runtime/testdata/pill"
+	"github.com/twind-dev/twind/twi/style"
 )
 
 type focusApp struct {
@@ -130,6 +138,108 @@ func TestFocusInputKeepsItsKeys(t *testing.T) {
 	expect(t, a, "back in the input", "blur b, focus a, blur a")
 	if text := d.Frame().Text(); !strings.Contains(text, "\nqz\n") {
 		t.Errorf("the input lost its value or its focus:\n%s", text)
+	}
+}
+
+func TestTabShowsFocusVisibleRing(t *testing.T) {
+	sheet, err := pill.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	lit := func(classes string, states style.State) style.ComputedStyle {
+		return sheet.ComputeState(style.ComputedStyle{}, strings.Fields(classes), style.NodeState{States: states})
+	}
+	ring := lit("focus-visible:ring-2 focus-visible:ring-sky-500", style.StateFocusVisible).Shadows[0].Color.RGBA
+	within := lit("focus-within:bg-zinc-900", style.StateFocusWithin).Background.RGBA
+	pillBg := lit("bg-zinc-700", 0).Background.RGBA
+	d := drive.New(pill.App, drive.Size(30, 9), drive.Styles(sheet))
+	defer func() {
+		if err := d.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	locate := func(word string) (int, int) {
+		cells := d.Frame().Cells()
+		for y := range cells.Height() {
+			for x := range cells.Width() - len(word) {
+				found := true
+				for i, r := range word {
+					found = found && cells.At(x+i, y).Grapheme == string(r)
+				}
+				if found {
+					return x, y
+				}
+			}
+		}
+		t.Fatalf("no %q in the frame:\n%s", word, d.Frame().Text())
+		return 0, 0
+	}
+	ringed := func(word string) bool {
+		cells := d.Frame().Cells()
+		x0, y0 := locate(word)
+		for y := max(y0-1, 0); y <= min(y0+1, cells.Height()-1); y++ {
+			for x := max(x0-3, 0); x < min(x0+len(word)+3, cells.Width()); x++ {
+				if c := cells.At(x, y); c.Fg.RGBA == ring || c.Bg.RGBA == ring {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	for _, step := range []struct {
+		key           string
+		one, two, row bool
+	}{
+		{"", false, false, false},
+		{"tab", true, false, true},
+		{"tab", false, true, true},
+		{"tab", true, false, true},
+	} {
+		if step.key != "" {
+			d.Press(step.key)
+		}
+		_, y := locate("one")
+		row := d.Frame().Cells().At(1, y).Bg.RGBA == within
+		if got := [3]bool{ringed("one"), ringed("two"), row}; got != [3]bool{step.one, step.two, step.row} {
+			t.Errorf("after %q: ring on one, ring on two, focus-within row = %v, want %v:\n%s", step.key, got, [3]bool{step.one, step.two, step.row}, d.Frame().ANSI())
+		}
+		underlined := func(word string) bool {
+			x, y := locate(word)
+			return d.Frame().Cells().At(x, y).Attr&buffer.Underline != 0
+		}
+		if underlined("one") || !underlined("two") {
+			t.Errorf("after %q: data-[state=on]:underline must mark two only, focused or not:\n%s", step.key, d.Frame().ANSI())
+		}
+	}
+	x, y := locate("off")
+	if bg := d.Frame().Cells().At(x, y).Bg.RGBA; bg == pillBg {
+		t.Errorf("the disabled pill is not faded by disabled:opacity-50: background %v", bg)
+	}
+}
+
+func TestFocusLeavesTheAppTreeUntouched(t *testing.T) {
+	b := newBackend(20, 3)
+	tree := runtime.Tree{
+		Root:   render.Node{Children: []render.Node{{Text: "a"}, {Text: "b"}}},
+		Events: runtime.Node{Children: []runtime.Node{{At: []int{0}, Focusable: true}, {At: []int{1}, Focusable: true}}},
+	}
+	rt := runtime.New(runtime.Config{Clock: &clock{}, Sheet: scrollSheet(t), Profile: color.None})
+	r := run{b: b, done: make(chan error, 1)}
+	go func() { r.done <- rt.Run(b, func() runtime.Tree { return tree }) }()
+	r.next(t)
+	for range 3 {
+		time.Sleep(3 * rkonst.FrameInterval)
+		b.events <- input.KeyEvent{Key: input.KeyTab}
+		settled := make(chan struct{})
+		rt.Dispatch(func() { rt.Dispatch(func() { close(settled) }) })
+		<-settled
+		if tree.Root.State != nil || tree.Root.Children[0].State != nil || tree.Root.Children[1].State != nil {
+			t.Fatal("the runtime wrote focus states into the tree the app returned")
+		}
+	}
+	rt.Quit()
+	if err := r.result(t); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -3,6 +3,7 @@ package ui
 import (
 	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -27,7 +28,7 @@ func zinc(t *testing.T, scheme theme.Scheme) theme.Theme {
 	return theme.Theme{}
 }
 
-func computed(t *testing.T, th theme.Theme, n twi.Node, path ...int) style.ComputedStyle {
+func computed(t *testing.T, th theme.Theme, n twi.Node, focus, path []int) style.ComputedStyle {
 	t.Helper()
 	sheet, err := styles()
 	if err != nil {
@@ -42,7 +43,21 @@ func computed(t *testing.T, th theme.Theme, n twi.Node, path ...int) style.Compu
 		for i := range classes {
 			classes[i] = list.Index(i).String()
 		}
-		s = sheet.Compute(s, classes)
+		var state style.NodeState
+		if own := v.FieldByName("State"); !own.IsNil() {
+			state.States = style.State(own.Elem().FieldByName("States").Uint())
+			attrs := own.Elem().FieldByName("Attrs")
+			for i := range attrs.Len() {
+				state.Attrs = append(state.Attrs, style.Attr{Name: attrs.Index(i).FieldByName("Name").String(), Value: attrs.Index(i).FieldByName("Value").String()})
+			}
+		}
+		if focus != nil && depth <= len(focus) && slices.Equal(path[:depth], focus[:depth]) {
+			state.States |= style.StateFocusWithin
+			if depth == len(focus) {
+				state.States |= style.StateFocus | style.StateFocusVisible
+			}
+		}
+		s = sheet.ComputeState(s, classes, state)
 		if depth == len(path) {
 			return s
 		}
@@ -85,7 +100,24 @@ type partCase struct {
 func checkParts(t *testing.T, cases []partCase) {
 	t.Helper()
 	for _, c := range cases {
-		if s := computed(t, c.th, c.node, c.path...); !c.want(s) {
+		if s := computed(t, c.th, c.node, nil, c.path); !c.want(s) {
+			t.Errorf("%s: computed %+v", c.name, s)
+		}
+	}
+}
+
+type focusCase struct {
+	name        string
+	th          theme.Theme
+	node        twi.Node
+	focus, path []int
+	want        func(style.ComputedStyle) bool
+}
+
+func checkFocused(t *testing.T, cases []focusCase) {
+	t.Helper()
+	for _, c := range cases {
+		if s := computed(t, c.th, c.node, c.focus, c.path); !c.want(s) {
 			t.Errorf("%s: computed %+v", c.name, s)
 		}
 	}
@@ -513,9 +545,9 @@ func TestRendersWave1b(t *testing.T) {
 	if l := lines[max(crumbs, 0)]; !strings.Contains(l, "Home ›  …  / Breadcrumb") {
 		t.Errorf("breadcrumb reads %q, want the chevron by default, the given separator, and the ellipsis", l)
 	}
-	pages, _ := find("Previous")
-	if l := lines[max(pages, 0)]; !strings.Contains(l, "‹ Previous") || !strings.Contains(l, "Next ›") || !strings.Contains(l, "…") {
-		t.Errorf("pagination reads %q", l)
+	pages, _ := find("‹")
+	if l := lines[max(pages, 0)]; strings.Contains(l, "Previous") || !strings.Contains(l, "›") || !strings.Contains(l, "…") {
+		t.Errorf("pagination reads %q, want the arrows without their labels below sm", l)
 	}
 	find("Or continue with")
 }

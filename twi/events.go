@@ -3,6 +3,7 @@ package twi
 import (
 	"github.com/twind-dev/twind/twi/events"
 	"github.com/twind-dev/twind/twi/runtime"
+	"github.com/twind-dev/twind/twi/style"
 )
 
 type Event = events.Event[*runtime.Elem]
@@ -36,7 +37,14 @@ func Focusable() NodeOption { return behaviour(func(n *runtime.Node) { n.Focusab
 
 func AutoFocus() NodeOption { return behaviour(func(n *runtime.Node) { n.AutoFocus = true }) }
 
-func Disabled() NodeOption { return behaviour(func(n *runtime.Node) { n.Disabled = true }) }
+type disabled struct{}
+
+func (disabled) apply(n *Node) {
+	behaviour(func(n *runtime.Node) { n.Disabled = true }).apply(n)
+	n.state().States |= style.StateDisabled
+}
+
+func Disabled() NodeOption { return disabled{} }
 
 func FocusScope() NodeOption { return behaviour(func(n *runtime.Node) { n.Scope = true }) }
 

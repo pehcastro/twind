@@ -61,6 +61,22 @@ type classList []string
 
 func (c classList) apply(n *Node) { n.tree.Classes = append(n.tree.Classes, c...) }
 
+func (n *Node) state() *style.NodeState {
+	if n.tree.State == nil {
+		n.tree.State = &style.NodeState{}
+	}
+	return n.tree.State
+}
+
+type attribute style.Attr
+
+func (a attribute) apply(n *Node) {
+	state := n.state()
+	state.Attrs = append(state.Attrs, style.Attr(a))
+}
+
+func Data(name, value string) NodeOption { return attribute{Name: "data-" + name, Value: value} }
+
 func Element(options ...NodeOption) Node {
 	var n Node
 	for _, o := range options {

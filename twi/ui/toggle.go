@@ -7,13 +7,13 @@ import (
 	"github.com/twind-dev/twind/twi/input"
 )
 
-func toggle(c *control, v Variant, s Size, on, here bool) string {
+func toggle(c *control, v Variant, s Size, on bool, at ringAt) string {
 	classes := "flex flex-row shrink-0 items-center justify-center gap-1 h-1 rounded-md font-medium select-none " +
 		pick("toggle", s, map[Size]string{SizeDefault: "min-w-4 px-1", SizeSM: "min-w-3 px-1", SizeLG: "min-w-5 px-1"})
 	if on {
 		classes += " bg-accent text-accent-foreground"
 	}
-	return classes + " " + c.ring(pick("toggle", v, map[Variant]string{Default: "", Outline: inputRing}), here)
+	return classes + " " + c.ring(pick("toggle", v, map[Variant]string{Default: "", Outline: inputRing}), at)
 }
 
 type Toggle struct {
@@ -27,7 +27,7 @@ type Toggle struct {
 func NewToggle(rt *twi.Runtime) *Toggle { return &Toggle{control: control{rt: rt}} }
 
 func (t *Toggle) Node(options ...twi.NodeOption) twi.Node {
-	return part(toggle(&t.control, t.Variant, t.Size, t.Pressed, true), slices.Concat(t.behave(flip(&t.Pressed, t.OnChange, press)), options))
+	return part(toggle(&t.control, t.Variant, t.Size, t.Pressed, onSelf), slices.Concat(t.behave(flip(&t.Pressed, t.OnChange, press)), options))
 }
 
 type ToggleGroup struct {
@@ -46,7 +46,7 @@ func NewToggleGroup(rt *twi.Runtime) *ToggleGroup { return &ToggleGroup{control:
 func (g *ToggleGroup) Item(value string, options ...twi.NodeOption) twi.Node {
 	here := len(g.built) == g.active
 	g.built = append(g.built, value)
-	return part(toggle(&g.control, g.Variant, g.Size, slices.Contains(g.Value, value), here), options)
+	return part(toggle(&g.control, g.Variant, g.Size, slices.Contains(g.Value, value), onItem), append([]twi.NodeOption{g.dataActive(here)}, options...))
 }
 
 func (g *ToggleGroup) Node(options ...twi.NodeOption) twi.Node {

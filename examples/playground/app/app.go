@@ -19,7 +19,7 @@ import (
 const (
 	pickerRows = 9
 	listRows   = 40
-	focusRing  = " shadow-[0_0_0_1px_var(--color-ring)]"
+	focusRing  = " focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"
 )
 
 type Env struct {
@@ -66,15 +66,8 @@ func (c controls) focusable(name string) []twi.NodeOption {
 	return opts
 }
 
-func (c controls) ringed(name, class string) string {
-	if c.state.focus == name {
-		return class + focusRing
-	}
-	return class
-}
-
 func (c controls) button(name, class, label string, press func(*state), extra ...twi.NodeOption) twi.Node {
-	return twi.Element(append(append(c.focusable(name), extra...), twi.Class(c.ringed(name, class)), twi.Text(label), twi.OnKeyDown(func(e *twi.Event) {
+	return twi.Element(append(append(c.focusable(name), extra...), twi.Class(class+focusRing), twi.Text(label), twi.OnKeyDown(func(e *twi.Event) {
 		if e.Key.Key == input.KeyEnter || e.Key.Key == input.KeyRune && e.Key.Rune == ' ' {
 			c.update(press)
 		}
@@ -170,16 +163,10 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 			txt("shrink h-1 overflow-hidden px-1 text-muted-foreground", text.Truncate(filepath.ToSlash(env.Cwd), 40)),
 		}
 		for i, p := range all {
-			class := "shrink-0 rounded-full px-1 text-muted-foreground"
-			if i == s.page {
-				class = "shrink-0 rounded-full px-1 bg-primary text-primary-foreground font-bold"
-			}
-			tabs = append(tabs, c.button(p.name, class, p.name, func(s *state) { s.page = i }))
+			tab := twi.Data("state", map[bool]string{true: "active", false: "inactive"}[i == s.page])
+			tabs = append(tabs, c.button(p.name, "shrink-0 rounded-full px-1 text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold", p.name, func(s *state) { s.page = i }, tab))
 		}
-		bar := "mx-2 flex flex-row items-center gap-1 px-1 border rounded-lg bg-card text-muted-foreground"
-		if s.focus == "input" {
-			bar += " border-ring"
-		}
+		bar := "mx-2 flex flex-row items-center gap-1 px-1 border rounded-lg bg-card text-muted-foreground focus-within:border-ring"
 		tabs = append(tabs, el("grow"), c.button("theme", "shrink-0 rounded-full px-1 text-muted-foreground", "theme "+name, openPicker))
 		root := []twi.NodeOption{
 			twi.Class("flex flex-col h-full bg-background text-foreground"),
@@ -229,7 +216,7 @@ func playground(rt *twi.Runtime, env Env, start state, auto, value string) func(
 func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 	s := c.state
 	first := min(max(s.cursor-pickerRows/2, 0), len(themes)-pickerRows)
-	list := append(c.focusable("themes"), twi.Class(c.ringed("themes", "flex flex-col rounded-md")), twi.OnKeyDown(func(e *twi.Event) {
+	list := append(c.focusable("themes"), twi.Class("flex flex-col rounded-md"+focusRing), twi.OnKeyDown(func(e *twi.Event) {
 		step := map[input.Key]int{input.KeyArrowDown: 1, input.KeyArrowUp: -1}[e.Key.Key]
 		switch {
 		case step != 0:

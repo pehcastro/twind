@@ -35,9 +35,9 @@ func TestControlStates(t *testing.T) {
 		c.Checked, c.focused, c.Disabled, c.Invalid = checked, focused, disabled, invalid
 		return c.Node()
 	}
-	switcher := func(checked, focused, disabled bool) twi.Node {
+	switcher := func(checked, disabled bool) twi.Node {
 		s := NewSwitch(rt)
-		s.Checked, s.focused, s.Disabled = checked, focused, disabled
+		s.Checked, s.Disabled = checked, disabled
 		return s.Node()
 	}
 	radio := func(value string, focused, disabled bool) twi.Node {
@@ -46,9 +46,9 @@ func TestControlStates(t *testing.T) {
 		a, b, c := g.Item("a", twi.Text("A")), g.Item("b", twi.Text("B")), g.Item("c", twi.Text("C"))
 		return g.Node(a, b, c)
 	}
-	toggle := func(v Variant, pressed, focused, disabled bool) twi.Node {
+	toggle := func(v Variant, pressed, disabled bool) twi.Node {
 		tg := NewToggle(rt)
-		tg.Variant, tg.Pressed, tg.focused, tg.Disabled = v, pressed, focused, disabled
+		tg.Variant, tg.Pressed, tg.Disabled = v, pressed, disabled
 		return tg.Node(twi.Text("B"))
 	}
 	group := func(value []string, focused bool) twi.Node {
@@ -67,24 +67,19 @@ func TestControlStates(t *testing.T) {
 		o.Value, o.focused = value, focused
 		return o.Node(InputOTPGroup(o.Slot(0), o.Slot(1)), InputOTPSeparator(), InputOTPGroup(o.Slot(2), o.Slot(3)))
 	}
-	selector := func(focused, disabled, invalid bool) twi.Node {
+	selector := func(disabled, invalid bool) twi.Node {
 		s := NewNativeSelect(rt)
-		s.Options, s.Value, s.focused, s.Disabled, s.Invalid = []string{"one", "two"}, "two", focused, disabled, invalid
+		s.Options, s.Value, s.Disabled, s.Invalid = []string{"one", "two"}, "two", disabled, invalid
 		return s.Node()
 	}
-	field := func(focused, disabled, invalid bool) twi.Node {
+	field := func(disabled, invalid bool) twi.Node {
 		in := NewInput(rt)
-		in.focused, in.Disabled, in.Invalid = focused, disabled, invalid
+		in.Disabled, in.Invalid = disabled, invalid
 		return in.Node()
 	}
-	textarea := func(focused bool) twi.Node {
-		ta := NewTextarea(rt)
-		ta.focused = focused
-		return ta.Node()
-	}
-	grouped := func(focused bool) twi.Node {
+	grouped := func(invalid bool) twi.Node {
 		in := NewInput(rt)
-		in.focused = focused
+		in.Invalid = invalid
 		return in.Group(InputGroupAddon(InlineStart, InputGroupText(twi.Text("https://"))), InputGroupAddon(InlineEnd, twi.Text(".com")))
 	}
 	checkParts(t, []partCase{
@@ -100,48 +95,37 @@ func TestControlStates(t *testing.T) {
 		{"checkbox checked, dark: bg-primary, not input/30", dark, checkbox(true, false, false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == dark.Tokens[theme.Primary]
 		}},
-		{"checkbox focused: the ring and a 3px ring/50 halo", light, checkbox(false, true, false, false), nil, lightFocus},
-		{"checkbox focused and checked: the focus ring over bg-primary", light, checkbox(true, true, false, false), nil, func(s style.ComputedStyle) bool {
-			return lightFocus(s) && s.Background == light.Tokens[theme.Primary]
+		{"checkbox the component thinks focused, without the runtime's focus: the idle ring", light, checkbox(false, true, false, false), nil, func(s style.ComputedStyle) bool {
+			return ring(s, light.Tokens[theme.Input])
 		}},
 		{"checkbox disabled: opacity-50", light, checkbox(true, false, true, false), nil, faded},
-		{"checkbox disabled while focused: no focus ring", light, checkbox(false, true, true, false), nil, func(s style.ComputedStyle) bool {
-			return ring(s, light.Tokens[theme.Input]) && s.Opacity == 0.5
-		}},
 		{"checkbox invalid: a destructive ring", light, checkbox(false, false, false, true), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Destructive])
 		}},
-		{"checkbox invalid and focused: destructive with a destructive/20 halo", light, checkbox(false, true, false, true), nil, func(s style.ComputedStyle) bool {
-			return halo(s, light.Tokens[theme.Destructive], scaled(light, theme.Destructive, 0.2))
-		}},
-		{"checkbox invalid and focused, dark: the dark destructive with a /40 halo", dark, checkbox(false, true, false, true), nil, func(s style.ComputedStyle) bool {
-			return halo(s, dark.Tokens[theme.Destructive], scaled(dark, theme.Destructive, 0.4))
-		}},
-		{"switch unchecked: a bg-input pill, thumb at the start", light, switcher(false, false, false), nil, func(s style.ComputedStyle) bool {
+		{"switch unchecked: a bg-input pill, thumb at the start", light, switcher(false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Input] && s.Justify == style.JustifyStart && s.Width == cells(4) && s.Height == cells(1) && s.Radius == style.RadiusFull && len(s.Shadows) == 0
 		}},
-		{"switch unchecked, dark: bg-input/80", dark, switcher(false, false, false), nil, func(s style.ComputedStyle) bool {
+		{"switch unchecked, dark: bg-input/80", dark, switcher(false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == scaled(dark, theme.Input, 0.8)
 		}},
-		{"switch thumb unchecked: a bg-background circle", light, switcher(false, false, false), []int{0}, func(s style.ComputedStyle) bool {
+		{"switch thumb unchecked: a bg-background circle", light, switcher(false, false), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Background] && s.Width == cells(2) && s.Radius == style.RadiusFull
 		}},
-		{"switch thumb unchecked, dark: bg-foreground", dark, switcher(false, false, false), []int{0}, func(s style.ComputedStyle) bool {
+		{"switch thumb unchecked, dark: bg-foreground", dark, switcher(false, false), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Background == dark.Tokens[theme.Foreground]
 		}},
-		{"switch checked: bg-primary, thumb at the end", light, switcher(true, false, false), nil, func(s style.ComputedStyle) bool {
+		{"switch checked: bg-primary, thumb at the end", light, switcher(true, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Primary] && s.Justify == style.JustifyEnd
 		}},
-		{"switch thumb checked, dark: bg-primary-foreground", dark, switcher(true, false, false), []int{0}, func(s style.ComputedStyle) bool {
+		{"switch thumb checked, dark: bg-primary-foreground", dark, switcher(true, false), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Background == dark.Tokens[theme.PrimaryForeground]
 		}},
-		{"switch focused", light, switcher(true, true, false), nil, lightFocus},
-		{"switch disabled", light, switcher(false, false, true), nil, faded},
+		{"switch disabled", light, switcher(false, true), nil, faded},
 		{"radio group: a column, one row between items", light, radio("b", false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Direction == style.Column && s.RowGap == cells(1)
 		}},
-		{"radio item: circle and label in a row, the ring's column and one more between", light, radio("b", false, false), []int{0}, func(s style.ComputedStyle) bool {
-			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.ColumnGap == cells(2)
+		{"radio item: circle and label in a row, gap-3 as shadcn's radio rows, room for the ring and the pill caps", light, radio("b", false, false), []int{0}, func(s style.ComputedStyle) bool {
+			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.ColumnGap == cells(3)
 		}},
 		{"radio unchecked: a two-cell circle in the input ring", light, radio("b", false, false), []int{0, 0}, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input]) && s.Radius == style.RadiusFull && s.Width == cells(2) && s.Background.Kind == color.Unset
@@ -158,17 +142,16 @@ func TestControlStates(t *testing.T) {
 		}},
 		{"radio focused with no value: the ring on the first item", light, radio("", true, false), []int{0, 0}, lightFocus},
 		{"radio disabled", light, radio("b", false, true), nil, faded},
-		{"toggle off: no fill, rounded-md", light, toggle(Default, false, false, false), nil, func(s style.ComputedStyle) bool {
+		{"toggle off: no fill, rounded-md", light, toggle(Default, false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background.Kind == color.Unset && s.Radius == style.RadiusMd && len(s.Shadows) == 0 && s.Height == cells(1)
 		}},
-		{"toggle on: bg-accent text-accent-foreground", light, toggle(Default, true, false, false), nil, func(s style.ComputedStyle) bool {
+		{"toggle on: bg-accent text-accent-foreground", light, toggle(Default, true, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Accent] && s.Color == light.Tokens[theme.AccentForeground]
 		}},
-		{"toggle outline: the input ring", light, toggle(Outline, false, false, false), nil, func(s style.ComputedStyle) bool {
+		{"toggle outline: the input ring", light, toggle(Outline, false, false), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input])
 		}},
-		{"toggle focused", light, toggle(Default, true, true, false), nil, lightFocus},
-		{"toggle disabled", light, toggle(Default, false, false, true), nil, faded},
+		{"toggle disabled", light, toggle(Default, false, true), nil, faded},
 		{"toggle group: a row", light, group(nil, false), nil, func(s style.ComputedStyle) bool {
 			return s.Direction == style.Row && s.AlignItems == style.AlignCenter
 		}},
@@ -207,41 +190,59 @@ func TestControlStates(t *testing.T) {
 			return ring(s, light.Tokens[theme.Input])
 		}},
 		{"otp full and focused: the ring on the last slot", light, otp("1234", true), []int{2, 1}, lightFocus},
-		{"native select: a one-row box in the input ring", light, selector(false, false, false), nil, func(s style.ComputedStyle) bool {
+		{"native select: a one-row box in the input ring", light, selector(false, false), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input]) && s.Height == cells(1) && s.Radius == style.RadiusMd && s.Direction == style.Row
 		}},
-		{"native select focused", light, selector(true, false, false), nil, lightFocus},
-		{"native select invalid", light, selector(false, false, true), nil, func(s style.ComputedStyle) bool {
+		{"native select invalid", light, selector(false, true), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Destructive])
 		}},
-		{"native select disabled", light, selector(false, true, false), nil, faded},
-		{"native select chevron: muted at half opacity", light, selector(false, false, false), []int{1}, func(s style.ComputedStyle) bool {
+		{"native select disabled", light, selector(true, false), nil, faded},
+		{"native select chevron: muted at half opacity", light, selector(false, false), []int{1}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.MutedForeground] && s.Opacity == 0.5
 		}},
-		{"input: a full-width row in the input ring", light, field(false, false, false), nil, func(s style.ComputedStyle) bool {
+		{"input: a full-width row in the input ring", light, field(false, false), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input]) && s.Height == cells(1) && s.Width == percent(100) && s.Radius == style.RadiusMd && s.OverflowX == style.OverflowHidden
 		}},
-		{"input, dark: bg-input/30", dark, field(false, false, false), nil, func(s style.ComputedStyle) bool {
+		{"input, dark: bg-input/30", dark, field(false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == scaled(dark, theme.Input, 0.3)
 		}},
-		{"input focused", light, field(true, false, false), nil, lightFocus},
-		{"input invalid", light, field(false, false, true), nil, func(s style.ComputedStyle) bool {
+		{"input invalid", light, field(false, true), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Destructive])
 		}},
-		{"input disabled", light, field(false, true, false), nil, faded},
-		{"textarea: a column four rows high at least", light, textarea(false), nil, func(s style.ComputedStyle) bool {
+		{"input disabled", light, field(true, false), nil, faded},
+		{"textarea: a column four rows high at least", light, NewTextarea(rt).Node(), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input]) && s.Direction == style.Column && s.MinHeight == cells(4) && s.Width == percent(100)
 		}},
-		{"textarea focused", light, textarea(true), nil, lightFocus},
 		{"input group: the ring on the group", light, grouped(false), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input]) && s.Radius == style.RadiusMd
 		}},
-		{"input group focused: the focus ring on the group", light, grouped(true), nil, lightFocus},
-		{"input group: the input has no ring of its own while focused", light, grouped(true), []int{0, 1}, func(s style.ComputedStyle) bool {
-			return len(s.Shadows) == 0 && s.Grow == 1
-		}},
 		{"input group addon: muted", light, grouped(false), []int{0, 0}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.MutedForeground] && s.Padding.Left == cells(1)
+		}},
+	})
+	root := []int{}
+	checkFocused(t, []focusCase{
+		{"checkbox focused: the ring and a 3px ring/50 halo", light, checkbox(false, false, false, false), root, nil, lightFocus},
+		{"checkbox focused and checked: the focus ring over bg-primary", light, checkbox(true, false, false, false), root, nil, func(s style.ComputedStyle) bool {
+			return lightFocus(s) && s.Background == light.Tokens[theme.Primary]
+		}},
+		{"checkbox invalid and focused: destructive with a destructive/20 halo", light, checkbox(false, false, false, true), root, nil, func(s style.ComputedStyle) bool {
+			return halo(s, light.Tokens[theme.Destructive], scaled(light, theme.Destructive, 0.2))
+		}},
+		{"checkbox invalid and focused, dark: the dark destructive with a /40 halo", dark, checkbox(false, false, false, true), root, nil, func(s style.ComputedStyle) bool {
+			return halo(s, dark.Tokens[theme.Destructive], scaled(dark, theme.Destructive, 0.4))
+		}},
+		{"switch focused", light, switcher(true, false), root, nil, lightFocus},
+		{"toggle focused", light, toggle(Default, true, false), root, nil, lightFocus},
+		{"native select focused", light, selector(false, false), root, nil, lightFocus},
+		{"input focused", light, field(false, false), root, nil, lightFocus},
+		{"textarea focused", light, NewTextarea(rt).Node(), root, nil, lightFocus},
+		{"input group with its input focused: the focus ring on the group", light, grouped(false), []int{0, 1}, nil, lightFocus},
+		{"input group: the input has no ring of its own while focused", light, grouped(false), []int{0, 1}, []int{0, 1}, func(s style.ComputedStyle) bool {
+			return len(s.Shadows) == 0 && s.Grow == 1
+		}},
+		{"input group invalid with its input focused: the destructive halo on the group", light, grouped(true), []int{0, 1}, nil, func(s style.ComputedStyle) bool {
+			return halo(s, light.Tokens[theme.Destructive], scaled(light, theme.Destructive, 0.2))
 		}},
 	})
 }
@@ -326,7 +327,7 @@ func TestControlKeys(t *testing.T) {
 	step("type:hi", func() any { return in.Value() }, "hi")
 	focus(&ta.control)
 	step("type:a enter type:b", func() any { return ta.Value() }, "a\nb")
-	if frame := d.Frame().Text(); !regexp.MustCompile(`▕ a +▏\n▕ b[ \x{a0}]+▏`).MatchString(frame) {
+	if frame := d.Frame().Text(); !regexp.MustCompile(`[▕▋▊] a +[▏▎▍]\n[▕▋▊] b[ \x{a0}]+[▏▎▍]`).MatchString(frame) {
 		t.Errorf("the textarea does not break the line:\n%s", frame)
 	}
 	focus(&cb.control)

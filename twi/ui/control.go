@@ -1,16 +1,30 @@
 package ui
 
 import (
+	"strconv"
+
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
 )
 
 const (
-	inputRing        = "shadow-[0_0_0_1px_var(--color-input)]"
-	primaryRing      = "shadow-[0_0_0_1px_var(--color-primary)]"
-	focusRing        = "shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
-	invalidRing      = "shadow-[0_0_0_1px_var(--color-destructive)]"
-	invalidFocusRing = "shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
+	inputRing         = "shadow-[0_0_0_1px_var(--color-input)]"
+	primaryRing       = "shadow-[0_0_0_1px_var(--color-primary)]"
+	invalidRing       = "shadow-[0_0_0_1px_var(--color-destructive)]"
+	focusRing         = "focus-visible:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
+	withinRing        = "focus-within:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
+	activeRing        = "data-[active=true]:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
+	invalidFocusRing  = "focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
+	invalidWithinRing = "focus-within:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:focus-within:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
+	invalidActiveRing = "data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
+)
+
+type ringAt uint8
+
+const (
+	onSelf ringAt = iota
+	onGroup
+	onItem
 )
 
 type control struct {
@@ -19,22 +33,21 @@ type control struct {
 	focused           bool
 }
 
-func (c *control) ring(idle string, here bool) string {
-	focused := c.focused && here && !c.Disabled
-	switch {
-	case focused && c.Invalid:
-		return invalidFocusRing
-	case focused:
-		return focusRing
-	case c.Invalid:
-		return invalidRing
+func (c *control) ring(idle string, at ringAt) string {
+	if c.Invalid {
+		return invalidRing + " " + pick("ring", at, map[ringAt]string{onSelf: invalidFocusRing, onGroup: invalidWithinRing, onItem: invalidActiveRing})
 	}
-	return idle
+	return idle + " " + pick("ring", at, map[ringAt]string{onSelf: focusRing, onGroup: withinRing, onItem: activeRing})
+}
+
+func (c *control) dataActive(here bool) twi.NodeOption {
+	return twi.Data("active", strconv.FormatBool(c.focused && here))
 }
 
 func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
+	options := []twi.NodeOption{twi.Class("disabled:opacity-50")}
 	if c.Disabled {
-		return []twi.NodeOption{twi.Disabled(), twi.Class("opacity-50")}
+		return append(options, twi.Disabled())
 	}
 	focus := func(on bool) func() {
 		return func() {
@@ -42,7 +55,7 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 			c.rt.Invalidate()
 		}
 	}
-	options := []twi.NodeOption{twi.Focusable(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false))}
+	options = append(options, twi.Focusable(), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)))
 	if keys == nil {
 		return options
 	}

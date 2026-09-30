@@ -3,7 +3,9 @@ package runtime
 import (
 	"slices"
 
+	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/events"
+	"github.com/twind-dev/twind/twi/style"
 )
 
 type Node struct {
@@ -74,6 +76,22 @@ func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	if _, ok := focus.Current(); !ok && len(d.autos) > 0 {
 		focus.Set(d, d.autos[0])
 	}
+}
+
+func focused(n render.Node, path []int) render.Node {
+	state := style.NodeState{}
+	if n.State != nil {
+		state = *n.State
+	}
+	state.States |= style.StateFocusWithin
+	if len(path) == 0 {
+		state.States |= style.StateFocus | style.StateFocusVisible
+	} else {
+		n.Children = slices.Clone(n.Children)
+		n.Children[path[0]] = focused(n.Children[path[0]], path[1:])
+	}
+	n.State = &state
+	return n
 }
 
 func (d *document) attach(e *Elem, n Node) {

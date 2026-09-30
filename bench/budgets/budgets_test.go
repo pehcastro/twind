@@ -19,6 +19,7 @@ const (
 	mebi       = 1 << 20
 	keyNodes   = 1000
 	keysPerOp  = 1000
+	focusPills = 40
 	noThrottle = time.Second
 )
 

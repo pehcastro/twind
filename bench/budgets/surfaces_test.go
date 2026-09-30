@@ -75,7 +75,7 @@ func (sc scenario) start(caps terminal.Capabilities) (*surfaceBackend, *twi.Runt
 func settle(be *surfaceBackend, rt *twi.Runtime) (written int) {
 	for {
 		quiet, marker := true, make(chan struct{})
-		rt.Dispatch(func() { close(marker) })
+		rt.Dispatch(func() { rt.Dispatch(func() { close(marker) }) })
 		for waiting := true; waiting; {
 			select {
 			case p := <-be.written:
