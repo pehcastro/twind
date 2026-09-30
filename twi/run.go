@@ -9,6 +9,7 @@ import (
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 func Fullscreen() RenderOption { return func(c *renderConfig) { c.fullscreen = true } }
@@ -19,7 +20,8 @@ func Backend(b runtime.Backend, c runtime.Clock) RenderOption {
 
 type Runtime struct {
 	*runtime.Runtime
-	cfg renderConfig
+	cfg   renderConfig
+	theme theme.Theme
 }
 
 func New(opts ...RenderOption) *Runtime {
@@ -33,10 +35,19 @@ func New(opts ...RenderOption) *Runtime {
 			cfg.profile = terminal.Profile(os.Stdout, os.Getenv)
 		}
 	}
-	return &Runtime{
-		Runtime: runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet, Profile: cfg.profile, Look: look(cfg.profile)}),
-		cfg:     cfg,
+	r := &Runtime{cfg: cfg}
+	if cfg.theme != nil {
+		r.theme = *cfg.theme
 	}
+	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Look: look(cfg.profile)})
+	return r
+}
+
+func (r *Runtime) SetTheme(t theme.Theme) {
+	r.Dispatch(func() {
+		r.theme = t
+		r.Invalidate()
+	})
 }
 
 func (r *Runtime) Run(app func() Node) error {

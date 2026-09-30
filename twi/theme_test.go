@@ -1,0 +1,88 @@
+package twi_test
+
+import (
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/testdata/hello"
+	"github.com/twind-dev/twind/twi/theme"
+)
+
+type frames chan string
+
+func (f frames) Write(p []byte) (int, error) {
+	f <- string(p)
+	return len(p), nil
+}
+
+func (frames) Events() <-chan input.Event           { return nil }
+func (frames) Size() (width, height int, err error) { return 20, 3, nil }
+func (frames) Sync() bool                           { return false }
+func (frames) Exit() error                          { return nil }
+
+type wallClock struct{}
+
+func (wallClock) Now() time.Time                         { return time.Now() }
+func (wallClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
+
+func zinc(t *testing.T, scheme theme.Scheme) theme.Theme {
+	t.Helper()
+	for _, th := range theme.Builtin() {
+		if th.Name == "zinc" && th.Scheme == scheme {
+			return th
+		}
+	}
+	t.Fatal("no zinc theme")
+	return theme.Theme{}
+}
+
+func TestSetThemeFromAnotherGoroutine(t *testing.T) {
+	s, err := hello.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := make(frames, 64)
+	rt := twi.New(twi.Styles(s), twi.Theme(zinc(t, theme.Light)), twi.Backend(out, wallClock{}), twi.ColorProfile(color.TrueColor))
+	done := make(chan error, 1)
+	go func() { done <- rt.Run(hello.Card) }()
+	next := func() string {
+		t.Helper()
+		select {
+		case f := <-out:
+			return f
+		case <-time.After(2 * time.Second):
+			t.Fatal("no frame within 2s")
+			return ""
+		}
+	}
+	const white, zinc900 = "48;2;255;255;255", "48;2;24;24;27"
+	if first := next(); !strings.Contains(first, white) {
+		t.Errorf("first frame under zinc light has no white card background %q:\n%q", white, first)
+	}
+	go rt.SetTheme(zinc(t, theme.Dark))
+	second := next()
+	t.Logf("frame after SetTheme: %q", second)
+	if !strings.Contains(second, zinc900) || strings.Contains(second, white) {
+		t.Errorf("frame after SetTheme(zinc dark): want card background %q and no %q", zinc900, white)
+	}
+	select {
+	case f := <-out:
+		t.Errorf("a second frame after one SetTheme: %q", f)
+	case <-time.After(200 * time.Millisecond):
+	}
+	schemes := [...]theme.Theme{zinc(t, theme.Light), zinc(t, theme.Dark)}
+	var wg sync.WaitGroup
+	for i := range cap(out) {
+		wg.Go(func() { rt.SetTheme(schemes[i%2]) })
+	}
+	wg.Wait()
+	rt.Quit()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}

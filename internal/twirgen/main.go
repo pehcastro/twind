@@ -100,7 +100,7 @@ func generate(out, pkg, name, bin string) error {
 		fmt.Fprintln(os.Stderr, "twirgen: warning:", w)
 	}
 	consts := map[string]string{}
-	for _, path := range []string{"github.com/twind-dev/twind/twi/style", "github.com/twind-dev/twind/twi/color"} {
+	for _, path := range []string{"github.com/twind-dev/twind/twi/style", "github.com/twind-dev/twind/twi/color", "github.com/twind-dev/twind/twi/theme"} {
 		p, err := importer.ForCompiler(token.NewFileSet(), "source", nil).Import(path)
 		if err != nil {
 			return err
@@ -114,8 +114,10 @@ func generate(out, pkg, name, bin string) error {
 	body := literal(reflect.ValueOf(rules), consts)
 	var src bytes.Buffer
 	src.WriteString(tailwind.Header(hash) + "package " + pkg + "\n\nimport (\n")
-	if strings.Contains(body, "color.") {
-		src.WriteString("\"github.com/twind-dev/twind/twi/color\"\n")
+	for _, dep := range []string{"color", "theme"} {
+		if strings.Contains(body, dep+".") {
+			src.WriteString("\"github.com/twind-dev/twind/twi/" + dep + "\"\n")
+		}
 	}
 	fmt.Fprintf(&src, "\"github.com/twind-dev/twind/twi/style\"\n)\n\nfunc %s() (style.Sheet, error) {\nreturn style.NewSheet(%d, %s)\n}\n", name, konst.IRVersion, body)
 	formatted, err := format.Source(src.Bytes())

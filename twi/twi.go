@@ -15,6 +15,7 @@ import (
 	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 type Node struct {
@@ -68,6 +69,7 @@ type renderConfig struct {
 	profile    color.Profile
 	profileSet bool
 	sheet      style.Sheet
+	theme      *theme.Theme
 	fullscreen bool
 	backend    runtime.Backend
 	clock      runtime.Clock
@@ -87,6 +89,8 @@ func ColorProfile(p color.Profile) RenderOption {
 }
 
 func Styles(sheet style.Sheet) RenderOption { return func(c *renderConfig) { c.sheet = sheet } }
+
+func Theme(t theme.Theme) RenderOption { return func(c *renderConfig) { c.theme = &t } }
 
 func RenderString(node Node, opts ...RenderOption) string {
 	var out strings.Builder
@@ -110,6 +114,9 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 	}
 	if !cfg.profileSet {
 		cfg.profile = terminal.Profile(w, os.Getenv)
+	}
+	if cfg.theme != nil {
+		cfg.sheet = cfg.sheet.WithTheme(cfg.theme)
 	}
 	buf, err := render.Render(node.tree, render.Frame{Sheet: cfg.sheet, Width: cfg.width, Look: look(cfg.profile)})
 	if err != nil {

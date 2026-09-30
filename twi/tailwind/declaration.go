@@ -50,6 +50,9 @@ func (c *compiler) declaration(prop string, raw []css.Token, v vars) (decls, pro
 	if p.reason != "" && p.category != Approximated {
 		return nil, p
 	}
+	if token, mix, ok := themeToken(raw); ok && len(out) == 1 {
+		out[0].Token, out[0].Mix = token, mix
+	}
 	return out, p
 }
 

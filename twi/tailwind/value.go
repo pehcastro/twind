@@ -10,6 +10,7 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/css"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 type deferred struct{}
@@ -270,6 +271,28 @@ func number(toks []css.Token) (float64, problem) {
 		return 0, problem{Unsupported, "a number cannot have unit " + strconv.Quote(q.unit)}
 	}
 	return q.value, problem{}
+}
+
+func themeToken(raw []css.Token) (theme.Token, float64, bool) {
+	toks, mix := trim(raw), float64(konst.OpaquePercent)
+	if len(toks) > 0 && toks[0].Kind == css.TokenFunction && strings.EqualFold(toks[0].Text, "color-mix(") {
+		args := commas(toks[1:closing(toks, 0)])
+		if len(args) != 3 || !strings.EqualFold(text(args[2]), "transparent") {
+			return 0, 0, false
+		}
+		mixed := components(args[1])
+		if len(mixed) != 2 {
+			return 0, 0, false
+		}
+		q, err := dimension(text(mixed[1]))
+		if err != nil || q.unit != "%" {
+			return 0, 0, false
+		}
+		toks, mix = mixed[0], q.value
+	}
+	name, _ := tailwindVar(toks)
+	token, ok := theme.ParseToken(strings.TrimPrefix(name, "--color-"))
+	return token, mix, ok
 }
 
 func paint(toks []css.Token) (color.Color, problem) {

@@ -2,10 +2,12 @@ package style
 
 import (
 	"fmt"
+	"math"
 	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 type Property uint8
@@ -82,6 +84,8 @@ type Declaration struct {
 	Number      float64
 	Flag        bool
 	Color       color.Color
+	Token       theme.Token
+	Mix         float64
 	Display     Display
 	Direction   Direction
 	Align       Align
@@ -140,6 +144,12 @@ type Sheet struct {
 	rules     []Rule
 	universal []int
 	byClass   map[string][]int
+	theme     *theme.Theme
+}
+
+func (s Sheet) WithTheme(t *theme.Theme) Sheet {
+	s.theme = t
+	return s
 }
 
 type VersionError struct{ Got int }
@@ -154,9 +164,9 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 	}
 	s := Sheet{rules: rules, byClass: map[string][]int{}}
 	for i, r := range rules {
-		unconditional := r.When.States == 0 && len(r.When.Attrs) == 0 && r.When.MinCols == 0 && r.When.BelowCols == 0 && r.When.Scheme == SchemeAny
+		schemeOnly := r.When.States == 0 && len(r.When.Attrs) == 0 && r.When.MinCols == 0 && r.When.BelowCols == 0
 		switch {
-		case !unconditional:
+		case !schemeOnly:
 		case r.Class == "":
 			s.universal = append(s.universal, i)
 		default:
@@ -200,8 +210,23 @@ func (s Sheet) Compute(parent ComputedStyle, classes []string) ComputedStyle {
 		Cursor:        parent.Cursor,
 		UserSelect:    parent.UserSelect,
 	}
+	scheme := SchemeAny
+	switch {
+	case s.theme == nil:
+	case s.theme.Scheme == theme.Dark:
+		scheme = SchemeDark
+	default:
+		scheme = SchemeLight
+	}
 	for _, i := range slices.Compact(matched) {
+		if when := s.rules[i].When.Scheme; when != SchemeAny && when != scheme {
+			continue
+		}
 		for _, d := range s.rules[i].Decls {
+			if d.Token != 0 && s.theme != nil && s.theme.Tokens[d.Token].Kind != color.Unset {
+				d.Color = s.theme.Tokens[d.Token]
+				d.Color.RGBA.A = uint8(math.Round(float64(d.Color.RGBA.A) * d.Mix / konst.OpaquePercent))
+			}
 			out.apply(d, parent)
 		}
 	}
