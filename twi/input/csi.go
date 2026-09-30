@@ -2,6 +2,7 @@ package input
 
 import (
 	"bytes"
+	"image"
 	"strconv"
 	"unicode"
 
@@ -45,10 +46,18 @@ func command(body []byte, final byte) Event {
 		}
 		return nil
 	case cmd{0, 0, 't'}:
-		if len(p) != konst.InBandResizeParams || p.get(0, 0, 0) != konst.InBandResize {
+		if p.get(0, 0, 0) != konst.InBandResize {
+			return reply(ReplyWindow, p)
+		}
+		rows, columns := p.get(1, 0, 0), p.get(2, 0, 0)
+		if len(p) != konst.InBandResizeParams || rows == 0 || columns == 0 {
 			return nil
 		}
-		return ResizeEvent{Width: p.get(2, 0, 0), Height: p.get(1, 0, 0)}
+		ev := ResizeEvent{Width: columns, Height: rows}
+		if cell := image.Pt(p.get(4, 0, 0)/columns, p.get(3, 0, 0)/rows); cell.X > 0 && cell.Y > 0 {
+			ev.Cell = cell
+		}
+		return ev
 	case cmd{0, 0, 'u'}:
 		return kitty(p)
 	case cmd{0, 0, '~'}:

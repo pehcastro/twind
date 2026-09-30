@@ -5,6 +5,7 @@ import (
 	"errors"
 	"image"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -22,12 +23,16 @@ type fakeTTY struct {
 	restored  int
 	mu        sync.Mutex
 	cells     image.Point
+	reads     int
 }
 
-func (f *fakeTTY) read(p []byte, quiet bool) (int, bool, error) {
+func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
+	f.mu.Lock()
+	f.reads++
+	f.mu.Unlock()
 	var silence <-chan time.Time
-	if quiet {
-		silence = time.After(konst.EscapeTimeout)
+	if wait > 0 {
+		silence = time.After(wait)
 	}
 	select {
 	case b := <-f.input:
@@ -56,11 +61,15 @@ type fakeTerminal struct {
 	tty     *fakeTTY
 	answers []string
 	later   []string
+	delay   time.Duration
+	mu      sync.Mutex
 	written bytes.Buffer
 	broken  bool
 }
 
 func (t *fakeTerminal) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.broken {
 		return 0, errors.New("terminal gone")
 	}
@@ -71,10 +80,40 @@ func (t *fakeTerminal) Write(p []byte) (int, error) {
 	} else if !bytes.Contains(p, []byte(konst.CellQuery)) {
 		answers = nil
 	}
-	for _, a := range answers {
-		t.tty.input <- []byte(a)
+	send := func() {
+		for _, a := range answers {
+			t.tty.input <- []byte(a)
+		}
 	}
+	if t.delay > 0 && len(answers) > 0 {
+		go func() {
+			time.Sleep(t.delay)
+			send()
+		}()
+		return len(p), nil
+	}
+	send()
 	return len(p), nil
+}
+
+func (t *fakeTerminal) out() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.written.String()
+}
+
+func events(t *testing.T, b *Backend, name string, want ...input.Event) {
+	t.Helper()
+	for _, w := range want {
+		select {
+		case ev := <-b.Events:
+			if ev != w {
+				t.Errorf("%s: event %#v, want %#v", name, ev, w)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("%s: no event, want %#v", name, w)
+		}
+	}
 }
 
 func newFake(answers ...string) *fakeTerminal {
@@ -222,18 +261,24 @@ func TestOffered(t *testing.T) {
 	}
 }
 
-func TestCellPixelsAfterResize(t *testing.T) {
+func TestCellSizeAfterResize(t *testing.T) {
+	resized := input.ResizeEvent{Width: 100, Height: 30}
+	zoomed := input.ResizeEvent{Width: 100, Height: 30, Cell: image.Pt(12, 24)}
+	key := input.KeyEvent{Rune: 'x'}
 	cases := []struct {
 		name    string
 		answers []string
 		later   []string
 		cell    image.Point
-		asked   bool
+		want    []input.Event
 	}{
-		{"font zoom in windows terminal", windowsTerminal, []string{"\x1b[6;24;12t\x1b[4;720;1200t\x1b[?61;4c"}, image.Pt(12, 24), true},
-		{"window pixels only after resize", windowsTerminal, []string{"\x1b[4;720;1200t\x1b[?61;4c"}, image.Pt(12, 24), true},
-		{"no answer keeps the last size", windowsTerminal, []string{"\x1b[?61;4c"}, image.Pt(10, 20), true},
-		{"no graphics, nothing asked", conPTY, []string{"\x1b[6;24;12t\x1b[?1;0c"}, image.Point{}, false},
+		{"font zoom", windowsTerminal, []string{"\x1b[6;24;12t\x1b[4;720;1200t\x1b[?61;4c", "x"}, image.Pt(12, 24), []input.Event{resized, zoomed, key}},
+		{"window pixels only", windowsTerminal, []string{"\x1b[4;720;1200t\x1b[?61;4c", "x"}, image.Pt(12, 24), []input.Event{resized, zoomed, key}},
+		{"reply split over reads", windowsTerminal, []string{"\x1b[6;2", "4;12t\x1b[?6", "1;4c", "x"}, image.Pt(12, 24), []input.Event{resized, zoomed, key}},
+		{"same cell sends one event", windowsTerminal, []string{"\x1b[6;20;10t\x1b[4;600;1000t\x1b[?61;4c", "x"}, image.Pt(10, 20), []input.Event{resized, key}},
+		{"no answer keeps the last size", windowsTerminal, []string{"\x1b[?61;4c", "x"}, image.Pt(10, 20), []input.Event{resized, key}},
+		{"zero sizes keep the last size", windowsTerminal, []string{"\x1b[6;0;0t\x1b[?61;4c", "x"}, image.Pt(10, 20), []input.Event{resized, key}},
+		{"no graphics, nothing asked", conPTY, []string{"\x1b[6;24;12t\x1b[?1;0c"}, image.Point{}, []input.Event{resized, key}},
 	}
 	for _, tc := range cases {
 		term := newFake(tc.answers...)
@@ -242,40 +287,171 @@ func TestCellPixelsAfterResize(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		before := len(term.out())
 		term.tty.resize <- image.Pt(100, 30)
-		select {
-		case ev := <-b.Events:
-			if ev != (input.ResizeEvent{Width: 100, Height: 30}) {
-				t.Fatalf("%s: event %#v, want the resize", tc.name, ev)
-			}
-		case <-time.After(time.Second):
-			t.Fatalf("%s: no resize event", tc.name)
+		query := konst.CellQuery
+		if tc.cell == (image.Point{}) {
+			query = ""
+			term.tty.input <- []byte("x")
 		}
-		before := term.written.Len()
-		start := time.Now()
+		events(t, b, tc.name, tc.want...)
+		if out := term.out()[before:]; out != query {
+			t.Errorf("%s: the reader wrote %q, want %q", tc.name, out, query)
+		}
+		before = len(term.out())
 		if _, err := b.Write([]byte("frame")); err != nil {
 			t.Fatal(err)
 		}
-		took := time.Since(start)
-		out := term.written.String()[before:]
+		if out := term.out()[before:]; out != "frame" {
+			t.Errorf("%s: wrote %q, want the frame alone", tc.name, out)
+		}
 		if b.Capabilities.CellPixels != tc.cell {
-			t.Errorf("%s: cell %v after resize, want %v", tc.name, b.Capabilities.CellPixels, tc.cell)
-		}
-		if asked := strings.HasPrefix(out, konst.CellQuery); asked != tc.asked || !strings.HasSuffix(out, "frame") {
-			t.Errorf("%s: wrote %q, want the cell query %v before the frame", tc.name, out, tc.asked)
-		}
-		if took >= konst.QueryTimeout {
-			t.Errorf("%s: frame write took %v, want the fence", tc.name, took)
-		}
-		before = term.written.Len()
-		if _, err := b.Write([]byte("frame")); err != nil {
-			t.Fatal(err)
-		}
-		if out := term.written.String()[before:]; out != "frame" {
-			t.Errorf("%s: second frame wrote %q, want the frame alone", tc.name, out)
+			t.Errorf("%s: cell %v after the frame, want %v", tc.name, b.Capabilities.CellPixels, tc.cell)
 		}
 		if err := b.Exit(); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+func TestCellSizeOnInput(t *testing.T) {
+	zoomed := input.ResizeEvent{Width: 80, Height: 24, Cell: image.Pt(12, 24)}
+	key := input.KeyEvent{Rune: 'x'}
+	for _, tc := range []struct {
+		name  string
+		pause time.Duration
+		in    string
+		want  []input.Event
+		asked bool
+	}{
+		{"key after a pause", konst.CellPoll, "x", []input.Event{key, zoomed}, true},
+		{"key right after the startup queries", 0, "x", []input.Event{key}, false},
+		{"focus in", 0, "\x1b[I", []input.Event{input.FocusEvent{Focused: true}, zoomed}, true},
+		{"focus out after a pause", konst.CellPoll, "\x1b[O", []input.Event{input.FocusEvent{}}, false},
+	} {
+		term := newFake(windowsTerminal...)
+		term.later = []string{"\x1b[6;24;12t\x1b[?61;4c"}
+		b, err := enter(term, term.tty, Options{}, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(tc.pause)
+		before := len(term.out())
+		term.tty.input <- []byte(tc.in)
+		events(t, b, tc.name, tc.want...)
+		query := ""
+		if tc.asked {
+			query = konst.CellQuery
+		}
+		if out := term.out()[before:]; out != query {
+			t.Errorf("%s: wrote %q, want %q", tc.name, out, query)
+		}
+		if tc.asked {
+			term.tty.input <- []byte("y")
+			events(t, b, tc.name, input.KeyEvent{Rune: 'y'})
+			if out := term.out()[before:]; out != query {
+				t.Errorf("%s: a key within %v of the query wrote %q", tc.name, konst.CellPoll, out[len(query):])
+			}
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestCellSizeIdle(t *testing.T) {
+	term := newFake(windowsTerminal...)
+	term.later = []string{"\x1b[6;24;12t\x1b[?61;4c"}
+	b, err := enter(term, term.tty, Options{}, offer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(konst.EscapeTimeout * 2)
+	term.tty.mu.Lock()
+	reads := term.tty.reads
+	term.tty.mu.Unlock()
+	written := len(term.out())
+	const idle = 10 * time.Second
+	time.Sleep(idle)
+	term.tty.mu.Lock()
+	woke := term.tty.reads - reads
+	term.tty.mu.Unlock()
+	t.Logf("idle %v: %d wakes, %d bytes written", idle, woke, len(term.out())-written)
+	if woke != 0 || len(term.out()) != written {
+		t.Errorf("idle %v: %d wakes, wrote %q", idle, woke, term.out()[written:])
+	}
+	if err := b.Exit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCellSizeExitWaitsForTheReply(t *testing.T) {
+	term := newFake(windowsTerminal...)
+	term.later = []string{"\x1b[6;24;12t\x1b[?61;4c"}
+	term.delay = konst.QueryTimeout / 4
+	b, err := enter(term, term.tty, Options{}, offer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	term.tty.resize <- image.Pt(100, 30)
+	events(t, b, "resize", input.ResizeEvent{Width: 100, Height: 30})
+	start := time.Now()
+	if err := b.Exit(); err != nil {
+		t.Fatal(err)
+	}
+	took := time.Since(start)
+	time.Sleep(2 * term.delay)
+	if n := len(term.tty.input); n != 0 || took > konst.QueryTimeout {
+		t.Errorf("exit took %v and left %d replies for the shell", took, n)
+	}
+	if out := term.out(); !strings.HasSuffix(out, konst.LeaveScreen) {
+		t.Errorf("wrote %q, want the leave sequence last", out)
+	}
+}
+
+func TestInBandResize(t *testing.T) {
+	report := "\x1b[48;34;120;816;1440t"
+	for _, tc := range []struct {
+		name  string
+		state string
+		on    bool
+	}{
+		{"reset", "2", true},
+		{"set", "1", true},
+		{"not recognised", "0", false},
+		{"permanently reset", "4", false},
+	} {
+		answers := slices.Clone(windowsTerminal)
+		answers[1] = "\x1b[?2048;" + tc.state + "$y" + answers[1]
+		term := newFake(answers...)
+		term.later = []string{"\x1b[6;24;12t\x1b[?61;4c"}
+		b, err := enter(term, term.tty, Options{}, offer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Capabilities.InBandResize != tc.on || strings.Contains(term.out(), konst.InBandOn) != tc.on {
+			t.Errorf("%s: in-band %v, wrote %q", tc.name, b.Capabilities.InBandResize, term.out())
+		}
+		term.tty.input <- []byte(report)
+		events(t, b, tc.name, input.ResizeEvent{Width: 120, Height: 34, Cell: image.Pt(12, 24)})
+		if _, err := b.Write(nil); err != nil {
+			t.Fatal(err)
+		}
+		if b.Capabilities.CellPixels != image.Pt(12, 24) {
+			t.Errorf("%s: cell %v after the report", tc.name, b.Capabilities.CellPixels)
+		}
+		if tc.on {
+			before := len(term.out())
+			time.Sleep(konst.CellPoll + konst.QueryTimeout)
+			if out := term.out()[before:]; out != "" {
+				t.Errorf("%s: wrote %q with in-band reports on, want no poll", tc.name, out)
+			}
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(term.out(), konst.InBandOff) != tc.on {
+			t.Errorf("%s: exit wrote %q", tc.name, term.out())
 		}
 	}
 }

@@ -1,5 +1,7 @@
 package input
 
+import "image"
+
 type Event interface{ event() }
 
 type Key uint8
@@ -83,7 +85,10 @@ type MouseEvent struct {
 
 type PasteEvent struct{ Text string }
 
-type ResizeEvent struct{ Width, Height int }
+type ResizeEvent struct {
+	Width, Height int
+	Cell          image.Point
+}
 
 type FocusEvent struct{ Focused bool }
 
@@ -95,6 +100,7 @@ const (
 	ReplyMode
 	ReplyCursorPosition
 	ReplyKeyboardFlags
+	ReplyWindow
 )
 
 type ReplyEvent struct {

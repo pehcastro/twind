@@ -7,10 +7,9 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"time"
 
 	"golang.org/x/sys/unix"
-
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
 )
 
 func size(fd uintptr) (width, height int, err error) {
@@ -69,14 +68,14 @@ func openTTY(in, out *os.File, _ Options) (tty, error) {
 	return t, nil
 }
 
-func (t *unixTTY) read(p []byte, quiet bool) (int, bool, error) {
+func (t *unixTTY) read(p []byte, wait time.Duration) (int, bool, error) {
 	for {
 		var fds unix.FdSet
 		fds.Set(t.in)
 		fds.Set(t.wake[0])
 		var timeout *unix.Timeval
-		if quiet {
-			tv := unix.NsecToTimeval(konst.EscapeTimeout.Nanoseconds())
+		if wait > 0 {
+			tv := unix.NsecToTimeval(wait.Nanoseconds())
 			timeout = &tv
 		}
 		ready, err := unix.Select(max(t.in, t.wake[0])+1, &fds, nil, nil, timeout)

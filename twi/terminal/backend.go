@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"slices"
-	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -36,6 +36,7 @@ type Capabilities struct {
 	Graphemes     bool
 	Margins       bool
 	Focus         bool
+	InBandResize  bool
 	Widths        text.Widths
 }
 
@@ -50,7 +51,11 @@ type Backend struct {
 	answers chan answer
 	leave   string
 	asking  atomic.Bool
-	resized atomic.Bool
+	cell    atomic.Pointer[image.Point]
+	polling atomic.Bool
+	settled chan struct{}
+	mu      sync.Mutex
+	asked   bool
 	exited  bool
 }
 
@@ -65,7 +70,7 @@ type offer struct {
 }
 
 type tty interface {
-	read(p []byte, quiet bool) (n int, resized bool, err error)
+	read(p []byte, wait time.Duration) (n int, recheck bool, err error)
 	size() (width, height int, err error)
 	cancel()
 	restore() error
@@ -142,6 +147,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		opt:     opt,
 		answers: make(chan answer, konst.ReplyBuffer),
 		leave:   konst.LeaveScreen,
+		settled: make(chan struct{}),
 	}
 	go b.read(events)
 	seq := konst.EnterScreen
@@ -153,8 +159,20 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		return nil, err
 	}
 	b.Capabilities = b.detect(raw, replies, o)
+	if b.Capabilities.Graphics != GraphicsNone {
+		cell := b.Capabilities.CellPixels
+		b.cell.Store(&cell)
+		b.polling.Store(!b.Capabilities.InBandResize)
+	}
+	seq = ""
 	if b.Capabilities.KittyKeyboard {
-		if _, err := b.Write([]byte(konst.KittyPush)); err != nil {
+		seq += konst.KittyPush
+	}
+	if b.Capabilities.InBandResize {
+		seq += konst.InBandOn
+	}
+	if seq != "" {
+		if _, err := b.Write([]byte(seq)); err != nil {
 			return nil, err
 		}
 	}
@@ -167,8 +185,8 @@ func (b *Backend) ask(seq string) ([]byte, []input.ReplyEvent, error) {
 	}
 	b.asking.Store(true)
 	defer b.asking.Store(false)
-	if _, err := io.WriteString(b.out, seq); err != nil {
-		return nil, nil, errors.Join(err, b.Exit())
+	if _, err := b.Write([]byte(seq)); err != nil {
+		return nil, nil, err
 	}
 	var raw []byte
 	var replies []input.ReplyEvent
@@ -188,7 +206,7 @@ func (b *Backend) ask(seq string) ([]byte, []input.ReplyEvent, error) {
 }
 
 func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabilities {
-	caps := Capabilities{CellPixels: b.cellPixels(raw)}
+	caps := Capabilities{CellPixels: b.cellPixels(replies)}
 	graphics := o.graphics
 	var cursors [][]int
 	for _, r := range replies {
@@ -202,6 +220,7 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 			caps.Graphemes = caps.Graphemes || mode == konst.GraphemeMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
 			caps.Margins = caps.Margins || mode == konst.MarginMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
 			caps.Focus = caps.Focus || mode == konst.FocusMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
+			caps.InBandResize = caps.InBandResize || mode == konst.InBandMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
 		case input.ReplyKeyboardFlags:
 			caps.KittyKeyboard = true
 		case input.ReplyPrimaryAttributes:
@@ -212,7 +231,7 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 			if len(r.Params) == 2 {
 				cursors = append(cursors, r.Params)
 			}
-		case input.ReplySecondaryAttributes:
+		case input.ReplySecondaryAttributes, input.ReplyWindow:
 		}
 	}
 	if columns, _, err := b.tty.size(); err == nil && len(cursors) > int(text.Classes) {
@@ -236,10 +255,20 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 	return caps
 }
 
-func (b *Backend) cellPixels(raw []byte) image.Point {
-	cell := pixels(raw, konst.CellReport)
+func (b *Backend) cellPixels(replies []input.ReplyEvent) image.Point {
+	var cell, window image.Point
+	for _, r := range replies {
+		if r.Kind != input.ReplyWindow || len(r.Params) != konst.WindowParams || r.Params[1] <= 0 || r.Params[2] <= 0 {
+			continue
+		}
+		switch size := image.Pt(r.Params[2], r.Params[1]); r.Params[0] {
+		case konst.CellReport:
+			cell = size
+		case konst.WindowReport:
+			window = size
+		}
+	}
 	if w, h, err := b.tty.size(); cell == (image.Point{}) && err == nil && w > 0 && h > 0 {
-		window := pixels(raw, konst.WindowReport)
 		cell = image.Pt(window.X/w, window.Y/h)
 	}
 	if cell.X == 0 || cell.Y == 0 {
@@ -248,31 +277,19 @@ func (b *Backend) cellPixels(raw []byte) image.Point {
 	return cell
 }
 
-func pixels(raw []byte, report string) image.Point {
-	prefix := []byte(konst.CSI + report + ";")
-	for {
-		i := bytes.Index(raw, prefix)
-		if i < 0 {
-			return image.Point{}
-		}
-		raw = raw[i+len(prefix):]
-		body, _, _ := bytes.Cut(raw, []byte("t"))
-		hs, ws, _ := bytes.Cut(body, []byte(";"))
-		h, errH := strconv.Atoi(string(hs))
-		w, errW := strconv.Atoi(string(ws))
-		if errH == nil && errW == nil && w > 0 && h > 0 {
-			return image.Pt(w, h)
-		}
-	}
-}
-
 func (b *Backend) read(events chan<- input.Event) {
 	defer close(events)
 	buf := make([]byte, konst.ReadBuffer)
 	quiet := false
 	width, height, _ := b.tty.size()
+	var polled []input.ReplyEvent
+	lastAsk := time.Now()
 	for {
-		n, resized, err := b.tty.read(buf, quiet)
+		var wait time.Duration
+		if quiet {
+			wait = konst.EscapeTimeout
+		}
+		n, recheck, err := b.tty.read(buf, wait)
 		var evs []input.Event
 		switch {
 		case errors.Is(err, errQuiet):
@@ -283,19 +300,36 @@ func (b *Backend) read(events chan<- input.Event) {
 			evs = b.decoder.Decode(buf[:n])
 		}
 		quiet = n > 0
-		if resized {
+		if recheck {
 			w, h, err := b.tty.size()
 			if err == nil && (w != width || h != height) {
 				width, height = w, h
-				b.resized.Store(true)
 				evs = append(evs, input.ResizeEvent{Width: w, Height: h})
 			}
 		}
+		if recheck || slices.ContainsFunc(evs, func(ev input.Event) bool { return caused(ev, time.Since(lastAsk)) }) {
+			lastAsk = time.Now()
+			b.askCell()
+		}
 		var replies []input.ReplyEvent
 		for _, ev := range evs {
-			if r, ok := ev.(input.ReplyEvent); ok {
-				replies = append(replies, r)
+			switch ev := ev.(type) {
+			case input.ReplyEvent:
+				replies = append(replies, ev)
+				switch ev.Kind {
+				case input.ReplyWindow:
+					polled = append(polled, ev)
+				case input.ReplyPrimaryAttributes:
+					if cell := b.cellPixels(polled); b.settle() && b.learn(cell) {
+						events <- input.ResizeEvent{Width: width, Height: height, Cell: cell}
+					}
+					polled = polled[:0]
+				case input.ReplySecondaryAttributes, input.ReplyMode, input.ReplyCursorPosition, input.ReplyKeyboardFlags:
+				}
 				continue
+			case input.ResizeEvent:
+				width, height = ev.Width, ev.Height
+				b.learn(ev.Cell)
 			}
 			events <- ev
 		}
@@ -308,21 +342,62 @@ func (b *Backend) read(events chan<- input.Event) {
 	}
 }
 
+func caused(ev input.Event, since time.Duration) bool {
+	switch ev := ev.(type) {
+	case input.FocusEvent:
+		return ev.Focused
+	case input.KeyEvent, input.MouseEvent, input.PasteEvent:
+		return since >= konst.CellPoll
+	case input.ResizeEvent, input.ReplyEvent:
+		return false
+	}
+	panic(fmt.Sprintf("terminal: unknown event %T", ev))
+}
+
+func (b *Backend) askCell() {
+	if !b.polling.Load() {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.asked || b.exited {
+		return
+	}
+	_, err := io.WriteString(b.out, konst.CellQuery)
+	b.asked = err == nil
+}
+
+func (b *Backend) settle() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	asked := b.asked
+	b.asked = false
+	if asked && b.exited {
+		close(b.settled)
+	}
+	return asked
+}
+
+func (b *Backend) learn(cell image.Point) bool {
+	last := b.cell.Load()
+	if last == nil || cell == (image.Point{}) || cell == *last {
+		return false
+	}
+	b.cell.Store(&cell)
+	return true
+}
+
 func (b *Backend) Size() (width, height int, err error) {
 	return b.tty.size()
 }
 
 func (b *Backend) Write(frame []byte) (int, error) {
-	if b.resized.Swap(false) && b.Capabilities.Graphics != GraphicsNone {
-		raw, _, err := b.ask(konst.CellQuery)
-		if err != nil {
-			return 0, err
-		}
-		if cell := b.cellPixels(raw); cell != (image.Point{}) {
-			b.Capabilities.CellPixels = cell
-		}
+	if cell := b.cell.Load(); cell != nil {
+		b.Capabilities.CellPixels = *cell
 	}
+	b.mu.Lock()
 	n, err := b.out.Write(frame)
+	b.mu.Unlock()
 	if err != nil {
 		return n, errors.Join(err, b.Exit())
 	}
@@ -330,11 +405,23 @@ func (b *Backend) Write(frame []byte) (int, error) {
 }
 
 func (b *Backend) Exit() error {
-	if b.exited {
+	b.mu.Lock()
+	exited, asked := b.exited, b.asked
+	b.exited = true
+	b.mu.Unlock()
+	if exited {
 		return nil
 	}
-	b.exited = true
+	if asked {
+		select {
+		case <-b.settled:
+		case <-time.After(konst.QueryTimeout):
+		}
+	}
 	seq := b.leave
+	if b.Capabilities.InBandResize {
+		seq = konst.InBandOff + seq
+	}
 	if !b.opt.NoMouse {
 		seq = konst.MouseOff + seq
 	}

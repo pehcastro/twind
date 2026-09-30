@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"time"
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
@@ -124,10 +125,10 @@ func openConsole(c console, in, out windows.Handle, opt Options) (tty, error) {
 	return t, nil
 }
 
-func (t *consoleTTY) read(p []byte, quiet bool) (int, bool, error) {
+func (t *consoleTTY) read(p []byte, wait time.Duration) (int, bool, error) {
 	timeout := uint32(windows.INFINITE)
-	if quiet {
-		timeout = uint32(konst.EscapeTimeout.Milliseconds())
+	if wait > 0 {
+		timeout = uint32(wait.Milliseconds())
 	}
 	n, err := t.console.readInput(t.in, t.cancelled, t.records, timeout)
 	if err != nil {

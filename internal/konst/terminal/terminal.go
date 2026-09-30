@@ -37,7 +37,9 @@ const (
 	KittyQuery    = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
 	KittyOK       = "\x1b_Gi=31;OK\x1b\\"
 	MarginsQuery  = CSI + "?69$p"
-	ModeQueries   = CSI + "?2026$p" + CSI + "?2027$p" + CSI + "?1004$p" + MarginsQuery
+	ModeQueries   = CSI + "?2026$p" + CSI + "?2027$p" + CSI + "?1004$p" + MarginsQuery + CSI + "?2048$p"
+	InBandOn      = CSI + "?2048h"
+	InBandOff     = CSI + "?2048l"
 	Queries       = KittyQuery + ModeQueries + CSI + "?u" + CellQuery
 	InlineQueries = KittyQuery + ModeQueries + CellQuery
 	CursorHome    = CSI + "H"
@@ -64,8 +66,10 @@ const (
 	ScrollUp       = "S"
 	ScrollDown     = "T"
 	MarginMode     = 69
-	CellReport     = "6"
-	WindowReport   = "4"
+	CellReport     = 6
+	WindowReport   = 4
+	WindowParams   = 3
+	InBandMode     = 2048
 	SixelAttribute = 4
 	SyncMode       = 2026
 	GraphemeMode   = 2027
@@ -78,6 +82,7 @@ const (
 const (
 	QueryTimeout    = 100 * time.Millisecond
 	EscapeTimeout   = 50 * time.Millisecond
+	CellPoll        = 500 * time.Millisecond
 	EventBuffer     = 256
 	ReplyBuffer     = 16
 	ReadBuffer      = 4096

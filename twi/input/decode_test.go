@@ -1,6 +1,7 @@
 package input
 
 import (
+	"image"
 	"reflect"
 	"strings"
 	"testing"
@@ -91,7 +92,6 @@ func TestDecode(t *testing.T) {
 			ReplyEvent{Kind: ReplyCursorPosition, Params: []int{1, 5, 1}},
 		}, nil},
 		{"kitty flags", []string{"\x1b[?1u"}, []Event{ReplyEvent{Kind: ReplyKeyboardFlags, Params: []int{1}}}, nil},
-		{"in band resize", []string{"\x1b[48;24;80;480;800t"}, []Event{ResizeEvent{Width: 80, Height: 24}}, nil},
 		{"lone escape", []string{"\x1b"}, nil, []Event{KeyEvent{Key: KeyEscape}}},
 		{"alt escape", []string{"\x1b\x1b"}, nil, []Event{KeyEvent{Key: KeyEscape, Modifiers: ModAlt}}},
 		{"alt bracket", []string{"\x1b["}, nil, []Event{KeyEvent{Rune: '[', Modifiers: ModAlt}}},
@@ -120,6 +120,30 @@ func TestDecode(t *testing.T) {
 				t.Fatalf("quiet after %q\n got %#v\nwant %#v", c.writes, q, c.quiet)
 			}
 		})
+	}
+}
+
+func TestDecodeInBand(t *testing.T) {
+	key := KeyEvent{Rune: 'a'}
+	for _, c := range []struct {
+		write string
+		want  []Event
+	}{
+		{"\x1b[48;34;120;680;1200t", []Event{ResizeEvent{Width: 120, Height: 34, Cell: image.Pt(10, 20)}}},
+		{"\x1b[48;34;120;0;0t", []Event{ResizeEvent{Width: 120, Height: 34}}},
+		{"\x1b[48;34;120;690;1205t", []Event{ResizeEvent{Width: 120, Height: 34, Cell: image.Pt(10, 20)}}},
+		{"\x1b[48;34;120;680;50t", []Event{ResizeEvent{Width: 120, Height: 34}}},
+		{"\x1b[48;0;0;680;1200ta", []Event{key}},
+		{"\x1b[48;34;120ta", []Event{key}},
+		{"\x1b[48;34;120;680;1200;1ta", []Event{key}},
+		{"\x1b[6;20;10t", []Event{ReplyEvent{Kind: ReplyWindow, Params: []int{6, 20, 10}}}},
+		{"\x1b[4;680;1200t", []Event{ReplyEvent{Kind: ReplyWindow, Params: []int{4, 680, 1200}}}},
+		{"\x1b[?6;20;10ta", []Event{key}},
+	} {
+		var d Decoder
+		if got := append(run(&d, c.write), d.Quiet()...); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%q\n got %#v\nwant %#v", c.write, got, c.want)
+		}
 	}
 }
 
