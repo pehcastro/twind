@@ -149,16 +149,40 @@ func TestSpringOverdampedAndFramesSettle(t *testing.T) {
 	for _, tr := range []Transition{Spring(100, 60, 1), SpringDefault(), SpringGentle(), SpringSnappy(), SpringBouncy()} {
 		peak, _, stop, settle := runSpring(t, tr, frame)
 		if stop > settle+frame {
-			t.Errorf("zeta %.3f stopped at %v, reported settle %v", tr.zeta, stop, settle)
+			t.Errorf("kappa %.1f stopped at %v, reported settle %v", tr.kappa, stop, settle)
 		}
-		if tr.zeta >= 1 && peak > 1 {
-			t.Errorf("zeta %.3f overdamped peak %v", tr.zeta, peak)
+		if tr.kappa >= 0 && peak > 1 {
+			t.Errorf("kappa %.1f overdamped peak %v", tr.kappa, peak)
 		}
 	}
 	fast, slow := -30+10*math.Sqrt(8), -30-10*math.Sqrt(8)
 	stepResponse(t, Spring(100, 60, 1), func(s float64) float64 {
 		return 1 - (fast*math.Exp(slow*s)-slow*math.Exp(fast*s))/(fast-slow)
 	})
+}
+
+func TestSpringLongFrame(t *testing.T) {
+	for _, c := range []struct{ stiffness, damping float64 }{{100, 4}, {100, 20}, {100, 60}, {10000, 20}} {
+		sigma := c.damping / 2
+		kappa := sigma*sigma - c.stiffness
+		want := func(s float64) float64 {
+			switch q := math.Sqrt(math.Abs(kappa)); {
+			case kappa < 0:
+				return 1 - math.Exp(-sigma*s)*(math.Cos(q*s)+sigma/q*math.Sin(q*s))
+			case kappa > 0:
+				return 1 - math.Exp(-sigma*s)*(math.Cosh(q*s)+sigma/q*math.Sinh(q*s))
+			}
+			return 1 - math.Exp(-sigma*s)*(1+sigma*s)
+		}
+		for _, dt := range []time.Duration{frame, 250 * time.Millisecond, time.Second, 3 * time.Second} {
+			var tl Timeline
+			id := tl.Start(0, Float(0), Float(1), Spring(c.stiffness, c.damping, 1))
+			tl.advance(&tl.slots[id], dt)
+			if got, want := tl.Value(id).Float(), want(dt.Seconds()); math.Abs(got-want) > 1e-9 {
+				t.Errorf("spring(%v, %v) one %v frame = %v, want %v", c.stiffness, c.damping, dt, got, want)
+			}
+		}
+	}
 }
 
 func TestRetargetContinuous(t *testing.T) {
@@ -174,14 +198,14 @@ func TestRetargetContinuous(t *testing.T) {
 		after, afterSpeed := tl.slots[id].value, tl.slots[id].motion
 		for c := range before {
 			if math.Abs(before[c]-after[c]) > 1e-6 {
-				t.Errorf("zeta %.3f channel %d value %v then %v", tr.zeta, c, before[c], after[c])
+				t.Errorf("kappa %.1f channel %d value %v then %v", tr.kappa, c, before[c], after[c])
 			}
 			if tr.kind == spring && math.Abs(beforeSpeed[c]-afterSpeed[c]) > 1e-6 {
-				t.Errorf("zeta %.3f channel %d velocity %v then %v", tr.zeta, c, beforeSpeed[c], afterSpeed[c])
+				t.Errorf("kappa %.1f channel %d velocity %v then %v", tr.kappa, c, beforeSpeed[c], afterSpeed[c])
 			}
 		}
 		if tr.kind == spring && beforeSpeed == [4]float64{} {
-			t.Errorf("zeta %.3f retargeted at rest, the test proves nothing", tr.zeta)
+			t.Errorf("kappa %.1f retargeted at rest, the test proves nothing", tr.kappa)
 		}
 		if tr.kind != spring {
 			continue
@@ -189,7 +213,7 @@ func TestRetargetContinuous(t *testing.T) {
 		tl.Step(now + time.Microsecond)
 		for c, got := range tl.Value(id).ch {
 			if want := before[c] + beforeSpeed[c]*1e-6; math.Abs(got-want) > 1e-6 {
-				t.Errorf("zeta %.3f channel %d one microsecond after retarget %v, want %v", tr.zeta, c, got, want)
+				t.Errorf("kappa %.1f channel %d one microsecond after retarget %v, want %v", tr.kappa, c, got, want)
 			}
 		}
 	}
@@ -278,7 +302,6 @@ func BenchmarkStep(b *testing.B) {
 			now := 50 * time.Millisecond
 			b.ReportAllocs()
 			for b.Loop() {
-				tl.responses = [konst.ResponseCache]response{}
 				now += time.Nanosecond
 				if _, running := tl.Step(now); !running {
 					b.Fatal("animations finished during the benchmark")

@@ -15,11 +15,10 @@ const (
 )
 
 type Transition struct {
-	kind         transitionKind
-	duration     time.Duration
-	easing       Easing
-	omega, zeta  float64
-	sigma, swing float64
+	kind                       transitionKind
+	sigma, stiff, kappa, reach float64
+	duration                   time.Duration
+	easing                     Easing
 }
 
 func Tween(duration time.Duration, easing Easing) Transition {
@@ -27,8 +26,9 @@ func Tween(duration time.Duration, easing Easing) Transition {
 }
 
 func Spring(stiffness, damping, mass float64) Transition {
-	omega, zeta := math.Sqrt(stiffness/mass), damping/(2*math.Sqrt(stiffness*mass))
-	return Transition{kind: spring, omega: omega, zeta: zeta, sigma: zeta * omega, swing: omega * math.Sqrt(math.Abs(1-zeta*zeta))}
+	sigma, stiff := damping/(2*mass), stiffness/mass
+	kappa := sigma*sigma - stiff
+	return Transition{kind: spring, sigma: sigma, stiff: stiff, kappa: kappa, reach: max(sigma*sigma, math.Abs(kappa))}
 }
 
 func SpringDefault() Transition { return Spring(170, 26, 1) }
@@ -39,41 +39,43 @@ func SpringSnappy() Transition { return Spring(400, 40, 1) }
 
 func SpringBouncy() Transition { return Spring(180, 12, 1) }
 
-type response struct {
-	omega, zeta float64
-	dt          time.Duration
-	a, b, c, d  float64
+type response struct{ a, b, c, d float64 }
+
+func (tr *Transition) response(dt time.Duration) response {
+	h, halvings := float64(dt)*(1/float64(time.Second)), 0
+	for tr.reach*h*h > konst.SeriesReach {
+		h, halvings = h/2, halvings+1
+	}
+	sh := tr.sigma * h
+	cosh, sinhc := coshSinhc(sh * sh)
+	c, s := coshSinhc(tr.kappa * h * h)
+	decay := cosh - sh*sinhc
+	a, b := decay*(c+sh*s), decay*h*s
+	for range halvings {
+		a, b = a*a-tr.stiff*b*b, 2*a*b-2*tr.sigma*b*b
+	}
+	return response{a, b, -tr.stiff * b, a - 2*tr.sigma*b}
 }
 
-func (tr Transition) response(dt time.Duration) response {
-	r := response{omega: tr.omega, zeta: tr.zeta, dt: dt}
-	t, w, s, q := dt.Seconds(), tr.omega, tr.sigma, tr.swing
-	switch {
-	case math.Abs(tr.zeta-1) < konst.CriticalBand:
-		e := math.Exp(-w * t)
-		r.a, r.b, r.c, r.d = e*(1+w*t), e*t, -e*w*w*t, e*(1-w*t)
-	case tr.zeta < 1:
-		sin, cos := math.Sincos(q * t)
-		e := math.Exp(-s * t)
-		turn := e * sin / q
-		r.a, r.b, r.c, r.d = e*cos+s*turn, turn, -w*w*turn, e*cos-s*turn
-	default:
-		r1, r2, span := q-s, -q-s, 2*q
-		e1, e2 := math.Exp(r1*t), math.Exp(r2*t)
-		r.a, r.b, r.c, r.d = (r1*e2-r2*e1)/span, (e1-e2)/span, r1*r2*(e2-e1)/span, (r1*e1-r2*e2)/span
-	}
-	return r
+func coshSinhc(z float64) (c, s float64) {
+	const f2, f3, f4, f5, f6, f7 = 2, 6, 24, 120, 720, 5040
+	const f8, f9, f10, f11 = f7 * 8, f7 * 8 * 9, f7 * 8 * 9 * 10, f7 * 8 * 9 * 10 * 11
+	zz := z * z
+	c = (1 + z*(1.0/f2)) + zz*((1.0/f4+z*(1.0/f6))+zz*(1.0/f8+z*(1.0/f10)))
+	s = (1 + z*(1.0/f3)) + zz*((1.0/f5+z*(1.0/f7))+zz*(1.0/f9+z*(1.0/f11)))
+	return c, s
 }
 
 type animation struct {
 	live          bool
-	tr            Transition
 	start, last   time.Duration
-	from, to      [4]float64
+	to            [4]float64
 	value, motion [4]float64
+	tr            Transition
+	from          [4]float64
 }
 
-func (an *animation) spring(r *response) {
+func (an *animation) spring(r response) {
 	for c := range an.value {
 		x, v := an.value[c]-an.to[c], an.motion[c]
 		an.value[c], an.motion[c] = an.to[c]+r.a*x+r.b*v, r.c*x+r.d*v
@@ -91,14 +93,19 @@ func (an *animation) resting() bool {
 
 type ID int32
 
+type sharedResponse struct {
+	sigma, stiff float64
+	dt           time.Duration
+	r            response
+}
+
 type Timeline struct {
-	Reduced   bool
-	slots     []animation
-	free      []ID
-	done      []ID
-	running   int
-	responses [konst.ResponseCache]response
-	next      int
+	Reduced bool
+	slots   []animation
+	free    []ID
+	done    []ID
+	running int
+	shared  [1 << konst.SharedResponseBits]sharedResponse
 }
 
 func (t *Timeline) Start(now time.Duration, from, to Value, tr Transition) ID {
@@ -123,6 +130,7 @@ func (t *Timeline) Retarget(id ID, now time.Duration, to Value) {
 func (t *Timeline) Step(now time.Duration) (done []ID, running bool) {
 	t.free = append(t.free, t.done...)
 	t.done = t.done[:0]
+	t.shared = [len(t.shared)]sharedResponse{}
 	for i := range t.slots {
 		an := &t.slots[i]
 		if an.live && (t.Reduced || t.advance(an, now)) {
@@ -156,15 +164,14 @@ func (t *Timeline) advance(an *animation, now time.Duration) bool {
 	panic("motion: unknown transition")
 }
 
-func (t *Timeline) response(tr *Transition, dt time.Duration) *response {
-	for i := range t.responses {
-		if r := &t.responses[i]; r.dt == dt && r.omega == tr.omega && r.zeta == tr.zeta {
-			return r
-		}
+func (t *Timeline) response(tr *Transition, dt time.Duration) response {
+	mix := (math.Float64bits(tr.sigma) ^ math.Float64bits(tr.stiff)) * konst.SharedResponseMix
+	s := &t.shared[mix>>(64-konst.SharedResponseBits)]
+	if s.dt == dt && s.sigma == tr.sigma && s.stiff == tr.stiff {
+		return s.r
 	}
-	r := &t.responses[t.next]
-	*r = tr.response(dt)
-	t.next = (t.next + 1) % len(t.responses)
+	r := tr.response(dt)
+	s.sigma, s.stiff, s.dt, s.r = tr.sigma, tr.stiff, dt, r
 	return r
 }
 
@@ -181,7 +188,7 @@ func (t *Timeline) Settle(id ID) time.Duration {
 		if !an.resting() {
 			settled = at + konst.SettleSample
 		}
-		an.spring(&r)
+		an.spring(r)
 	}
 	return settled
 }
