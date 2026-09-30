@@ -3,7 +3,6 @@ package layout
 import (
 	"fmt"
 	"math"
-	"slices"
 )
 
 type bounds struct{ min, max int }
@@ -39,15 +38,15 @@ func newItem(s *Style, size, lo, hi Length, space int, definite bool) flexItem {
 	return it
 }
 
-func flexSizes(items []flexItem, space int) []int {
-	sizes := make([]int, len(items))
+func (a *arena) flexSizes(items []flexItem, space int) []int {
+	sizes := grab(&a.ints, len(items))
 	hypothetical := 0
 	for i, it := range items {
 		sizes[i] = it.clamp(it.basis)
 		hypothetical += sizes[i]
 	}
 	growing := hypothetical < space
-	weights := make([]int, len(items))
+	weights := grab(&a.ints, len(items))
 	for i, it := range items {
 		weights[i] = it.shrink * it.basis
 		if growing {
@@ -60,6 +59,7 @@ func flexSizes(items []flexItem, space int) []int {
 			sizes[i] = it.basis
 		}
 	}
+	raw := grab(&a.ints, len(items))
 	for {
 		free, total := space, 0
 		for i := range items {
@@ -69,8 +69,8 @@ func flexSizes(items []flexItem, space int) []int {
 		if total == 0 {
 			return sizes
 		}
-		shares := distribute(max(free, -free), weights)
-		raw := make([]int, len(items))
+		mark := len(a.ints)
+		shares := a.distribute(max(free, -free), weights)
 		violation := 0
 		for i, it := range items {
 			if weights[i] == 0 {
@@ -83,6 +83,7 @@ func flexSizes(items []flexItem, space int) []int {
 			sizes[i] = it.clamp(raw[i])
 			violation += sizes[i] - raw[i]
 		}
+		a.ints = a.ints[:mark]
 		for i, it := range items {
 			if weights[i] == 0 {
 				continue
@@ -96,13 +97,13 @@ func flexSizes(items []flexItem, space int) []int {
 	}
 }
 
-func distribute(amount int, weights []int) []int {
+func (a *arena) distribute(amount int, weights []int) []int {
 	total := 0
 	for _, w := range weights {
 		total += w
 	}
-	shares := make([]int, len(weights))
-	rest := make([]int, len(weights))
+	shares := grab(&a.ints, len(weights))
+	rest := grab(&a.ints, len(weights))
 	left := amount
 	for i, w := range weights {
 		shares[i], rest[i] = amount*w/total, amount*w%total
@@ -121,8 +122,16 @@ func distribute(amount int, weights []int) []int {
 	return shares
 }
 
-func justify(j Justify, free, n int) (int, []int) {
-	extra := make([]int, n)
+func (a *arena) even(amount, n int) []int {
+	weights := grab(&a.ints, n)
+	for i := range weights {
+		weights[i] = 1
+	}
+	return a.distribute(amount, weights)
+}
+
+func (a *arena) justify(j Justify, free, n int) (int, []int) {
+	extra := grab(&a.ints, n)
 	switch j {
 	case JustifyStart:
 		return 0, extra
@@ -134,13 +143,13 @@ func justify(j Justify, free, n int) (int, []int) {
 		if free <= 0 || n < 2 {
 			return 0, extra
 		}
-		copy(extra, distribute(free, slices.Repeat([]int{1}, n-1)))
+		copy(extra, a.even(free, n-1))
 		return 0, extra
 	case JustifyAround:
 		if free <= 0 || n == 0 {
 			return 0, extra
 		}
-		slots := distribute(free, slices.Repeat([]int{1}, 2*n))
+		slots := a.even(free, 2*n)
 		for i := range n - 1 {
 			extra[i] = slots[2*i+1] + slots[2*i+2]
 		}
@@ -149,7 +158,7 @@ func justify(j Justify, free, n int) (int, []int) {
 		if free <= 0 || n == 0 {
 			return 0, extra
 		}
-		slots := distribute(free, slices.Repeat([]int{1}, n+1))
+		slots := a.even(free, n+1)
 		copy(extra, slots[1:n])
 		return slots[0], extra
 	}

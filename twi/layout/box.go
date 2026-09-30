@@ -135,6 +135,18 @@ type Box struct {
 
 	ScrollX, ScrollY          int
 	ScrollWidth, ScrollHeight int
+
+	memo  memo
+	arena *arena
+}
+
+type memo struct {
+	intrinsic           [2]int
+	intrinsicKnown      [2]bool
+	widthAvail, width   int
+	widthKnown          bool
+	heightWidth, height int
+	heightKnown         bool
 }
 
 func visible(b *Box) bool {
