@@ -7,11 +7,15 @@ import (
 )
 
 func Wrap(s string, width int) []string {
+	return Widths{}.Wrap(s, width)
+}
+
+func (w Widths) Wrap(s string, width int) []string {
 	var lines []string
 	for paragraph := range strings.SplitSeq(s, "\n") {
 		line, lineWidth := "", 0
 		for word := range strings.SplitSeq(paragraph, " ") {
-			wordWidth := Width(word)
+			wordWidth := w.Width(word)
 			switch {
 			case word == "":
 			case line != "" && lineWidth+1+wordWidth <= width:
@@ -22,7 +26,7 @@ func Wrap(s string, width int) []string {
 					line, lineWidth = "", 0
 				}
 				for cluster := range Graphemes(word) {
-					clusterWidth := Width(cluster)
+					clusterWidth := w.Width(cluster)
 					if line != "" && lineWidth+clusterWidth > width {
 						lines = append(lines, line)
 						line, lineWidth = "", 0
@@ -37,16 +41,20 @@ func Wrap(s string, width int) []string {
 }
 
 func Truncate(s string, width int) string {
-	if Width(s) <= width {
+	return Widths{}.Truncate(s, width)
+}
+
+func (w Widths) Truncate(s string, width int) string {
+	if w.Width(s) <= width {
 		return s
 	}
-	room := width - Width(konst.Ellipsis)
+	room := width - w.Width(konst.Ellipsis)
 	if room < 0 {
 		return ""
 	}
 	n, used := 0, 0
 	for cluster := range Graphemes(s) {
-		used += Width(cluster)
+		used += w.Width(cluster)
 		if used > room {
 			break
 		}

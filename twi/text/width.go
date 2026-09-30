@@ -49,7 +49,24 @@ const (
 const (
 	textPresentation  = '\U0000FE0E'
 	emojiPresentation = '\U0000FE0F'
+	zeroWidthJoiner   = '\U0000200D'
+	keycapMark        = '\U000020E3'
+	modifierFirst     = '\U0001F3FB'
+	modifierLast      = '\U0001F3FF'
 )
+
+type Class uint8
+
+const (
+	Flag Class = iota
+	ZWJ
+	VS16
+	Modifier
+	Keycap
+	Classes
+)
+
+type Widths [Classes]int
 
 type props struct {
 	class        breakClass
@@ -158,6 +175,10 @@ func joins(prev, cur props, regionals int, emoji, indic sequence) bool {
 }
 
 func Width(s string) int {
+	return Widths{}.Width(s)
+}
+
+func (w Widths) Width(s string) int {
 	total := 0
 	for cluster := range Graphemes(s) {
 		width := 0
@@ -170,7 +191,31 @@ func Width(s string) int {
 		case width > 0 && strings.ContainsRune(cluster, textPresentation):
 			width = 1
 		}
+		if c := class(cluster); c != Classes && w[c] > 0 {
+			width = w[c]
+		}
 		total += width
 	}
 	return total
+}
+
+func class(cluster string) Class {
+	first, n := utf8.DecodeRuneInString(cluster)
+	if n == len(cluster) {
+		return Classes
+	}
+	p := lookup(first)
+	switch {
+	case p.class == regional:
+		return Flag
+	case p.pictographic && strings.ContainsRune(cluster, zeroWidthJoiner):
+		return ZWJ
+	case strings.ContainsRune(cluster, keycapMark):
+		return Keycap
+	case p.pictographic && strings.ContainsFunc(cluster, func(r rune) bool { return r >= modifierFirst && r <= modifierLast }):
+		return Modifier
+	case strings.ContainsRune(cluster, emojiPresentation):
+		return VS16
+	}
+	return Classes
 }

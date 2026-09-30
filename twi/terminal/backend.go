@@ -14,6 +14,7 @@ import (
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 type Options struct{ Mouse bool }
@@ -32,6 +33,8 @@ type Capabilities struct {
 	KittyKeyboard bool
 	Graphics      Graphics
 	CellPixels    image.Point
+	Graphemes     bool
+	Widths        text.Widths
 }
 
 type Backend struct {
@@ -96,7 +99,7 @@ func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
 	events := make(chan input.Event, konst.EventBuffer)
 	b := &Backend{Events: events, out: out, tty: t, answers: make(chan answer, konst.ReplyBuffer)}
 	go b.read(events)
-	raw, replies, err := b.ask(konst.InlineQueries)
+	raw, replies, err := b.ask(konst.Probes + konst.InlineQueries)
 	if err != nil {
 		return Capabilities{}, image.Point{}, err
 	}
@@ -143,7 +146,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	if opt.Mouse {
 		seq += konst.MouseOn
 	}
-	raw, replies, err := b.ask(seq + konst.Queries)
+	raw, replies, err := b.ask(seq + konst.CursorHome + konst.GraphemesOn + konst.Probes + konst.Queries)
 	if err != nil {
 		return nil, err
 	}
@@ -185,18 +188,36 @@ func (b *Backend) ask(seq string) ([]byte, []input.ReplyEvent, error) {
 func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabilities {
 	caps := Capabilities{CellPixels: b.cellPixels(raw)}
 	graphics := o.graphics
+	var cursors [][]int
 	for _, r := range replies {
 		switch r.Kind {
 		case input.ReplyMode:
-			supported := len(r.Params) == 2 && (r.Params[1] == konst.ModeSet || r.Params[1] == konst.ModeReset)
-			caps.Sync = caps.Sync || supported && r.Params[0] == konst.SyncMode
+			if len(r.Params) != 2 {
+				continue
+			}
+			mode, state := r.Params[0], r.Params[1]
+			caps.Sync = caps.Sync || mode == konst.SyncMode && (state == konst.ModeSet || state == konst.ModeReset)
+			caps.Graphemes = caps.Graphemes || mode == konst.GraphemeMode && state >= konst.ModeSet && state <= konst.ModeKeptSet
 		case input.ReplyKeyboardFlags:
 			caps.KittyKeyboard = true
 		case input.ReplyPrimaryAttributes:
 			if slices.Index(r.Params, konst.SixelAttribute) > 0 {
 				graphics = max(graphics, GraphicsSixel)
 			}
-		case input.ReplySecondaryAttributes, input.ReplyCursorPosition:
+		case input.ReplyCursorPosition:
+			if len(r.Params) == 2 {
+				cursors = append(cursors, r.Params)
+			}
+		case input.ReplySecondaryAttributes:
+		}
+	}
+	if columns, _, err := b.tty.size(); err == nil && len(cursors) > int(text.Classes) {
+		origin := cursors[0]
+		for c := range text.Classes {
+			end := cursors[c+1]
+			if advance := end[1] - origin[1]; end[0] == origin[0] && advance > 0 && end[1] < columns {
+				caps.Widths[c] = advance
+			}
 		}
 	}
 	if bytes.Contains(raw, []byte(konst.KittyOK)) {
@@ -315,6 +336,9 @@ func (b *Backend) Exit() error {
 	}
 	if b.Capabilities.KittyKeyboard {
 		seq = konst.KittyPop + seq
+	}
+	if b.Capabilities.Graphemes {
+		seq = konst.GraphemesOff + seq
 	}
 	_, err := io.WriteString(b.out, seq)
 	b.tty.cancel()

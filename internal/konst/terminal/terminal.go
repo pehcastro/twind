@@ -25,17 +25,31 @@ const (
 )
 
 const (
-	EnterScreen    = CSI + "?1049h" + CSI + "?25l" + CSI + "?2004h" + CSI + "?1004h"
-	LeaveScreen    = CSI + "?1004l" + CSI + "?2004l" + CSI + "?25h" + CSI + "?1049l" + Reset
-	MouseOn        = CSI + "?1003h" + CSI + "?1006h"
-	MouseOff       = CSI + "?1006l" + CSI + "?1003l"
-	KittyPush      = CSI + ">1u"
-	KittyPop       = CSI + "<u"
-	CellQuery      = CSI + "16t" + CSI + "14t" + CSI + "c"
-	KittyQuery     = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
-	KittyOK        = "\x1b_Gi=31;OK\x1b\\"
-	Queries        = KittyQuery + CSI + "?2026$p" + CSI + "?u" + CellQuery
-	InlineQueries  = KittyQuery + CSI + "?2026$p" + CSI + "6n" + CellQuery
+	EnterScreen   = CSI + "?1049h" + CSI + "?25l" + CSI + "?2004h" + CSI + "?1004h"
+	LeaveScreen   = CSI + "?1004l" + CSI + "?2004l" + CSI + "?25h" + CSI + "?1049l" + Reset
+	MouseOn       = CSI + "?1003h" + CSI + "?1006h"
+	MouseOff      = CSI + "?1006l" + CSI + "?1003l"
+	KittyPush     = CSI + ">1u"
+	KittyPop      = CSI + "<u"
+	CellQuery     = CSI + "16t" + CSI + "14t" + CSI + "c"
+	KittyQuery    = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
+	KittyOK       = "\x1b_Gi=31;OK\x1b\\"
+	Queries       = KittyQuery + CSI + "?2026$p" + CSI + "?2027$p" + CSI + "?u" + CellQuery
+	InlineQueries = KittyQuery + CSI + "?2026$p" + CellQuery
+	CursorHome    = CSI + "H"
+	CursorQuery   = CSI + "6n"
+	GraphemesOn   = CSI + "?2027h"
+	GraphemesOff  = CSI + "?2027l"
+	ProbeBegin    = SyncBegin + CSI + "?7l" + "\x1b7" + CursorQuery
+	ProbeStep     = CursorQuery + "\x1b8"
+	ProbeEnd      = CSI + "K" + CSI + "?7h" + SyncEnd
+	Probes        = ProbeBegin +
+		"\U0001F1E7\U0001F1F7" + ProbeStep +
+		"\U0001F468\U0000200D\U0001F469\U0000200D\U0001F467" + ProbeStep +
+		"\U00002764\U0000FE0F" + ProbeStep +
+		"\U0001F44D\U0001F3FD" + ProbeStep +
+		"1\U0000FE0F\U000020E3" + ProbeStep +
+		ProbeEnd
 	OriginOn       = CSI + "?6h"
 	OriginOff      = CSI + "?6l"
 	RegionReset    = CSI + "r"
@@ -43,8 +57,10 @@ const (
 	WindowReport   = "4"
 	SixelAttribute = 4
 	SyncMode       = 2026
+	GraphemeMode   = 2027
 	ModeSet        = 1
 	ModeReset      = 2
+	ModeKeptSet    = 3
 )
 
 const (

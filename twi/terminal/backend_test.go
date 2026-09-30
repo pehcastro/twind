@@ -12,6 +12,7 @@ import (
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/text"
 )
 
 type fakeTTY struct {
@@ -331,6 +332,7 @@ func TestInlineQuery(t *testing.T) {
 		fenced  bool
 	}{
 		{"windows terminal 1.24", cursorAfterWT, offer{}, Capabilities{Sync: true, Graphics: GraphicsSixel, CellPixels: image.Pt(10, 20)}, image.Pt(2, 6), true},
+		{"windows terminal probes after text", []string{"\x1b[1;23R\x1b[1;25R\x1b[1;25R\x1b[1;25R\x1b[1;25R\x1b[1;25R\x1b[?61;4;6;7;14;21;22;23;24;28;32;42;52c"}, offer{}, Capabilities{Widths: text.Widths{2, 2, 2, 2, 2}}, image.Pt(22, 0), true},
 		{"forced kitty", cursorAfterWT, offer{GraphicsKitty, true}, Capabilities{Sync: true, Graphics: GraphicsKitty, CellPixels: image.Pt(10, 20)}, image.Pt(2, 6), true},
 		{"no cursor report", windowsTerminal, offer{}, Capabilities{}, image.Point{}, true},
 		{"cursor split over reads", []string{"\x1b[6;20;10t\x1b[1", "2;1R\x1b[?61;4c"}, offer{}, Capabilities{Graphics: GraphicsSixel, CellPixels: image.Pt(10, 20)}, image.Pt(0, 11), true},
@@ -353,14 +355,84 @@ func TestInlineQuery(t *testing.T) {
 		case !tc.fenced && (took < konst.QueryTimeout || took > 2*konst.QueryTimeout):
 			t.Errorf("%s: took %v, want the %v timeout", tc.name, took, konst.QueryTimeout)
 		}
-		if out := term.written.String(); out != konst.InlineQueries || !strings.Contains(out, "\x1b[6n") || !strings.HasSuffix(out, "\x1b[c") {
-			t.Errorf("%s: wrote %q, want the inline queries alone, the cursor report asked before the fence", tc.name, out)
+		if out := term.written.String(); out != konst.Probes+konst.InlineQueries || !strings.HasSuffix(out, "\x1b[c") {
+			t.Errorf("%s: wrote %q, want the probes and the inline queries alone, the fence last", tc.name, out)
 		}
 		if term.tty.restored != 1 {
 			t.Errorf("%s: restored %d times, want 1", tc.name, term.tty.restored)
 		}
 		if n := len(term.tty.input); n != 0 {
 			t.Errorf("%s: %d answers left unread", tc.name, n)
+		}
+	}
+}
+
+func TestWidthProbes(t *testing.T) {
+	const wt = "\x1b[?2027;3$y\x1b[1;1R\x1b[1;3R\x1b[1;3R\x1b[1;3R\x1b[1;3R\x1b[1;3R\x1b[?2027;3$y\x1b[?2026;2$y\x1b[6;20;10t\x1b[4;480;800t\x1b[?61;4;6;7;14;21;22;23;24;28;32;42;52c"
+	cases := []struct {
+		name      string
+		answers   []string
+		widths    text.Widths
+		graphemes bool
+		fenced    bool
+	}{
+		{"windows terminal 1.24", []string{wt}, text.Widths{2, 2, 2, 2, 2}, true, true},
+		{"silent", nil, text.Widths{}, false, false},
+		{"no cluster support", []string{"\x1b[?2027;0$y\x1b[3;5R\x1b[3;9R\x1b[3;11R\x1b[3;6R\x1b[3;9R\x1b[3;8R\x1b[?62c"}, text.Widths{4, 6, 1, 4, 3}, false, true},
+		{"reports split over reads", []string{"\x1b[?2027;1$y\x1b[1;1R\x1b[1;2R\x1b[1", ";3R\x1b[1;3R\x1b[1;3R", "\x1b[1;3R\x1b[?62c"}, text.Widths{1, 2, 2, 2, 2}, true, true},
+		{"fewer reports than probes", []string{"\x1b[1;1R\x1b[1;2R\x1b[1;3R\x1b[1;3R\x1b[1;3R\x1b[?62c"}, text.Widths{}, false, true},
+		{"right margin clamps", []string{"\x1b[1;76R\x1b[1;78R\x1b[1;80R\x1b[1;78R\x1b[1;80R\x1b[1;79R\x1b[?62c"}, text.Widths{2, 0, 2, 0, 3}, false, true},
+		{"another row or no advance", []string{"\x1b[1;1R\x1b[2;1R\x1b[1;1R\x1b[1;3R\x1b[1;3R\x1b[1;3R\x1b[?62c"}, text.Widths{0, 0, 2, 2, 2}, false, true},
+		{"2027 permanently reset", []string{"\x1b[?2027;4$y\x1b[?62c"}, text.Widths{}, false, true},
+		{"2027 reset", []string{"\x1b[?2027;2$y\x1b[?62c"}, text.Widths{}, true, true},
+	}
+	for _, tc := range cases {
+		term := newFake(tc.answers...)
+		start := time.Now()
+		b, err := enter(term, term.tty, Options{}, offer{})
+		took := time.Since(start)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Capabilities.Widths != tc.widths || b.Capabilities.Graphemes != tc.graphemes {
+			t.Errorf("%s: widths %v graphemes %v, want %v %v", tc.name, b.Capabilities.Widths, b.Capabilities.Graphemes, tc.widths, tc.graphemes)
+		}
+		if tc.fenced != (took < konst.QueryTimeout) || took > 2*konst.QueryTimeout {
+			t.Errorf("%s: took %v, fenced %v", tc.name, took, tc.fenced)
+		}
+		term.tty.input <- []byte("x")
+		select {
+		case ev := <-b.Events:
+			if ev != (input.KeyEvent{Rune: 'x'}) {
+				t.Errorf("%s: first event %#v, want the key typed after the probes", tc.name, ev)
+			}
+		case <-time.After(time.Second):
+			t.Errorf("%s: no key event", tc.name)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+		out := term.written.String()
+		if !strings.Contains(out, konst.GraphemesOn+konst.Probes) {
+			t.Errorf("%s: wrote %q, want the probes after mode 2027 is set", tc.name, out)
+		}
+		if strings.Contains(out, konst.GraphemesOff) != tc.graphemes {
+			t.Errorf("%s: mode 2027 reset on exit %v, want %v", tc.name, !tc.graphemes, tc.graphemes)
+		}
+	}
+}
+
+func TestProbeOrder(t *testing.T) {
+	body := strings.TrimSuffix(strings.TrimPrefix(konst.Probes, konst.ProbeBegin), konst.ProbeEnd)
+	clusters := strings.Split(body, konst.ProbeStep)
+	if len(clusters) != int(text.Classes)+1 || clusters[text.Classes] != "" {
+		t.Fatalf("probes %q, want one cluster per class", clusters)
+	}
+	for c := range text.Classes {
+		var w text.Widths
+		w[c] = 7
+		if got := w.Width(clusters[c]); got != 7 {
+			t.Errorf("probe %d %+q measures %d under an override of 7 for its class", c, clusters[c], got)
 		}
 	}
 }
