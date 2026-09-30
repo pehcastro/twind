@@ -466,6 +466,52 @@ func TestGraphicsChoice(t *testing.T) {
 	}
 }
 
+func TestResizeClearsSixelThenSendsAFullFrame(t *testing.T) {
+	sixel := terminal.Capabilities{Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
+	b := newBackend(40, 15)
+	b.caps = sixel
+	r := surfaces(t, b)
+	r.next(t)
+	r.b.events <- input.ResizeEvent{Width: 50, Height: 15}
+	resized := r.next(t)
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+	wide := newBackend(50, 15)
+	wide.caps = sixel
+	fresh := surfaces(t, wide)
+	first := fresh.next(t)
+	if err := fresh.stop(t); err != nil {
+		t.Fatal(err)
+	}
+	const clear = "\x1b[0m\x1b[2J"
+	if !strings.HasPrefix(resized, clear) {
+		t.Errorf("frame after a resize does not start with a reset and a full clear %q: %q", clear, resized[:min(len(resized), 40)])
+	}
+	if got, want := sixelTiles(resized), sixelTiles(first); !slices.Equal(got, want) {
+		t.Errorf("resize sent tiles %v, want every tile of a fresh 50x15 frame %v", got, want)
+	}
+}
+
+func TestResizeBurstCoalesces(t *testing.T) {
+	r := start(counter.New)
+	r.next(t)
+	begin := time.Now()
+	const burst = 40
+	for i := range burst {
+		r.b.events <- input.ResizeEvent{Width: 20 + i%5, Height: 3}
+	}
+	elapsed := time.Since(begin)
+	time.Sleep(100 * time.Millisecond)
+	frames := len(r.b.frames)
+	if limit := 2 + int(elapsed/(time.Second/60)); frames > limit {
+		t.Errorf("%d resize events in %v gave %d frames, want at most %d, one per 60 fps tick", burst, elapsed, frames, limit)
+	}
+	if err := r.stop(t); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCellSizeChangeRedraws(t *testing.T) {
 	b := newBackend(40, 15)
 	b.caps = terminal.Capabilities{Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}

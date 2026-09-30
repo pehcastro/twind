@@ -3,6 +3,7 @@ package render
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -29,9 +30,15 @@ type Frame struct {
 
 type styledBox struct {
 	box      *layout.Box
+	classes  []string
 	computed style.ComputedStyle
+	raw      string
 	text     scene.Text
+	natural  [2]int
+	sizes    map[int][2]int
 	children []*styledBox
+	node     scene.Node
+	painted  bool
 }
 
 func Render(root Node, f Frame) (*buffer.Buffer, error) {
@@ -48,62 +55,123 @@ func Render(root Node, f Frame) (*buffer.Buffer, error) {
 	return buf, nil
 }
 
-func Scene(root Node, f Frame) (scene.Node, error) {
+type Tree struct {
+	root              *styledBox
+	width             int
+	height            layout.Length
+	restyle, relayout bool
+	cascades          int
+}
+
+func (t *Tree) Restyle() { t.restyle = true }
+
+func Scene(root Node, f Frame) (scene.Node, error) { return new(Tree).Scene(root, f) }
+
+func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	if f.Sanitize == nil {
 		f.Sanitize = scene.Sanitize
 	}
-	styled, err := build(f, style.ComputedStyle{}, root)
+	t.relayout = t.root == nil || f.Width != t.width || f.Height != t.height
+	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root)
+	t.root, t.width, t.height, t.restyle = styled, f.Width, f.Height, false
 	if err != nil {
 		return scene.Node{}, err
 	}
-	layout.Layout(styled.box, f.Width, f.Height)
-	return styled.scene(), nil
+	if t.relayout {
+		layout.Layout(styled.box, f.Width, f.Height)
+	}
+	return styled.scene(t.relayout), nil
 }
 
-func (s *styledBox) scene() scene.Node {
+func (s *styledBox) scene(moved bool) scene.Node {
+	if s.painted && !moved {
+		return s.node
+	}
 	n := scene.New(s.box, s.computed, s.text)
 	for _, c := range s.children {
-		n.Children = append(n.Children, c.scene())
+		n.Children = append(n.Children, c.scene(moved))
 	}
+	s.node, s.painted = n, true
 	return n
 }
 
-func build(f Frame, parent style.ComputedStyle, n Node) (*styledBox, error) {
-	computed := f.Sheet.Compute(parent, n.Classes)
-	s, err := boxStyle(computed)
-	if err != nil {
-		return nil, err
+func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node) (*styledBox, error) {
+	s := prev
+	if s == nil {
+		s = &styledBox{box: &layout.Box{}}
+		t.relayout = true
 	}
-	box := &layout.Box{Style: s}
-	var clean scene.Text
-	if n.Text != "" {
-		clean = f.Sanitize(n.Text)
-	}
-	if clean != (scene.Text{}) {
-		naturalWidth, naturalHeight := clean.Size(math.MaxInt)
-		wrapped := map[int][2]int{}
-		box.Measure = func(availableWidth int) (int, int) {
-			if availableWidth >= naturalWidth {
-				return naturalWidth, naturalHeight
-			}
-			size, ok := wrapped[availableWidth]
-			if !ok {
-				size[0], size[1] = clean.Size(availableWidth)
-				wrapped[availableWidth] = size
-			}
-			return size[0], size[1]
-		}
-	}
-	out := &styledBox{box: box, computed: computed, text: clean}
-	for _, c := range n.Children {
-		child, err := build(f, computed, c)
+	changed := false
+	if prev == nil || t.restyle || parentChanged || !slices.Equal(s.classes, n.Classes) {
+		t.cascades++
+		computed := f.Sheet.Compute(parent, n.Classes)
+		ls, err := boxStyle(computed)
 		if err != nil {
 			return nil, err
 		}
-		box.Children = append(box.Children, child.box)
-		out.children = append(out.children, child)
+		if prev == nil || ls != s.box.Style {
+			s.box.Style, t.relayout = ls, true
+		}
+		if changed = prev == nil || t.restyle || !reflect.DeepEqual(computed, s.computed); changed {
+			s.computed, s.painted = computed, false
+		}
+		s.classes = n.Classes
 	}
-	return out, nil
+	if n.Text != s.raw && s.retext(f, n.Text) {
+		t.relayout = true
+	}
+	old := s.children
+	if len(old) != len(n.Children) {
+		s.children, s.box.Children = make([]*styledBox, len(n.Children)), make([]*layout.Box, len(n.Children))
+		s.painted = false
+	}
+	for i, c := range n.Children {
+		var p *styledBox
+		if i < len(old) {
+			p = old[i]
+		}
+		child, err := t.build(f, p, s.computed, changed, c)
+		if err != nil {
+			return nil, err
+		}
+		s.children[i], s.box.Children[i] = child, child.box
+		s.painted = s.painted && child.painted
+	}
+	return s, nil
+}
+
+func (s *styledBox) retext(f Frame, raw string) (moved bool) {
+	var next styledBox
+	if raw != "" {
+		next.text = f.Sanitize(raw)
+	}
+	moved = (s.text == scene.Text{}) != (next.text == scene.Text{})
+	if next.text != (scene.Text{}) {
+		next.natural[0], next.natural[1] = next.text.Size(math.MaxInt)
+		next.sizes = map[int][2]int{}
+		for width, size := range s.sizes {
+			w, h := next.measure(width)
+			moved = moved || size != [2]int{w, h}
+		}
+	}
+	s.raw, s.text, s.natural, s.sizes, s.painted = raw, next.text, next.natural, next.sizes, false
+	s.box.Measure = nil
+	if s.text != (scene.Text{}) {
+		s.box.Measure = s.measure
+	}
+	return moved
+}
+
+func (s *styledBox) measure(availableWidth int) (int, int) {
+	size, ok := s.sizes[availableWidth]
+	if !ok {
+		size = s.natural
+		if availableWidth < size[0] {
+			size[0], size[1] = s.text.Size(availableWidth)
+		}
+		s.sizes[availableWidth] = size
+	}
+	return size[0], size[1]
 }
 
 func boxStyle(s style.ComputedStyle) (layout.Style, error) {

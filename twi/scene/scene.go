@@ -35,15 +35,36 @@ type Node struct {
 	TextAlign                              style.TextAlign
 	Truncate                               bool
 	Children                               []Node
-	text                                   string
+	text                                   Text
 }
 
-type Text struct{ clean string }
+type Text struct {
+	clean   string
+	wrapped *map[int][]string
+}
 
-func Sanitize(raw string) Text { return Text{text.Sanitize(raw, text.RemoveBidi)} }
+func Sanitize(raw string) Text {
+	clean := text.Sanitize(raw, text.RemoveBidi)
+	if clean == "" {
+		return Text{}
+	}
+	return Text{clean, &map[int][]string{}}
+}
+
+func (t Text) wrap(width int) []string {
+	if t.wrapped == nil {
+		return text.Wrap(t.clean, width)
+	}
+	lines, ok := (*t.wrapped)[width]
+	if !ok {
+		lines = text.Wrap(t.clean, width)
+		(*t.wrapped)[width] = lines
+	}
+	return lines
+}
 
 func (t Text) Size(availableWidth int) (width, height int) {
-	lines := text.Wrap(t.clean, availableWidth)
+	lines := t.wrap(availableWidth)
 	for _, line := range lines {
 		width = max(width, text.Width(line))
 	}
@@ -91,15 +112,15 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	n.Foreground = s.Color
 	n.Bold, n.Italic, n.Underline, n.Strikethrough = s.Bold, s.Italic, s.Underline, s.Strikethrough
 	n.TextAlign = s.TextAlign
-	n.text = content.clean
+	n.text = content
 	return n
 }
 
 func (n Node) Lines() []string {
 	if !n.Truncate {
-		return text.Wrap(n.text, n.Content.W)
+		return n.text.wrap(n.Content.W)
 	}
-	lines := strings.Split(n.text, "\n")
+	lines := strings.Split(n.text.clean, "\n")
 	for i, line := range lines {
 		lines[i] = text.Truncate(line, n.Content.W)
 	}

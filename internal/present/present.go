@@ -117,6 +117,9 @@ func (s *Screen) reset(cols, rows int) {
 			}
 		}
 	}
+	if s.text != nil && s.underText() {
+		s.out.WriteString(termkonst.Reset + termkonst.CSI + "2J")
+	}
 	if s.Cell != s.cell || s.cache == nil {
 		s.cache, s.seed = map[uint64]*cached{}, maphash.MakeSeed()
 	}

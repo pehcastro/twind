@@ -68,6 +68,7 @@ type Runtime struct {
 	width, height int
 	keys          []func(input.KeyEvent)
 	screen        *present.Screen
+	tree          render.Tree
 	lastFrame     time.Time
 	texts, stale  map[string]scene.Text
 	sanitize      func(string) scene.Text
@@ -157,8 +158,15 @@ func (r *Runtime) loop(b Backend) error {
 			r.mu.Lock()
 			r.queue, r.running = r.running[:0], r.queue
 			r.mu.Unlock()
+			before := r.changed.Swap(false)
 			for _, f := range r.running {
 				f()
+			}
+			if r.changed.Load() {
+				r.tree.Restyle()
+			}
+			if before {
+				r.changed.Store(true)
 			}
 			clear(r.running)
 		case <-throttle:
@@ -188,7 +196,7 @@ func (r *Runtime) handle(ev input.Event) {
 func (r *Runtime) frame(b Backend, now time.Time) error {
 	tree := r.app()
 	r.keys = tree.Keys
-	root, err := render.Scene(tree.Root, render.Frame{
+	root, err := r.tree.Scene(tree.Root, render.Frame{
 		Sheet:    r.cfg.Sheet,
 		Width:    r.width,
 		Height:   layout.Length{Unit: layout.Cells, Value: r.height},

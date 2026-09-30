@@ -35,7 +35,7 @@ func page(children ...Node) Node {
 func card(bg color.Color) Node {
 	c := box(2, 1, 10, 4, bg)
 	c.Shadows = []style.Shadow{{X: 8, Y: 16, Blur: 16, Color: paint(0, 0, 0, 64)}}
-	c.text = "hello"
+	c.text = Sanitize("hello")
 	return c
 }
 
@@ -72,7 +72,7 @@ func damage(prev, next Node) Damage { return Diff(record(prev), record(next)) }
 
 func TestDamageTextOnly(t *testing.T) {
 	typed := card(paint(24, 24, 27, 255))
-	typed.text = "hello, world"
+	typed.text = Sanitize("hello, world")
 	typed.Foreground = paint(250, 0, 0, 255)
 	typed.Bold = true
 	if d := damage(page(card(paint(24, 24, 27, 255))), page(typed)); len(d.Rects) != 0 || len(d.Moves) != 0 {
@@ -161,7 +161,7 @@ func BenchmarkLayers1000(b *testing.B) {
 			c.Border = Border{Style: style.BorderSingle, Radius: style.RadiusLg, Top: true, Right: true, Bottom: true, Left: true, Color: paint(63, 63, 70, 255)}
 			for j := range 19 {
 				row := box(3, i*5+j%3, 8, 1, paint(39, 39, 42, uint8(255*(j%2))))
-				row.text = "row"
+				row.text = Sanitize("row")
 				c.Children = append(c.Children, row)
 			}
 			root.Children = append(root.Children, c)
