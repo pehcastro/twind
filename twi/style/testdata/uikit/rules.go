@@ -1,0 +1,1538 @@
+package uikit
+
+import (
+	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/theme"
+)
+
+func Rules() []style.Rule {
+	return []style.Rule{
+		style.Rule{Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginTop},
+			style.Declaration{Property: style.PropMarginRight},
+			style.Declaration{Property: style.PropMarginBottom},
+			style.Declaration{Property: style.PropMarginLeft},
+			style.Declaration{Property: style.PropPaddingTop},
+			style.Declaration{Property: style.PropPaddingRight},
+			style.Declaration{Property: style.PropPaddingBottom},
+			style.Declaration{Property: style.PropPaddingLeft},
+			style.Declaration{Property: style.PropBorderStyle, BorderStyle: style.BorderSingle},
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Current}},
+			style.Declaration{Property: style.PropBorderTopWidth},
+			style.Declaration{Property: style.PropBorderRightWidth},
+			style.Declaration{Property: style.PropBorderBottomWidth},
+			style.Declaration{Property: style.PropBorderLeftWidth},
+		}},
+		style.Rule{Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Token: theme.Border, Mix: 100},
+		}},
+		style.Rule{When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 26}}, Token: theme.Border, Mix: 100},
+		}},
+		style.Rule{Class: "collapse", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropVisibility, Visibility: style.Hidden},
+		}},
+		style.Rule{Class: "invisible", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropVisibility, Visibility: style.Hidden},
+		}},
+		style.Rule{Class: "visible", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropVisibility},
+		}},
+		style.Rule{Class: "sr-only", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPosition, Position: style.PositionAbsolute},
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropPaddingTop},
+			style.Declaration{Property: style.PropPaddingRight},
+			style.Declaration{Property: style.PropPaddingBottom},
+			style.Declaration{Property: style.PropPaddingLeft},
+			style.Declaration{Property: style.PropMarginTop, Length: style.Length{Value: -1}},
+			style.Declaration{Property: style.PropMarginRight, Length: style.Length{Value: -1}},
+			style.Declaration{Property: style.PropMarginBottom, Length: style.Length{Value: -1}},
+			style.Declaration{Property: style.PropMarginLeft, Length: style.Length{Value: -1}},
+			style.Declaration{Property: style.PropOverflowX, Overflow: style.OverflowHidden},
+			style.Declaration{Property: style.PropOverflowY, Overflow: style.OverflowHidden},
+			style.Declaration{Property: style.PropWhiteSpace, WhiteSpace: style.WhiteSpaceNowrap},
+			style.Declaration{Property: style.PropBorderTopWidth},
+			style.Declaration{Property: style.PropBorderRightWidth},
+			style.Declaration{Property: style.PropBorderBottomWidth},
+			style.Declaration{Property: style.PropBorderLeftWidth},
+		}},
+		style.Rule{Class: "not-sr-only", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPosition},
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Auto}},
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Unit: style.Auto}},
+			style.Declaration{Property: style.PropPaddingTop},
+			style.Declaration{Property: style.PropPaddingRight},
+			style.Declaration{Property: style.PropPaddingBottom},
+			style.Declaration{Property: style.PropPaddingLeft},
+			style.Declaration{Property: style.PropMarginTop},
+			style.Declaration{Property: style.PropMarginRight},
+			style.Declaration{Property: style.PropMarginBottom},
+			style.Declaration{Property: style.PropMarginLeft},
+			style.Declaration{Property: style.PropOverflowX},
+			style.Declaration{Property: style.PropOverflowY},
+			style.Declaration{Property: style.PropWhiteSpace},
+		}},
+		style.Rule{Class: "absolute", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPosition, Position: style.PositionAbsolute},
+		}},
+		style.Rule{Class: "fixed", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPosition, Position: style.PositionFixed},
+		}},
+		style.Rule{Class: "relative", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPosition, Position: style.PositionRelative},
+		}},
+		style.Rule{Class: "static", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPosition},
+		}},
+		style.Rule{Class: "sticky", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPosition, Position: style.PositionSticky},
+		}},
+		style.Rule{Class: "inset-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTop},
+			style.Declaration{Property: style.PropRight},
+			style.Declaration{Property: style.PropBottom},
+			style.Declaration{Property: style.PropLeft},
+		}},
+		style.Rule{Class: "inset-x-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropLeft},
+			style.Declaration{Property: style.PropRight},
+		}},
+		style.Rule{Class: "inset-y-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTop},
+			style.Declaration{Property: style.PropBottom},
+		}},
+		style.Rule{Class: "-top-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTop, Length: style.Length{Value: -1}},
+		}},
+		style.Rule{Class: "top-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTop},
+		}},
+		style.Rule{Class: "top-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTop, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "top-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTop, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "right-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRight},
+		}},
+		style.Rule{Class: "right-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRight, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "right-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRight, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "right-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRight, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "bottom-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBottom, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "left-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropLeft},
+		}},
+		style.Rule{Class: "left-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropLeft, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "left-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropLeft, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "left-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropLeft, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "z-50", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropZIndex, Number: 50},
+		}},
+		style.Rule{Class: "-mx-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginLeft, Length: style.Length{Value: -1}},
+			style.Declaration{Property: style.PropMarginRight, Length: style.Length{Value: -1}},
+		}},
+		style.Rule{Class: "mx-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginLeft, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropMarginRight, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "mt-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginTop, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "mt-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginTop, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "mr-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginRight, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "mb-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginBottom, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "mb-3", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginBottom, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "ml-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMarginLeft, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "block", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay},
+		}},
+		style.Rule{Class: "flex", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay, Display: style.DisplayFlex},
+		}},
+		style.Rule{Class: "grid", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay, Display: style.DisplayGrid},
+		}},
+		style.Rule{Class: "hidden", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay, Display: style.DisplayNone},
+		}},
+		style.Rule{Class: "inline", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay, Display: style.DisplayInline},
+		}},
+		style.Rule{Class: "inline-block", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay},
+		}},
+		style.Rule{Class: "inline-flex", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay, Display: style.DisplayFlex},
+		}},
+		style.Rule{Class: "inline-grid", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay, Display: style.DisplayGrid},
+		}},
+		style.Rule{Class: "size-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 4}},
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "size-10", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 10}},
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Value: 10}},
+		}},
+		style.Rule{Class: "h-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "h-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "h-3", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "h-5", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Value: 5}},
+		}},
+		style.Rule{Class: "h-fit", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Unit: style.FitContent}},
+		}},
+		style.Rule{Class: "h-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropHeight, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "max-h-8", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMaxHeight, Length: style.Length{Value: 8}},
+		}},
+		style.Rule{Class: "max-h-[80%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMaxHeight, Length: style.Length{Unit: style.Percent, Value: 80}},
+		}},
+		style.Rule{Class: "min-h-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMinHeight, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "!w-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "w-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "w-3", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "w-3/4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 75}},
+		}},
+		style.Rule{Class: "w-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "w-4!", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "w-5", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 5}},
+		}},
+		style.Rule{Class: "w-6", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 6}},
+		}},
+		style.Rule{Class: "w-10", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 10}},
+		}},
+		style.Rule{Class: "w-12", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 12}},
+		}},
+		style.Rule{Class: "w-26", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 26}},
+		}},
+		style.Rule{Class: "w-32", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 32}},
+		}},
+		style.Rule{Class: "w-36", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 36}},
+		}},
+		style.Rule{Class: "w-60", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 60}},
+		}},
+		style.Rule{Class: "w-[0%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent}},
+		}},
+		style.Rule{Class: "w-[1%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 1}},
+		}},
+		style.Rule{Class: "w-[2%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 2}},
+		}},
+		style.Rule{Class: "w-[3%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 3}},
+		}},
+		style.Rule{Class: "w-[3px]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "w-[4%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 4}},
+		}},
+		style.Rule{Class: "w-[5%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 5}},
+		}},
+		style.Rule{Class: "w-[6%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 6}},
+		}},
+		style.Rule{Class: "w-[7%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 7}},
+		}},
+		style.Rule{Class: "w-[8%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 8}},
+		}},
+		style.Rule{Class: "w-[9%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 9}},
+		}},
+		style.Rule{Class: "w-[10%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 10}},
+		}},
+		style.Rule{Class: "w-[11%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 11}},
+		}},
+		style.Rule{Class: "w-[12%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 12}},
+		}},
+		style.Rule{Class: "w-[13%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 13}},
+		}},
+		style.Rule{Class: "w-[14%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 14}},
+		}},
+		style.Rule{Class: "w-[15%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 15}},
+		}},
+		style.Rule{Class: "w-[16%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 16}},
+		}},
+		style.Rule{Class: "w-[17%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 17}},
+		}},
+		style.Rule{Class: "w-[18%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 18}},
+		}},
+		style.Rule{Class: "w-[19%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 19}},
+		}},
+		style.Rule{Class: "w-[20%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 20}},
+		}},
+		style.Rule{Class: "w-[21%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 21}},
+		}},
+		style.Rule{Class: "w-[22%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 22}},
+		}},
+		style.Rule{Class: "w-[23%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 23}},
+		}},
+		style.Rule{Class: "w-[24%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 24}},
+		}},
+		style.Rule{Class: "w-[25%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 25}},
+		}},
+		style.Rule{Class: "w-[26%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 26}},
+		}},
+		style.Rule{Class: "w-[27%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 27}},
+		}},
+		style.Rule{Class: "w-[28%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 28}},
+		}},
+		style.Rule{Class: "w-[29%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 29}},
+		}},
+		style.Rule{Class: "w-[30%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 30}},
+		}},
+		style.Rule{Class: "w-[31%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 31}},
+		}},
+		style.Rule{Class: "w-[32%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 32}},
+		}},
+		style.Rule{Class: "w-[33%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 33}},
+		}},
+		style.Rule{Class: "w-[34%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 34}},
+		}},
+		style.Rule{Class: "w-[35%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 35}},
+		}},
+		style.Rule{Class: "w-[36%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 36}},
+		}},
+		style.Rule{Class: "w-[37%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 37}},
+		}},
+		style.Rule{Class: "w-[38%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 38}},
+		}},
+		style.Rule{Class: "w-[39%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 39}},
+		}},
+		style.Rule{Class: "w-[40%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 40}},
+		}},
+		style.Rule{Class: "w-[41%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 41}},
+		}},
+		style.Rule{Class: "w-[42%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 42}},
+		}},
+		style.Rule{Class: "w-[43%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 43}},
+		}},
+		style.Rule{Class: "w-[44%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 44}},
+		}},
+		style.Rule{Class: "w-[45%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 45}},
+		}},
+		style.Rule{Class: "w-[46%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 46}},
+		}},
+		style.Rule{Class: "w-[47%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 47}},
+		}},
+		style.Rule{Class: "w-[48%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 48}},
+		}},
+		style.Rule{Class: "w-[49%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 49}},
+		}},
+		style.Rule{Class: "w-[50%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 50}},
+		}},
+		style.Rule{Class: "w-[51%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 51}},
+		}},
+		style.Rule{Class: "w-[52%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 52}},
+		}},
+		style.Rule{Class: "w-[53%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 53}},
+		}},
+		style.Rule{Class: "w-[54%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 54}},
+		}},
+		style.Rule{Class: "w-[55%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 55}},
+		}},
+		style.Rule{Class: "w-[56%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 56}},
+		}},
+		style.Rule{Class: "w-[57%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 57}},
+		}},
+		style.Rule{Class: "w-[58%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 58}},
+		}},
+		style.Rule{Class: "w-[59%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 59}},
+		}},
+		style.Rule{Class: "w-[60%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 60}},
+		}},
+		style.Rule{Class: "w-[61%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 61}},
+		}},
+		style.Rule{Class: "w-[62%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 62}},
+		}},
+		style.Rule{Class: "w-[63%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 63}},
+		}},
+		style.Rule{Class: "w-[64%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 64}},
+		}},
+		style.Rule{Class: "w-[65%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 65}},
+		}},
+		style.Rule{Class: "w-[66%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 66}},
+		}},
+		style.Rule{Class: "w-[67%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 67}},
+		}},
+		style.Rule{Class: "w-[68%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 68}},
+		}},
+		style.Rule{Class: "w-[69%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 69}},
+		}},
+		style.Rule{Class: "w-[70%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 70}},
+		}},
+		style.Rule{Class: "w-[71%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 71}},
+		}},
+		style.Rule{Class: "w-[72%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 72}},
+		}},
+		style.Rule{Class: "w-[73%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 73}},
+		}},
+		style.Rule{Class: "w-[74%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 74}},
+		}},
+		style.Rule{Class: "w-[75%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 75}},
+		}},
+		style.Rule{Class: "w-[76%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 76}},
+		}},
+		style.Rule{Class: "w-[77%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 77}},
+		}},
+		style.Rule{Class: "w-[78%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 78}},
+		}},
+		style.Rule{Class: "w-[79%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 79}},
+		}},
+		style.Rule{Class: "w-[80%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 80}},
+		}},
+		style.Rule{Class: "w-[81%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 81}},
+		}},
+		style.Rule{Class: "w-[82%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 82}},
+		}},
+		style.Rule{Class: "w-[83%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 83}},
+		}},
+		style.Rule{Class: "w-[84%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 84}},
+		}},
+		style.Rule{Class: "w-[85%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 85}},
+		}},
+		style.Rule{Class: "w-[86%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 86}},
+		}},
+		style.Rule{Class: "w-[87%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 87}},
+		}},
+		style.Rule{Class: "w-[88%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 88}},
+		}},
+		style.Rule{Class: "w-[89%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 89}},
+		}},
+		style.Rule{Class: "w-[90%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 90}},
+		}},
+		style.Rule{Class: "w-[91%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 91}},
+		}},
+		style.Rule{Class: "w-[92%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 92}},
+		}},
+		style.Rule{Class: "w-[93%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 93}},
+		}},
+		style.Rule{Class: "w-[94%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 94}},
+		}},
+		style.Rule{Class: "w-[95%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 95}},
+		}},
+		style.Rule{Class: "w-[96%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 96}},
+		}},
+		style.Rule{Class: "w-[97%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 97}},
+		}},
+		style.Rule{Class: "w-[98%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 98}},
+		}},
+		style.Rule{Class: "w-[99%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 99}},
+		}},
+		style.Rule{Class: "w-[100%]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "w-fit", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.FitContent}},
+		}},
+		style.Rule{Class: "w-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWidth, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "max-w-48", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMaxWidth, Length: style.Length{Value: 48}},
+		}},
+		style.Rule{Class: "max-w-64", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMaxWidth, Length: style.Length{Value: 64}},
+		}},
+		style.Rule{Class: "min-w-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMinWidth},
+		}},
+		style.Rule{Class: "min-w-3", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMinWidth, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "min-w-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMinWidth, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "min-w-5", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMinWidth, Length: style.Length{Value: 5}},
+		}},
+		style.Rule{Class: "min-w-16", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMinWidth, Length: style.Length{Value: 16}},
+		}},
+		style.Rule{Class: "min-w-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropMinWidth, Length: style.Length{Unit: style.Percent, Value: 100}},
+		}},
+		style.Rule{Class: "flex-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropGrow, Number: 1},
+			style.Declaration{Property: style.PropShrink, Number: 1},
+			style.Declaration{Property: style.PropBasis, Length: style.Length{Unit: style.Percent}},
+		}},
+		style.Rule{Class: "flex-auto", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropGrow, Number: 1},
+			style.Declaration{Property: style.PropShrink, Number: 1},
+			style.Declaration{Property: style.PropBasis, Length: style.Length{Unit: style.Auto}},
+		}},
+		style.Rule{Class: "flex-initial", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropGrow},
+			style.Declaration{Property: style.PropShrink, Number: 1},
+			style.Declaration{Property: style.PropBasis, Length: style.Length{Unit: style.Auto}},
+		}},
+		style.Rule{Class: "flex-none", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropGrow},
+			style.Declaration{Property: style.PropShrink},
+			style.Declaration{Property: style.PropBasis, Length: style.Length{Unit: style.Auto}},
+		}},
+		style.Rule{Class: "shrink", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShrink, Number: 1},
+		}},
+		style.Rule{Class: "shrink-0", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShrink},
+		}},
+		style.Rule{Class: "grow", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropGrow, Number: 1},
+		}},
+		style.Rule{Class: "basis-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBasis, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "flex-col", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDirection, Direction: style.Column},
+		}},
+		style.Rule{Class: "flex-col-reverse", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDirection, Direction: style.ColumnReverse},
+		}},
+		style.Rule{Class: "flex-row", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDirection},
+		}},
+		style.Rule{Class: "flex-row-reverse", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDirection, Direction: style.RowReverse},
+		}},
+		style.Rule{Class: "flex-nowrap", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWrap},
+		}},
+		style.Rule{Class: "flex-wrap", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWrap, Wrap: style.Wrap},
+		}},
+		style.Rule{Class: "flex-wrap-reverse", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWrap, Wrap: style.WrapReverse},
+		}},
+		style.Rule{Class: "items-center", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropAlignItems, Align: style.AlignCenter},
+		}},
+		style.Rule{Class: "items-end", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropAlignItems, Align: style.AlignEnd},
+		}},
+		style.Rule{Class: "items-start", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropAlignItems, Align: style.AlignStart},
+		}},
+		style.Rule{Class: "items-stretch", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropAlignItems, Align: style.AlignStretch},
+		}},
+		style.Rule{Class: "justify-between", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropJustify, Justify: style.JustifyBetween},
+		}},
+		style.Rule{Class: "justify-center", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropJustify, Justify: style.JustifyCenter},
+		}},
+		style.Rule{Class: "justify-end", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropJustify, Justify: style.JustifyEnd},
+		}},
+		style.Rule{Class: "justify-start", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropJustify},
+		}},
+		style.Rule{Class: "justify-items-center", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropJustifyItems, Align: style.AlignCenter},
+		}},
+		style.Rule{Class: "gap-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRowGap, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropColumnGap, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "gap-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRowGap, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropColumnGap, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "gap-3", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRowGap, Length: style.Length{Value: 3}},
+			style.Declaration{Property: style.PropColumnGap, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "gap-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRowGap, Length: style.Length{Value: 4}},
+			style.Declaration{Property: style.PropColumnGap, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "gap-6", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRowGap, Length: style.Length{Value: 6}},
+			style.Declaration{Property: style.PropColumnGap, Length: style.Length{Value: 6}},
+		}},
+		style.Rule{Class: "gap-7", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRowGap, Length: style.Length{Value: 7}},
+			style.Declaration{Property: style.PropColumnGap, Length: style.Length{Value: 7}},
+		}},
+		style.Rule{Class: "gap-x-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColumnGap, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "gap-y-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRowGap, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "self-center", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropAlignSelf, Align: style.AlignCenter},
+		}},
+		style.Rule{Class: "self-stretch", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropAlignSelf, Align: style.AlignStretch},
+		}},
+		style.Rule{Class: "truncate", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowX, Overflow: style.OverflowHidden},
+			style.Declaration{Property: style.PropOverflowY, Overflow: style.OverflowHidden},
+			style.Declaration{Property: style.PropTextOverflow, TextOverflow: style.TextOverflowEllipsis},
+			style.Declaration{Property: style.PropWhiteSpace, WhiteSpace: style.WhiteSpaceNowrap},
+		}},
+		style.Rule{Class: "overflow-hidden", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowX, Overflow: style.OverflowHidden},
+			style.Declaration{Property: style.PropOverflowY, Overflow: style.OverflowHidden},
+		}},
+		style.Rule{Class: "overflow-x-auto", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowX, Overflow: style.OverflowAuto},
+		}},
+		style.Rule{Class: "overflow-y-hidden", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowY, Overflow: style.OverflowHidden},
+		}},
+		style.Rule{Class: "rounded", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRadius, Radius: style.RadiusSm},
+		}},
+		style.Rule{Class: "rounded-full", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRadius, Radius: style.RadiusFull},
+		}},
+		style.Rule{Class: "rounded-lg", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRadius, Radius: style.RadiusLg},
+		}},
+		style.Rule{Class: "rounded-md", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRadius, Radius: style.RadiusMd},
+		}},
+		style.Rule{Class: "rounded-sm", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRadius, Radius: style.RadiusSm},
+		}},
+		style.Rule{Class: "rounded-xl", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRadius, Radius: style.RadiusLg},
+		}},
+		style.Rule{Class: "rounded-xs", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRadius, Radius: style.RadiusSm},
+		}},
+		style.Rule{Class: "border", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderTopWidth, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropBorderRightWidth, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropBorderBottomWidth, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropBorderLeftWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderTopWidth, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropBorderRightWidth, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropBorderBottomWidth, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropBorderLeftWidth, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "border-x", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderLeftWidth, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropBorderRightWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-y", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderTopWidth, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropBorderBottomWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-s", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderLeftWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-e", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderRightWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-t", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderTopWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-r", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderRightWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-b", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderBottomWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-l", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderLeftWidth, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "border-dashed", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderStyle, BorderStyle: style.BorderDashed},
+		}},
+		style.Rule{Class: "border-dotted", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderStyle, BorderStyle: style.BorderDotted},
+		}},
+		style.Rule{Class: "border-double", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderStyle, BorderStyle: style.BorderDouble},
+		}},
+		style.Rule{Class: "border-hidden", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderStyle},
+		}},
+		style.Rule{Class: "border-none", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderStyle},
+		}},
+		style.Rule{Class: "border-solid", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderStyle, BorderStyle: style.BorderSingle},
+		}},
+		style.Rule{Class: "border-border", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Token: theme.Border, Mix: 100},
+		}},
+		style.Rule{Class: "border-border", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 26}}, Token: theme.Border, Mix: 100},
+		}},
+		style.Rule{Class: "border-input", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Token: theme.Input, Mix: 100},
+		}},
+		style.Rule{Class: "border-input", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 38}}, Token: theme.Input, Mix: 100},
+		}},
+		style.Rule{Class: "border-transparent", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBorderColor, Color: color.Color{Kind: color.Literal}},
+		}},
+		style.Rule{Class: "bg-accent", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 255}}, Token: theme.Accent, Mix: 100},
+		}},
+		style.Rule{Class: "bg-accent", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 255}}, Token: theme.Accent, Mix: 100},
+		}},
+		style.Rule{Class: "bg-background", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}, Token: theme.Background, Mix: 100},
+		}},
+		style.Rule{Class: "bg-background", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.Background, Mix: 100},
+		}},
+		style.Rule{Class: "bg-black/50", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 128}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 128}}},
+		}},
+		style.Rule{Class: "bg-card", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}, Token: theme.Card, Mix: 100},
+		}},
+		style.Rule{Class: "bg-card", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.Card, Mix: 100},
+		}},
+		style.Rule{Class: "bg-destructive", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 255}}, Token: theme.Destructive, Mix: 100},
+		}},
+		style.Rule{Class: "bg-destructive", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Token: theme.Destructive, Mix: 100},
+		}},
+		style.Rule{Class: "bg-destructive/60", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 153}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 153}}, Token: theme.Destructive, Mix: 60},
+		}},
+		style.Rule{Class: "bg-destructive/60", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 153}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 153}}, Token: theme.Destructive, Mix: 60},
+		}},
+		style.Rule{Class: "bg-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "bg-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "bg-input", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Token: theme.Input, Mix: 100},
+		}},
+		style.Rule{Class: "bg-input", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 38}}, Token: theme.Input, Mix: 100},
+		}},
+		style.Rule{Class: "bg-input/30", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 77}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 77}}, Token: theme.Input, Mix: 30},
+		}},
+		style.Rule{Class: "bg-input/30", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 77}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 11}}, Token: theme.Input, Mix: 30},
+		}},
+		style.Rule{Class: "bg-input/80", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 204}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 204}}, Token: theme.Input, Mix: 80},
+		}},
+		style.Rule{Class: "bg-input/80", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 204}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 30}}, Token: theme.Input, Mix: 80},
+		}},
+		style.Rule{Class: "bg-muted", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 255}}, Token: theme.Muted, Mix: 100},
+		}},
+		style.Rule{Class: "bg-muted", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 255}}, Token: theme.Muted, Mix: 100},
+		}},
+		style.Rule{Class: "bg-muted/50", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 128}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 128}}, Token: theme.Muted, Mix: 50},
+		}},
+		style.Rule{Class: "bg-muted/50", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 128}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 128}}, Token: theme.Muted, Mix: 50},
+		}},
+		style.Rule{Class: "bg-popover", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}, Token: theme.Popover, Mix: 100},
+		}},
+		style.Rule{Class: "bg-popover", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.Popover, Mix: 100},
+		}},
+		style.Rule{Class: "bg-primary", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.Primary, Mix: 100},
+		}},
+		style.Rule{Class: "bg-primary", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Token: theme.Primary, Mix: 100},
+		}},
+		style.Rule{Class: "bg-primary-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.PrimaryForeground, Mix: 100},
+		}},
+		style.Rule{Class: "bg-primary-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.PrimaryForeground, Mix: 100},
+		}},
+		style.Rule{Class: "bg-primary/20", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 51}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 51}}, Token: theme.Primary, Mix: 20},
+		}},
+		style.Rule{Class: "bg-primary/20", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 51}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 51}}, Token: theme.Primary, Mix: 20},
+		}},
+		style.Rule{Class: "bg-secondary", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 255}}, Token: theme.Secondary, Mix: 100},
+		}},
+		style.Rule{Class: "bg-secondary", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 255}}, Token: theme.Secondary, Mix: 100},
+		}},
+		style.Rule{Class: "bg-transparent", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal}},
+		}},
+		style.Rule{Class: "bg-white", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}},
+		}},
+		style.Rule{Class: "bg-linear-to-r", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropGradient, Line: style.GradientLine{Kind: style.GradientLinear, Direction: style.ToRight}},
+		}},
+		style.Rule{Class: "bg-none", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropGradient},
+		}},
+		style.Rule{Class: "p-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropPaddingBottom, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "p-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropPaddingBottom, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "p-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 4}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 4}},
+			style.Declaration{Property: style.PropPaddingBottom, Length: style.Length{Value: 4}},
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "px-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "px-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "px-3", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 3}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "px-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 4}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "py-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 1}},
+			style.Declaration{Property: style.PropPaddingBottom, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "py-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 2}},
+			style.Declaration{Property: style.PropPaddingBottom, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "pt-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "pt-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "pr-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "pr-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "pl-1", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "pl-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 2}},
+		}},
+		style.Rule{Class: "pl-4", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 4}},
+		}},
+		style.Rule{Class: "text-center", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign, TextAlign: style.TextCenter},
+		}},
+		style.Rule{Class: "text-end", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign, TextAlign: style.TextRight},
+		}},
+		style.Rule{Class: "text-justify", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign, TextAlign: style.TextJustify},
+		}},
+		style.Rule{Class: "text-left", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign},
+		}},
+		style.Rule{Class: "text-right", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign, TextAlign: style.TextRight},
+		}},
+		style.Rule{Class: "text-start", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign},
+		}},
+		style.Rule{Class: "font-medium", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBold},
+		}},
+		style.Rule{Class: "font-normal", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBold},
+		}},
+		style.Rule{Class: "font-semibold", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBold, Flag: true},
+		}},
+		style.Rule{Class: "break-normal", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowWrap},
+			style.Declaration{Property: style.PropWordBreak},
+		}},
+		style.Rule{Class: "wrap-anywhere", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowWrap, OverflowWrap: style.OverflowWrapAnywhere},
+		}},
+		style.Rule{Class: "wrap-break-word", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowWrap, OverflowWrap: style.OverflowWrapBreakWord},
+		}},
+		style.Rule{Class: "wrap-normal", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOverflowWrap},
+		}},
+		style.Rule{Class: "break-all", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWordBreak, WordBreak: style.WordBreakAll},
+		}},
+		style.Rule{Class: "break-keep", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWordBreak, WordBreak: style.WordBreakKeepAll},
+		}},
+		style.Rule{Class: "text-clip", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextOverflow},
+		}},
+		style.Rule{Class: "text-ellipsis", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextOverflow, TextOverflow: style.TextOverflowEllipsis},
+		}},
+		style.Rule{Class: "whitespace-nowrap", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropWhiteSpace, WhiteSpace: style.WhiteSpaceNowrap},
+		}},
+		style.Rule{Class: "text-accent-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.AccentForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-accent-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.AccentForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-background", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}, Token: theme.Background, Mix: 100},
+		}},
+		style.Rule{Class: "text-background", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.Background, Mix: 100},
+		}},
+		style.Rule{Class: "text-card-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.CardForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-card-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.CardForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-destructive", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 255}}, Token: theme.Destructive, Mix: 100},
+		}},
+		style.Rule{Class: "text-destructive", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Token: theme.Destructive, Mix: 100},
+		}},
+		style.Rule{Class: "text-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "text-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "text-foreground/60", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 153}}},
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 153}}, Token: theme.Foreground, Mix: 60},
+		}},
+		style.Rule{Class: "text-foreground/60", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 153}}},
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 153}}, Token: theme.Foreground, Mix: 60},
+		}},
+		style.Rule{Class: "text-muted-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 255}}, Token: theme.MutedForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-muted-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 255}}, Token: theme.MutedForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-popover-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.PopoverForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-popover-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.PopoverForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-primary", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.Primary, Mix: 100},
+		}},
+		style.Rule{Class: "text-primary", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Token: theme.Primary, Mix: 100},
+		}},
+		style.Rule{Class: "text-primary-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.PrimaryForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-primary-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.PrimaryForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-secondary-foreground", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.SecondaryForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-secondary-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.SecondaryForeground, Mix: 100},
+		}},
+		style.Rule{Class: "text-white", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}},
+		}},
+		style.Rule{Class: "italic", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropItalic, Flag: true},
+		}},
+		style.Rule{Class: "not-italic", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropItalic},
+		}},
+		style.Rule{Class: "line-through", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropUnderline},
+			style.Declaration{Property: style.PropStrikethrough, Flag: true},
+		}},
+		style.Rule{Class: "no-underline", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropUnderline},
+			style.Declaration{Property: style.PropStrikethrough},
+		}},
+		style.Rule{Class: "underline", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropUnderline, Flag: true},
+			style.Declaration{Property: style.PropStrikethrough},
+		}},
+		style.Rule{Class: "opacity-50", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOpacity, Number: 0.5},
+		}},
+		style.Rule{Class: "opacity-70", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOpacity, Number: 0.7},
+		}},
+		style.Rule{Class: "shadow", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Y: 1, Blur: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+				style.Shadow{Y: 1, Blur: 2, Spread: -1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-border)]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Tintable: true, Token: theme.Border, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-border)]", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 26}}, Tintable: true, Token: theme.Border, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-destructive)]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-destructive)]", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-input)]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Tintable: true, Token: theme.Input, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-input)]", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 38}}, Tintable: true, Token: theme.Input, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-primary)]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Tintable: true, Token: theme.Primary, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-primary)]", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 255}}, Tintable: true, Token: theme.Primary, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-ring)]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-[0_0_0_1px_var(--color-ring)]", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+			}},
+		}},
+		style.Rule{Class: "shadow-lg", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Y: 10, Blur: 15, Spread: -3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+				style.Shadow{Y: 4, Blur: 6, Spread: -4, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+			}},
+		}},
+		style.Rule{Class: "shadow-md", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Y: 4, Blur: 6, Spread: -1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+				style.Shadow{Y: 2, Blur: 4, Spread: -2, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+			}},
+		}},
+		style.Rule{Class: "shadow-sm", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Y: 1, Blur: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+				style.Shadow{Y: 1, Blur: 2, Spread: -1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{A: 26}}, Tintable: true},
+			}},
+		}},
+		style.Rule{Class: "ring", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRingWidth, Number: 1},
+		}},
+		style.Rule{Class: "ring-2", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRingWidth, Number: 2},
+		}},
+		style.Rule{Class: "ring-[3px]", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRingWidth, Number: 3},
+		}},
+		style.Rule{Class: "shadow-red-500", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadowColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 251, G: 44, B: 54, A: 255}}},
+		}},
+		style.Rule{Class: "ring-ring/50", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRingColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 128}}},
+			style.Declaration{Property: style.PropRingColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 128}}, Token: theme.Ring, Mix: 50},
+		}},
+		style.Rule{Class: "ring-ring/50", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRingColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 128}}},
+			style.Declaration{Property: style.PropRingColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 128}}, Token: theme.Ring, Mix: 50},
+		}},
+		style.Rule{Class: "transition", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTransitionProperty, Transition: 127},
+			style.Declaration{Property: style.PropTransitionEasing, Easing: style.Easing{X1: 0.4, X2: 0.2, Y2: 1}},
+			style.Declaration{Property: style.PropTransitionDuration, Duration: 150000000},
+		}},
+		style.Rule{Class: "select-none", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropUserSelect, UserSelect: style.SelectNone},
+		}},
+		style.Rule{Class: "ring-inset", Decls: []style.Declaration{
+			style.Declaration{Property: style.PropRingInset, Flag: true},
+		}},
+		style.Rule{Class: "focus-within:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]", When: style.Condition{States: style.StateFocusWithin}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 51}}, Tintable: true, Token: theme.Destructive, Mix: 20},
+			}},
+		}},
+		style.Rule{Class: "focus-within:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]", When: style.Condition{States: style.StateFocusWithin, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 51}}, Tintable: true, Token: theme.Destructive, Mix: 20},
+			}},
+		}},
+		style.Rule{Class: "focus-within:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]", When: style.Condition{States: style.StateFocusWithin}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 128}}, Tintable: true, Token: theme.Ring, Mix: 50},
+			}},
+		}},
+		style.Rule{Class: "focus-within:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]", When: style.Condition{States: style.StateFocusWithin, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 128}}, Tintable: true, Token: theme.Ring, Mix: 50},
+			}},
+		}},
+		style.Rule{Class: "hover:bg-accent", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 255}}, Token: theme.Accent, Mix: 100},
+		}},
+		style.Rule{Class: "hover:bg-accent", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 255}}, Token: theme.Accent, Mix: 100},
+		}},
+		style.Rule{Class: "hover:bg-destructive/90", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 230}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 230}}, Token: theme.Destructive, Mix: 90},
+		}},
+		style.Rule{Class: "hover:bg-destructive/90", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 230}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 230}}, Token: theme.Destructive, Mix: 90},
+		}},
+		style.Rule{Class: "hover:bg-muted/50", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 128}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 128}}, Token: theme.Muted, Mix: 50},
+		}},
+		style.Rule{Class: "hover:bg-muted/50", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 128}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 128}}, Token: theme.Muted, Mix: 50},
+		}},
+		style.Rule{Class: "hover:bg-primary/90", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 230}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 230}}, Token: theme.Primary, Mix: 90},
+		}},
+		style.Rule{Class: "hover:bg-primary/90", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 230}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 230}}, Token: theme.Primary, Mix: 90},
+		}},
+		style.Rule{Class: "hover:bg-secondary/80", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 204}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 204}}, Token: theme.Secondary, Mix: 80},
+		}},
+		style.Rule{Class: "hover:bg-secondary/80", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 204}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 204}}, Token: theme.Secondary, Mix: 80},
+		}},
+		style.Rule{Class: "hover:text-accent-foreground", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.AccentForeground, Mix: 100},
+		}},
+		style.Rule{Class: "hover:text-accent-foreground", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.AccentForeground, Mix: 100},
+		}},
+		style.Rule{Class: "hover:text-foreground", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "hover:text-foreground", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "hover:underline", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropUnderline, Flag: true},
+			style.Declaration{Property: style.PropStrikethrough},
+		}},
+		style.Rule{Class: "focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]", When: style.Condition{States: style.StateFocusVisible}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 51}}, Tintable: true, Token: theme.Destructive, Mix: 20},
+			}},
+		}},
+		style.Rule{Class: "focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]", When: style.Condition{States: style.StateFocusVisible, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 51}}, Tintable: true, Token: theme.Destructive, Mix: 20},
+			}},
+		}},
+		style.Rule{Class: "focus-visible:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]", When: style.Condition{States: style.StateFocusVisible}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 128}}, Tintable: true, Token: theme.Ring, Mix: 50},
+			}},
+		}},
+		style.Rule{Class: "focus-visible:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]", When: style.Condition{States: style.StateFocusVisible, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 128}}, Tintable: true, Token: theme.Ring, Mix: 50},
+			}},
+		}},
+		style.Rule{Class: "focus-visible:shadow-none", When: style.Condition{States: style.StateFocusVisible}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow},
+		}},
+		style.Rule{Class: "disabled:opacity-50", When: style.Condition{States: style.StateDisabled}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropOpacity, Number: 0.5},
+		}},
+		style.Rule{Class: "data-[active=true]:bg-muted", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-active", Value: "true"},
+		}}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 255}}, Token: theme.Muted, Mix: 100},
+		}},
+		style.Rule{Class: "data-[active=true]:bg-muted", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-active", Value: "true"},
+		}, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 255}}, Token: theme.Muted, Mix: 100},
+		}},
+		style.Rule{Class: "data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-active", Value: "true"},
+		}}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 51}}, Tintable: true, Token: theme.Destructive, Mix: 20},
+			}},
+		}},
+		style.Rule{Class: "data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-active", Value: "true"},
+		}, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 51}}, Tintable: true, Token: theme.Destructive, Mix: 20},
+			}},
+		}},
+		style.Rule{Class: "data-[active=true]:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-active", Value: "true"},
+		}}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 128}}, Tintable: true, Token: theme.Ring, Mix: 50},
+			}},
+		}},
+		style.Rule{Class: "data-[active=true]:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-active", Value: "true"},
+		}, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 255}}, Tintable: true, Token: theme.Ring, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 113, G: 113, B: 123, A: 128}}, Tintable: true, Token: theme.Ring, Mix: 50},
+			}},
+		}},
+		style.Rule{Class: "data-[state=active]:bg-background", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-state", Value: "active"},
+		}}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 255}}, Token: theme.Background, Mix: 100},
+		}},
+		style.Rule{Class: "data-[state=active]:bg-background", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-state", Value: "active"},
+		}, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 9, G: 9, B: 11, A: 255}}, Token: theme.Background, Mix: 100},
+		}},
+		style.Rule{Class: "data-[state=active]:bg-muted", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-state", Value: "active"},
+		}}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 255}}, Token: theme.Muted, Mix: 100},
+		}},
+		style.Rule{Class: "data-[state=active]:bg-muted", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-state", Value: "active"},
+		}, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 255}}, Token: theme.Muted, Mix: 100},
+		}},
+		style.Rule{Class: "sm:block", When: style.Condition{MinCols: 80}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDisplay},
+		}},
+		style.Rule{Class: "sm:flex-row", When: style.Condition{MinCols: 80}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropDirection},
+		}},
+		style.Rule{Class: "sm:justify-end", When: style.Condition{MinCols: 80}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropJustify, Justify: style.JustifyEnd},
+		}},
+		style.Rule{Class: "sm:pr-1", When: style.Condition{MinCols: 80}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "sm:pl-1", When: style.Condition{MinCols: 80}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 1}},
+		}},
+		style.Rule{Class: "sm:text-left", When: style.Condition{MinCols: 80}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign},
+		}},
+		style.Rule{Class: "md:px-6", When: style.Condition{MinCols: 100}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingLeft, Length: style.Length{Value: 6}},
+			style.Declaration{Property: style.PropPaddingRight, Length: style.Length{Value: 6}},
+		}},
+		style.Rule{Class: "md:py-3", When: style.Condition{MinCols: 100}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropPaddingTop, Length: style.Length{Value: 3}},
+			style.Declaration{Property: style.PropPaddingBottom, Length: style.Length{Value: 3}},
+		}},
+		style.Rule{Class: "md:text-left", When: style.Condition{MinCols: 100}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropTextAlign},
+		}},
+		style.Rule{Class: "dark:bg-destructive/60", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 231, B: 11, A: 153}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 153}}, Token: theme.Destructive, Mix: 60},
+		}},
+		style.Rule{Class: "dark:bg-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "dark:bg-input/30", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 77}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 11}}, Token: theme.Input, Mix: 30},
+		}},
+		style.Rule{Class: "dark:bg-input/80", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 204}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 30}}, Token: theme.Input, Mix: 80},
+		}},
+		style.Rule{Class: "dark:bg-primary-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 24, G: 24, B: 27, A: 255}}, Token: theme.PrimaryForeground, Mix: 100},
+		}},
+		style.Rule{Class: "dark:text-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "dark:text-muted-foreground", When: style.Condition{Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 159, G: 159, B: 169, A: 255}}, Token: theme.MutedForeground, Mix: 100},
+		}},
+		style.Rule{Class: "dark:focus-within:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]", When: style.Condition{States: style.StateFocusWithin, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 102}}, Tintable: true, Token: theme.Destructive, Mix: 40},
+			}},
+		}},
+		style.Rule{Class: "dark:hover:bg-accent/50", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 244, G: 244, B: 245, A: 128}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 128}}, Token: theme.Accent, Mix: 50},
+		}},
+		style.Rule{Class: "dark:hover:bg-input/50", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 228, G: 228, B: 231, A: 128}}},
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 255, B: 255, A: 19}}, Token: theme.Input, Mix: 50},
+		}},
+		style.Rule{Class: "hover:dark:bg-accent", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropBackground, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 39, G: 39, B: 42, A: 255}}, Token: theme.Accent, Mix: 100},
+		}},
+		style.Rule{Class: "dark:hover:text-foreground", When: style.Condition{States: style.StateHover, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropColor, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 250, G: 250, B: 250, A: 255}}, Token: theme.Foreground, Mix: 100},
+		}},
+		style.Rule{Class: "dark:focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]", When: style.Condition{States: style.StateFocusVisible, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 102}}, Tintable: true, Token: theme.Destructive, Mix: 40},
+			}},
+		}},
+		style.Rule{Class: "dark:data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]", When: style.Condition{Attrs: []style.Attr{
+			style.Attr{Name: "data-active", Value: "true"},
+		}, Scheme: style.SchemeDark}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropShadow, Shadows: []style.Shadow{
+				style.Shadow{Spread: 1, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 255}}, Tintable: true, Token: theme.Destructive, Mix: 100},
+				style.Shadow{Spread: 3, Color: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 255, G: 100, B: 103, A: 102}}, Tintable: true, Token: theme.Destructive, Mix: 40},
+			}},
+		}},
+		style.Rule{Class: "[&:hover]:underline", When: style.Condition{States: style.StateHover}, Decls: []style.Declaration{
+			style.Declaration{Property: style.PropUnderline, Flag: true},
+			style.Declaration{Property: style.PropStrikethrough},
+		}},
+	}
+}

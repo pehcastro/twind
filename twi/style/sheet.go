@@ -3,6 +3,7 @@ package style
 import (
 	"fmt"
 	"math"
+	"math/bits"
 	"slices"
 	"sync"
 	"time"
@@ -198,15 +199,71 @@ type Rule struct {
 
 type Sheet struct {
 	rules     []Rule
+	gated     []bool
+	start     *ComputedStyle
 	universal []int
-	byClass   map[string][]int
-	near      map[string][]int
-	hands     map[string][]int
-	marks     map[string]Markers
 	theme     *theme.Theme
 	bounds    []int
 	columns   int
 	shaded    *shadeCache
+	index
+}
+
+type class struct {
+	name               string
+	rules, near, hands []int
+	mark               Markers
+}
+
+type index struct {
+	classes []class
+	slots   []int32
+}
+
+func (x *index) class(name string) *class {
+	mask := uint64(len(x.slots) - 1)
+	for i := hash(name) & mask; len(x.slots) > 0; i = (i + 1) & mask {
+		k := x.slots[i]
+		if k == 0 {
+			return nil
+		}
+		if c := &x.classes[k-1]; c.name == name {
+			return c
+		}
+	}
+	return nil
+}
+
+func hash(s string) uint64 {
+	h := uint64(len(s)) ^ konst.HashA
+	for ; len(s) > 16; s = s[16:] {
+		h = mix(h^le64(s), le64(s[8:])^konst.HashB)
+	}
+	var a, b uint64
+	switch n := len(s); {
+	case n >= 8:
+		a, b = le64(s), le64(s[n-8:])
+	case n >= 4:
+		a, b = le32(s), le32(s[n-4:])
+	case n > 0:
+		a = uint64(s[0])<<16 | uint64(s[n/2])<<8 | uint64(s[n-1])
+	}
+	return mix(a^konst.HashB, b^h)
+}
+
+func mix(a, b uint64) uint64 {
+	hi, lo := bits.Mul64(a, b)
+	return hi ^ lo
+}
+
+func le64(s string) uint64 {
+	_ = s[7]
+	return uint64(s[0]) | uint64(s[1])<<8 | uint64(s[2])<<16 | uint64(s[3])<<24 | uint64(s[4])<<32 | uint64(s[5])<<40 | uint64(s[6])<<48 | uint64(s[7])<<56
+}
+
+func le32(s string) uint64 {
+	_ = s[3]
+	return uint64(s[0]) | uint64(s[1])<<8 | uint64(s[2])<<16 | uint64(s[3])<<24
 }
 
 type shading struct {
@@ -234,30 +291,39 @@ func (s Sheet) Band(columns int) int {
 
 func (s Sheet) Responsive(classes []string) bool {
 	bounded := func(i int) bool { return s.rules[i].When.MinCols != 0 || s.rules[i].When.BelowCols != 0 }
-	return slices.ContainsFunc(s.universal, bounded) || slices.ContainsFunc(classes, func(c string) bool {
-		return slices.ContainsFunc(s.byClass[c], bounded) || slices.ContainsFunc(s.near[c], bounded) || slices.ContainsFunc(s.hands[c], bounded)
+	return slices.ContainsFunc(s.universal, bounded) || slices.ContainsFunc(classes, func(name string) bool {
+		c := s.class(name)
+		return c != nil && (slices.ContainsFunc(c.rules, bounded) || slices.ContainsFunc(c.near, bounded) || slices.ContainsFunc(c.hands, bounded))
 	})
 }
 
 func (s Sheet) Marks(classes []string) Markers {
 	var marks Markers
-	for _, c := range classes {
-		marks |= s.marks[c]
+	for _, name := range classes {
+		if c := s.class(name); c != nil {
+			marks |= c.mark
+		}
 	}
 	return marks
 }
 
 func (s Sheet) Near(classes []string, into []int) []int {
-	for _, c := range classes {
-		into = append(into, s.near[c]...)
+	for _, name := range classes {
+		if c := s.class(name); c != nil {
+			into = append(into, c.near...)
+		}
 	}
 	return into
 }
 
 func (s Sheet) Hands(classes []string, node NodeState, into []int) []int {
 	scheme := s.scheme()
-	for _, c := range classes {
-		for _, i := range s.hands[c] {
+	for _, name := range classes {
+		c := s.class(name)
+		if c == nil {
+			continue
+		}
+		for _, i := range c.hands {
 			if when := &s.rules[i].When; s.fits(when, scheme) && node.holds(when.States, when.Attrs) {
 				into = append(into, i)
 			}
@@ -288,36 +354,54 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 		return Sheet{}, VersionError{Got: version}
 	}
 	s := Sheet{
-		rules:   slices.Clone(rules),
-		byClass: map[string][]int{},
-		near:    map[string][]int{},
-		hands:   map[string][]int{},
-		marks:   map[string]Markers{},
-		shaded:  &shadeCache{done: map[shading][2][]Shadow{}},
+		rules:  slices.Clone(rules),
+		shaded: &shadeCache{done: map[shading][2][]Shadow{}},
+		gated:  make([]bool, len(rules)),
 	}
+	ids := map[string]int{}
+	entry := func(name string) *class {
+		if _, ok := ids[name]; !ok {
+			ids[name] = len(s.classes)
+			s.classes = append(s.classes, class{name: name})
+		}
+		return &s.classes[ids[name]]
+	}
+	start, baked, marked := initial(), 0, 0
 	for i := range s.rules {
 		r := &s.rules[i]
+		w := &r.When
+		s.gated[i] = w.States != 0 || len(w.Attrs) > 0 || w.MinCols != 0 || w.BelowCols != 0 || w.Scheme != SchemeAny
 		for _, m := range [...]*Match{&r.Near, &r.Target} {
 			if m.Class == "" {
 				continue
 			}
-			if _, ok := s.marks[m.Class]; !ok {
-				if len(s.marks) == konst.MaxMarkers {
+			c := entry(m.Class)
+			if c.mark == 0 {
+				if marked == konst.MaxMarkers {
 					return Sheet{}, fmt.Errorf("style: more than %d group, peer and target classes", konst.MaxMarkers)
 				}
-				s.marks[m.Class] = 1 << len(s.marks)
+				c.mark = 1 << marked
+				marked++
 			}
-			m.mark = s.marks[m.Class]
+			m.mark = c.mark
 		}
 		switch {
 		case r.Target.Relation != RelationSelf:
-			s.hands[r.Class] = append(s.hands[r.Class], i)
+			c := entry(r.Class)
+			c.hands = append(c.hands, i)
 		case r.Near.Relation != RelationSelf:
-			s.near[r.Class] = append(s.near[r.Class], i)
-		case r.Class == "":
-			s.universal = append(s.universal, i)
+			c := entry(r.Class)
+			c.near = append(c.near, i)
+		case r.Class != "":
+			c := entry(r.Class)
+			c.rules = append(c.rules, i)
+		case baked == i && !s.gated[i] && !slices.ContainsFunc(r.Decls, func(d Declaration) bool { return d.Token != 0 || d.Property.inherited() }):
+			for j := range r.Decls {
+				start.apply(&r.Decls[j], r.Decls[j].Color, color.Color{})
+			}
+			baked++
 		default:
-			s.byClass[r.Class] = append(s.byClass[r.Class], i)
+			s.universal = append(s.universal, i)
 		}
 		for _, bound := range [...]int{r.When.MinCols, r.When.BelowCols} {
 			if bound != 0 {
@@ -327,7 +411,59 @@ func NewSheet(version int, rules []Rule) (Sheet, error) {
 	}
 	slices.Sort(s.bounds)
 	s.bounds = slices.Compact(s.bounds)
+	s.start = &start
+	if len(s.classes) > 0 {
+		s.slots = make([]int32, 1<<bits.Len(uint(len(s.classes)*konst.ClassSlots)))
+	}
+	mask := uint64(len(s.slots) - 1)
+	for k, c := range s.classes {
+		i := hash(c.name) & mask
+		for s.slots[i] != 0 {
+			i = (i + 1) & mask
+		}
+		s.slots[i] = int32(k + 1)
+	}
 	return s, nil
+}
+
+func (p Property) inherited() bool {
+	switch p {
+	case PropColor, PropBold, PropItalic, PropUnderline, PropStrikethrough, PropTextAlign, PropVisibility, PropCursor, PropUserSelect, PropWhiteSpace, PropOverflowWrap, PropWordBreak, PropPointerEvents:
+		return true
+	}
+	return false
+}
+
+func initial() ComputedStyle {
+	ease := Easing{X1: konst.EaseX1, Y1: konst.EaseY1, X2: konst.EaseX2, Y2: konst.EaseY2}
+	return ComputedStyle{
+		Shrink:       1,
+		AlignItems:   AlignStretch,
+		JustifyItems: AlignStretch,
+		Justify:      JustifyStretch,
+		AlignContent: JustifyStretch,
+		Basis:        Length{Unit: Auto},
+		Width:        Length{Unit: Auto},
+		Height:       Length{Unit: Auto},
+		MinWidth:     Length{Unit: Auto},
+		MinHeight:    Length{Unit: Auto},
+		MaxWidth:     Length{Unit: None},
+		MaxHeight:    Length{Unit: None},
+		Inset:        Edges{Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}},
+		BorderColor:  color.Color{Kind: color.Current},
+		Opacity:      1,
+		Gradient: Gradient{
+			From: GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.FromPosition},
+			Via:  GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.ViaPosition},
+			To:   GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.ToPosition},
+		},
+		Ring: Ring{
+			Color:       color.Color{Kind: color.Current},
+			OffsetColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: konst.RingOffsetWhite, G: konst.RingOffsetWhite, B: konst.RingOffsetWhite, A: konst.RingOffsetWhite}},
+		},
+		Transition: Transition{Properties: TransitionAll, Easing: ease},
+		Animation:  Animation{Iterations: 1, Easing: ease},
+	}
 }
 
 func (n NodeState) holds(states State, attrs []Attr) bool {
@@ -342,12 +478,14 @@ func (n NodeState) holds(states State, attrs []Attr) bool {
 	return true
 }
 
-func (s Sheet) themed(c color.Color, token theme.Token, mix float64) color.Color {
-	if token == 0 || s.theme == nil || s.theme.Tokens[token].Kind == color.Unset {
+func themed(t *theme.Theme, c color.Color, token theme.Token, mix float64) color.Color {
+	if token == 0 || t == nil || t.Tokens[token].Kind == color.Unset {
 		return c
 	}
-	c = s.theme.Tokens[token]
-	c.RGBA.A = uint8(math.Round(float64(c.RGBA.A) * mix / konst.OpaquePercent))
+	c = t.Tokens[token]
+	if mix != konst.OpaquePercent {
+		c.RGBA.A = uint8(math.Round(float64(c.RGBA.A) * mix / konst.OpaquePercent))
+	}
 	return c
 }
 
@@ -374,70 +512,42 @@ func (s Sheet) fits(when *Condition, scheme Scheme) bool {
 	return !narrow && !wide && (when.Scheme == SchemeAny || when.Scheme == scheme)
 }
 
-func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeState, related []int) ComputedStyle {
+func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeState, related []int) (out ComputedStyle) {
 	var stack [konst.MatchedRules]int
 	matched := append(stack[:0], s.universal...)
-	for _, c := range classes {
-		matched = append(matched, s.byClass[c]...)
+	for _, name := range classes {
+		if c := s.class(name); c != nil {
+			matched = append(matched, c.rules...)
+		}
 	}
 	matched = append(matched, related...)
-	slices.Sort(matched)
-	ease := Easing{X1: konst.EaseX1, Y1: konst.EaseY1, X2: konst.EaseX2, Y2: konst.EaseY2}
-	out := ComputedStyle{
-		Shrink:       1,
-		AlignItems:   AlignStretch,
-		JustifyItems: AlignStretch,
-		Justify:      JustifyStretch,
-		AlignContent: JustifyStretch,
-		Basis:        Length{Unit: Auto},
-		Width:        Length{Unit: Auto},
-		Height:       Length{Unit: Auto},
-		MinWidth:     Length{Unit: Auto},
-		MinHeight:    Length{Unit: Auto},
-		MaxWidth:     Length{Unit: None},
-		MaxHeight:    Length{Unit: None},
-		Inset:        Edges{Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}, Length{Unit: Auto}},
-		BorderColor:  color.Color{Kind: color.Current},
-		Opacity:      1,
-		Gradient: Gradient{
-			From: GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.FromPosition},
-			Via:  GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.ViaPosition},
-			To:   GradientStop{Color: color.Color{Kind: color.Literal}, Position: konst.ToPosition},
-		},
-		Color:         parent.Color,
-		Bold:          parent.Bold,
-		Italic:        parent.Italic,
-		Underline:     parent.Underline,
-		Strikethrough: parent.Strikethrough,
-		TextAlign:     parent.TextAlign,
-		Visibility:    parent.Visibility,
-		Cursor:        parent.Cursor,
-		UserSelect:    parent.UserSelect,
-		WhiteSpace:    parent.WhiteSpace,
-		OverflowWrap:  parent.OverflowWrap,
-		WordBreak:     parent.WordBreak,
-		PointerEvents: parent.PointerEvents,
-		Ring: Ring{
-			Color:       color.Color{Kind: color.Current},
-			OffsetColor: color.Color{Kind: color.Literal, RGBA: color.RGBA{R: konst.RingOffsetWhite, G: konst.RingOffsetWhite, B: konst.RingOffsetWhite, A: konst.RingOffsetWhite}},
-		},
-		Transition: Transition{Properties: TransitionAll, Easing: ease},
-		Animation:  Animation{Iterations: 1, Easing: ease},
+	if s.start == nil {
+		out = initial()
+	} else {
+		out = *s.start
 	}
+	out.Color, out.Bold, out.Italic, out.Underline, out.Strikethrough = parent.Color, parent.Bold, parent.Italic, parent.Underline, parent.Strikethrough
+	out.TextAlign, out.Visibility, out.Cursor, out.UserSelect = parent.TextAlign, parent.Visibility, parent.Cursor, parent.UserSelect
+	out.WhiteSpace, out.OverflowWrap, out.WordBreak, out.PointerEvents = parent.WhiteSpace, parent.OverflowWrap, parent.WordBreak, parent.PointerEvents
 	scheme := s.scheme()
-	for _, i := range slices.Compact(matched) {
+	var winners [1 << 8]int32
+	for _, i := range matched {
 		r := &s.rules[i]
-		if !s.fits(&r.When, scheme) || r.Target.Relation == RelationSelf && !node.holds(r.When.States, r.When.Attrs) {
+		if s.gated[i] && (!s.fits(&r.When, scheme) || r.Target.Relation == RelationSelf && !node.holds(r.When.States, r.When.Attrs)) {
 			continue
 		}
+		rank := int32(i + 1)
 		for j := range r.Decls {
 			d := &r.Decls[j]
-			if d.Token != 0 && s.theme != nil {
-				themed := *d
-				themed.Color = s.themed(d.Color, d.Token, d.Mix)
-				d = &themed
+			if winners[d.Property] > rank {
+				continue
 			}
-			out.apply(d, parent.Color)
+			winners[d.Property] = rank
+			c := d.Color
+			if d.Token != 0 && s.theme != nil {
+				c = themed(s.theme, c, d.Token, d.Mix)
+			}
+			out.apply(d, c, parent.Color)
 		}
 	}
 	if out.Shadows != nil || out.InsetShadows != nil || out.Ring.Width > 0 {
@@ -447,6 +557,12 @@ func (s Sheet) ComputeRelated(parent ComputedStyle, classes []string, node NodeS
 }
 
 func (s Sheet) finish(out *ComputedStyle) {
+	tokened := func(sh Shadow) bool { return sh.Token != 0 }
+	themed := s.theme != nil && (slices.ContainsFunc(out.Shadows, tokened) || slices.ContainsFunc(out.InsetShadows, tokened))
+	if out.Ring.Width <= 0 && !themed && out.ShadowColor.Kind == color.Unset && out.InsetShadowColor.Kind == color.Unset {
+		out.Shadows, out.InsetShadows = slices.Clip(out.Shadows), slices.Clip(out.InsetShadows)
+		return
+	}
 	key := shading{counts: [2]int{len(out.Shadows), len(out.InsetShadows)}, tints: [2]color.Color{out.ShadowColor, out.InsetShadowColor}, ring: out.Ring}
 	if len(out.Shadows) > 0 {
 		key.shadows = &out.Shadows[0]
@@ -454,7 +570,7 @@ func (s Sheet) finish(out *ComputedStyle) {
 	if len(out.InsetShadows) > 0 {
 		key.inset = &out.InsetShadows[0]
 	}
-	if s.theme != nil {
+	if themed {
 		key.tokens = s.theme.Tokens
 	}
 	s.shaded.mu.Lock()
@@ -490,7 +606,7 @@ func (s Sheet) shade(shadows []Shadow, tint color.Color) []Shadow {
 	}
 	var out []Shadow
 	for _, sh := range shadows {
-		sh.Color = s.themed(sh.Color, sh.Token, sh.Mix)
+		sh.Color = themed(s.theme, sh.Color, sh.Token, sh.Mix)
 		if sh.Tintable && tint.Kind != color.Unset {
 			sh.Color = tint
 		}
@@ -501,7 +617,7 @@ func (s Sheet) shade(shadows []Shadow, tint color.Color) []Shadow {
 	return out
 }
 
-func (s *ComputedStyle) apply(d *Declaration, inherited color.Color) {
+func (s *ComputedStyle) apply(d *Declaration, c, inherited color.Color) {
 	switch d.Property {
 	case PropDisplay:
 		s.Display = d.Display
@@ -608,16 +724,16 @@ func (s *ComputedStyle) apply(d *Declaration, inherited color.Color) {
 	case PropBorderStyle:
 		s.BorderStyle = d.BorderStyle
 	case PropBorderColor:
-		s.BorderColor = d.Color
+		s.BorderColor = c
 	case PropRadius:
 		s.Radius = d.Radius
 	case PropBackground:
-		s.Background = d.Color
+		s.Background = c
 	case PropOpacity:
 		s.Opacity = d.Number
 	case PropColor:
-		s.Color = d.Color
-		if d.Color.Kind == color.Current {
+		s.Color = c
+		if c.Kind == color.Current {
 			s.Color = inherited
 		}
 	case PropBold:
@@ -641,18 +757,18 @@ func (s *ComputedStyle) apply(d *Declaration, inherited color.Color) {
 	case PropInsetShadow:
 		s.InsetShadows = d.Shadows
 	case PropShadowColor:
-		s.ShadowColor = d.Color
+		s.ShadowColor = c
 	case PropInsetShadowColor:
-		s.InsetShadowColor = d.Color
+		s.InsetShadowColor = c
 	case PropGradient:
 		s.Gradient.GradientLine = d.Line
 	case PropGradientFrom:
-		s.Gradient.From.Color = d.Color
+		s.Gradient.From.Color = c
 	case PropGradientVia:
-		s.Gradient.Via.Color = d.Color
+		s.Gradient.Via.Color = c
 		s.Gradient.HasVia = true
 	case PropGradientTo:
-		s.Gradient.To.Color = d.Color
+		s.Gradient.To.Color = c
 	case PropGradientFromPosition:
 		s.Gradient.From.Position = d.Number
 	case PropGradientViaPosition:
@@ -662,13 +778,13 @@ func (s *ComputedStyle) apply(d *Declaration, inherited color.Color) {
 	case PropRingWidth:
 		s.Ring.Width = Pixels(d.Number)
 	case PropRingColor:
-		s.Ring.Color = d.Color
+		s.Ring.Color = c
 	case PropRingInset:
 		s.Ring.Inset = d.Flag
 	case PropRingOffsetWidth:
 		s.Ring.OffsetWidth = Pixels(d.Number)
 	case PropRingOffsetColor:
-		s.Ring.OffsetColor = d.Color
+		s.Ring.OffsetColor = c
 	case PropWhiteSpace:
 		s.WhiteSpace = d.WhiteSpace
 	case PropTextOverflow:
