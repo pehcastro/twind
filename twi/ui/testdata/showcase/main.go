@@ -15,12 +15,9 @@ import (
 
 func main() {
 	scheme := flag.String("scheme", "light", "zinc scheme, light or dark")
-	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups or fields")
+	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields or form")
+	focus := flag.String("focus", "", "on the form page, the control focused at start: email, textarea, checkbox, radio, toggles or otp")
 	flag.Parse()
-	body, ok := page(*name)
-	if !ok {
-		fail(fmt.Errorf("no page %q", *name))
-	}
 	sheet, err := Styles()
 	if err != nil {
 		fail(err)
@@ -32,12 +29,16 @@ func main() {
 		}
 	}
 	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet), twi.Theme(zinc))
+	body, ok := page(rt, *name, *focus)
+	if !ok {
+		fail(fmt.Errorf("no page %q", *name))
+	}
 	quit := twi.OnKey(func(k input.KeyEvent) {
 		if !k.Release && k.Key == input.KeyRune && k.Rune == 'q' {
 			rt.Quit()
 		}
 	})
-	if err := rt.Run(func() twi.Node { return screen(quit, body) }); err != nil {
+	if err := rt.Run(func() twi.Node { return screen(quit, body()) }); err != nil {
 		fail(err)
 	}
 }
@@ -65,24 +66,29 @@ func screen(quit twi.NodeOption, body twi.Node) twi.Node {
 	return el("flex flex-row h-full gap-4 px-3 py-1 bg-background text-foreground", quit, body)
 }
 
-func page(name string) (twi.Node, bool) {
+func page(rt *twi.Runtime, name, focus string) (func() twi.Node, bool) {
+	var n twi.Node
 	switch name {
+	case "form":
+		return form(rt, focus), true
 	case "wave1":
-		return wave1(), true
+		n = wave1()
 	case "tables":
-		return tables(), true
+		n = tables()
 	case "breadcrumbs":
-		return breadcrumbs(), true
+		n = breadcrumbs()
 	case "pagination":
-		return pagination(), true
+		n = pagination()
 	case "items":
-		return items(), true
+		n = items()
 	case "button-groups":
-		return buttonGroups(), true
+		n = buttonGroups()
 	case "fields":
-		return fields(), true
+		n = fields()
+	default:
+		return nil, false
 	}
-	return twi.Node{}, false
+	return func() twi.Node { return n }, true
 }
 
 func label(s string) twi.Node { return twi.Text(s) }
