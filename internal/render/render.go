@@ -43,7 +43,11 @@ func Render(root Node, f Frame) (*buffer.Buffer, error) {
 		return nil, err
 	}
 	layout.Layout(styled.box, f.Width, f.Height)
-	buf := buffer.New(f.Width, styled.box.BorderBox.H)
+	height := styled.box.BorderBox.H
+	if f.Height.Unit == layout.Cells {
+		height = f.Height.Value
+	}
+	buf := buffer.New(f.Width, height)
 	paint.Paint(buf, styled.scene(), f.Look)
 	return buf, nil
 }

@@ -131,3 +131,24 @@ func TestFixedHeight(t *testing.T) {
 		t.Errorf("fixed height 5 gave %d rows, first cell %q", buf.Height(), buf.At(0, 0).Grapheme)
 	}
 }
+
+func TestViewportHeightSizesBuffer(t *testing.T) {
+	sheet, err := style.NewSheet(konst.IRVersion, []style.Rule{
+		{Class: "fixed", Decls: []style.Declaration{{Property: style.PropPosition, Position: style.PositionFixed}}},
+		{Class: "bottom-0", Decls: []style.Declaration{{Property: style.PropBottom, Length: style.Length{Unit: style.Cells}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree := render.Node{Children: []render.Node{{Text: "1"}, {Text: "2"}, {Text: "3"}, {Text: "4"}, {Text: "5"}, {Classes: []string{"fixed", "bottom-0"}, Text: "pop"}}}
+	buf, err := render.Render(tree, render.Frame{Sheet: sheet, Width: 10, Height: layout.Length{Unit: layout.Cells, Value: 20}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if buf.Height() != 20 {
+		t.Fatalf("a 5-row root in a 20-row viewport gave %d rows, want 20", buf.Height())
+	}
+	if got := buf.At(0, 19).Grapheme + buf.At(1, 19).Grapheme + buf.At(2, 19).Grapheme; got != "pop" {
+		t.Errorf("row 19 starts %q, want the fixed bottom-0 popover %q", got, "pop")
+	}
+}

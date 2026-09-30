@@ -1,6 +1,8 @@
 package scene
 
 import (
+	"fmt"
+
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/style"
@@ -22,7 +24,9 @@ type Node struct {
 	Position                               layout.Position
 	ZIndex                                 int
 	Opacity                                float64
+	Scroll                                 bool
 	Background                             color.Color
+	Gradient                               style.Gradient
 	Border                                 Border
 	Shadows, InsetShadows                  []style.Shadow
 	Foreground                             color.Color
@@ -52,6 +56,7 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 		Position: box.Style.Position,
 		ZIndex:   box.Style.ZIndex,
 		Opacity:  s.Opacity,
+		Scroll:   scrolls(s.OverflowX) || scrolls(s.OverflowY),
 	}
 	if s.Visibility == style.Hidden {
 		return n
@@ -64,6 +69,10 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	}
 	edges := box.Style.Border
 	n.Background = own(s.Background)
+	n.Gradient = s.Gradient
+	for _, stop := range []*style.GradientStop{&n.Gradient.From, &n.Gradient.Via, &n.Gradient.To} {
+		stop.Color = own(stop.Color)
+	}
 	n.Border = Border{
 		Style: s.BorderStyle, Radius: s.Radius, Color: own(s.BorderColor),
 		Top: edges.Top > 0, Right: edges.Right > 0, Bottom: edges.Bottom > 0, Left: edges.Left > 0,
@@ -83,3 +92,13 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 }
 
 func (n Node) Lines() []string { return n.lines }
+
+func scrolls(o style.Overflow) bool {
+	switch o {
+	case style.OverflowVisible, style.OverflowHidden:
+		return false
+	case style.OverflowScroll, style.OverflowAuto:
+		return true
+	}
+	panic(fmt.Sprintf("scene: unknown overflow %d", o))
+}
