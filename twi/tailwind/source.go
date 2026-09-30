@@ -27,8 +27,6 @@ var compilerCorpus string
 //go:embed testdata/tailwind-4.3.3/tw-animate-css-1.4.0.css
 var twAnimate string
 
-const classPackage = "github.com/twind-dev/twind/twi/ui"
-
 type compileFunc func(string) ([]style.Rule, []Warning, error)
 
 func Input(sources []string) string {
@@ -95,20 +93,17 @@ func inputs(dir, generated string, compile compileFunc) ([]string, string, error
 			return nil, "", err
 		}
 	}
-	list, err := exec.Command("go", "list", "-C", dir, "-deps", "-f", `{{if .DepOnly}}{{.ImportPath}}{{"\t"}}{{.Dir}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .IgnoredGoFiles}}{{"\t"}}{{.}}{{end}}{{end}}`, ".").CombinedOutput()
+	list, err := exec.Command("go", "list", "-C", dir, "-deps", "-f", `{{if .DepOnly}}{{range .Imports}}{{if eq . "github.com/twind-dev/twind/twi"}}{{$.Dir}}{{range $.GoFiles}}{{"\t"}}{{.}}{{end}}{{range $.IgnoredGoFiles}}{{"\t"}}{{.}}{{end}}{{"\n"}}{{end}}{{end}}{{end}}`, ".").CombinedOutput()
 	if err != nil {
 		return nil, "", fmt.Errorf("go list: %w\n%s", err, list)
 	}
 	for line := range strings.Lines(string(list)) {
 		fields := strings.Split(strings.TrimRight(line, "\r\n"), "\t")
-		if fields[0] != classPackage && !strings.HasPrefix(fields[0], classPackage+"/") {
-			continue
-		}
-		for _, name := range fields[2:] {
+		for _, name := range fields[1:] {
 			if strings.HasSuffix(name, "_test.go") {
 				continue
 			}
-			if err := add(filepath.Join(fields[1], name)); err != nil {
+			if err := add(filepath.Join(fields[0], name)); err != nil {
 				return nil, "", err
 			}
 		}

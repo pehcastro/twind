@@ -123,7 +123,7 @@ func TestStaleTakesTestFilesOnlyForATestIR(t *testing.T) {
 	stale("twir_gen.go", false, "the other IR regenerated")
 }
 
-func TestInputsFollowClassPackages(t *testing.T) {
+func TestSourceFollowsPackagesThatBuildNodes(t *testing.T) {
 	write := func(path, body string) {
 		t.Helper()
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -133,28 +133,52 @@ func TestInputsFollowClassPackages(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	module := func(button, code string) string {
+	const node = "\n\nimport \"github.com/twind-dev/twind/twi\"\n\nvar _ twi.Node\n"
+	module := func(button, prose, code string) string {
 		dir := t.TempDir()
 		write(filepath.Join(dir, "go.mod"), "module github.com/twind-dev/twind\n\ngo 1.26\n")
-		write(filepath.Join(dir, "twi", "ui", "button.go"), "package ui\n\nconst Destructive = \""+button+"\"\n"+code)
+		write(filepath.Join(dir, "twi", "twi.go"), "package twi\n\nimport _ \"github.com/twind-dev/twind/twi/style\"\n\ntype Node struct{}\n\nconst core = \"underline\"\n")
+		write(filepath.Join(dir, "twi", "style", "style.go"), "package style\n\nconst hidden = \"block\"\n")
+		write(filepath.Join(dir, "twi", "ui", "button.go"), "package ui"+node+"\nconst Destructive = \""+button+"\"\n"+code)
 		write(filepath.Join(dir, "twi", "ui", "button_plan9.go"), "package ui\n\nconst plan9 = \"bg-amber-500\"\n")
 		write(filepath.Join(dir, "twi", "ui", "button_test.go"), "package ui\n\nconst testOnly = \"bg-lime-500\"\n")
-		write(filepath.Join(dir, "twi", "uikit", "kit.go"), "package uikit\n\nconst Kit = \"bg-sky-500\"\n")
+		write(filepath.Join(dir, "twi", "markdown", "markdown.go"), "package markdown"+node+"\nconst Prose = \""+prose+"\"\n")
+		write(filepath.Join(dir, "twi", "markdown", "markdown_test.go"), "package markdown\n\nconst testOnly = \"bg-teal-500\"\n")
+		write(filepath.Join(dir, "twi", "uikit", "kit.go"), "package uikit\n\nimport \"github.com/twind-dev/twind/twi/ui\"\n\nconst Kit = \"bg-sky-500\" + ui.Destructive\n")
 		return dir
 	}
 	app := t.TempDir()
 	point := func(twind string) {
 		write(filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.26\n\nrequire github.com/twind-dev/twind v0.0.0\n\nreplace github.com/twind-dev/twind => "+filepath.ToSlash(twind)+"\n")
 	}
-	point(module("bg-destructive text-white", ""))
-	write(filepath.Join(app, "main.go"), "package main\n\nimport (\n\t\"github.com/twind-dev/twind/twi/ui\"\n\t\"github.com/twind-dev/twind/twi/uikit\"\n)\n\nfunc main() { println(ui.Destructive, uikit.Kit) }\n")
-	candidates, hash, err := Inputs(app, "twir_gen.go")
-	if err != nil {
-		t.Fatal(err)
+	main := func(imports ...string) {
+		body := "package main\n\nimport (\n"
+		for _, path := range imports {
+			body += "\t_ \"" + path + "\"\n"
+		}
+		write(filepath.Join(app, "main.go"), body+")\n\nconst own = \"p-4\"\n\nfunc main() {}\n")
 	}
-	if got := strings.Join(candidates, " "); got != "bg-amber-500 bg-destructive text-white" {
-		t.Errorf("candidates %q, want twi/ui's two non-test files only, never twi/uikit", got)
+	candidates := func(want, why string) string {
+		t.Helper()
+		got, hash, err := Inputs(app, "twir_gen.go")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(got, " ") != want {
+			t.Errorf("%s: candidates %q, want %q", why, strings.Join(got, " "), want)
+		}
+		return hash
 	}
+	point(module("bg-destructive text-white", "prose-p", ""))
+	main("github.com/twind-dev/twind/twi", "github.com/twind-dev/twind/twi/style")
+	candidates("p-4", "an app importing neither twi/ui nor twi/markdown")
+	main("github.com/twind-dev/twind/twi/markdown")
+	candidates("p-4 prose-p", "an app importing twi/markdown")
+	main("github.com/twind-dev/twind/twi/uikit")
+	candidates("bg-amber-500 bg-destructive p-4 text-white", "twi/uikit reaches twi only through twi/ui")
+	write(filepath.Join(app, "lib", "lib.go"), "package lib"+node+"\nconst Card = \"rounded-lg\"\n")
+	main("example.com/app/lib", "github.com/twind-dev/twind/twi/markdown")
+	hash := candidates("p-4 prose-p rounded-lg", "a library package of the app's own module")
 	write(filepath.Join(app, "twir_gen.go"), Header(hash)+"package main\n")
 	check := func(want bool, why string) {
 		t.Helper()
@@ -163,21 +187,27 @@ func TestInputsFollowClassPackages(t *testing.T) {
 		}
 	}
 	check(false, "just generated")
-	point(module("bg-destructive text-white", ""))
-	check(false, "the same twi/ui at another path")
-	crlf := module("bg-destructive text-white", "")
-	src, _ := os.ReadFile(filepath.Join(crlf, "twi", "ui", "button.go"))
-	write(filepath.Join(crlf, "twi", "ui", "button.go"), strings.ReplaceAll(string(src), "\n", "\r\n"))
+	point(module("bg-destructive text-white", "prose-p", ""))
+	check(false, "the same module at another path")
+	point(module("bg-destructive text-black", "prose-p", ""))
+	check(false, "a class changed in twi/ui, which the app does not import")
+	crlf := module("bg-destructive text-white", "prose-p", "")
+	src, _ := os.ReadFile(filepath.Join(crlf, "twi", "markdown", "markdown.go"))
+	write(filepath.Join(crlf, "twi", "markdown", "markdown.go"), strings.ReplaceAll(string(src), "\n", "\r\n"))
 	point(crlf)
-	check(false, "twi/ui with CRLF line ends")
-	point(module("bg-destructive text-white", "\nfunc Pressed(n int) int { return n + 1 }\n"))
+	check(false, "twi/markdown with CRLF line ends")
+	point(module("bg-destructive text-white", "prose-p", "\nfunc Pressed(n int) int { return n + 1 }\n"))
 	check(false, "a function added in twi/ui")
-	point(module("bg-destructive text-black", ""))
-	check(true, "a twi/ui class changed")
-	point(module("bg-destructive text-white ring-2", ""))
-	check(true, "a twi/ui class added")
-	point(module("text-white", ""))
-	check(true, "a twi/ui class removed")
+	point(module("bg-destructive text-white", "prose-p font-bold", ""))
+	check(true, "a class added to twi/markdown")
+	point(module("bg-destructive text-white", "", ""))
+	check(true, "a class removed from twi/markdown")
+	main("github.com/twind-dev/twind/twi/ui")
+	point(module("bg-destructive text-white", "prose-p", ""))
+	hash = candidates("bg-amber-500 bg-destructive p-4 text-white", "an app importing twi/ui")
+	write(filepath.Join(app, "twir_gen.go"), Header(hash)+"package main\n")
+	point(module("bg-destructive text-white ring-2", "prose-p", ""))
+	check(true, "a class added to twi/ui")
 	write(filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.26\n")
 	if _, err := Stale(app, "twir_gen.go"); err == nil {
 		t.Error("an import go list cannot resolve: no error")
