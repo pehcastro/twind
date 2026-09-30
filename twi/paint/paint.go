@@ -46,10 +46,14 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect, widths
 	bg := n.Background
 	filled := bg.Kind == color.Literal && bg.RGBA.A > 0
 	if filled {
-		f := overlap(fill, clip)
+		f, cell := overlap(overlap(fill, clip), layout.Rect{W: buf.Width(), H: buf.Height()}), buffer.Cell{Grapheme: " ", Bg: bg}
 		for y := f.Y; y < f.Y+f.H; y++ {
 			for x := f.X; x < f.X+f.W; x++ {
-				put(buf, clip, x, y, buffer.Cell{Grapheme: " ", Bg: bg})
+				if translucent(bg) {
+					put(buf, clip, x, y, cell)
+				} else {
+					buf.Set(x, y, cell)
+				}
 			}
 		}
 	}
@@ -336,6 +340,15 @@ func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widt
 	}
 }
 
+func printable(line string) bool {
+	for i := range len(line) {
+		if line[i] < ' ' || line[i] > '~' {
+			return false
+		}
+	}
+	return true
+}
+
 type Glyph struct {
 	X, Y, Width int
 	Cluster     string
@@ -359,6 +372,14 @@ func Placed(n *scene.Node, widths text.Widths, rows layout.Rect) iter.Seq[Glyph]
 				x += max(r.W-widths.Width(line), 0)
 			default:
 				panic(fmt.Sprintf("paint: unknown text align %d", n.TextAlign))
+			}
+			if printable(line) {
+				for i := range min(len(line), end-x) {
+					if !yield(Glyph{x + i, y, 1, line[i : i+1]}) {
+						return
+					}
+				}
+				continue
 			}
 			for cluster := range text.Graphemes(line) {
 				w := widths.Width(cluster)

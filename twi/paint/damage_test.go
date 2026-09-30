@@ -263,6 +263,17 @@ func BenchmarkPaint1000(b *testing.B) {
 			Paint(buf, frames[i%2], Composited)
 		}
 	})
+	b.Run("theme", func(b *testing.B) {
+		themes := [2]scene.Node{app("keys 1"), app("keys 1")}
+		themes[1].Background = literal(zinc800)
+		buf := buffer.New(appColumns, appRows)
+		var p Painter
+		p.Paint(buf, &themes[0], Composited)
+		b.ReportAllocs()
+		for i := 1; b.Loop(); i++ {
+			p.Paint(buf, &themes[i%2], Composited)
+		}
+	})
 	b.Run("text", func(b *testing.B) {
 		buf := buffer.New(appColumns, appRows)
 		var p Painter

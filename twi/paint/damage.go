@@ -4,7 +4,6 @@ import (
 	"hash/maphash"
 	"math"
 	"math/bits"
-	"slices"
 	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/paint"
@@ -22,8 +21,10 @@ type Painter struct {
 	width, height, columns int
 	seed                   maphash.Seed
 	nodes                  []*scene.Node
-	shapes, drawn          []shape
+	areas                  []layout.Rect
+	shapes                 []shape
 	index                  map[*scene.Node]int32
+	reshaped               bool
 	ops                    []op
 	groups                 []uint64
 	tiles, last            []uint64
@@ -33,9 +34,9 @@ type Painter struct {
 }
 
 type shape struct {
-	children               int
-	position               layout.Position
 	z, top                 int
+	children               int32
+	position               layout.Position
 	hidden, faded, scrolls bool
 }
 
@@ -50,7 +51,6 @@ const (
 type op struct {
 	step step
 	node int32
-	area layout.Rect
 }
 
 type face struct {
@@ -69,7 +69,7 @@ func Paint(buf *buffer.Buffer, root scene.Node, look Look) {
 }
 
 func (p *Painter) Paint(buf *buffer.Buffer, root *scene.Node, look Look) {
-	p.order(root)
+	p.order(root, layout.Rect{W: buf.Width(), H: buf.Height()})
 	p.sign(buf, root, look)
 	p.damage(buf)
 	for _, span := range p.spans {
@@ -80,39 +80,71 @@ func (p *Painter) Paint(buf *buffer.Buffer, root *scene.Node, look Look) {
 	p.wide, p.wasWide = p.wasWide, p.wide
 }
 
-func (p *Painter) order(root *scene.Node) {
-	p.nodes, p.shapes = p.nodes[:0], p.shapes[:0]
-	p.preorder(root)
-	if slices.Equal(p.shapes, p.drawn) {
+func (p *Painter) order(root *scene.Node, screen layout.Rect) {
+	if p.nodes == nil {
+		total := size(root)
+		p.nodes, p.areas, p.shapes, p.ops = make([]*scene.Node, 0, total), make([]layout.Rect, 0, total), make([]shape, 0, total), make([]op, 0, total)
+	}
+	p.nodes, p.areas, p.reshaped = p.nodes[:0], p.areas[:0], false
+	p.preorder(root, screen)
+	if !p.reshaped && len(p.nodes) == len(p.shapes) {
 		return
 	}
-	p.shapes, p.drawn = p.drawn, p.shapes
-	if p.index == nil {
-		p.index = make(map[*scene.Node]int32, len(p.nodes))
+	p.shapes, p.ops = p.shapes[:len(p.nodes)], p.ops[:0]
+	next, indexed := int32(0), false
+	at := func(n *scene.Node) int32 {
+		if int(next) < len(p.nodes) && p.nodes[next] == n {
+			return next
+		}
+		if !indexed {
+			if p.index == nil {
+				p.index = make(map[*scene.Node]int32, len(p.nodes))
+			}
+			clear(p.index)
+			for i, n := range p.nodes {
+				p.index[n] = int32(i)
+			}
+			indexed = true
+		}
+		next = p.index[n]
+		return next
 	}
-	clear(p.index)
-	for i, n := range p.nodes {
-		p.index[n] = int32(i)
-	}
-	p.ops = p.ops[:0]
-	scene.Walk(root, func(n *scene.Node) { p.ops = append(p.ops, op{step: drawStep, node: p.index[n]}) }, func(n *scene.Node, inside func()) {
+	scene.Walk(root, func(n *scene.Node) {
+		p.ops = append(p.ops, op{step: drawStep, node: at(n)})
+		next++
+	}, func(n *scene.Node, inside func()) {
 		switch {
 		case n.Opacity <= 0:
 		case n.Opacity >= 1:
 			inside()
 		default:
-			p.ops = append(p.ops, op{step: openStep, node: p.index[n]})
+			i := at(n)
+			p.ops = append(p.ops, op{step: openStep, node: i})
 			inside()
-			p.ops = append(p.ops, op{step: closeStep, node: p.index[n]})
+			p.ops = append(p.ops, op{step: closeStep, node: i})
 		}
 	})
 }
 
-func (p *Painter) preorder(n *scene.Node) {
-	p.nodes = append(p.nodes, n)
-	p.shapes = append(p.shapes, shape{len(n.Children), n.Position, n.ZIndex, n.TopLayer, n.Opacity <= 0, n.Opacity < 1, n.Scroll})
+func size(n *scene.Node) int {
+	total := 1
 	for i := range n.Children {
-		p.preorder(&n.Children[i])
+		total += size(&n.Children[i])
+	}
+	return total
+}
+
+func (p *Painter) preorder(n *scene.Node, screen layout.Rect) {
+	s := shape{n.ZIndex, n.TopLayer, int32(len(n.Children)), n.Position, n.Opacity <= 0, n.Opacity < 1, n.Scroll}
+	switch i := len(p.nodes); {
+	case i == len(p.shapes):
+		p.shapes, p.reshaped = append(p.shapes, s), true
+	case p.shapes[i] != s:
+		p.shapes[i], p.reshaped = s, true
+	}
+	p.nodes, p.areas = append(p.nodes, n), append(p.areas, overlap(overlap(extent(n), n.Clip), screen))
+	for i := range n.Children {
+		p.preorder(&n.Children[i], screen)
 	}
 }
 
@@ -131,24 +163,23 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 	screen := layout.Rect{W: width, H: height}
 	p.groups = append(p.groups[:0], canvas)
 	opened := uint64(0)
-	for i := range p.ops {
-		o := &p.ops[i]
-		n := p.nodes[o.node]
+	for _, o := range p.ops {
 		switch o.step {
 		case openStep:
 			opened++
-			p.groups = append(p.groups, mix(mix(p.groups[len(p.groups)-1], math.Float64bits(n.Opacity)), opened))
+			p.groups = append(p.groups, mix(mix(p.groups[len(p.groups)-1], math.Float64bits(p.nodes[o.node].Opacity)), opened))
 			continue
 		case closeStep:
 			p.groups = p.groups[:len(p.groups)-1]
 			continue
 		}
-		o.area = overlap(overlap(extent(n), n.Clip), screen)
-		if o.area.W == 0 || o.area.H == 0 {
+		area := p.areas[o.node]
+		if area.W == 0 || area.H == 0 {
 			continue
 		}
+		n := p.nodes[o.node]
 		box := mix(p.box(n), p.groups[len(p.groups)-1])
-		p.mark(o.area, box, false)
+		p.mark(area, box, false)
 		ink, lines, widest, wide := box, n.Lines(p.Widths), 0, false
 		lines = lines[:min(len(lines), n.Content.H)]
 		for _, line := range lines {
@@ -276,7 +307,7 @@ func (p *Painter) repaint(buf *buffer.Buffer, root *scene.Node, look Look, span 
 			depth--
 			fade(target(depth), p.layers[depth], n.Opacity, span)
 		case drawStep:
-			if touched := overlap(o.area, span); touched.W > 0 && touched.H > 0 {
+			if touched := overlap(p.areas[o.node], span); touched.W > 0 && touched.H > 0 {
 				draw(target(depth), n, look, overlap(n.Clip, span), p.Widths)
 			}
 		}
