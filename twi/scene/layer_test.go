@@ -174,6 +174,32 @@ func BenchmarkLayers1000(b *testing.B) {
 	}
 }
 
+func TestDamageGroupOpacityReachesChildLayers(t *testing.T) {
+	group := func(opacity float64) Node {
+		g := box(2, 2, 5, 2, paint(39, 39, 42, 255))
+		g.Opacity = opacity
+		g.Children = []Node{popover(20, 5)}
+		return page(g)
+	}
+	d := damage(group(0.5), group(0.6))
+	popped := image.Rect(200, 100, 300, 160)
+	for _, r := range d.Rects {
+		if popped.In(r) {
+			return
+		}
+	}
+	t.Errorf("fading a group gave %+v, want the fixed child's layer %v damaged too", d, popped)
+}
+
+func TestRootBackgroundPaintsTheCanvas(t *testing.T) {
+	short := page()
+	short.Bounds.H, short.Padding.H, short.Content.H = 5, 5, 5
+	l := record(short).Layers[0]
+	if got := l.Ops[0].Box.Rect; got != (raster.Rect{W: 400, H: 240}) || l.Visual != image.Rect(0, 0, 400, 240) {
+		t.Errorf("a 5-row page in a 12-row viewport fills %+v with visual %v, want the whole 400x240 canvas", got, l.Visual)
+	}
+}
+
 func TestLayersNegativeZ(t *testing.T) {
 	under := box(1, 1, 6, 2, paint(255, 0, 0, 255))
 	under.Position, under.ZIndex = layout.PositionFixed, -1

@@ -163,6 +163,29 @@ func TestShadowPlain(t *testing.T) {
 	}
 }
 
+func TestGlyphsLeavesSurfacesToPixels(t *testing.T) {
+	md := style.Shadow{X: 1, Y: 1, Color: literal(shadowMd)}
+	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
+	bar := indigoToPink(t, style.ToRight)
+	bar.Radius = style.RadiusFull
+	root := page(10, 5, strings.Repeat("abcdefghij\n", 5),
+		card(place(1, 0, 5, 3, one), style.RadiusLg, md),
+		scene.New(place(1, 4, 6, 1, layout.Edges{}), bar, scene.Text{}),
+	)
+	buf := painted(10, 5, root, Glyphs)
+	expect(t, buf, "a     ghij", "a     ghij", "a     ghij", "abcdefghij", "a      hij")
+	if c := buf.At(3, 1); c.Bg != literal(white) {
+		t.Errorf("card cell %+v, want the card fill kept for occlusion", c)
+	}
+}
+
+func TestRootBackgroundPaintsTheCanvas(t *testing.T) {
+	buf := painted(6, 4, page(6, 2, "ab"), Composited)
+	if c := buf.At(5, 3); c.Bg != literal(zinc100) {
+		t.Errorf("cell below a 2-row page: %+v, want the page background, as a browser paints the canvas", c)
+	}
+}
+
 func TestShadowClip(t *testing.T) {
 	md := style.Shadow{X: 2, Y: 2, Spread: 1, Color: literal(shadowMd)}
 	box := place(0, 0, 4, 2, layout.Edges{})

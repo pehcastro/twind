@@ -6,23 +6,12 @@ import (
 	"math"
 	"slices"
 
-	konst "github.com/twind-dev/twind/internal/konst/raster"
+	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
+	konst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/style"
-)
-
-const (
-	borderPixels     = 1
-	radiusSmRem      = 0.25
-	radiusMdRem      = 0.375
-	radiusLgRem      = 0.5
-	radiusFullPixels = 1 << 20
-	degreesToRight   = 90
-	degreesToBottom  = 180
-	degreesToLeft    = 270
-	degreesTurn      = 360
 )
 
 func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
@@ -41,14 +30,19 @@ func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
 		}
 		cast := f.shadow(s)
 		f.ops = append(f.ops, raster.Op{Kind: raster.Shadow, Box: shape, Color: s.Color.RGBA, Shadow: cast})
-		reach := cast.Blur*konst.SigmaPerBlur*konst.ShadowReach + cast.Spread
+		reach := cast.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + cast.Spread
 		visual = visual.Union(image.Rect(
 			int(math.Floor(shape.X+cast.X-reach)), int(math.Floor(shape.Y+cast.Y-reach)),
 			int(math.Ceil(shape.X+shape.W+cast.X+reach)), int(math.Ceil(shape.Y+shape.H+cast.Y+reach)),
 		))
 	}
 	if shows(n.Background) {
-		f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: shape, Color: n.Background.RGBA})
+		fill := shape
+		if n == f.root {
+			canvas := f.pixels(f.screen).Sub(origin)
+			fill, visual = raster.Box{Rect: rect(canvas)}, visual.Union(canvas)
+		}
+		f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: fill, Color: n.Background.RGBA})
 	}
 	if n.Gradient.Kind == style.GradientLinear {
 		f.ops = append(f.ops, GradientFill(n.Gradient, shape))
@@ -58,9 +52,9 @@ func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
 	ring := bordered && edges.Top && edges.Right && edges.Bottom && edges.Left
 	inner := shape
 	if ring {
-		inner.Rect = raster.Rect{X: shape.X + borderPixels, Y: shape.Y + borderPixels, W: shape.W - 2*borderPixels, H: shape.H - 2*borderPixels}
+		inner.Rect = raster.Rect{X: shape.X + konst.BorderPixels, Y: shape.Y + konst.BorderPixels, W: shape.W - 2*konst.BorderPixels, H: shape.H - 2*konst.BorderPixels}
 		for i := range inner.Radii {
-			inner.Radii[i] = max(r-borderPixels, 0)
+			inner.Radii[i] = max(r-konst.BorderPixels, 0)
 		}
 	}
 	for i := len(n.InsetShadows) - 1; i >= 0; i-- {
@@ -72,17 +66,17 @@ func (f *Frame) record(n *Node, origin image.Point) (image.Rectangle, bool) {
 	}
 	switch {
 	case ring:
-		f.ops = append(f.ops, raster.Op{Kind: raster.Border, Box: shape, Color: edges.Color.RGBA, Width: borderPixels})
+		f.ops = append(f.ops, raster.Op{Kind: raster.Border, Box: shape, Color: edges.Color.RGBA, Width: konst.BorderPixels})
 	case bordered:
 		s := shape.Rect
 		for _, side := range [...]struct {
 			on   bool
 			line raster.Rect
 		}{
-			{edges.Top, raster.Rect{X: s.X, Y: s.Y, W: s.W, H: borderPixels}},
-			{edges.Right, raster.Rect{X: s.X + s.W - borderPixels, Y: s.Y, W: borderPixels, H: s.H}},
-			{edges.Bottom, raster.Rect{X: s.X, Y: s.Y + s.H - borderPixels, W: s.W, H: borderPixels}},
-			{edges.Left, raster.Rect{X: s.X, Y: s.Y, W: borderPixels, H: s.H}},
+			{edges.Top, raster.Rect{X: s.X, Y: s.Y, W: s.W, H: konst.BorderPixels}},
+			{edges.Right, raster.Rect{X: s.X + s.W - konst.BorderPixels, Y: s.Y, W: konst.BorderPixels, H: s.H}},
+			{edges.Bottom, raster.Rect{X: s.X, Y: s.Y + s.H - konst.BorderPixels, W: s.W, H: konst.BorderPixels}},
+			{edges.Left, raster.Rect{X: s.X, Y: s.Y, W: konst.BorderPixels, H: s.H}},
 		} {
 			if side.on {
 				f.ops = append(f.ops, raster.Op{Kind: raster.Fill, Box: raster.Box{Rect: side.line}, Color: edges.Color.RGBA})
@@ -123,36 +117,36 @@ func (f *Frame) radius(r style.Radius) float64 {
 	case style.RadiusNone:
 		return 0
 	case style.RadiusSm:
-		return radiusSmRem * rem
+		return konst.RadiusSmRem * rem
 	case style.RadiusMd:
-		return radiusMdRem * rem
+		return konst.RadiusMdRem * rem
 	case style.RadiusLg:
-		return radiusLgRem * rem
+		return konst.RadiusLgRem * rem
 	case style.RadiusFull:
-		return radiusFullPixels
+		return konst.RadiusFullPixels
 	}
 	panic(fmt.Sprintf("scene: unknown radius %d", r))
 }
 
 func angle(g style.GradientLine, box raster.Rect) float64 {
-	corner := math.Atan2(box.H, box.W) * degreesToBottom / math.Pi
+	corner := math.Atan2(box.H, box.W) * konst.DegreesToBottom / math.Pi
 	switch g.Direction {
 	case style.ToTop:
 		return 0
 	case style.ToRight:
-		return degreesToRight
+		return konst.DegreesToRight
 	case style.ToBottom:
-		return degreesToBottom
+		return konst.DegreesToBottom
 	case style.ToLeft:
-		return degreesToLeft
+		return konst.DegreesToLeft
 	case style.ToTopRight:
 		return corner
 	case style.ToBottomRight:
-		return degreesToBottom - corner
+		return konst.DegreesToBottom - corner
 	case style.ToBottomLeft:
-		return degreesToBottom + corner
+		return konst.DegreesToBottom + corner
 	case style.ToTopLeft:
-		return degreesTurn - corner
+		return konst.DegreesTurn - corner
 	case style.GradientAngle:
 		return g.Angle
 	}

@@ -4,14 +4,9 @@ import (
 	"image"
 	"math"
 
+	konst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/raster"
-)
-
-const (
-	hashSeed  = 0xcbf29ce484222325
-	hashPrime = 0x9e3779b97f4a7c15
-	hashShift = 29
 )
 
 type Move struct {
@@ -37,6 +32,7 @@ func Diff(prev, next *Frame) Damage {
 		return f.Layers[l.Parent].key
 	}
 	latest := -1
+	whole := make([]bool, len(next.Layers))
 	for i := range next.Layers {
 		l := &next.Layers[i]
 		j, ok := index[l.key]
@@ -46,7 +42,8 @@ func Diff(prev, next *Frame) Damage {
 		}
 		delete(index, l.key)
 		p := &prev.Layers[j]
-		if j < latest || p.Opacity != l.Opacity || parent(prev, p) != parent(next, l) {
+		if j < latest || p.Opacity != l.Opacity || parent(prev, p) != parent(next, l) || l.Parent >= 0 && whole[l.Parent] {
+			whole[i] = true
 			d.add(p.Visual)
 			d.add(l.Visual)
 			continue
@@ -56,7 +53,7 @@ func Diff(prev, next *Frame) Damage {
 			d.Moves = append(d.Moves, Move{Layer: i, From: p.Origin, To: l.Origin})
 		}
 		if p.hash != l.hash {
-			d.runs(p, l)
+			d.boxes(p, l)
 		}
 	}
 	for _, p := range prev.Layers {
@@ -67,36 +64,36 @@ func Diff(prev, next *Frame) Damage {
 	return d
 }
 
-func (d *Damage) runs(p, l *Layer) {
+func (d *Damage) boxes(p, l *Layer) {
 	same := 0
-	for ; same < min(len(p.runs), len(l.runs)) && p.runs[same].key == l.runs[same].key; same++ {
-		if p.runs[same].hash != l.runs[same].hash {
-			d.add(p.runs[same].visual.Add(l.Origin))
-			d.add(l.runs[same].visual.Add(l.Origin))
+	for ; same < min(len(p.Boxes), len(l.Boxes)) && p.Boxes[same].key == l.Boxes[same].key; same++ {
+		if p.Boxes[same].hash != l.Boxes[same].hash {
+			d.add(p.Boxes[same].Visual.Add(l.Origin))
+			d.add(l.Boxes[same].Visual.Add(l.Origin))
 		}
 	}
-	olds, news := p.runs[same:], l.runs[same:]
+	olds, news := p.Boxes[same:], l.Boxes[same:]
 	index := make(map[uint64]int, len(olds))
-	for j, r := range olds {
-		index[r.key] = j
+	for j, b := range olds {
+		index[b.key] = j
 	}
 	latest := -1
-	for _, r := range news {
-		j, ok := index[r.key]
+	for _, b := range news {
+		j, ok := index[b.key]
 		if !ok {
-			d.add(r.visual.Add(l.Origin))
+			d.add(b.Visual.Add(l.Origin))
 			continue
 		}
-		delete(index, r.key)
-		if j < latest || olds[j].hash != r.hash {
-			d.add(olds[j].visual.Add(l.Origin))
-			d.add(r.visual.Add(l.Origin))
+		delete(index, b.key)
+		if j < latest || olds[j].hash != b.hash {
+			d.add(olds[j].Visual.Add(l.Origin))
+			d.add(b.Visual.Add(l.Origin))
 		}
 		latest = max(latest, j)
 	}
-	for _, r := range olds {
-		if _, gone := index[r.key]; gone {
-			d.add(r.visual.Add(l.Origin))
+	for _, b := range olds {
+		if _, gone := index[b.key]; gone {
+			d.add(b.Visual.Add(l.Origin))
 		}
 	}
 }
@@ -108,12 +105,13 @@ func (d *Damage) add(r image.Rectangle) {
 	d.Rects = append(d.Rects, r)
 }
 
-func hash(ops []raster.Op) uint64 {
-	h := uint64(hashSeed)
+func hash(ops []raster.Op, at image.Point) uint64 {
+	h := uint64(konst.HashSeed)
+	x, y := float64(at.X), float64(at.Y)
 	for _, op := range ops {
 		b, s := op.Box, op.Shadow
 		for _, v := range [...]float64{
-			float64(op.Kind), b.X, b.Y, b.W, b.H, b.Radii[0], b.Radii[1], b.Radii[2], b.Radii[3],
+			float64(op.Kind), b.X - x, b.Y - y, b.W, b.H, b.Radii[0], b.Radii[1], b.Radii[2], b.Radii[3],
 			op.Angle, op.Width, op.Opacity, s.X, s.Y, s.Blur, s.Spread,
 		} {
 			h = mix(h, math.Float64bits(v))
@@ -135,6 +133,6 @@ func packed(c color.RGBA) uint64 {
 }
 
 func mix(h, v uint64) uint64 {
-	h = (h ^ v) * hashPrime
-	return h ^ h>>hashShift
+	h = (h ^ v) * konst.HashPrime
+	return h ^ h>>konst.HashShift
 }

@@ -21,15 +21,33 @@ type Look uint8
 const (
 	Composited Look = iota
 	Plain
+	Glyphs
 )
 
 func Paint(buf *buffer.Buffer, root scene.Node, look Look) {
-	stack(&root).paint(buf, look)
+	if bg := root.Background; bg.Kind == color.Literal && bg.RGBA.A > 0 {
+		buf.Fill(buffer.Rect{W: buf.Width(), H: buf.Height()}, buffer.Cell{Grapheme: " ", Bg: bg})
+	}
+	target := buf
+	scene.Walk(&root, func(n *scene.Node) { draw(target, n, look) }, func(n *scene.Node, inside func()) {
+		switch {
+		case n.Opacity <= 0:
+		case n.Opacity >= 1:
+			inside()
+		default:
+			under := target
+			target = buffer.New(buf.Width(), buf.Height())
+			target.Fill(buffer.Rect{W: buf.Width(), H: buf.Height()}, buffer.Cell{Grapheme: " ", Bg: color.Color{Kind: color.Literal}})
+			inside()
+			fade(under, target, n.Opacity)
+			target = under
+		}
+	})
 }
 
 func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 	shadows, insets := n.Shadows, n.InsetShadows
-	if look == Plain {
+	if look != Composited {
 		shadows, insets = nil, nil
 	}
 	for _, s := range shadows {
@@ -50,8 +68,8 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 			}
 		}
 	}
-	if look == Composited && n.Gradient.Kind == style.GradientLinear {
-		gradient(buf, n, fill)
+	if look != Plain && n.Gradient.Kind == style.GradientLinear {
+		gradient(buf, n, fill, look)
 	}
 	if look == Composited && filled && n.Border.Radius == style.RadiusFull && n.Bounds.H == 1 {
 		caps, r := strings.Split(konst.PillCaps, ""), n.Bounds
@@ -68,7 +86,7 @@ func draw(buf *buffer.Buffer, n *scene.Node, look Look) {
 	lines(buf, n)
 }
 
-func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect) {
+func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look) {
 	w, h := float64(fill.W), float64(2*fill.H)
 	op := scene.GradientFill(n.Gradient, raster.Box{Rect: raster.Rect{W: w, H: h}})
 	sin, cos := math.Sincos(op.Angle * math.Pi / 180)
@@ -84,7 +102,7 @@ func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect) {
 			top := color.Color{Kind: color.Literal, RGBA: raster.Mean(img, image.Rect(x, 2*y, x+1, 2*y+1))}
 			bottom := color.Color{Kind: color.Literal, RGBA: raster.Mean(img, image.Rect(x, 2*y+1, x+1, 2*y+2))}
 			cell := buffer.Cell{Grapheme: konst.UpperHalf, Fg: top, Bg: bottom}
-			if top == bottom {
+			if top == bottom || look == Glyphs {
 				cell = buffer.Cell{Grapheme: " ", Bg: bottom}
 			}
 			put(buf, n.Clip, fill.X+x, fill.Y+y, cell)
@@ -144,6 +162,9 @@ func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, c color.Color, in
 }
 
 func glyphs(b scene.Border, look Look) (edges, corners string) {
+	if look == Glyphs {
+		return "", ""
+	}
 	round := konst.SquareCorners
 	if b.Radius != style.RadiusNone {
 		round = konst.RoundedCorners

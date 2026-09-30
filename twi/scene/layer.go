@@ -5,6 +5,7 @@ import (
 	"image"
 	"slices"
 
+	konst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/raster"
 )
@@ -13,8 +14,9 @@ type Frame struct {
 	Layers []Layer
 	cell   image.Point
 	screen layout.Rect
+	root   *Node
 	ops    []raster.Op
-	runs   []run
+	boxes  []Box
 }
 
 type Layer struct {
@@ -22,17 +24,20 @@ type Layer struct {
 	Origin  image.Point
 	Opacity float64
 	Ops     []raster.Op
+	Boxes   []Box
 	Visual  image.Rectangle
 	key     uint64
 	hash    uint64
-	runs    []run
 	opsFrom int
-	runFrom int
+	boxFrom int
 }
 
-type run struct {
+type Box struct {
+	Visual    image.Rectangle
+	Ops       []raster.Op
+	Look      uint64
 	key, hash uint64
-	visual    image.Rectangle
+	opsFrom   int
 }
 
 type context struct {
@@ -54,20 +59,33 @@ type chunk struct {
 }
 
 func (f *Frame) Record(root *Node, cell image.Point) {
-	f.cell, f.screen = cell, root.Clip
-	f.Layers, f.ops, f.runs = f.Layers[:0], f.ops[:0], f.runs[:0]
-	f.promote(stack(root, hashSeed), -1)
-	opsTo, runTo := len(f.ops), len(f.runs)
+	f.cell, f.screen, f.root = cell, root.Clip, root
+	f.Layers, f.ops, f.boxes = f.Layers[:0], f.ops[:0], f.boxes[:0]
+	f.promote(stack(root, konst.HashSeed), -1)
+	opsTo, boxTo := len(f.ops), len(f.boxes)
 	for i := len(f.Layers) - 1; i >= 0; i-- {
 		l := &f.Layers[i]
-		l.Ops, l.runs = f.ops[l.opsFrom:opsTo:opsTo], f.runs[l.runFrom:runTo:runTo]
-		opsTo, runTo = l.opsFrom, l.runFrom
+		l.Ops, l.Boxes = f.ops[l.opsFrom:opsTo:opsTo], f.boxes[l.boxFrom:boxTo:boxTo]
+		for j := len(l.Boxes) - 1; j >= 0; j-- {
+			b := &l.Boxes[j]
+			b.Ops = f.ops[b.opsFrom:opsTo:opsTo]
+			opsTo = b.opsFrom
+		}
+		opsTo, boxTo = l.opsFrom, l.boxFrom
 		l.hash = l.key
-		for _, r := range l.runs {
-			l.hash = mix(mix(l.hash, r.key), r.hash)
-			l.Visual = l.Visual.Union(r.visual.Add(l.Origin))
+		for _, b := range l.Boxes {
+			l.hash = mix(mix(l.hash, b.key), b.hash)
+			l.Visual = l.Visual.Union(b.Visual.Add(l.Origin))
 		}
 	}
+}
+
+func Walk(root *Node, draw func(*Node), group func(n *Node, inside func())) {
+	var walk func(*context)
+	walk = func(ctx *context) {
+		ctx.visit(func(e entry) { draw(e.node) }, func(c *context) { group(c.node, func() { walk(c) }) })
+	}
+	group(root, func() { walk(stack(root, konst.HashSeed)) })
 }
 
 func stack(n *Node, key uint64) *context {
@@ -108,33 +126,37 @@ func (ctx *context) collect(n *Node, key uint64, into *context) {
 	}
 }
 
+func (ctx *context) visit(draw func(entry), child func(*context)) {
+	draw(ctx.flow[0])
+	for _, s := range ctx.below {
+		child(s)
+	}
+	for _, e := range ctx.flow[1:] {
+		if e.scroll != nil {
+			child(e.scroll)
+			continue
+		}
+		draw(e)
+	}
+	for _, s := range ctx.level {
+		child(s)
+	}
+	for _, s := range ctx.above {
+		child(s)
+	}
+}
+
 func (f *Frame) promote(ctx *context, parent int) {
 	c := &chunk{first: len(f.Layers)}
 	f.Layers = append(f.Layers, Layer{
 		Parent: parent, Origin: f.pixels(ctx.node.Bounds).Min, Opacity: ctx.node.Opacity,
-		key: mix(mix(ctx.key, 0), 0), opsFrom: len(f.ops), runFrom: len(f.runs),
+		key: mix(mix(ctx.key, 0), 0), opsFrom: len(f.ops), boxFrom: len(f.boxes),
 	})
 	f.paint(ctx, c)
 }
 
 func (f *Frame) paint(ctx *context, c *chunk) {
-	f.draw(ctx.flow[0], c)
-	for _, s := range ctx.below {
-		f.child(s, c)
-	}
-	for _, e := range ctx.flow[1:] {
-		if e.scroll != nil {
-			f.child(e.scroll, c)
-			continue
-		}
-		f.draw(e, c)
-	}
-	for _, s := range ctx.level {
-		f.child(s, c)
-	}
-	for _, s := range ctx.above {
-		f.child(s, c)
-	}
+	ctx.visit(func(e entry) { f.draw(e, c) }, func(s *context) { f.child(s, c) })
 }
 
 func (f *Frame) child(ctx *context, c *chunk) {
@@ -159,8 +181,10 @@ func (f *Frame) draw(e entry, c *chunk) {
 		c.count++
 		f.Layers = append(f.Layers, Layer{
 			Parent: c.first, Origin: origin, Opacity: 1,
-			key: mix(f.Layers[c.first].key, uint64(c.count)), opsFrom: start, runFrom: len(f.runs),
+			key: mix(f.Layers[c.first].key, uint64(c.count)), opsFrom: start, boxFrom: len(f.boxes),
 		})
 	}
-	f.runs = append(f.runs, run{key: e.key, hash: hash(f.ops[start:]), visual: visual})
+	look := mix(hash(f.ops[start:], visual.Min), uint64(visual.Dx())<<32|uint64(visual.Dy()))
+	at := uint64(visual.Min.X)<<32 | uint64(uint32(visual.Min.Y))
+	f.boxes = append(f.boxes, Box{Visual: visual, Look: look, key: e.key, hash: mix(look, at), opsFrom: start})
 }

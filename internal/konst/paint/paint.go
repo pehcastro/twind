@@ -14,3 +14,10 @@ const (
 	UpperHalf      = "▀"
 	PillCaps       = "▐▌"
 )
+
+const (
+	TileColumns     = 8
+	KittyFirstImage = 0x74770000
+	EraseCells      = "X"
+	DefaultBg       = "\x1b[49m"
+)

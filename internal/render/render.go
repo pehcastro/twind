@@ -35,21 +35,29 @@ type styledBox struct {
 }
 
 func Render(root Node, f Frame) (*buffer.Buffer, error) {
+	tree, err := Scene(root, f)
+	if err != nil {
+		return nil, err
+	}
+	height := tree.Bounds.H
+	if f.Height.Unit == layout.Cells {
+		height = f.Height.Value
+	}
+	buf := buffer.New(f.Width, height)
+	paint.Paint(buf, tree, f.Look)
+	return buf, nil
+}
+
+func Scene(root Node, f Frame) (scene.Node, error) {
 	if f.Sanitize == nil {
 		f.Sanitize = scene.Sanitize
 	}
 	styled, err := build(f, style.ComputedStyle{}, root)
 	if err != nil {
-		return nil, err
+		return scene.Node{}, err
 	}
 	layout.Layout(styled.box, f.Width, f.Height)
-	height := styled.box.BorderBox.H
-	if f.Height.Unit == layout.Cells {
-		height = f.Height.Value
-	}
-	buf := buffer.New(f.Width, height)
-	paint.Paint(buf, styled.scene(), f.Look)
-	return buf, nil
+	return styled.scene(), nil
 }
 
 func (s *styledBox) scene() scene.Node {
