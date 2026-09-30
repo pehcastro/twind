@@ -14,3 +14,4 @@ CLAUDE.md
 .twind/bin/
 .twind/cache/
 rtk/
+node_modules/

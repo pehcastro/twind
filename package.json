@@ -1,0 +1,20 @@
+{
+  "name": "twind-dev",
+  "private": true,
+  "packageManager": "pnpm@10.27.0",
+  "scripts": {
+    "hello": "go run ./examples/hello",
+    "hello:truecolor": "go run ./examples/hello -truecolor",
+    "hello:wt": "wt -w new --title twind-hello cmd /k go run ./examples/hello",
+    "sheet": "node -e \"require('fs').mkdirSync('.local/prints/dev',{recursive:true})\" && TWIND_SHEET=$INIT_CWD/.local/prints/dev go test ./twi/raster/ -run Sheet -count=1",
+    "gen": "go generate ./examples/hello ./twi/testdata/hello ./bench/budgets ./internal/twirgen/testdata/hello",
+    "test": "go test -p 8 ./...",
+    "test:race": "CGO_ENABLED=1 go test -p 8 -race ./twi/runtime/...",
+    "vet": "go vet ./...",
+    "lint": "go tool golangci-lint run ./...",
+    "deadcode": "go tool deadcode ./...",
+    "check": "pnpm vet && pnpm lint && pnpm test",
+    "bench": "go test -p 1 ./bench/... -run ^$ -bench . -count 5",
+    "fmt": "gofmt -l ."
+  }
+}
