@@ -185,8 +185,8 @@ func TestParts(t *testing.T) {
 		{"progress track: bg-primary/20 rounded-full", light, Progress(37), nil, func(s style.ComputedStyle) bool {
 			return s.Background == token(light, theme.Primary, 51) && s.Radius == style.RadiusFull && s.OverflowX == style.OverflowHidden
 		}},
-		{"progress 37: the indicator is 37% wide", light, Progress(37), []int{0}, func(s style.ComputedStyle) bool {
-			return s.Background == light.Tokens[theme.Primary] && s.Width == percent(37)
+		{"progress 37: the indicator is 37% wide and square, the track's rounded clip rounds it", light, Progress(37), []int{0}, func(s style.ComputedStyle) bool {
+			return s.Background == light.Tokens[theme.Primary] && s.Width == percent(37) && s.Radius == style.RadiusNone
 		}},
 		{"progress below 0 clamps to 0", light, Progress(-5), []int{0}, func(s style.ComputedStyle) bool { return s.Width == percent(0) }},
 		{"progress above 100 clamps to 100", light, Progress(140), []int{0}, func(s style.ComputedStyle) bool { return s.Width == percent(100) }},

@@ -10,7 +10,7 @@ const (
 	primaryRing      = "shadow-[0_0_0_1px_var(--color-primary)]"
 	focusRing        = "shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
 	invalidRing      = "shadow-[0_0_0_1px_var(--color-destructive)]"
-	invalidFocusRing = "shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)]"
+	invalidFocusRing = "shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
 )
 
 type control struct {
@@ -46,13 +46,17 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 	if keys == nil {
 		return options
 	}
-	return append(options, twi.OnKeyDown(func(e *twi.Event) {
+	return append(options, keyDown(c.rt, keys))
+}
+
+func keyDown(rt *twi.Runtime, keys func(input.KeyEvent) bool) twi.NodeOption {
+	return twi.OnKeyDown(func(e *twi.Event) {
 		if !e.Key.Release && keys(e.Key) {
 			e.PreventDefault()
 			e.StopPropagation()
-			c.rt.Invalidate()
+			rt.Invalidate()
 		}
-	}))
+	})
 }
 
 func notify[T any](onChange func(T), v T) {

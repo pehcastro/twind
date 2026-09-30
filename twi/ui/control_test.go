@@ -114,8 +114,8 @@ func TestControlStates(t *testing.T) {
 		{"checkbox invalid and focused: destructive with a destructive/20 halo", light, checkbox(false, true, false, true), nil, func(s style.ComputedStyle) bool {
 			return halo(s, light.Tokens[theme.Destructive], scaled(light, theme.Destructive, 0.2))
 		}},
-		{"checkbox invalid and focused, dark: the dark destructive at /20, the compiler drops a dark: arbitrary shadow so /40 waits", dark, checkbox(false, true, false, true), nil, func(s style.ComputedStyle) bool {
-			return halo(s, dark.Tokens[theme.Destructive], scaled(dark, theme.Destructive, 0.2))
+		{"checkbox invalid and focused, dark: the dark destructive with a /40 halo", dark, checkbox(false, true, false, true), nil, func(s style.ComputedStyle) bool {
+			return halo(s, dark.Tokens[theme.Destructive], scaled(dark, theme.Destructive, 0.4))
 		}},
 		{"switch unchecked: a bg-input pill, thumb at the start", light, switcher(false, false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Input] && s.Justify == style.JustifyStart && s.Width == cells(4) && s.Height == cells(1) && s.Radius == style.RadiusFull && len(s.Shadows) == 0

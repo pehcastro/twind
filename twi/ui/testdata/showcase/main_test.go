@@ -28,7 +28,7 @@ func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
 	}
 	return drive.New(func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(zinc(scheme))
-		body, ok := page(rt, name, "")
+		body, ok := page(rt, name, "", "")
 		if !ok {
 			t.Fatalf("no page %q", name)
 		}
@@ -46,6 +46,7 @@ func TestDrivenFrame(t *testing.T) {
 		"button-groups": {"Archive", "Report", "Snooze", "Copy", "Paste", "https://"},
 		"fields":        {"Payment Method", "Card Number", "Billing Address", "Submit", "Enter a valid email address.", "Or continue with"},
 		"form":          {"Email", "shadcn!", "Type your message here.", "https://", "Select status", "Accept terms and conditions", "✓", "Airplane Mode", "●", "Bookmark", "50"},
+		"overlays":      {"Edit Profile", "Show Dialog", "Open Drawer", "Open popover", "Hover", "@nextjs", "Selected: nothing yet", "Team Members"},
 	} {
 		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
 			d := driven(t, name, scheme)
@@ -61,7 +62,7 @@ func TestDrivenFrame(t *testing.T) {
 			}
 		}
 	}
-	if _, ok := page(nil, "nothing", ""); ok {
+	if _, ok := page(nil, "nothing", "", ""); ok {
 		t.Error("a page that does not exist was found")
 	}
 }

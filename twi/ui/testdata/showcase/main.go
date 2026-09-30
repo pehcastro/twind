@@ -15,8 +15,9 @@ import (
 
 func main() {
 	scheme := flag.String("scheme", "light", "zinc scheme, light or dark")
-	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields or form")
+	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields, form or overlays")
 	focus := flag.String("focus", "", "on the form page, the control focused at start: email, textarea, checkbox, radio, toggles or otp")
+	open := flag.String("open", "", "on the overlays page, the overlay open at start: dialog, alert, sheet, drawer, menu, menu-sub, popover, tooltip or hovercard")
 	flag.Parse()
 	sheet, err := Styles()
 	if err != nil {
@@ -29,7 +30,7 @@ func main() {
 		}
 	}
 	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet), twi.Theme(zinc))
-	body, ok := page(rt, *name, *focus)
+	body, ok := page(rt, *name, *focus, *open)
 	if !ok {
 		fail(fmt.Errorf("no page %q", *name))
 	}
@@ -66,11 +67,13 @@ func screen(quit twi.NodeOption, body twi.Node) twi.Node {
 	return el("flex flex-row h-full gap-4 px-3 py-1 bg-background text-foreground", quit, body)
 }
 
-func page(rt *twi.Runtime, name, focus string) (func() twi.Node, bool) {
+func page(rt *twi.Runtime, name, focus, open string) (func() twi.Node, bool) {
 	var n twi.Node
 	switch name {
 	case "form":
 		return form(rt, focus), true
+	case "overlays":
+		return overlays(rt, open), true
 	case "wave1":
 		n = wave1()
 	case "tables":

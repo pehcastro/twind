@@ -20,6 +20,6 @@ w-[91%] w-[92%] w-[93%] w-[94%] w-[95%] w-[96%] w-[97%] w-[98%] w-[99%] w-[100%]
 
 func Progress(value int, children ...twi.NodeOption) twi.Node {
 	widths := strings.Fields(indicatorWidths)
-	indicator := part("h-full rounded-full bg-primary "+widths[min(max(value, 0), len(widths)-1)], nil)
+	indicator := part("h-full bg-primary "+widths[min(max(value, 0), len(widths)-1)], nil)
 	return part("relative flex flex-row h-1 w-full overflow-hidden rounded-full bg-primary/20", append([]twi.NodeOption{indicator}, children...))
 }
