@@ -104,6 +104,79 @@ func TestMinContent(t *testing.T) {
 	}
 }
 
+const hash = "0123456789abcdef0123456789abcdef01234567"
+
+func TestWordBreak(t *testing.T) {
+	cases := []struct {
+		word  WordBreak
+		s     string
+		width int
+		want  []string
+		min   int
+	}{
+		{WordBreakNormal, "commit " + hash, 12, []string{"commit", hash[:12], hash[12:24], hash[24:36], hash[36:]}, 40},
+		{WordBreakAll, "commit " + hash, 12, []string{"commit 01234", hash[5:17], hash[17:29], hash[29:]}, 1},
+		{WordBreakKeepAll, "commit " + hash, 12, []string{"commit", hash[:12], hash[12:24], hash[24:36], hash[36:]}, 40},
+		{WordBreakAll, "https://example.com/docs/wrapping", 12, []string{"https://exam", "ple.com/doc", "s/wrapping"}, 4},
+		{WordBreakAll, "wait! (ok) a-b 中文。", 4, []string{"wai", "t!", "(ok)", "a-b", "中", "文。"}, 4},
+		{WordBreakNormal, "中文排版 需要断行。日本語", 12, []string{"中文排版 需", "要断行。日本", "語"}, 4},
+		{WordBreakKeepAll, "中文排版 需要断行。日本語", 12, []string{"中文排版", "需要断行。", "日本語"}, 10},
+		{WordBreakKeepAll, "中文排版需要", 10, []string{"中文排版需", "要"}, 12},
+		{WordBreakKeepAll, "見て（abc中文）", 20, []string{"見て（abc中文）"}, 11},
+		{WordBreakKeepAll, "見て（abc中文）", 11, []string{"見て", "（abc中文）"}, 11},
+	}
+	for _, c := range cases {
+		b := Wrapping{Word: c.word}
+		if got := b.Wrap(c.s, c.width); !slices.Equal(got, c.want) {
+			t.Errorf("word-break %d Wrap(%+q, %d) = %+q, want %+q", c.word, c.s, c.width, got, c.want)
+		}
+		if got := b.MinContent(c.s); got != c.min {
+			t.Errorf("word-break %d MinContent(%+q) = %d, want %d", c.word, c.s, got, c.min)
+		}
+	}
+}
+
+func TestOverflowWrap(t *testing.T) {
+	cases := []struct {
+		overflow OverflowWrap
+		s        string
+		width    int
+		want     []string
+		min      int
+	}{
+		{OverflowWrapNormal, "commit " + hash, 12, []string{"commit", hash[:12], hash[12:24], hash[24:36], hash[36:]}, 40},
+		{OverflowWrapBreakWord, "commit " + hash, 12, []string{"commit", hash[:12], hash[12:24], hash[24:36], hash[36:]}, 40},
+		{OverflowWrapAnywhere, "commit " + hash, 12, []string{"commit", hash[:12], hash[12:24], hash[24:36], hash[36:]}, 1},
+		{OverflowWrapBreakWord, "https://example.com/docs/wrapping", 12, []string{"https://", "example.com/", "docs/", "wrapping"}, 12},
+		{OverflowWrapBreakWord, "see https://averyveryverylonghost.io/x", 10, []string{"see", "https://", "averyveryv", "erylonghos", "t.io/x"}, 25},
+		{OverflowWrapAnywhere, "see https://averyveryverylonghost.io/x", 10, []string{"see", "https://", "averyveryv", "erylonghos", "t.io/x"}, 1},
+		{OverflowWrapAnywhere, "a 中文", 1, []string{"a", "中", "文"}, 2},
+		{OverflowWrapAnywhere, "go (   b", 4, []string{"go", "( b"}, 1},
+	}
+	for _, c := range cases {
+		b := Wrapping{Overflow: c.overflow}
+		if got := b.Wrap(c.s, c.width); !slices.Equal(got, c.want) {
+			t.Errorf("overflow-wrap %d Wrap(%+q, %d) = %+q, want %+q", c.overflow, c.s, c.width, got, c.want)
+		}
+		if got := b.MinContent(c.s); got != c.min {
+			t.Errorf("overflow-wrap %d MinContent(%+q) = %d, want %d", c.overflow, c.s, got, c.min)
+		}
+	}
+}
+
+func TestWordBreakUnknownMode(t *testing.T) {
+	for _, b := range []Wrapping{{Word: WordBreakKeepAll + 1}, {Overflow: OverflowWrapAnywhere + 1}} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("Wrapping %+v did not panic", b)
+				}
+			}()
+			b.Wrap("a b", 1)
+		}()
+	}
+}
+
 func TestTruncate(t *testing.T) {
 	cases := []struct {
 		s     string

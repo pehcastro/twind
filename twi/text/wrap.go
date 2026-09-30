@@ -1,6 +1,7 @@
 package text
 
 import (
+	"fmt"
 	"strings"
 
 	konst "github.com/twind-dev/twind/internal/konst/text"
@@ -85,15 +86,41 @@ type wrapper struct {
 	used       int
 }
 
+type WordBreak uint8
+
+const (
+	WordBreakNormal WordBreak = iota
+	WordBreakAll
+	WordBreakKeepAll
+)
+
+type OverflowWrap uint8
+
+const (
+	OverflowWrapNormal OverflowWrap = iota
+	OverflowWrapBreakWord
+	OverflowWrapAnywhere
+)
+
+type Wrapping struct {
+	Widths   Widths
+	Word     WordBreak
+	Overflow OverflowWrap
+}
+
 func Wrap(s string, width int) []string {
-	return Widths{}.Wrap(s, width)
+	return Wrapping{}.Wrap(s, width)
 }
 
 func (w Widths) Wrap(s string, width int) []string {
-	out := wrapper{w: w, s: s, width: width, lines: make([]string, 0, len(s)/max(width, 1)+1)}
+	return Wrapping{Widths: w}.Wrap(s, width)
+}
+
+func (b Wrapping) Wrap(s string, width int) []string {
+	out := wrapper{w: b.Widths, s: s, width: width, lines: make([]string, 0, len(s)/max(width, 1)+1)}
 	from := 0
 	for paragraph := range strings.SplitSeq(s, "\n") {
-		w.segments(s, from, from+len(paragraph), out.place)
+		b.segments(s, from, from+len(paragraph), out.place)
 		out.flush()
 		from += len(paragraph) + 1
 	}
@@ -101,27 +128,48 @@ func (w Widths) Wrap(s string, width int) []string {
 }
 
 func (w Widths) MinContent(s string) int {
+	return Wrapping{Widths: w}.MinContent(s)
+}
+
+func (b Wrapping) MinContent(s string) int {
 	widest := 0
+	emit := func(_, _, width int, _ bool) { widest = max(widest, width) }
+	if b.Overflow == OverflowWrapAnywhere {
+		emit = func(start, end, _ int, _ bool) {
+			for pos := start; pos < end; {
+				n, cluster, _ := b.Widths.next(s[pos:end])
+				widest = max(widest, cluster)
+				pos += n
+			}
+		}
+	}
 	from := 0
 	for paragraph := range strings.SplitSeq(s, "\n") {
-		w.segments(s, from, from+len(paragraph), func(_, _, width int, _ bool) { widest = max(widest, width) })
+		b.segments(s, from, from+len(paragraph), emit)
 		from += len(paragraph) + 1
 	}
 	return widest
 }
 
-func (w Widths) segments(s string, from, to int, emit func(start, end, width int, spaced bool)) {
+func (b Wrapping) segments(s string, from, to int, emit func(start, end, width int, spaced bool)) {
+	if b.Word > WordBreakKeepAll || b.Overflow > OverflowWrapAnywhere {
+		panic(fmt.Sprintf("text: unknown word-break %d or overflow-wrap %d", b.Word, b.Overflow))
+	}
 	var before lineClass
 	start, end, segWidth := from, from, 0
 	var segSpaced, spaced, leadingHyphen bool
 	for pos := from; pos < to; {
-		n, width, after := w.next(s[pos:to])
+		n, width, after := b.Widths.next(s[pos:to])
 		if n == 1 && s[pos] == ' ' {
 			spaced = true
 			pos++
 			continue
 		}
-		if end == from || lineBreaks(before, after, spaced, leadingHyphen) {
+		if b.Word == WordBreakAll && after <= numeric {
+			after = ideographic
+		}
+		keptWhole := b.Word == WordBreakKeepAll && !spaced && before <= ideographic && after <= ideographic
+		if end == from || !keptWhole && lineBreaks(before, after, spaced, leadingHyphen) {
 			emit(start, end, segWidth, segSpaced)
 			start, segWidth, segSpaced = pos, 0, spaced
 		} else if spaced {
@@ -215,7 +263,7 @@ func (o *wrapper) flush() {
 }
 
 func MinContent(s string) int {
-	return Widths{}.MinContent(s)
+	return Wrapping{}.MinContent(s)
 }
 
 func Truncate(s string, width int) string {
