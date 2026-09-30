@@ -1,0 +1,34 @@
+package main
+
+import (
+	"fmt"
+	str "strings"
+)
+
+// Point is a place on the grid.
+type Point struct {
+	X, Y int
+	Name string `json:"name"`
+}
+
+/* area returns
+   the product */
+func (p *Point) area() float64 {
+	return float64(p.X * p.Y)
+}
+
+func main() {
+	pts := make([]Point, 0, 8)
+	for i := range 3 {
+		pts = append(pts, Point{X: i, Y: i << 1, Name: str.Repeat("x", i)})
+	}
+	if len(pts) != 0 && pts[0].Name == "" {
+		fmt.Println("empty", nil, true, false, iota)
+	}
+	var ch chan<- rune = nil
+	_ = ch
+	x := 0x_FF &^ 0b1010
+	x >>= 2
+	defer func() { recover() }()
+	fmt.Printf("%d %v\n", x, pts)
+}

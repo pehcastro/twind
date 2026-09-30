@@ -1,0 +1,43 @@
+# project settings
+title = "Twind \"docs\" \u00e9"
+version = 8
+ratio = +0.75
+big = 1_000_000
+hex = 0xDEAD_BEEF
+oct = 0o755
+bin = 0b1101
+exp = -1.5e+3
+inf_value = -inf
+not_number = nan
+enabled = true
+"quoted key" = 'literal \n stays'
+site."dotted".key = "x"
+
+[server]
+host = "localhost"
+ports = [ 8000, 8001, 8002 ]
+started = 1979-05-27T07:32:00Z
+offset = 1979-05-27T00:32:00.999-07:00
+local = 1979-05-27 07:32:00
+day = 1979-05-27
+alarm = 07:32:00
+point = { x = 1, y = -2, label = "p", when = 2024-01-01 }
+
+[[products]]
+name = "Hammer"
+sku = 738594937
+notes = """
+multi "line" \
+  basic"""
+raw = '''
+C:\path\no\escape'''
+
+[[products]]
+name = "Nail" # trailing comment
+colors = [
+  "red", # first
+  "green",
+]
+
+[a.b.'c d']
+e = 1

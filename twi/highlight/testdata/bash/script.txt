@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# install the tool into $HOME/bin
+readonly dest="${HOME}/bin"
+name=${1:-twind}
+count=$((count + 1))
+(( total += count * 2 ))
+
+if [[ -z "$name" && $count -gt 0 ]]; then
+	echo "installing $name to ${dest%/}/" >&2
+elif [[ $name =~ ^tw[a-z]+$ ]]; then
+	printf '%s\n' "single 'quoted' ok"
+else
+	exit 1
+fi
+
+for f in *.go; do
+	go vet "./$f" | grep -v 'ok' || true
+done
+
+while read -r line; do
+	case "$line" in
+		main|init) echo $'tab\there \x41 \u00e9' ;;
+		*) : ;;
+	esac
+done < <(ls -1 "$dest")
+
+build() {
+	local out=`date +%s`
+	cat <<< "héllo $out" 2>/dev/null
+	return $?
+}
+build && echo done

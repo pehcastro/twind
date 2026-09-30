@@ -1,0 +1,33 @@
+const (
+	a = 42
+	b = 1_000_000
+	c = 0o755 + 0O7 + 0600
+	d = 0xDEAD_beef
+	e = 1.5e-3 + .25 + 6.
+	f = 0x1.8p+3i
+	g = 3i + 1e5i
+	h = 0b1011_0001
+)
+
+var s = "tab\t quote\" hex\x41 oct\101 u\u00e9 U\U0001F600 bad\q"
+var r = []rune{'a', '\n', '\'', '\x7f', '\u2318', 'é'}
+var raw = `line one
+line two \n stays`
+var uni = "héllo, 世界 👋"
+var 名前 = 1
+
+func ops() {
+	a, b := 1, 2
+	a += b; a -= b; a *= b; a /= b; a %= b
+	a &= b; a |= b; a ^= b; a <<= 1; a >>= 1; a &^= b
+	ok := a == b || a != b && a <= b || a >= b || !(a < b) || a > b
+	a++; b--
+	_ = ok
+	_ = ^a + ~b
+	f(xs...)
+	format := forward
+	returning, typed := trueish, falsey
+	_ = format
+}
+
+var tail = "never closed

@@ -5,3 +5,9 @@ Copyright (c) 2025 Wombosvideo
 MIT License
 Embedded by twi/tailwind (the compiler input used by cmd/twind and internal/twirgen).
 The full licence text is in twi/tailwind/testdata/tailwind-4.3.3/tw-animate-css-LICENSE.
+
+twinkleplop (https://github.com/pngwn/twinkleplop)
+Copyright (c) 2025 pngwn
+MIT License
+twi/highlight is heavily inspired by it: its grammar model and the Go, bash, JSON and TOML grammars are ported from it.
+The full licence text is in twi/highlight/README.md.
