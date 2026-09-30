@@ -89,6 +89,40 @@ func TestRenderHostile(t *testing.T) {
 	}
 }
 
+func TestSpacing(t *testing.T) {
+	d := driven(t, "Intro.\n\n## Section\n\nAfter.\n\n- one\n- two\n  - nested\n\n```go\nx\n```\n\n- loose a\n\n- loose b\n", &Options{})
+	lines := strings.Split(d.Frame().Text(), "\n")
+	row := func(s string) int {
+		for y, line := range lines {
+			if strings.Contains(line, s) {
+				return y
+			}
+		}
+		t.Fatalf("no %q in the frame:\n%s", s, d.Frame().Text())
+		return 0
+	}
+	for _, c := range []struct {
+		what        string
+		above, next int
+		want        int
+	}{
+		{"the first block from the top", -1, row("Intro."), 1},
+		{"a section heading after a paragraph", row("Intro."), row("Section"), 3},
+		{"a paragraph after a heading", row("Section"), row("After."), 2},
+		{"a list after a paragraph", row("After."), row("• one"), 2},
+		{"two tight list items", row("• one"), row("• two"), 2},
+		{"a nested list after its item", row("• two"), row("◦ nested"), 2},
+		{"two loose list items", row("• loose a"), row("• loose b"), 2},
+	} {
+		if got := c.next - c.above; got != c.want {
+			t.Errorf("%s: %d rows apart, want %d:\n%s", c.what, got, c.want, d.Frame().Text())
+		}
+	}
+	if y := row("◦ nested"); strings.TrimSpace(lines[y+1]) != "" || strings.TrimSpace(lines[y+2]) == "" {
+		t.Errorf("a code block after a list: want one blank row, then the block:\n%s", d.Frame().Text())
+	}
+}
+
 func longPage() string {
 	var b strings.Builder
 	for i := range 20 {

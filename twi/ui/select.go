@@ -58,7 +58,7 @@ func (s *Select) Content(children ...twi.NodeOption) twi.Node {
 	}
 	at := s.phase()
 	return s.place(at, func() twi.Node {
-		return part("flex flex-col min-w-full shrink-0 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion,
+		return part("flex flex-col min-w-full shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion,
 			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(s.rt, s.key), children))
 	})
 }
@@ -69,7 +69,7 @@ func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node 
 }
 
 func (c *control) option(label string, at int, active *int, checked bool, choose func(), children []twi.NodeOption) twi.Node {
-	classes := "relative flex flex-row items-center rounded-sm pr-4 pl-1 select-none"
+	classes := "relative flex flex-row items-center gap-1 rounded-sm pr-4 pl-2 select-none"
 	if at == *active {
 		classes += " bg-accent text-accent-foreground"
 	}
@@ -83,11 +83,11 @@ func (c *control) option(label string, at int, active *int, checked bool, choose
 			c.rt.Invalidate()
 		}
 	})
-	return part(classes, append([]twi.NodeOption{highlight, c.click(choose), part("grow", []twi.NodeOption{twi.Text(label)}), part("absolute right-1 flex", mark)}, children...))
+	return part(classes, slotted([]twi.NodeOption{highlight, c.click(choose), part("absolute right-1 flex", mark)}, children, part("grow", []twi.NodeOption{twi.Text(label)})))
 }
 
 func SelectLabel(children ...twi.NodeOption) twi.Node {
-	return part("px-1 text-muted-foreground", children)
+	return part("px-2 text-muted-foreground", children)
 }
 
 func SelectSeparator() twi.Node {

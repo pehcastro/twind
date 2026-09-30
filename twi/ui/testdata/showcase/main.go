@@ -7,6 +7,7 @@ import (
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/theme"
 	"github.com/twind-dev/twind/twi/ui"
 )
@@ -54,6 +55,10 @@ func el(class string, children ...twi.NodeOption) twi.Node {
 }
 
 func text(class, s string) twi.Node { return el(class, twi.Text(s)) }
+
+func glyph(s string) twi.Node {
+	return twi.Element(twi.Tag(style.ElementSVG), twi.Class("text-muted-foreground"), twi.Text(s))
+}
 
 func section(title string, children ...twi.NodeOption) twi.Node {
 	return el("flex flex-col gap-1", append([]twi.NodeOption{text("text-muted-foreground", title)}, children...)...)

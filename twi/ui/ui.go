@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/twind-dev/twind/twi"
@@ -56,6 +57,24 @@ func merged(classes string, options []twi.NodeOption) []twi.NodeOption {
 		classes, options = Merge(classes, strings.Join(caller, " ")), rest
 	}
 	return append([]twi.NodeOption{twi.Class(classes)}, options...)
+}
+
+type ItemIcon struct{ twi.Node }
+
+func slotted(out, children []twi.NodeOption, label ...twi.NodeOption) []twi.NodeOption {
+	out = slices.Grow(out, len(children)+len(label))
+	for _, c := range children {
+		if _, ok := c.(ItemIcon); ok {
+			out = append(out, c)
+		}
+	}
+	out = append(out, label...)
+	for _, c := range children {
+		if _, ok := c.(ItemIcon); !ok {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func icon(glyph, classes string) twi.Node {

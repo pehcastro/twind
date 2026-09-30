@@ -22,6 +22,7 @@
   --color-accent: var(--color-zinc-100);
   --color-accent-foreground: var(--color-zinc-900);
   --color-destructive: var(--color-red-600);
+  --color-destructive-foreground: var(--color-zinc-50);
   --color-border: var(--color-zinc-200);
   --color-input: var(--color-zinc-200);
   --color-ring: var(--color-zinc-400);
@@ -40,6 +41,15 @@
   --color-chart-5: var(--color-zinc-800);
   --color-selection: var(--color-black);
   --color-selection-foreground: var(--color-white);
+  --color-syntax-keyword: oklch(0.55 0.19 22);
+  --color-syntax-string: oklch(0.52 0.14 148);
+  --color-syntax-number: oklch(0.5 0.18 256);
+  --color-syntax-comment: oklch(0.53 0.035 200);
+  --color-syntax-function: oklch(0.49 0.2 295);
+  --color-syntax-constant: oklch(0.5 0.18 256);
+  --color-syntax-namespace: oklch(0.49 0.2 295);
+  --color-syntax-parameter: oklch(0.55 0.17 48);
+  --color-syntax-punctuation: oklch(0.45 0 0);
 }
 @layer theme {
   :root, :host {
@@ -72,6 +82,15 @@
       --color-sidebar-ring: var(--color-zinc-500);
       --color-selection: var(--color-neutral-200);
       --color-selection-foreground: var(--color-neutral-900);
+      --color-syntax-keyword: oklch(0.72 0.15 18);
+      --color-syntax-string: oklch(0.8 0.14 150);
+      --color-syntax-number: oklch(0.77 0.12 252);
+      --color-syntax-comment: oklch(0.7 0.035 200);
+      --color-syntax-function: oklch(0.74 0.14 300);
+      --color-syntax-constant: oklch(0.77 0.12 252);
+      --color-syntax-namespace: oklch(0.74 0.14 300);
+      --color-syntax-parameter: oklch(0.81 0.11 58);
+      --color-syntax-punctuation: oklch(0.72 0 0);
     }
   }
 }

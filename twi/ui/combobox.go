@@ -60,7 +60,7 @@ func (c *Combobox) Content(children ...twi.NodeOption) twi.Node {
 		if shown(c.items) == 0 {
 			children = append(children, part("py-1 text-center text-muted-foreground", []twi.NodeOption{twi.Text(c.Empty)}))
 		}
-		return part("flex flex-col min-w-full shrink-0 mt-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion, append([]twi.NodeOption{at.state()}, children...))
+		return part("flex flex-col min-w-full shrink-0 gap-1 mt-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion, append([]twi.NodeOption{at.state()}, children...))
 	})
 }
 

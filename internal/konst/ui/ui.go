@@ -6,7 +6,7 @@ const (
 	ToastDuration = 4 * time.Second
 	ToastTick     = 100 * time.Millisecond
 	VisibleToasts = 3
-	CommandRows   = 10
+	CommandRows   = 9
 	MatchBase     = 1000
 	PageSteps     = 10
 	SliderMax     = 100

@@ -69,8 +69,8 @@ func overlays(rt *twi.Runtime, open string) func() twi.Node {
 				section("Dropdown menu",
 					menu.Node(menu.Trigger(outline, size, label("Open")), menu.Content(
 						ui.DropdownMenuLabel(label("My Account")),
-						menu.Item("Profile", ui.DropdownMenuShortcut(label("⇧⌘P"))),
-						menu.Item("Billing", ui.DropdownMenuShortcut(label("⌘B"))),
+						menu.Item("Profile", ui.DropdownMenuShortcut(label("⇧⌘P")), ui.ItemIcon{Node: glyph("◉")}),
+						menu.Item("Billing", ui.ItemIcon{Node: glyph("▭")}, ui.DropdownMenuShortcut(label("⌘B"))),
 						invite.Node(invite.Trigger("Invite users"), invite.Content(invite.Item("Email"), invite.Item("Message"), ui.DropdownMenuSeparator(), invite.Item("More..."))),
 						menu.Item("Settings", ui.DropdownMenuShortcut(label("⌘S"))),
 						ui.DropdownMenuSeparator(),

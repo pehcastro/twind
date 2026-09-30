@@ -1481,6 +1481,15 @@
       --color-sidebar-ring: var(--color-zinc-500);
       --color-selection: var(--color-neutral-200);
       --color-selection-foreground: var(--color-neutral-900);
+      --color-syntax-keyword: oklch(0.72 0.15 18);
+      --color-syntax-string: oklch(0.8 0.14 150);
+      --color-syntax-number: oklch(0.77 0.12 252);
+      --color-syntax-comment: oklch(0.7 0.035 200);
+      --color-syntax-function: oklch(0.74 0.14 300);
+      --color-syntax-constant: oklch(0.77 0.12 252);
+      --color-syntax-namespace: oklch(0.74 0.14 300);
+      --color-syntax-parameter: oklch(0.81 0.11 58);
+      --color-syntax-punctuation: oklch(0.72 0 0);
     }
   }
 }

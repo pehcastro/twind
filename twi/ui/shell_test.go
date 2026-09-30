@@ -124,7 +124,7 @@ func TestContextMenuRightClick(t *testing.T) {
 	expect("a right click opens it with its corner at the pointer", menu.Open && x == 20+4 && y == 6+1)
 	t.Logf("right click at 20,6, 80x24:\n%s", d.Frame().Text())
 	_, py, _ := at(d.Frame(), "Print...")
-	expect("the menu is whole past the bottom of its overflow-hidden parent and over the later sibling", py == 6+5 && has(d, "Print..."))
+	expect("the menu is whole past the bottom of its overflow-hidden parent and over the later sibling", py == 6+9 && has(d, "Print..."))
 	right(30, 3)
 	x, y, _ = at(d.Frame(), "Back")
 	expect("a second right click inside the area moves it to the new point", menu.Open && x == 30+4 && y == 3+1)

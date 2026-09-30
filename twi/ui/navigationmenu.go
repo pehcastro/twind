@@ -79,7 +79,7 @@ func (i *NavigationMenuItem) Content(children ...twi.NodeOption) twi.Node {
 	i.links, i.built = i.built, nil
 	at := i.presence.next(i.menu.rt, i.menu.Value == i.value)
 	return part("absolute top-full left-0 z-50 flex pt-1", at.holding(func() twi.Node {
-		return part("flex flex-col w-max shrink-0 rounded-md border bg-popover p-1 text-popover-foreground shadow "+popMotion, append([]twi.NodeOption{at.state()}, children...))
+		return part("flex flex-col w-max shrink-0 gap-1 rounded-md border bg-popover p-1 text-popover-foreground shadow "+popMotion, append([]twi.NodeOption{at.state()}, children...))
 	}))
 }
 

@@ -35,9 +35,8 @@ func (o Options) block(b Block, depth int) twi.Node {
 	case Paragraph:
 		return o.inline(b.Inlines, "")
 	case Heading:
-		return o.inline(b.Inlines, [...]string{"font-bold border-b", "font-bold", "font-semibold", "font-semibold text-muted-foreground", "font-semibold text-muted-foreground", "font-semibold text-muted-foreground"}[b.Level-1], twi.Data("anchor", b.ID))
+		return o.inline(b.Inlines, [...]string{"not-first:mt-1 font-bold border-b", "not-first:mt-1 font-bold", "font-semibold", "font-semibold text-muted-foreground", "font-semibold text-muted-foreground", "font-semibold text-muted-foreground"}[b.Level-1], twi.Data("anchor", b.ID))
 	case List:
-		gap := map[bool]string{true: "flex flex-col", false: "flex flex-col gap-1"}[b.Tight]
 		width := len(strconv.Itoa(b.Start + len(b.Items) - 1))
 		items := make([]twi.NodeOption, len(b.Items))
 		bullet := [...]string{"•", "◦", "▪"}[depth%3]
@@ -46,9 +45,9 @@ func (o Options) block(b Block, depth int) twi.Node {
 			if b.Ordered {
 				mark = fmt.Sprintf("%*d.", width, b.Start+i)
 			}
-			items[i] = twi.Element(twi.Class("flex flex-row gap-1"), twi.Element(twi.Class("shrink-0 whitespace-pre text-muted-foreground"), twi.Text(mark)), element(gap+" flex-1 min-w-0", o.blocks(it, depth+1)))
+			items[i] = twi.Element(twi.Class("flex flex-row gap-1"), twi.Element(twi.Class("shrink-0 whitespace-pre text-muted-foreground"), twi.Text(mark)), element("flex flex-col gap-1 flex-1 min-w-0", o.blocks(it, depth+1)))
 		}
-		return element(gap, items)
+		return element("flex flex-col gap-1", items)
 	case Quote:
 		return element("flex flex-col gap-1 border-l-2 pl-1 text-muted-foreground", o.blocks(b.Children, depth))
 	case Code:

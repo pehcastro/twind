@@ -60,10 +60,19 @@ func (c *Command) Input(placeholder string) twi.Node {
 }
 
 func (c *Command) Item(value string, children ...twi.NodeOption) CommandItem {
-	if len(children) == 0 {
-		children = []twi.NodeOption{twi.Text(value)}
+	icons := 0
+	for _, o := range children {
+		if _, ok := o.(ItemIcon); ok {
+			icons++
+		}
 	}
-	return CommandItem{value, children}
+	switch icons {
+	case len(children):
+		return CommandItem{value, slotted(nil, children, twi.Text(value))}
+	case 0:
+		return CommandItem{value, children}
+	}
+	return CommandItem{value, slotted(nil, children)}
 }
 
 func (c *Command) Group(heading string, items ...CommandItem) CommandGroup {
@@ -82,7 +91,6 @@ const (
 	itemRow rowKind = iota
 	headingRow
 	separatorRow
-	spacerRow
 )
 
 type commandRow struct {
@@ -125,10 +133,7 @@ func (c *Command) List(groups ...CommandGroup) twi.Node {
 		slices.SortStableFunc(c.spans, func(a, b [2]int) int { return c.scored[b[0]].score - c.scored[a[0]].score })
 	}
 	c.rows = c.rows[:0]
-	for i, s := range c.spans {
-		if i > 0 && search != "" {
-			c.rows = append(c.rows, commandRow{kind: spacerRow})
-		}
+	for _, s := range c.spans {
 		c.rows = append(c.rows, c.scored[s[0]:s[1]]...)
 	}
 	rows := c.rows
@@ -155,26 +160,30 @@ func (c *Command) List(groups ...CommandGroup) twi.Node {
 	c.offset = min(max(c.offset, at-konst.CommandRows+1), max(len(rows)-konst.CommandRows, 0))
 	shown := rows[c.offset:min(c.offset+konst.CommandRows, len(rows))]
 	window := make([]twi.NodeOption, 0, len(shown))
+	previous := separatorRow
 	for _, r := range shown {
-		window = append(window, c.row(r))
+		window = append(window, c.row(r, previous))
+		previous = r.kind
 	}
-	return part("flex flex-col shrink-0 px-1", window)
+	return part("flex flex-col shrink-0 gap-1 px-1 pt-1", window)
 }
 
-func (c *Command) row(r commandRow) twi.Node {
+func (c *Command) row(r commandRow, previous rowKind) twi.Node {
 	switch r.kind {
 	case itemRow:
 	case headingRow:
-		return part("px-1 font-medium text-muted-foreground", []twi.NodeOption{twi.Text(r.heading)})
+		classes := "px-2 font-medium text-muted-foreground"
+		if previous == itemRow {
+			classes += " mt-1"
+		}
+		return part(classes, []twi.NodeOption{twi.Text(r.heading)})
 	case separatorRow:
-		return part("-mx-1 shrink-0 border-t", nil)
-	case spacerRow:
-		return part("h-1 shrink-0", nil)
+		return part(separator, nil)
 	default:
 		panic("ui: unknown command row")
 	}
 	value := r.item.value
-	classes := "relative flex flex-row items-center gap-1 rounded-sm px-1 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none"
+	classes := "relative flex flex-row items-center gap-1 rounded-sm px-2 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none"
 	selected := value == c.selected
 	if selected {
 		classes += " bg-accent text-accent-foreground"
