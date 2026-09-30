@@ -2,6 +2,7 @@ package app
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/ui"
@@ -36,13 +37,21 @@ type kit struct {
 	toggles                      [3]*ui.Toggle
 	align, marks                 *ui.ToggleGroup
 	sidebar                      *ui.Sidebar
+	spinners                     [4]*ui.Spinner
+	lookup, query, url           *ui.Input
+	message                      *ui.Textarea
+	framework                    *ui.Combobox
+	calendar                     *ui.Calendar
+	nav                          *ui.NavigationMenu
+	started, parts               *ui.NavigationMenuItem
 	chosen, pressed, side        string
-	person, panel                string
+	person, panel, href          string
 	bookmarks, statusBar         bool
+	spinning, wide               bool
 	at, progress, goal, row      int
 }
 
-func newKit(rt *twi.Runtime) *kit {
+func newKit(rt *twi.Runtime, today time.Time) *kit {
 	k := &kit{
 		dialog: ui.NewDialog(rt), sheet: ui.NewSheet(rt, ui.Right), alert: ui.NewAlertDialog(rt), drawer: ui.NewDrawer(rt, ui.Bottom),
 		palette: ui.NewCommandDialog(rt), toaster: ui.NewToaster(rt), tip: ui.NewTooltip(rt), hint: ui.NewTooltip(rt),
@@ -79,6 +88,20 @@ func newKit(rt *twi.Runtime) *kit {
 	k.popover.Align, k.menu.Align = ui.Start, ui.Start
 	k.align.Variant, k.align.Value = ui.Outline, []string{"left"}
 	k.marks.Multiple, k.marks.Value = true, []string{"bold"}
+	for i := range k.spinners {
+		k.spinners[i] = ui.NewSpinner(rt)
+	}
+	k.lookup, k.query, k.url, k.message = ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt), ui.NewTextarea(rt)
+	k.lookup.Insert("twind")
+	k.query.Placeholder, k.message.Placeholder = "Search...", "Ask, search or chat..."
+	k.url.Insert("twind.dev")
+	k.framework = ui.NewCombobox(rt)
+	k.framework.Placeholder, k.framework.Empty = "Select framework...", "No framework found."
+	k.calendar = ui.NewCalendar(rt)
+	k.calendar.Today = today
+	k.nav = ui.NewNavigationMenu(rt)
+	k.started, k.parts = k.nav.Item("started"), k.nav.Item("components")
+	k.nav.OnSelect = func(href string) { k.href = href }
 	return k
 }
 
@@ -87,14 +110,17 @@ func components() []page {
 		{"accordion", accordionPage, nil},
 		{"alert", alertPage, nil},
 		{"alert dialog", alertDialogPage, nil},
+		{"aspect ratio", aspectRatioPage, nil},
 		{"avatar", avatarPage, nil},
 		{"badge", badgePage, nil},
 		{"breadcrumb", breadcrumbPage, nil},
 		{"button", buttonPage, nil},
 		{"button group", buttonGroupPage, nil},
+		{"calendar", calendarPage, nil},
 		{"card", cardPage, nil},
 		{"checkbox", checkboxPage, nil},
 		{"collapsible", collapsiblePage, nil},
+		{"combobox", comboboxPage, nil},
 		{"command", commandPage, nil},
 		{"command dialog", commandDialogPage, nil},
 		{"context menu", contextMenuPage, nil},
@@ -105,12 +131,14 @@ func components() []page {
 		{"field", fieldPage, nil},
 		{"hover card", hoverCardPage, nil},
 		{"input", inputPage, nil},
+		{"input group", inputGroupPage, nil},
 		{"input otp", inputOTPPage, nil},
 		{"item", itemPage, nil},
 		{"kbd", kbdPage, nil},
 		{"label", labelPage, nil},
 		{"menubar", menubarPage, nil},
 		{"native select", nativeSelectPage, nil},
+		{"navigation menu", navigationMenuPage, nil},
 		{"pagination", paginationPage, nil},
 		{"popover", popoverPage, nil},
 		{"progress", progressPage, nil},
@@ -122,6 +150,7 @@ func components() []page {
 		{"sidebar", sidebarPage, nil},
 		{"skeleton", skeletonPage, nil},
 		{"slider", sliderPage, nil},
+		{"spinner", spinnerPage, nil},
 		{"switch", switchPage, nil},
 		{"table", tablePage, nil},
 		{"tabs", tabsPage, nil},

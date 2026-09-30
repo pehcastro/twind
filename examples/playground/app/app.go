@@ -32,6 +32,7 @@ const (
 type Env struct {
 	Cwd, Profile string
 	Size         func() string
+	Today        time.Time
 }
 
 type Start struct {
@@ -138,7 +139,8 @@ func el(class string, children ...twi.Node) twi.Node {
 func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 
 func App(rt *twi.Runtime) func() twi.Node {
-	return playground(rt, Env{Cwd: "/home/user/twind", Profile: "truecolor", Size: func() string { return "headless" }}, state{theme: themeIndex("zinc-dark")}, Start{Focus: "input"})
+	env := Env{Cwd: "/home/user/twind", Profile: "truecolor", Size: func() string { return "headless" }, Today: time.Date(2026, time.September, 30, 0, 0, 0, 0, time.UTC)}
+	return playground(rt, env, state{theme: themeIndex("zinc-dark")}, Start{Focus: "input"})
 }
 
 func New(rt *twi.Runtime, env Env, start Start) (func() twi.Node, error) {
@@ -153,8 +155,8 @@ func New(rt *twi.Runtime, env Env, start Start) (func() twi.Node, error) {
 	if s.theme < 0 {
 		return nil, fmt.Errorf("theme %q: not a built-in theme", start.Theme)
 	}
-	if !slices.Contains([]string{"", "dialog", "sheet"}, start.Open) {
-		return nil, fmt.Errorf("open %q: want dialog or sheet", start.Open)
+	if !slices.Contains([]string{"", "dialog", "sheet", "spinner", "combobox", "navigation"}, start.Open) {
+		return nil, fmt.Errorf("open %q: want dialog, sheet, spinner, combobox or navigation", start.Open)
 	}
 	return playground(rt, env, s, start), nil
 }
@@ -186,8 +188,12 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			rt.SetTheme(themes[want])
 		}
 	}
-	k := newKit(rt)
+	k := newKit(rt, env.Today)
 	k.dialog.Open, k.sheet.Open = opening.Open == "dialog", opening.Open == "sheet"
+	k.spinning, k.framework.Open = opening.Open == "spinner", opening.Open == "combobox"
+	if opening.Open == "navigation" {
+		k.nav.Value = "components"
+	}
 	k.palette.OnSelect = func(name string) {
 		update(func(s *state) { s.page = slices.IndexFunc(all, func(p page) bool { return p.name == name }) })
 	}

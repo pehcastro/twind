@@ -117,6 +117,10 @@ func InputGroupText(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-row items-center gap-1 text-muted-foreground", children)
 }
 
+func InputGroupButton(children ...twi.NodeOption) twi.Node {
+	return Button(Ghost, SizeXS, children...)
+}
+
 func (in *Input) Group(addons ...Addon) twi.Node {
 	return group(&in.control, in.field("grow", nil), addons)
 }
@@ -125,11 +129,11 @@ func (t *Textarea) Group(addons ...Addon) twi.Node {
 	return group(&t.control, t.field("grow", nil), addons)
 }
 
-func group(c *control, field twi.Node, addons []Addon) twi.Node {
+func group(c *control, field twi.Node, addons []Addon, options ...twi.NodeOption) twi.Node {
 	var at [BlockEnd + 1][]twi.NodeOption
 	for _, a := range addons {
 		at[a.align] = append(at[a.align], a.node)
 	}
 	middle := part("flex flex-row items-center w-full", slices.Concat(at[InlineStart], []twi.NodeOption{field}, at[InlineEnd]))
-	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.ring(inputRing, onGroup), slices.Concat(at[BlockStart], []twi.NodeOption{middle}, at[BlockEnd]))
+	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.ring(inputRing, onGroup), slices.Concat(options, at[BlockStart], []twi.NodeOption{middle}, at[BlockEnd]))
 }

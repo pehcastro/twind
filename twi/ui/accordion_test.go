@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -150,7 +149,7 @@ func TestCollapsibleKeysAndClicks(t *testing.T) {
 }
 
 func dataState(n twi.Node, path []int) string {
-	v := reflect.ValueOf(n).FieldByName("tree")
+	v := rendered(n)
 	for _, i := range path {
 		v = v.FieldByName("Children").Index(i)
 	}

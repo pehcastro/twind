@@ -64,23 +64,26 @@ func (s *Select) Content(children ...twi.NodeOption) twi.Node {
 }
 
 func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node {
-	at := len(s.built)
 	s.built = append(s.built, selectItem{value, label})
+	return s.option(label, len(s.built)-1, &s.active, value == s.Value, func() { s.choose(value) }, children)
+}
+
+func (c *control) option(label string, at int, active *int, checked bool, choose func(), children []twi.NodeOption) twi.Node {
 	classes := "relative flex flex-row items-center rounded-sm pr-4 pl-1 select-none"
-	if at == s.active {
+	if at == *active {
 		classes += " bg-accent text-accent-foreground"
 	}
 	var mark []twi.NodeOption
-	if value == s.Value {
+	if checked {
 		mark = []twi.NodeOption{icon("✓", "")}
 	}
 	highlight := twi.OnPointerEnter(func() {
-		if s.active != at {
-			s.active = at
-			s.rt.Invalidate()
+		if *active != at {
+			*active = at
+			c.rt.Invalidate()
 		}
 	})
-	return part(classes, append([]twi.NodeOption{highlight, s.click(func() { s.choose(value) }), part("grow", []twi.NodeOption{twi.Text(label)}), part("absolute right-1 flex", mark)}, children...))
+	return part(classes, append([]twi.NodeOption{highlight, c.click(choose), part("grow", []twi.NodeOption{twi.Text(label)}), part("absolute right-1 flex", mark)}, children...))
 }
 
 func SelectLabel(children ...twi.NodeOption) twi.Node {

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -383,7 +382,7 @@ func TestOverlayClosingFrame(t *testing.T) {
 			n := twi.Element(twi.Class("flex flex-col py-1 pl-20 h-full bg-background text-foreground"),
 				pop.Node(pop.Trigger(Outline, SizeDefault, refocus, twi.Text("open")), pop.Content(twi.Element(twi.Text("Dimensions")))))
 			state := "removed"
-			if reflect.ValueOf(n).FieldByName("tree").FieldByName("Children").Index(0).FieldByName("Children").Index(1).FieldByName("Children").Len() == 1 {
+			if rendered(n).FieldByName("Children").Index(0).FieldByName("Children").Index(1).FieldByName("Children").Len() == 1 {
 				state = dataState(n, []int{0, 1, 0})
 			}
 			if len(states) == 0 || states[len(states)-1] != state {

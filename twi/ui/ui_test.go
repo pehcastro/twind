@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
@@ -28,6 +29,31 @@ func zinc(t *testing.T, scheme theme.Scheme) theme.Theme {
 	return theme.Theme{}
 }
 
+func rendered(n twi.Node) reflect.Value {
+	want := reflect.TypeFor[render.Node]()
+	var find func(reflect.Value) reflect.Value
+	find = func(v reflect.Value) reflect.Value {
+		switch {
+		case v.Type() == want:
+			return v
+		case v.Kind() == reflect.Pointer && !v.IsNil():
+			return find(v.Elem())
+		case v.Kind() == reflect.Struct:
+			for i := range v.NumField() {
+				if f := find(v.Field(i)); f.IsValid() {
+					return f
+				}
+			}
+		}
+		return reflect.Value{}
+	}
+	v := find(reflect.ValueOf(n))
+	if !v.IsValid() {
+		panic("ui test: a twi.Node holds no render.Node")
+	}
+	return v
+}
+
 func computed(t *testing.T, th theme.Theme, n twi.Node, focus, path []int) style.ComputedStyle {
 	t.Helper()
 	sheet, err := styles()
@@ -35,7 +61,7 @@ func computed(t *testing.T, th theme.Theme, n twi.Node, focus, path []int) style
 		t.Fatal(err)
 	}
 	sheet = sheet.WithTheme(&th)
-	v := reflect.ValueOf(n).FieldByName("tree")
+	v := rendered(n)
 	var s style.ComputedStyle
 	for depth := 0; ; depth++ {
 		list := v.FieldByName("Classes")

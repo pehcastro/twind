@@ -11,4 +11,9 @@ const (
 	PageSteps     = 10
 	SliderMax     = 100
 	MergeTokens   = 32
+	SpinnerTurn   = time.Second
+	DaysInWeek    = 7
+	MonthsInYear  = 12
+	HoverOpen     = 200 * time.Millisecond
+	HoverShut     = 150 * time.Millisecond
 )

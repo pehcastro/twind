@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -485,7 +484,7 @@ func TestOverlayStates(t *testing.T) {
 			return s.Background == light.Tokens[theme.Foreground] && s.Color == light.Tokens[theme.Background]
 		}},
 	})
-	if n := reflect.ValueOf(dialog(NewDialog, false)).FieldByName("tree").FieldByName("Children").Len(); n != 0 {
+	if n := rendered(dialog(NewDialog, false)).FieldByName("Children").Len(); n != 0 {
 		t.Errorf("a closed dialog's holder has %d children, want none", n)
 	}
 	checkFocused(t, []focusCase{

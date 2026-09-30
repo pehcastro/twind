@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/twind-dev/twind/examples/playground/app"
 	"github.com/twind-dev/twind/twi"
@@ -15,7 +16,7 @@ import (
 func main() {
 	var start app.Start
 	flag.StringVar(&start.Page, "page", "1", "page to open on: 1 to 7, a page name or a component name")
-	flag.StringVar(&start.Open, "open", "", "overlay open at start: dialog or sheet")
+	flag.StringVar(&start.Open, "open", "", "open at start: dialog, sheet, spinner, combobox or navigation")
 	flag.BoolVar(&start.Slow, "slow", false, "the dialog opens and closes over 8 s instead of 200 ms, to see it mid-motion")
 	flag.StringVar(&start.Theme, "theme", "zinc-dark", "theme to open with, name-scheme")
 	flag.BoolVar(&start.Picker, "picker", false, "open with the theme picker showing")
@@ -42,7 +43,7 @@ func run(start app.Start, graphicsName string) error {
 		return fmt.Errorf("-graphics %q: want none, sixel, kitty or iterm2", graphicsName)
 	}
 	cwd, _ := os.Getwd()
-	env := app.Env{Cwd: cwd, Profile: profileName(terminal.Profile(os.Stdout, os.Getenv)), Size: func() string {
+	env := app.Env{Cwd: cwd, Profile: profileName(terminal.Profile(os.Stdout, os.Getenv)), Today: time.Now(), Size: func() string {
 		w, h, err := terminal.Size(os.Stdout)
 		if err != nil {
 			return "no size"
