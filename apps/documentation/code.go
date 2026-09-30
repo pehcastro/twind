@@ -3,9 +3,11 @@ package docsapp
 import (
 	"fmt"
 	"io/fs"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/twind-dev/twind/apps/documentation/components"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/highlight"
 	"github.com/twind-dev/twind/twi/markdown"
@@ -13,13 +15,15 @@ import (
 )
 
 const (
-	pickerRows = 9
+	pickerRows = 7
+	titleBytes = 128
 	tabCells   = "  "
 	copiedFor  = 2 * time.Second
 )
 
 type preview struct {
 	tabs   *ui.Tabs
+	build  func(*twi.Runtime) func() twi.Node
 	view   func() twi.Node
 	source string
 	copied *twi.Timer
@@ -29,20 +33,23 @@ func (s *site) addPreview(name string) error {
 	if _, done := s.previews[name]; done {
 		return nil
 	}
-	demo, ok := s.demos[name]
-	if !ok {
-		return fmt.Errorf("no component demo registered as %q", name)
+	i := slices.IndexFunc(s.catalogs, func(c components.Catalog) bool { return c.Demos[name] != nil })
+	if i < 0 {
+		return fmt.Errorf("no demo registered as %q", name)
 	}
-	src, err := fs.ReadFile(s.source, demo.File)
+	src, err := fs.ReadFile(s.catalogs[i].Source, strings.ReplaceAll(name, "-", "_")+".go")
 	if err != nil {
-		return fmt.Errorf("component demo %q: %w", name, err)
+		return fmt.Errorf("demo %q: %w", name, err)
 	}
-	s.previews[name] = &preview{tabs: ui.NewTabs(s.rt), view: demo.New(s.rt), source: string(src)}
+	s.previews[name] = &preview{tabs: ui.NewTabs(s.rt), build: s.catalogs[i].Demos[name], source: string(src)}
 	return nil
 }
 
 func (s *site) previewNode(name string) twi.Node {
 	p := s.previews[name]
+	if p.view == nil {
+		p.view = p.build(s.rt)
+	}
 	t := p.tabs
 	label := "Copy"
 	if p.copied != nil {
@@ -84,7 +91,12 @@ func (s *site) code(language, src string) twi.Node {
 			}
 		}
 	}
-	if g, ok := s.grammars[language]; ok {
+	g, compiled := s.grammars[language]
+	if build, known := map[string]func() *highlight.Grammar{"go": highlight.Go, "bash": highlight.Bash}[language]; known && !compiled {
+		g = build()
+		s.grammars[language] = g
+	}
+	if g != nil {
 		for span := range highlight.Tokens(src, g) {
 			emit(span.Kind, src[span.Start:span.End])
 		}
@@ -98,37 +110,9 @@ func (s *site) code(language, src string) twi.Node {
 	return el("flex flex-col", rows...)
 }
 
-type prop struct{ name, kind, about string }
-
-func props() map[string][]prop {
-	return map[string][]prop{
-		"Button": {
-			{"v", "ui.Variant", "Default, Secondary, Destructive, Outline, Ghost or Link"},
-			{"s", "ui.Size", "SizeDefault, SizeXS, SizeSM, SizeLG or SizeIcon"},
-			{"children", "...twi.NodeOption", "text, handlers and classes; a class merges over the defaults"},
-		},
-		"Dialog": {
-			{"Open", "bool", "whether it is showing"},
-			{"OnOpenChange", "func(bool)", "called on every open and close"},
-			{"Trigger(v, s, children...)", "twi.Node", "a button that opens it"},
-			{"Content(children...)", "twi.Node", "the panel, over a dimmed page"},
-			{"Header, Title, Description, Footer", "twi.Node", "the panel's parts"},
-			{"Close(v, s, children...)", "twi.Node", "a button that closes it"},
-		},
-		"Tabs": {
-			{"Value", "string", "the selected tab, the first trigger by default"},
-			{"OnChange", "func(string)", "called when the selection changes"},
-			{"Orientation", "ui.Orientation", "Horizontal or Vertical"},
-			{"List(children...)", "twi.Node", "the row of triggers"},
-			{"Trigger(value, children...)", "twi.Node", "selects its panel"},
-			{"Content(value, children...)", "twi.Node", "shown while its value is selected"},
-		},
-	}
-}
-
-func propsTable(of string) twi.Node {
+func (s *site) propsTable(of string) twi.Node {
 	rows := [][][]markdown.Inline{{{{Text: "Name"}}, {{Text: "Type"}}, {{Text: "Description"}}}}
-	for _, p := range props()[of] {
+	for _, p := range s.props[of] {
 		rows = append(rows, [][]markdown.Inline{{{Style: markdown.CodeSpan, Text: p.name}}, {{Style: markdown.CodeSpan, Text: p.kind}}, {{Text: p.about}}})
 	}
 	return markdown.Render(markdown.Page{Blocks: []markdown.Block{{Kind: markdown.Table, Rows: rows, Align: make([]markdown.Align, 3)}}}, markdown.Options{})

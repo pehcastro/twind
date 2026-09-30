@@ -77,7 +77,7 @@ func (r *Runtime) press(ev input.MouseEvent) {
 	}
 	prevented := target != nil && r.send(target, events.PointerDown).DefaultPrevented()
 	if ev.Button == input.MouseLeft {
-		r.pick(ev, prevented || target != nil && (target.node.Focusable || len(target.node.Click) > 0))
+		r.pick(ev, prevented || target != nil && len(target.node.Click) > 0)
 	}
 	if target == nil {
 		return

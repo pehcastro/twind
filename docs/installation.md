@@ -51,3 +51,5 @@ Then run `twind build`. It writes `twir_gen.go`, a `Styles()` function with ever
 | `twind drive script` | runs a script headless and writes its frames |
 | `twind doctor` | prints what this terminal supports |
 | `twind docs` | opens this documentation |
+
+The [CLI](cli.md) page has each command's flags.

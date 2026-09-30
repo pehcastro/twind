@@ -1,10 +1,14 @@
 package docsapp
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"slices"
+	"strings"
 
+	"github.com/twind-dev/twind/apps/documentation/blocks"
 	"github.com/twind-dev/twind/apps/documentation/components"
 	"github.com/twind-dev/twind/docs"
 	"github.com/twind-dev/twind/twi"
@@ -22,14 +26,18 @@ type Start struct{ Page, Theme string }
 type entry struct {
 	group, slug, title string
 	page               markdown.Page
+	parsed             bool
 }
 
 type site struct {
 	rt                  *twi.Runtime
-	demos               map[string]components.Demo
-	source              fs.FS
+	catalogs            []components.Catalog
+	pages               fs.FS
+	commands            []ui.CommandGroup
 	entries             []entry
+	folds               map[string]*ui.Collapsible
 	previews            map[string]*preview
+	props               map[string][]prop
 	grammars            map[string]*highlight.Grammar
 	colours             map[highlight.Kind]string
 	themes              []theme.Theme
@@ -39,18 +47,28 @@ type site struct {
 	picker              bool
 }
 
-func newSite(rt *twi.Runtime, demos map[string]components.Demo, source fs.FS) *site {
+func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
+	var entries []entry
+	folds := map[string]*ui.Collapsible{}
+	for _, group := range [][]string{
+		{"Getting started", "introduction", "installation", "theming", "cli"},
+		{"Guides", "layout", "text", "motion", "events", "driving"},
+		{"Components", "accordion", "alert", "alert-dialog", "aspect-ratio", "avatar", "badge", "breadcrumb", "button", "button-group",
+			"calendar", "card", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "drawer", "dropdown-menu",
+			"empty", "field", "hover-card", "input", "input-group", "input-otp", "item", "kbd", "label", "menubar", "native-select",
+			"navigation-menu", "pagination", "popover", "progress", "radio-group", "scroll-area", "select", "separator", "sheet",
+			"sidebar", "skeleton", "slider", "spinner", "switch", "table", "tabs", "textarea", "toaster", "toggle", "toggle-group", "tooltip"},
+		{"Examples", "blocks"},
+	} {
+		for _, slug := range group[1:] {
+			entries = append(entries, entry{group: group[0], slug: slug})
+		}
+		folds[group[0]] = ui.NewCollapsible(rt)
+		folds[group[0]].Open = group[0] != "Components"
+	}
 	return &site{
-		rt: rt, demos: demos, source: source, previews: map[string]*preview{},
-		entries: []entry{
-			{group: "Getting started", slug: "introduction"},
-			{group: "Getting started", slug: "installation"},
-			{group: "Getting started", slug: "theming"},
-			{group: "Components", slug: "button"},
-			{group: "Components", slug: "dialog"},
-			{group: "Components", slug: "tabs"},
-		},
-		grammars: map[string]*highlight.Grammar{"go": highlight.Go(), "bash": highlight.Bash(), "json": highlight.JSON(), "toml": highlight.TOML()},
+		rt: rt, catalogs: catalogs, entries: entries, folds: folds, previews: map[string]*preview{}, props: props(),
+		grammars: map[string]*highlight.Grammar{},
 		colours: map[highlight.Kind]string{
 			highlight.Keyword: "text-violet-700 dark:text-violet-400", highlight.String: "text-green-700 dark:text-green-400",
 			highlight.Escape: "text-amber-700 dark:text-amber-300", highlight.Number: "text-orange-700 dark:text-orange-300",
@@ -67,29 +85,30 @@ func newSite(rt *twi.Runtime, demos map[string]components.Demo, source fs.FS) *s
 }
 
 func (s *site) load(pages fs.FS) error {
-	tags := map[string]markdown.Component{
-		"Preview": {Attrs: []string{"name"}, Build: func(a map[string]string) twi.Node { return s.previewNode(a["name"]) }},
-		"Props":   {Attrs: []string{"of"}, Build: func(a map[string]string) twi.Node { return propsTable(a["of"]) }},
-	}
-	listed := map[string]bool{}
+	listed, titles := map[string]bool{}, map[string]bool{}
+	var head [titleBytes]byte
 	for i := range s.entries {
 		e := &s.entries[i]
 		file := e.slug + ".md"
-		src, err := fs.ReadFile(pages, file)
+		f, err := pages.Open(file)
 		if err != nil {
 			return err
 		}
-		if e.page, err = markdown.Parse(file, string(src), tags); err != nil {
+		n, err := f.Read(head[:])
+		if err := errors.Join(err, f.Close()); err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
-		if len(e.page.Anchors) == 0 || e.page.Anchors[0].Level != 1 {
+		first, _, _ := strings.Cut(string(head[:n]), "\n")
+		title, ok := strings.CutPrefix(strings.TrimSpace(first), "# ")
+		if !ok {
 			return fmt.Errorf("%s: the page does not open with a level 1 heading", file)
 		}
-		e.title, listed[file] = e.page.Anchors[0].Text, true
-		if err := s.resolve(file, e.page.Blocks); err != nil {
-			return err
+		if titles[title] {
+			return fmt.Errorf("%s: another page is also titled %q", file, title)
 		}
+		e.title, listed[file], titles[title] = title, true, true
 	}
+	s.pages = pages
 	files, err := fs.Glob(pages, "*.md")
 	if err != nil {
 		return err
@@ -102,6 +121,31 @@ func (s *site) load(pages fs.FS) error {
 	return nil
 }
 
+func (s *site) parse(i int) error {
+	e := &s.entries[i]
+	if e.parsed {
+		return nil
+	}
+	tags := map[string]markdown.Component{
+		"Preview": {Attrs: []string{"name"}, Build: func(a map[string]string) twi.Node { return s.previewNode(a["name"]) }},
+		"Props":   {Attrs: []string{"of"}, Build: func(a map[string]string) twi.Node { return s.propsTable(a["of"]) }},
+	}
+	file := e.slug + ".md"
+	src, err := fs.ReadFile(s.pages, file)
+	if err != nil {
+		return err
+	}
+	page, err := markdown.Parse(file, string(src), tags)
+	if err != nil {
+		return err
+	}
+	if err := s.resolve(file, page.Blocks); err != nil {
+		return err
+	}
+	e.page, e.parsed = page, true
+	return nil
+}
+
 func (s *site) resolve(file string, blocks []markdown.Block) error {
 	for _, b := range blocks {
 		var err error
@@ -109,7 +153,7 @@ func (s *site) resolve(file string, blocks []markdown.Block) error {
 		case b.Kind == markdown.Tag && b.Name == "Preview":
 			err = s.addPreview(b.Attrs["name"])
 		case b.Kind == markdown.Tag && b.Name == "Props":
-			if _, ok := props()[b.Attrs["of"]]; !ok {
+			if _, ok := s.props[b.Attrs["of"]]; !ok {
 				err = fmt.Errorf("no props table for %q", b.Attrs["of"])
 			}
 		}
@@ -126,7 +170,7 @@ func (s *site) resolve(file string, blocks []markdown.Block) error {
 }
 
 func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
-	s := newSite(rt, components.All(), components.Source)
+	s := newSite(rt, components.All(), blocks.All())
 	if err := s.load(docs.Pages); err != nil {
 		return nil, err
 	}
@@ -138,6 +182,10 @@ func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
 	if s.theme < 0 {
 		return nil, fmt.Errorf("theme %q: not a built-in theme", start.Theme)
 	}
+	if err := s.parse(s.page); err != nil {
+		return nil, err
+	}
+	s.folds[s.entries[s.page].group].Open = true
 	rt.SetTheme(s.themes[s.theme])
 	s.palette.OnSelect = func(value string) {
 		if i := slices.IndexFunc(s.entries, func(e entry) bool { return e.title == value }); i >= 0 {
@@ -164,7 +212,10 @@ func themeName(t theme.Theme) string {
 }
 
 func (s *site) open(page int) {
-	s.page = page
+	if err := s.parse(page); err != nil {
+		panic(err)
+	}
+	s.page, s.folds[s.entries[page].group].Open = page, true
 	s.rt.Invalidate()
 }
 
@@ -200,16 +251,22 @@ func (s *site) view() twi.Node {
 func (s *site) nav() twi.Node {
 	var groups []twi.NodeOption
 	for i := 0; i < len(s.entries); {
-		group := s.entries[i].group
-		var items []twi.NodeOption
+		group, fold := s.entries[i].group, s.folds[s.entries[i].group]
+		items := []twi.NodeOption{twi.Class("gap-1")}
 		for ; i < len(s.entries) && s.entries[i].group == group; i++ {
 			at, e := i, s.entries[i]
-			items = append(items, ui.SidebarMenuItem(ui.SidebarMenuButton(ui.SizeDefault, i == s.page,
-				twi.Key("nav-"+e.slug), twi.OnClick(func(*twi.Event) { s.open(at) }), twi.Text(e.title))))
+			if fold.Open {
+				items = append(items, ui.SidebarMenuButton(ui.SizeDefault, i == s.page,
+					twi.Key("nav-"+e.slug), twi.OnClick(func(*twi.Event) { s.open(at) }), twi.Text(e.title)))
+			}
 		}
-		groups = append(groups, ui.SidebarGroup(ui.SidebarGroupLabel(twi.Text(group)), ui.SidebarGroupContent(ui.SidebarMenu(items...))))
+		chevron := map[bool]string{true: "⌄", false: "›"}[fold.Open]
+		groups = append(groups, ui.SidebarGroup(twi.Class("gap-1"),
+			fold.Trigger(ui.Ghost, ui.SizeSM, twi.Key("group-"+group), twi.Class("justify-between px-1 text-sidebar-foreground/70"), twi.Text(group), twi.Text(chevron)),
+			fold.Content(ui.SidebarMenu(items...)),
+		))
 	}
-	return s.sidebar.Node(ui.SidebarContent(append(groups, twi.Class("py-1"))...))
+	return s.sidebar.Node(ui.SidebarContent(append(groups, twi.Class("gap-2 py-1"))...))
 }
 
 func (s *site) content(e entry) twi.Node {
@@ -252,25 +309,27 @@ func (s *site) outline(e entry) twi.Node {
 			items = append(items, txt("pl-2 text-muted-foreground", a.Text))
 		}
 	}
-	return el("flex flex-col w-24 shrink-0 px-2 py-1", items...)
+	return el("flex flex-col w-24 shrink-0 gap-1 px-2 py-1", items...)
 }
 
 func (s *site) search() twi.Node {
 	p := s.palette
-	var groups []ui.CommandGroup
-	for i := 0; i < len(s.entries); {
-		group := s.entries[i].group
-		var items []ui.CommandItem
-		for ; i < len(s.entries) && s.entries[i].group == group; i++ {
-			items = append(items, p.Item(s.entries[i].title))
+	if s.commands == nil {
+		for i := 0; i < len(s.entries); {
+			group := s.entries[i].group
+			var items []ui.CommandItem
+			for ; i < len(s.entries) && s.entries[i].group == group; i++ {
+				items = append(items, p.Item(s.entries[i].title))
+			}
+			s.commands = append(s.commands, p.Group(group, items...))
 		}
-		groups = append(groups, p.Group(group, items...))
+		var themes []ui.CommandItem
+		for _, t := range s.themes {
+			themes = append(themes, p.Item(themeName(t)))
+		}
+		s.commands = append(s.commands, p.Group("Theme", themes...))
 	}
-	var themes []ui.CommandItem
-	for _, t := range s.themes {
-		themes = append(themes, p.Item(themeName(t)))
-	}
-	return p.Node(p.Input("Search documentation..."), p.List(append(groups, p.Group("Theme", themes...))...))
+	return p.Node(p.Input("Search documentation..."), p.List(s.commands...))
 }
 
 func (s *site) openPicker() {
@@ -296,7 +355,7 @@ func (s *site) pickerNode() twi.Node {
 		s.theme = s.trying
 		restore()
 	}
-	list := []twi.NodeOption{twi.Key("themes"), twi.Focusable(), twi.Class("flex flex-col rounded-md focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"), twi.OnKeyDown(func(ev *twi.Event) {
+	list := []twi.NodeOption{twi.Key("themes"), twi.Focusable(), twi.Class("flex flex-col gap-1 rounded-md focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"), twi.OnKeyDown(func(ev *twi.Event) {
 		switch ev.Key.Key {
 		case input.KeyArrowDown:
 			show(s.trying + 1)

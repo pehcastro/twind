@@ -12,8 +12,8 @@ func TestDocsArgs(t *testing.T) {
 	if err := docs([]string{"button"}, io.Discard); !errors.As(err, &usage) {
 		t.Errorf("docs button: got %v, want a usage error", err)
 	}
-	if err := docs([]string{"-page", "slider"}, io.Discard); err == nil || !strings.Contains(err.Error(), `page "slider"`) {
-		t.Errorf("docs -page slider: got %v, want an unknown page", err)
+	if err := docs([]string{"-page", "nosuch"}, io.Discard); err == nil || !strings.Contains(err.Error(), `page "nosuch"`) {
+		t.Errorf("docs -page nosuch: got %v, want an unknown page", err)
 	}
 	if err := docs([]string{"-theme", "zinc"}, io.Discard); err == nil || !strings.Contains(err.Error(), `theme "zinc"`) {
 		t.Errorf("docs -theme zinc: got %v, want an unknown theme", err)

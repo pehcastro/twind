@@ -23,8 +23,8 @@ twi.Element(
 
 ## What is in this site
 
-This documentation is itself a Twind app. Every preview on a component page runs the Go file shown in its Code tab, so a demo and its code cannot drift apart.
+This documentation is itself a Twind app. Every preview runs the Go file shown in its Code tab, so a demo and its code cannot drift apart. The guides explain layout, text, motion, events and the headless driver; the components pages cover every part of `twi/ui`; the blocks put them together.
 
 - Press **Ctrl+K** to search every page.
-- Press **Tab** to move through the sidebar and **Enter** to open a page.
+- Press **Tab** to move through the sidebar and **Enter** to open a page or a group.
 - Press **t** to change the theme; the arrows preview it live.

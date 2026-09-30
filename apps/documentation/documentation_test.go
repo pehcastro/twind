@@ -2,15 +2,21 @@ package docsapp
 
 import (
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"maps"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
 	"unicode/utf8"
 
+	"github.com/twind-dev/twind/apps/documentation/blocks"
 	"github.com/twind-dev/twind/apps/documentation/components"
 	"github.com/twind-dev/twind/docs"
 	konst "github.com/twind-dev/twind/internal/konst/style"
@@ -51,68 +57,109 @@ func pagesWith(t *testing.T, file, text string) fs.FS {
 	return pages
 }
 
+func fresh() *site { return newSite(twi.New(), components.All(), blocks.All()) }
+
+func checked(s *site, pages fs.FS) error {
+	if err := s.load(pages); err != nil {
+		return err
+	}
+	for i := range s.entries {
+		if err := s.parse(i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func TestPages(t *testing.T) {
-	s := newSite(twi.New(), components.All(), components.Source)
-	if err := s.load(docs.Pages); err != nil {
+	s := fresh()
+	if err := checked(s, docs.Pages); err != nil {
 		t.Fatalf("the pages in docs/ do not load: %v", err)
 	}
+	shown := map[string]bool{}
 	for _, e := range s.entries {
 		if len(e.page.Blocks) < 2 || e.title == "" {
 			t.Errorf("%s: %d blocks, title %q", e.slug, len(e.page.Blocks), e.title)
 		}
+		for _, of := range tags(e.page.Blocks, "Props", "of") {
+			shown[of] = true
+		}
+	}
+	for of := range s.props {
+		if !shown[of] {
+			t.Errorf("the props table of %s is on no page", of)
+		}
 	}
 	var problem *markdown.Error
-	err := newSite(twi.New(), components.All(), components.Source).load(pagesWith(t, "button.md", "# Button\n\nText.\n\n<Chart of=\"sales\" />\n"))
+	err := checked(fresh(), pagesWith(t, "button.md", "# Button\n\nText.\n\n<Chart of=\"sales\" />\n"))
 	if !errors.As(err, &problem) || problem.Problem != markdown.UnknownTag || problem.File != "button.md" || problem.Line != 5 {
 		t.Errorf("a page with <Chart />: got %v, want an unknown tag at button.md:5", err)
 	}
-	err = newSite(twi.New(), components.All(), components.Source).load(pagesWith(t, "button.md", "# Button\n\n<Preview name=\"button-demo\" style=\"x\" />\n"))
+	err = checked(fresh(), pagesWith(t, "button.md", "# Button\n\n<Preview name=\"button-demo\" style=\"x\" />\n"))
 	if !errors.As(err, &problem) || problem.Problem != markdown.UnknownAttribute || problem.Line != 3 {
 		t.Errorf("a Preview with an unknown attribute: got %v, want an unknown attribute at line 3", err)
 	}
-	err = newSite(twi.New(), components.All(), components.Source).load(pagesWith(t, "button.md", "# Button\n\n<Props of=\"Slider\" />\n"))
+	err = checked(fresh(), pagesWith(t, "button.md", "# Button\n\n<Props of=\"Carousel\" />\n"))
 	if err == nil || !strings.Contains(err.Error(), "button.md:3") {
 		t.Errorf("Props of a component with no table: got %v, want an error at button.md:3", err)
 	}
-	err = newSite(twi.New(), components.All(), components.Source).load(pagesWith(t, "orphan.md", "# Orphan\n"))
+	err = checked(fresh(), pagesWith(t, "orphan.md", "# Orphan\n"))
 	if err == nil || !strings.Contains(err.Error(), "orphan.md") {
 		t.Errorf("a page no sidebar entry opens: got %v", err)
 	}
-	err = newSite(twi.New(), components.All(), components.Source).load(pagesWith(t, "theming.md", "Colours.\n\n## Tokens\n"))
+	err = checked(fresh(), pagesWith(t, "theming.md", "Colours.\n\n## Tokens\n"))
 	if err == nil || !strings.Contains(err.Error(), "theming.md") {
 		t.Errorf("a page with no title: got %v", err)
+	}
+	err = checked(fresh(), pagesWith(t, "card.md", "# Button\n\nA second Button.\n"))
+	if err == nil || !strings.Contains(err.Error(), "card.md") {
+		t.Errorf("two pages titled Button, which the palette cannot tell apart: got %v", err)
 	}
 }
 
 func TestExamples(t *testing.T) {
-	s := newSite(twi.New(), components.All(), components.Source)
-	if err := s.load(docs.Pages); err != nil {
+	s := fresh()
+	if err := checked(s, docs.Pages); err != nil {
 		t.Fatal(err)
 	}
-	for name, demo := range components.All() {
-		p, shown := s.previews[name]
-		if !shown {
-			t.Errorf("component demo %s is registered but no page shows it", name)
-			continue
-		}
-		want, err := os.ReadFile("components/" + demo.File)
-		if err != nil {
-			t.Fatalf("component demo %s: %v", name, err)
-		}
-		if p.source != string(want) || !strings.Contains(p.source, "func ") {
-			t.Errorf("component demo %s: the Code tab holds %d bytes, %s has %d", name, len(p.source), demo.File, len(want))
+	for dir, catalog := range map[string]components.Catalog{"components": components.All(), "blocks": blocks.All()} {
+		for name := range catalog.Demos {
+			p, shown := s.previews[name]
+			if !shown {
+				t.Errorf("demo %s is registered but no page shows it", name)
+				continue
+			}
+			file := filepath.Join(dir, strings.ReplaceAll(name, "-", "_")+".go")
+			want, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatalf("demo %s: %v", name, err)
+			}
+			if p.source != string(want) || !strings.Contains(p.source, "func ") {
+				t.Errorf("demo %s: the Code tab holds %d bytes, %s has %d", name, len(p.source), file, len(want))
+			}
 		}
 	}
-	missing := maps.Clone(components.All())
-	delete(missing, "dialog-demo")
-	err := newSite(twi.New(), missing, components.Source).load(docs.Pages)
+	missing := components.All()
+	missing.Demos = maps.Clone(missing.Demos)
+	delete(missing.Demos, "dialog-demo")
+	err := checked(newSite(twi.New(), missing, blocks.All()), docs.Pages)
 	if err == nil || !strings.Contains(err.Error(), "dialog.md:5") || !strings.Contains(err.Error(), "dialog-demo") {
 		t.Errorf("a Preview of an unregistered demo: got %v, want an error at dialog.md:5", err)
 	}
-	renamed := maps.Clone(components.All())
-	renamed["tabs-demo"] = components.Demo{File: "tabs.go", New: renamed["tabs-demo"].New}
-	err = newSite(twi.New(), renamed, components.Source).load(docs.Pages)
-	if err == nil || !strings.Contains(err.Error(), "tabs.md:5") || !strings.Contains(err.Error(), "tabs.go") {
+	hollow := components.All()
+	names, err := fs.Glob(hollow.Source, "*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := fstest.MapFS{}
+	for _, name := range names {
+		if name != "tabs_demo.go" {
+			files[name] = &fstest.MapFile{}
+		}
+	}
+	hollow.Source = files
+	err = checked(newSite(twi.New(), hollow, blocks.All()), docs.Pages)
+	if err == nil || !strings.Contains(err.Error(), "tabs.md:5") || !strings.Contains(err.Error(), "tabs_demo.go") {
 		t.Errorf("a demo whose source file is not embedded: got %v, want an error at tabs.md:5", err)
 	}
 }
@@ -151,7 +198,12 @@ func spot(t *testing.T, d *drive.Driver, s string) (int, int) {
 func breadcrumb(t *testing.T, d *drive.Driver) string {
 	t.Helper()
 	_, y := spot(t, d, "Docs ›")
-	return strings.Join(strings.Fields(strings.Split(d.Frame().Text(), "\n")[y]), " ")
+	for part := range strings.SplitSeq(strings.Split(d.Frame().Text(), "\n")[y], "  ") {
+		if strings.Contains(part, "Docs ›") {
+			return strings.TrimSpace(part)
+		}
+	}
+	return ""
 }
 
 func TestTour(t *testing.T) {
@@ -160,19 +212,18 @@ func TestTour(t *testing.T) {
 		t.Fatalf("first page: breadcrumb %q", got)
 	}
 	t.Logf("introduction:\n%s", d.Frame().Text())
-	for range 6 {
+	for range 5 {
 		d.Press("tab")
 	}
 	d.Press("enter")
-	if got := breadcrumb(t, d); !strings.Contains(got, "Components › Button") {
-		t.Fatalf("tab past search, theme and four pages, then enter: breadcrumb %q\n%s", got, d.Frame().Text())
+	if got := breadcrumb(t, d); !strings.Contains(got, "Getting started › Installation") {
+		t.Fatalf("tab past search, theme, the Getting started group and Introduction, then enter: breadcrumb %q\n%s", got, d.Frame().Text())
 	}
-	t.Logf("button through the keyboard:\n%s", d.Frame().Text())
-	d.Click(spot(t, d, "Dialog"))
-	d.Click(spot(t, d, "Button"))
-	if got := breadcrumb(t, d); !strings.Contains(got, "Components › Button") {
-		t.Fatalf("a click on Dialog then Button in the sidebar: breadcrumb %q", got)
+	d.Click(spot(t, d, "Theming"))
+	if got := breadcrumb(t, d); !strings.Contains(got, "Getting started › Theming") {
+		t.Fatalf("a click on Theming in the sidebar: breadcrumb %q", got)
 	}
+	jump(t, d, "Button")
 	x, y := spot(t, d, "Code")
 	d.Click(x+1, y)
 	if !strings.Contains(d.Frame().Text(), "func ButtonDemo(*twi.Runtime) func() twi.Node {") {
@@ -191,12 +242,88 @@ func TestTour(t *testing.T) {
 	t.Logf("dialog through the palette:\n%s", d.Frame().Text())
 }
 
-func TestCopy(t *testing.T) {
-	d := open(t)
+func jump(t *testing.T, d *drive.Driver, title string) {
+	t.Helper()
 	d.Press("ctrl+k")
-	d.Type("button")
+	d.Type(title)
 	d.Press("enter")
 	d.Advance(settle)
+	if got := breadcrumb(t, d); !strings.HasSuffix(got, "› "+title) {
+		t.Fatalf("the palette on %q opened %q:\n%s", title, got, d.Frame().Text())
+	}
+}
+
+func TestEveryPage(t *testing.T) {
+	d := open(t)
+	s := fresh()
+	if err := s.load(docs.Pages); err != nil {
+		t.Fatal(err)
+	}
+	logged := map[string]string{"layout": "", "motion": "", "card": "", "calendar": "", "dropdown-menu": "Open menu"}
+	for _, e := range s.entries {
+		jump(t, d, e.title)
+		press, ok := logged[e.slug]
+		if !ok {
+			continue
+		}
+		if press != "" {
+			x, y := spot(t, d, press)
+			d.Click(x+1, y)
+			d.Advance(settle)
+		}
+		t.Logf("%s through the palette:\n%s", e.title, d.Frame().Text())
+	}
+}
+
+func TestSidebarScrolls(t *testing.T) {
+	d := open(t)
+	if strings.Contains(d.Frame().Text(), "Accordion") {
+		t.Fatalf("the Components group starts open on the Introduction:\n%s", d.Frame().Text())
+	}
+	toComponents := 2 + 1 + 4 + 1 + 5 + 1
+	for range toComponents {
+		d.Press("tab")
+	}
+	d.Press("enter")
+	for range 51 {
+		d.Press("tab")
+	}
+	d.Press("enter")
+	if got := breadcrumb(t, d); !strings.HasSuffix(got, "› Tooltip") {
+		t.Fatalf("Tab to the last component, then Enter: breadcrumb %q\n%s", got, d.Frame().Text())
+	}
+	if !slices.ContainsFunc(strings.Split(d.Frame().Text(), "\n"), func(line string) bool { return strings.HasPrefix(strings.TrimSpace(line), "Tooltip ") }) {
+		t.Errorf("the focused Tooltip entry is not in view in the sidebar:\n%s", d.Frame().Text())
+	}
+	t.Logf("tooltip through the sidebar:\n%s", d.Frame().Text())
+}
+
+func TestSelectText(t *testing.T) {
+	d := open(t)
+	x, y := spot(t, d, "Twind is a UI runtime")
+	d.Down(x, y)
+	d.Move(x+len("Twind is a UI runtime")-1, y)
+	d.Up(x+len("Twind is a UI runtime")-1, y)
+	d.Press("ctrl+c")
+	if got := d.Clipboard(); got != "Twind is a UI runtime" {
+		t.Fatalf("a drag over the first words of the introduction copied %q: twi/runtime/pointer.go refuses a selection that starts on a focusable element, and the page is a focusable ui.ScrollArea", got)
+	}
+	jump(t, d, "Button")
+	x, y = spot(t, d, "Code")
+	d.Click(x+1, y)
+	x, y = spot(t, d, "package components")
+	d.Down(x, y)
+	d.Move(x+len("package components")-1, y)
+	d.Up(x+len("package components")-1, y)
+	d.Press("ctrl+c")
+	if got := d.Clipboard(); got != "package components" {
+		t.Errorf("a drag over the first line of the Code tab copied %q", got)
+	}
+}
+
+func TestCopy(t *testing.T) {
+	d := open(t)
+	jump(t, d, "Button")
 	x, y := spot(t, d, "Code")
 	d.Click(x+1, y)
 	x, y = spot(t, d, "Copy")
@@ -257,4 +384,89 @@ func TestThemePicker(t *testing.T) {
 	if text := d.Frame().Text(); !strings.Contains(text, "◐ zinc-light") {
 		t.Errorf("up, enter from zinc-dark: want zinc-light applied:\n%s", text)
 	}
+}
+
+func uiComponents(t *testing.T) []string {
+	files, err := filepath.Glob(filepath.Join("..", "..", "twi", "ui", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var components []string
+	for _, name := range files {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(token.NewFileSet(), name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var roots, parts []string
+		for _, d := range f.Decls {
+			fn, ok := d.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || !fn.Name.IsExported() {
+				continue
+			}
+			if root, ok := strings.CutPrefix(fn.Name.Name, "New"); ok {
+				roots = append(roots, root)
+				continue
+			}
+			if r := fn.Type.Results; r != nil && len(r.List) == 1 {
+				if sel, ok := r.List[0].Type.(*ast.SelectorExpr); ok && sel.Sel.Name == "Node" {
+					parts = append(parts, fn.Name.Name)
+				}
+			}
+		}
+		slices.SortFunc(parts, func(a, b string) int { return len(a) - len(b) })
+		for _, p := range parts {
+			if !slices.ContainsFunc(roots, func(r string) bool { return strings.HasPrefix(p, r) }) {
+				roots = append(roots, p)
+			}
+		}
+		components = append(components, roots...)
+	}
+	slices.Sort(components)
+	return components
+}
+
+func tags(blocks []markdown.Block, name, attr string) []string {
+	var found []string
+	for _, b := range blocks {
+		if b.Kind == markdown.Tag && b.Name == name {
+			found = append(found, b.Attrs[attr])
+		}
+		for _, nested := range append([][]markdown.Block{b.Children}, b.Items...) {
+			found = append(found, tags(nested, name, attr)...)
+		}
+	}
+	return found
+}
+
+func TestEveryComponent(t *testing.T) {
+	s := fresh()
+	if err := checked(s, docs.Pages); err != nil {
+		t.Fatal(err)
+	}
+	documented := map[string]bool{}
+	for _, e := range s.entries {
+		if e.group != "Components" {
+			continue
+		}
+		previews, props := tags(e.page.Blocks, "Preview", "name"), tags(e.page.Blocks, "Props", "of")
+		if len(previews) == 0 || len(props) == 0 {
+			t.Errorf("%s.md: %d previews and %d props tables, want at least one of each", e.slug, len(previews), len(props))
+		}
+		for _, p := range props {
+			documented[p] = true
+		}
+	}
+	found := uiComponents(t)
+	if len(found) < 45 {
+		t.Fatalf("found %d twi/ui components, want the whole kit: %v", len(found), found)
+	}
+	for _, c := range found {
+		if !documented[c] {
+			t.Errorf("ui.%s has no docs page: no Components page carries <Props of=%q />", c, c)
+		}
+	}
+	t.Logf("%d components: %s", len(found), strings.Join(found, ", "))
 }
