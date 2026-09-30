@@ -57,7 +57,8 @@ func (s *Screen) image() *image.RGBA {
 	img := image.NewRGBA(s.bounds)
 	for y := range s.bounds.Dy() {
 		for x := 0; x < s.bounds.Dx(); x += paintkonst.TileColumns * s.Cell.X {
-			copy(img.Pix[img.PixOffset(x, y):], s.column(x).line(y))
+			_, rows := expand(nil, nil, [][]run{s.column(x).line(y)})
+			copy(img.Pix[img.PixOffset(x, y):], rows[0])
 		}
 	}
 	return img
@@ -300,7 +301,7 @@ func TestKittyKeepsTextOverImagesTransparent(t *testing.T) {
 	}
 	for y := range rows {
 		for x, c := range s.shown.Row(y) {
-			if c.Bg.Kind == color.Literal && s.sent[s.tileOf[y*cols+x]] != 0 {
+			if c.Bg.Kind == color.Literal && s.sent[s.tileAt(x, y)] != 0 {
 				t.Fatalf("cell %d,%d has bg %+v over a Kitty image, want the default so the image shows", x, y, c.Bg)
 			}
 		}

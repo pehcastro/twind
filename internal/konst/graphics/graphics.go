@@ -6,10 +6,6 @@ const (
 	SixelZero      = '?'
 	SixelMinRepeat = 4
 	SixelPercent   = 100
-	SixelPixelBits = 32
-	SixelBlock     = 8
-	SixelLeap      = 32
-	SixelLaneLow   = 0x7fffffff7fffffff
 	SixelCacheBits = 8
 	SixelCacheHash = 0x9e3779b1
 	SixelWord      = 8
@@ -48,8 +44,11 @@ const (
 	ScalarRun              = 4
 
 	Workers      = 8
+	JobPixels    = 1 << 14
+	CellBytes    = 2
 	LineMemoBits = 6
-	LineChunk    = 16
+	RunChunk     = 128
+	LineSlots    = 16
 	AlphaPair    = 0xff000000ff000000
 
 	PNGSignature = "\x89PNG\r\n\x1a\n"

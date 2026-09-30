@@ -3,6 +3,7 @@ package present
 import (
 	"bytes"
 	"image"
+	"slices"
 	"testing"
 
 	"github.com/twind-dev/twind/twi/color"
@@ -99,7 +100,7 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 		c := s.look(&scene.Box{Visual: image.Rect(10, 20, 60, 70), Ops: shifted})
 		s.rasterise(0, nil)
 		got := image.NewRGBA(want.Rect)
-		over(got, got.Rect, c, image.Point{}, 0)
+		paintLook(got, got.Rect, c, image.Point{})
 		for y := range 50 {
 			if !bytes.Equal(got.Pix[y*got.Stride:][:got.Stride], want.Pix[y*want.Stride:][:want.Stride]) {
 				t.Errorf("%s: row %d differs from a full raster", name, y)
@@ -117,23 +118,23 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 				}
 			}
 		}
-		whole, windows := image.NewRGBA(want.Rect), image.NewRGBA(want.Rect)
-		for i := range whole.Pix {
-			whole.Pix[i] = uint8(i * 37 % 200)
+		background := make([]uint8, 4*50)
+		for i := range background {
+			background[i] = uint8(i * 37 % 200)
 			if i%4 == 3 {
-				whole.Pix[i] = 255
+				background[i] = 255
 			}
 		}
-		copy(windows.Pix, whole.Pix)
-		over(whole, whole.Rect, c, image.Point{}, 0)
-		for x := 0; x < 50; x += 7 {
-			r := image.Rect(x, 3, min(x+7, 50), 50)
-			over(windows, r, c, r.Min, 0)
-			r = image.Rect(x, 0, min(x+7, 50), 3)
-			over(windows, r, c, r.Min, 0)
-		}
-		if !bytes.Equal(whole.Pix, windows.Pix) {
-			t.Errorf("%s: composited in 7 pixel windows differs from one pass over a background", name)
+		for y := range 50 {
+			line, under := c.lines[c.row[y]], encode(nil, 0, background, 0)
+			whole, windows := compose(nil, under, 0, 50, line, 0, floodBlend, 0), under
+			for x := 0; x < 50; x += 7 {
+				windows = compose(nil, windows, int32(x), int32(min(x+7, 50)), line, 0, floodBlend, 0)
+			}
+			if !slices.Equal(whole, windows) {
+				t.Errorf("%s: row %d composited in 7 pixel windows differs from one pass over a background", name, y)
+				break
+			}
 		}
 	}
 }

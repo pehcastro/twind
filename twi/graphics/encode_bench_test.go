@@ -1,6 +1,8 @@
 package graphics
 
 import (
+	"bytes"
+	"encoding/binary"
 	"image"
 	"testing"
 )
@@ -21,10 +23,31 @@ func lines(img *image.RGBA) [][]byte {
 	return rows
 }
 
+func runs(img *image.RGBA) [][]Run {
+	var rows [][]Run
+	pixels := lines(img)
+	for y, row := range pixels {
+		if y > 0 && bytes.Equal(row, pixels[y-1]) {
+			rows = append(rows, rows[y-1])
+			continue
+		}
+		var line []Run
+		for x := range len(row) / 4 {
+			if px, n := binary.LittleEndian.Uint32(row[4*x:]), len(line); n > 0 && line[n-1].Pixel == px {
+				line[n-1].End++
+			} else {
+				line = append(line, Run{End: int32(x + 1), Pixel: px})
+			}
+		}
+		rows = append(rows, line)
+	}
+	return rows
+}
+
 func benchSixel(b *testing.B, img *image.RGBA) {
 	var s Sixel
 	var buf []byte
-	rows := lines(img)
+	rows := runs(img)
 	b.ReportAllocs()
 	for b.Loop() {
 		buf = s.Encode(buf[:0], rows, Placement{Cols: 44, Rows: 8})

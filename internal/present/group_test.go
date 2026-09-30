@@ -1,6 +1,7 @@
 package present
 
 import (
+	"encoding/binary"
 	"fmt"
 	"image"
 	imagecolor "image/color"
@@ -15,8 +16,19 @@ import (
 	"github.com/twind-dev/twind/twi/terminal"
 )
 
-func masked(s *Screen) *image.RGBA {
-	f := &s.scenes[s.turn]
+func paintLook(dst *image.RGBA, r image.Rectangle, c *cached, at image.Point) {
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		runs := c.lines[c.row[at.Y+y-r.Min.Y]]
+		for x := r.Min.X; x < r.Max.X; x++ {
+			o := dst.PixOffset(x, y)
+			px := flooded(binary.LittleEndian.Uint32(dst.Pix[o:]), pixel(runs, at.X+x-r.Min.X))
+			binary.LittleEndian.PutUint32(dst.Pix[o:], px)
+		}
+	}
+}
+
+func composite(s *Screen) *image.RGBA {
+	f := s.scenes[s.turn]
 	targets := []*image.RGBA{image.NewRGBA(s.bounds)}
 	type open struct {
 		layer       int
@@ -51,15 +63,20 @@ func masked(s *Screen) *image.RGBA {
 		for _, b := range l.Boxes {
 			at := b.Visual.Add(l.Origin)
 			if v := at.Intersect(l.Clip).Intersect(s.bounds); !v.Empty() {
-				over(targets[len(targets)-1], v, s.cache[b.Look], v.Min.Sub(at.Min), 0)
+				paintLook(targets[len(targets)-1], v, s.cache[b.Look], v.Min.Sub(at.Min))
 			}
 		}
 	}
 	for len(stack) > 0 {
 		pop()
 	}
-	if s.Profile == color.ANSI256 {
-		quantise(targets[0].Pix)
+	if pix := targets[0].Pix; s.Profile == color.ANSI256 {
+		for i := 0; i < len(pix); i += 4 {
+			if pix[i+3] == math.MaxUint8 {
+				rgb := palette(color.RGBA{R: pix[i], G: pix[i+1], B: pix[i+2]}.ANSI256())
+				copy(pix[i:i+3], rgb[:])
+			}
+		}
 	}
 	return targets[0]
 }
@@ -100,7 +117,7 @@ func page(children ...scene.Node) scene.Node {
 
 func sameAsMasked(t *testing.T, s *Screen, name string) {
 	t.Helper()
-	got, want := s.image(), masked(s)
+	got, want := s.image(), composite(s)
 	for i := 0; i < len(want.Pix); i += 4 {
 		if g, w := got.Pix[i:i+4], want.Pix[i:i+4]; string(g) != string(w) {
 			t.Errorf("%s: pixel %d,%d is %v, want %v", name, i/4%want.Rect.Dx(), i/4/want.Rect.Dx(), g, w)

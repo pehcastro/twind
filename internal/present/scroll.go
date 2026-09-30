@@ -1,10 +1,9 @@
 package present
 
 import (
-	"bytes"
 	"fmt"
-	"hash/maphash"
 	"image"
+	"slices"
 
 	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
 	konst "github.com/twind-dev/twind/internal/konst/scene"
@@ -61,7 +60,7 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 	span := paintkonst.TileColumns * s.Cell.X
 	for left := px.Min.X / span * span; left < px.Max.X; left += span {
 		c := s.column(left)
-		lo, hi := 4*(max(px.Min.X, left)-left), 4*(min(px.Max.X, left+span)-left)
+		lo, hi := max(px.Min.X, left)-left, min(px.Max.X, left+span)-left
 		clear(s.splices)
 		move := func(dst, src int) { s.splice(c, dst, c.lineOf[src], lo, hi) }
 		if lo == 0 && hi == c.width {
@@ -103,18 +102,17 @@ func (s *Screen) unshifted(l *scene.Layer, b *scene.Box, dy int, area image.Rect
 func (s *Screen) splice(c *column, y int, from int32, lo, hi int) {
 	pair := [2]int32{c.lineOf[y], from}
 	k, ok := s.splices[pair]
-	switch {
-	case ok:
-	case from >= 0 && bytes.Equal(c.line(y)[lo:hi], c.store[from][lo:hi]):
-		k = pair[0]
-	default:
-		s.spliced = append(s.spliced[:0], c.line(y)...)
-		if from < 0 {
-			clear(s.spliced[lo:hi])
-		} else {
-			copy(s.spliced[lo:hi], c.store[from][lo:hi])
+	if !ok {
+		s.blank = append(s.blank[:0], run{End: int32(c.width)})
+		src := s.blank
+		if from >= 0 {
+			src = c.store[from]
 		}
-		k = c.intern(s.spliced, maphash.Bytes(s.seed, s.spliced))
+		s.spliced = compose(s.spliced[:0], c.line(y), int32(lo), int32(hi), src, 0, copyBlend, 0)
+		k = pair[0]
+		if !slices.Equal(s.spliced, c.line(y)) {
+			k = c.intern(s.spliced, s.digest(&s.key, s.spliced))
+		}
 	}
 	s.splices[pair] = k
 	c.link(c.lineOf, y, k)

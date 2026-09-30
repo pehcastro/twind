@@ -155,7 +155,7 @@ func TestKittyRepeatsArePlacements(t *testing.T) {
 		}
 		placed[c["a"]+c["p"]] = true
 	}
-	p := func(x int) string { return strconv.Itoa(s.tileOf[2*cols+x] + 1) }
+	p := func(x int) string { return strconv.Itoa(s.tileAt(x, 2) + 1) }
 	if want := map[string]bool{"T" + p(0): true, "p" + p(16): true, "p" + p(32): true}; fmt.Sprint(placed) != fmt.Sprint(want) {
 		t.Errorf("three equal ramps: actions and placements %v, want %v: one transmit, two placements, one per tile", placed, want)
 	}

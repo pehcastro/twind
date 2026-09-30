@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -122,6 +123,22 @@ func roundTripImages(t *testing.T) map[string]*image.RGBA {
 		"gradient tile": gradient(120, 110, false).SubImage(image.Rect(10, 5, 110, 105)).(*image.RGBA),
 		"noise":         noise(37, 23),
 		"one pixel":     noise(1, 1),
+	}
+}
+
+func TestSixelSharedRowsEncodeAsCopies(t *testing.T) {
+	images := roundTripImages(t)
+	images["stripes"] = stripes(97, 17)
+	for name, img := range images {
+		shared := runs(img)
+		copied := make([][]Run, len(shared))
+		for y, line := range shared {
+			copied[y] = slices.Clone(line)
+		}
+		var s Sixel
+		if got, want := string(s.Encode(nil, shared, Placement{Col: 2, Row: 3})), string(s.Encode(nil, copied, Placement{Col: 2, Row: 3})); got != want {
+			t.Errorf("%s: rows sharing one slice encode to %d bytes, the same rows copied to %d, want the same bytes", name, len(got), len(want))
+		}
 	}
 }
 

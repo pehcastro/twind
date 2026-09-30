@@ -1,7 +1,6 @@
 package graphics
 
 import (
-	"bytes"
 	"encoding/binary"
 	"math/bits"
 	"slices"
@@ -56,18 +55,45 @@ type sixelRegister struct {
 	live          bool
 }
 
-func (s *Sixel) Encode(dst []byte, rows [][]byte, at Placement) []byte {
+func (s *Sixel) Encode(dst []byte, rows [][]Run, at Placement) []byte {
 	if len(rows) == 0 || len(rows[0]) == 0 {
 		return dst
 	}
-	w, h := len(rows[0])/4, len(rows)
-	s.scan(rows)
+	if s.ids == nil {
+		s.ids = map[uint32]int32{}
+	}
+	clear(s.ids)
+	clear(s.cache[:])
+	s.intern(0)
+	s.colours = s.colours[:0]
+	spans, stretches := s.rows[:0], s.stretches[:0]
+	for y := 0; y < len(rows); {
+		line, lo := rows[y], int32(len(stretches))
+		for _, r := range line {
+			slot := s.cache[r.Pixel*graphics.SixelCacheHash>>(32-graphics.SixelCacheBits)]
+			if slot.pixel != r.Pixel {
+				slot.id = s.intern(r.Pixel)
+			}
+			stretches = append(stretches, sixelStretch{end: r.End, id: slot.id})
+		}
+		first := y
+		for y++; y < len(rows) && (&rows[y][0] == &line[0] || slices.Equal(rows[y], line)); y++ {
+		}
+		span, from := [2]int32{lo, int32(len(stretches))}, len(spans)
+		spans = slices.Grow(spans, y-first)[:from+y-first]
+		for i := from; i < len(spans); i++ {
+			spans[i] = span
+		}
+	}
+	s.rows, s.stretches = spans, stretches
+	w, h := int(rows[0][len(rows[0])-1].End), len(rows)
 	if len(s.colours) == 0 {
 		return dst
 	}
 	s.quantise()
 	arena := len(s.palette) * (w + graphics.SixelWord)
 	s.runs = slices.Grow(s.runs[:0], arena)[:arena]
+	s.tokens = slices.Grow(s.tokens, w+1-min(len(s.tokens), w+1))
 	for n := len(s.tokens); n <= w; n++ {
 		if n < graphics.SixelMinRepeat {
 			s.tokens = append(s.tokens, sixelToken{chars: 1<<(graphics.SixelByteBits*n) - 1})
@@ -107,70 +133,6 @@ func (s *Sixel) Encode(dst []byte, rows [][]byte, at Placement) []byte {
 func percentKey(pixel uint32) uint32 {
 	p := func(v uint32) uint32 { return (v&0xff*graphics.SixelPercent + 127) / 255 }
 	return p(pixel)<<16 | p(pixel>>8)<<8 | p(pixel>>16)
-}
-
-func (s *Sixel) scan(rows [][]byte) {
-	if s.ids == nil {
-		s.ids = map[uint32]int32{}
-	}
-	clear(s.ids)
-	clear(s.cache[:])
-	s.intern(0)
-	s.colours = s.colours[:0]
-	spans, stretches := s.rows[:0], s.stretches[:0]
-	for y := 0; y < len(rows); {
-		pix, lo := rows[y], int32(len(stretches))
-		var tail [4 * (graphics.SixelBlock + 1)]byte
-		start, x := 0, 1
-		for block := pix; ; block, x = block[4*graphics.SixelBlock:], x+graphics.SixelBlock {
-			last := len(block) < len(tail)
-			if last {
-				pad := binary.LittleEndian.Uint32(block[len(block)-4:]) ^ 1
-				for i := copy(tail[:], block); i < len(tail); i += 4 {
-					binary.LittleEndian.PutUint32(tail[i:], pad)
-				}
-				block = tail[:]
-			}
-			nine := block[:len(tail)]
-			a := binary.LittleEndian.Uint64(nine[4:]) ^ binary.LittleEndian.Uint64(nine)
-			b := binary.LittleEndian.Uint64(nine[12:]) ^ binary.LittleEndian.Uint64(nine[8:])
-			c := binary.LittleEndian.Uint64(nine[20:]) ^ binary.LittleEndian.Uint64(nine[16:])
-			d := binary.LittleEndian.Uint64(nine[28:]) ^ binary.LittleEndian.Uint64(nine[24:])
-			if a|b|c|d == 0 {
-				for ahead := block[4*graphics.SixelBlock:]; len(ahead) > 4*graphics.SixelLeap && bytes.Equal(ahead[4:4*graphics.SixelLeap+4], ahead[:4*graphics.SixelLeap]); ahead = ahead[4*graphics.SixelLeap:] {
-					block, x = block[4*graphics.SixelLeap:], x+graphics.SixelLeap
-				}
-				continue
-			}
-			for mask := lanes(a) | lanes(b)<<2 | lanes(c)<<4 | lanes(d)<<6; mask != 0; mask &= mask - 1 {
-				end := x + bits.TrailingZeros(mask)
-				v := binary.LittleEndian.Uint32(pix[4*start:])
-				slot := s.cache[v*graphics.SixelCacheHash>>(32-graphics.SixelCacheBits)]
-				if slot.pixel != v {
-					slot.id = s.intern(v)
-				}
-				stretches = append(stretches, sixelStretch{end: int32(end), id: slot.id})
-				start = end
-			}
-			if last {
-				break
-			}
-		}
-		first := y
-		for y++; y < len(rows) && bytes.Equal(rows[y], pix); y++ {
-		}
-		span, from := [2]int32{lo, int32(len(stretches))}, len(spans)
-		spans = slices.Grow(spans, y-first)[:from+y-first]
-		for i := from; i < len(spans); i++ {
-			spans[i] = span
-		}
-	}
-	s.rows, s.stretches = spans, stretches
-}
-
-func lanes(change uint64) uint {
-	high := (change&graphics.SixelLaneLow + graphics.SixelLaneLow | change) >> (graphics.SixelPixelBits - 1)
-	return uint(high&1 | high>>(graphics.SixelPixelBits-1)&2)
 }
 
 func (s *Sixel) intern(pixel uint32) int32 {

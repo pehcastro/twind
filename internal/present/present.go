@@ -19,6 +19,7 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/graphics"
 	"github.com/twind-dev/twind/twi/paint"
+	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/terminal"
 	"github.com/twind-dev/twind/twi/text"
@@ -43,12 +44,21 @@ type Screen struct {
 	writer            terminal.Writer
 
 	turn         int
-	scenes       [2]scene.Frame
+	scenes       [2]*scene.Frame
 	bounds       image.Rectangle
 	columns      []column
 	workers      []*worker
 	pending      []pending
-	busy         []int
+	jobs         []job
+	lookOps      []raster.Op
+	turned       []raster.Op
+	lookRows     []bool
+	across       []bool
+	lookPieces   [][2]int
+	lookPix      []uint8
+	lookAt       [][4]int
+	sums         [][4]int
+	bands        []band
 	sending      []int
 	pieces       []piece
 	twins        []int
@@ -60,10 +70,14 @@ type Screen struct {
 	drawing      []int
 	hidden       []bool
 	tileRows     [][]byte
-	spliced      []uint8
+	lineRuns     [][]run
+	pix          []uint8
+	key          []byte
+	spliced      []run
+	blank        []run
 	splices      map[[2]int32]int32
 	tiles        []image.Rectangle
-	tileOf       []int
+	band         int
 	hashes, sent []uint64
 	dirty, send  []bool
 	moved, plain []bool
@@ -90,12 +104,10 @@ type cached struct {
 	change  [][2]int32
 	uniform [2]int
 	frame   uint64
+	id      int
 }
 
-type run struct {
-	end int32
-	px  uint32
-}
+type run = graphics.Run
 
 type twin struct {
 	hash uint64
@@ -150,9 +162,12 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	case s.Graphics == terminal.GraphicsNone:
 		look = paint.Composited
 	}
-	s.painter.Widths, s.imageBytes = s.Widths, 0
+	s.painter.Widths, s.painter.Profile, s.imageBytes = s.Widths, s.Profile, 0
 	s.painted.Store(false)
 	paint := func() {
+		if s.text == nil {
+			s.text = buffer.New(s.cols, s.rows)
+		}
 		s.painter.Paint(s.text, &root, look)
 		s.painted.Store(true)
 		s.screens()
@@ -160,11 +175,17 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	if s.Graphics == terminal.GraphicsNone {
 		paint()
 	} else {
-		next, changed := s.damaged(&root)
 		var painting sync.WaitGroup
-		if s.limit() > 1 && len(s.drawing) == len(s.tiles) {
+		early := s.fresh && s.limit() > 1
+		if early {
 			painting.Go(paint)
-		} else {
+		}
+		next, changed := s.damaged(&root)
+		switch {
+		case early:
+		case s.limit() > 1 && len(s.drawing) == len(s.tiles):
+			painting.Go(paint)
+		default:
 			paint()
 		}
 		s.surfaces(next, changed)
@@ -203,21 +224,21 @@ func (s *Screen) reset(cols, rows int) {
 		s.cache, s.shapes, s.splices, s.seed = map[uint64]*cached{}, map[string]*cached{}, map[[2]int32]int32{}, maphash.MakeSeed()
 	}
 	s.cols, s.rows, s.cell, s.fresh = cols, rows, s.Cell, true
-	s.text, s.shown, s.want = buffer.New(cols, rows), nil, nil
+	s.text, s.shown, s.want = nil, nil, nil
 	s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
 	if s.Graphics == terminal.GraphicsNone {
 		return
 	}
 	s.bounds = image.Rect(0, 0, cols*s.Cell.X, rows*s.Cell.Y)
-	band := 1
-	for s.Graphics == terminal.GraphicsSixel && band*s.Cell.Y%graphicskonst.SixelBand != 0 {
-		band++
+	s.band = 1
+	for s.Graphics == terminal.GraphicsSixel && s.band*s.Cell.Y%graphicskonst.SixelBand != 0 {
+		s.band++
 	}
 	span := konst.TileColumns * s.Cell.X
 	s.columns = slices.Grow(s.columns[:0], (s.bounds.Dx()+span-1)/span)[:(s.bounds.Dx()+span-1)/span]
 	for i := range s.columns {
 		c := &s.columns[i]
-		if width := 4 * (min(i*span+span, s.bounds.Max.X) - i*span); width != c.width {
+		if width := min(i*span+span, s.bounds.Max.X) - i*span; width != c.width {
 			*c = column{width: width}
 		}
 		c.free = c.free[:0]
@@ -225,22 +246,15 @@ func (s *Screen) reset(cols, rows int) {
 		for k := range c.store {
 			c.free = append(c.free, int32(k))
 		}
-		c.lineOf = slices.Grow(c.lineOf[:0], s.bounds.Dy())[:s.bounds.Dy()]
-		c.baseOf = slices.Grow(c.baseOf[:0], s.bounds.Dy())[:s.bounds.Dy()]
+		c.lineOf, c.baseOf = slices.Grow(c.lineOf[:0], s.bounds.Dy())[:s.bounds.Dy()], c.baseOf[:0]
 		for y := range c.lineOf {
-			c.lineOf[y], c.baseOf[y] = -1, -1
+			c.lineOf[y] = -1
 		}
 	}
-	s.tiles, s.tileOf = s.tiles[:0], make([]int, cols*rows)
-	for bottom := rows; bottom > 0; bottom -= band {
+	s.tiles = s.tiles[:0]
+	for bottom := rows; bottom > 0; bottom -= s.band {
 		for left := 0; left < cols; left += konst.TileColumns {
-			t := image.Rect(left, max(bottom-band, 0), min(left+konst.TileColumns, cols), bottom)
-			for y := t.Min.Y; y < t.Max.Y; y++ {
-				for x := t.Min.X; x < t.Max.X; x++ {
-					s.tileOf[y*cols+x] = len(s.tiles)
-				}
-			}
-			s.tiles = append(s.tiles, t)
+			s.tiles = append(s.tiles, image.Rect(left, max(bottom-s.band, 0), min(left+konst.TileColumns, cols), bottom))
 		}
 	}
 	n := len(s.tiles)
@@ -253,6 +267,10 @@ func (s *Screen) reset(cols, rows int) {
 			s.kitty = &graphics.Kitty{}
 		}
 	}
+}
+
+func (s *Screen) tileAt(x, y int) int {
+	return (s.rows-1-y)/s.band*len(s.columns) + x/konst.TileColumns
 }
 
 func (s *Screen) screens() {
@@ -288,7 +306,7 @@ func (s *Screen) compose() {
 		for x, c := range text {
 			switch {
 			case s.Graphics == terminal.GraphicsNone:
-			case s.Graphics == terminal.GraphicsKitty && s.plain[s.tileOf[y*s.cols+x]]:
+			case s.Graphics == terminal.GraphicsKitty && s.plain[s.tileAt(x, y)]:
 				c.Bg = s.sample(x, y)
 			case s.Graphics == terminal.GraphicsKitty:
 				c.Bg = color.Color{}
@@ -309,7 +327,10 @@ func blank(c buffer.Cell) bool {
 }
 
 func (s *Screen) damaged(root *scene.Node) (*scene.Frame, bool) {
-	prev, next := &s.scenes[s.turn], &s.scenes[1-s.turn]
+	if s.scenes[1-s.turn] == nil {
+		s.scenes[1-s.turn] = &scene.Frame{}
+	}
+	prev, next := s.scenes[s.turn], s.scenes[1-s.turn]
 	s.turn = 1 - s.turn
 	next.Record(root, s.Cell)
 	clear(s.dirty)
@@ -337,14 +358,10 @@ func (s *Screen) damaged(root *scene.Node) (*scene.Frame, bool) {
 	if changed {
 		s.frame++
 	}
-	s.drawing, s.busy = s.drawing[:0], s.busy[:0]
+	s.drawing = s.drawing[:0]
 	for t, dirty := range s.dirty {
-		if !dirty {
-			continue
-		}
-		s.drawing = append(s.drawing, t)
-		if column := t % len(s.columns); !slices.Contains(s.busy, column) {
-			s.busy = append(s.busy, column)
+		if dirty {
+			s.drawing = append(s.drawing, t)
 		}
 	}
 	s.gather(next)
@@ -360,30 +377,31 @@ func (s *Screen) surfaces(next *scene.Frame, changed bool) {
 	for _, w := range s.workers {
 		w.out = w.out[:0]
 	}
-	s.rasterise(len(s.busy), func(w *worker, i int) {
-		for t := s.busy[i]; t < len(s.tiles); t += len(s.columns) {
-			if !s.dirty[t] {
-				continue
-			}
-			if s.moved[t] {
-				s.sent[t], s.moved[t] = s.hash(t), false
-			}
-			w.fill(s, next, t)
-			s.hashes[t] = s.hash(t)
-			s.plain[t] = s.Graphics != terminal.GraphicsSixel && s.Profile == color.TrueColor && s.plainTile(t)
-			if s.Graphics != terminal.GraphicsKitty && !s.plain[t] && s.hashes[t] != s.sent[t] && s.claim(t) {
-				w.encode(s, t)
-			}
-			cells, painted := s.tiles[t], s.underText() && s.painted.Load()
-			grounded := s.underText() && !s.plain[t] && s.hashes[t] != s.sent[t]
-			for y := cells.Min.Y; y < cells.Max.Y; y++ {
-				clear(s.sampled[y*s.cols+cells.Min.X : y*s.cols+cells.Max.X])
-				for x := cells.Min.X; (painted || grounded) && x < cells.Max.X; x++ {
-					if grounded || !blank(s.text.At(x, y)) {
-						s.sample(x, y)
-					}
-				}
-			}
+	for _, t := range s.drawing {
+		if s.moved[t] {
+			s.sent[t], s.moved[t] = s.hash(t), false
+		}
+	}
+	for i := range s.columns {
+		s.columns[i].recipes = s.columns[i].recipes[:0]
+		s.columns[i].arena = s.columns[i].arena[:0]
+	}
+	s.rasterise(len(s.drawing), func(w *worker, i int) {
+		t := s.drawing[i]
+		twin, memo := w.fill(s, next, t)
+		height := s.tiles[t].Dy() * s.Cell.Y
+		if twin >= 0 {
+			s.plain[t] = s.plain[twin]
+		} else {
+			s.plain[t] = s.Graphics != terminal.GraphicsSixel && s.Profile == color.TrueColor && s.plainTile(w.rowLines(height))
+		}
+		if s.Graphics != terminal.GraphicsKitty && !s.plain[t] && s.hashes[t] != s.sent[t] && s.claim(t) {
+			w.rowLines(height)
+			w.encode(s, t)
+		}
+		w.measure(s, t, twin)
+		if memo {
+			w.remember(s, t)
 		}
 	})
 	if changed {
@@ -421,7 +439,7 @@ func (s *Screen) transmit() {
 		for y := range s.rows {
 			shown, text := s.shown.Row(y), s.text.Row(y)
 			for x := range shown {
-				if t := s.tileOf[y*s.cols+x]; shown[x].Grapheme != "" && blank(text[x]) && !s.send[t] && !s.plain[t] && !s.flat(x, y) {
+				if t := s.tileAt(x, y); shown[x].Grapheme != "" && blank(text[x]) && !s.send[t] && !s.plain[t] && !s.flat(x, y) {
 					s.send[t] = true
 				}
 			}
@@ -433,14 +451,17 @@ func (s *Screen) transmit() {
 			s.sending = append(s.sending, t)
 		}
 	}
-	s.parallel(len(s.sending), func(w *worker, i int) { w.encode(s, s.sending[i]) })
+	s.parallel(len(s.sending), func(w *worker, i int) {
+		w.lines = s.tileLines(s.sending[i], w.lines[:0])
+		w.encode(s, s.sending[i])
+	})
 	size := 0
 	for t, send := range s.send {
 		if send {
 			size += s.pieces[s.twins[t]].hi - s.pieces[s.twins[t]].lo
 		}
 	}
-	s.out.Grow(size)
+	s.out.Grow(size + s.cols*s.rows*graphicskonst.CellBytes)
 	if !slices.Contains(s.send, true) {
 		return
 	}
@@ -479,7 +500,7 @@ func (s *Screen) put(t int) {
 		} else {
 			slot = uint32(slices.Index(s.uses, 0))
 			s.images[s.hashes[t]] = slot
-			s.tileRows = s.tileLines(t, s.tileRows[:0])
+			s.pix, s.tileRows = expand(s.pix, s.tileRows, s.tileLines(t, s.lineRuns[:0]))
 			dst = s.kitty.Encode(dst, s.tileRows, s.placement(t), konst.KittyFirstImage+slot, uint32(t)+1)
 		}
 		s.uses[slot]++
@@ -497,12 +518,16 @@ func (s *Screen) ground() {
 	eraser, dst := terminal.Writer{Profile: s.Profile}, s.out.AvailableBuffer()
 	for y := range s.rows {
 		shown, text := s.shown.Row(y), s.text.Row(y)
+		band := s.tileAt(0, y)
 		for x := range shown {
-			t := s.tileOf[y*s.cols+x]
+			t := band + x/konst.TileColumns
 			if s.needs[x] = keep; !s.send[t] {
 				continue
 			}
-			ground := buffer.Cell{Bg: s.sample(x, y)}
+			ground := buffer.Cell{Bg: s.samples[y*s.cols+x]}
+			if !s.sampled[y*s.cols+x] {
+				ground.Bg = s.sample(x, y)
+			}
 			if ground.Bg.RGBA.A != math.MaxUint8 {
 				ground.Bg = color.Color{}
 			}
@@ -512,7 +537,11 @@ func (s *Screen) ground() {
 			case shown[x] != ground || ground.Bg.RGBA.A == 0 && s.sent[t] != 0:
 				s.needs[x] = erase
 			}
-			shown[x] = ground
+			if shown[x].Grapheme == "" {
+				shown[x].Fg, shown[x].Bg, shown[x].Attr, shown[x].Width = color.Color{}, ground.Bg, 0, 0
+			} else {
+				shown[x] = ground
+			}
 			if x > 0 && x == s.tiles[t].Min.X && text[x].Width == buffer.Continuation {
 				shown[x-1] = buffer.Cell{Grapheme: "\x00"}
 			}

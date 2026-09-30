@@ -30,7 +30,8 @@ func (r *Raster) outline(b Box) *outline {
 	o := &r.outlines[r.shapes]
 	r.shapes++
 	rows := b.pixels(0.5)
-	o.box, o.first, o.rows, o.covs = b, rows.Min.Y, resize(o.rows, rows.Dy()), o.covs[:0]
+	first, last := max(rows.Min.Y, r.first), min(rows.Max.Y, r.first+len(r.same))
+	o.box, o.first, o.rows, o.covs = b, first, resize(o.rows, max(last-first, 0)), o.covs[:0]
 	clear(o.rows)
 	return o
 }

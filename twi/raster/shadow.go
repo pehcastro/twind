@@ -64,6 +64,12 @@ func (r *Raster) shadow(op Op) {
 		return
 	}
 	per := konst.PhiSteps / (2 * reach)
+	if r.phi == nil {
+		r.phi = new([konst.PhiSteps + 1]float64)
+		for i := range r.phi {
+			r.phi[i] = phi(i)
+		}
+	}
 	if sigma > 0 {
 		r.profile(shape, per, reach, area)
 	}
@@ -240,6 +246,10 @@ func (r *Raster) profile(shape Box, per, reach float64, area image.Rectangle) {
 		if c >= 2 {
 			k.top = shape.Y + shape.H - rad
 		}
+		if float64(area.Max.Y-1)+0.5+reach <= k.top || float64(area.Min.Y)+0.5-reach >= k.top+float64(k.count)*k.step {
+			k.count = 0
+			continue
+		}
 		edge := func(f float64) float64 {
 			d := rad - f*k.step
 			if c >= 2 {
@@ -317,4 +327,9 @@ func (r *Raster) cdf(t float64) float64 {
 	}
 	i := int(u)
 	return r.phi[i] + (u-float64(i))*(r.phi[i+1]-r.phi[i])
+}
+
+func phi(i int) float64 {
+	b := phiTable[8*i : 8*i+8]
+	return math.Float64frombits(uint64(b[0]) | uint64(b[1])<<8 | uint64(b[2])<<16 | uint64(b[3])<<24 | uint64(b[4])<<32 | uint64(b[5])<<40 | uint64(b[6])<<48 | uint64(b[7])<<56)
 }

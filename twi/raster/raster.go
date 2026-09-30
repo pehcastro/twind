@@ -12,6 +12,8 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 )
 
+//go:generate go run gen.go
+
 type Rect struct{ X, Y, W, H float64 }
 
 type Box struct {
@@ -70,8 +72,8 @@ type Raster struct {
 	layers   []layer
 	groups   []image.RGBA
 	depth    int
-	phi      [konst.PhiSteps + 1]float64
-	ramp     [konst.GradientSteps + 1][4]float32
+	phi      *[konst.PhiSteps + 1]float64
+	ramp     *[konst.GradientSteps + 1][4]float32
 	stops    []Stop
 	memo     []memo
 	solid    []uint8
@@ -107,13 +109,6 @@ func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
 			for _, run := range r.open(y, tile.Min.X, tile.Max.X) {
 				clear(dst.Pix[dst.PixOffset(run[0], y):dst.PixOffset(run[1], y)])
 			}
-		}
-	}
-	if r.phi[konst.PhiSteps] == 0 {
-		low := math.Erf(-konst.ShadowReach / math.Sqrt2)
-		for i := range r.phi {
-			t := (2*float64(i)/konst.PhiSteps - 1) * konst.ShadowReach
-			r.phi[i] = (math.Erf(t/math.Sqrt2) - low) / (-2 * low)
 		}
 	}
 	r.layers = append(r.layers[:0], layer{img: dst, clip: tile, opacity: 1})
@@ -451,6 +446,9 @@ func (r *Raster) gradient(stops []Stop) {
 		return
 	}
 	r.stops = append(r.stops[:0], stops...)
+	if r.ramp == nil {
+		r.ramp = new([konst.GradientSteps + 1][4]float32)
+	}
 	var l1, l2 [3]float64
 	pair := -1
 	for i := range r.ramp {
