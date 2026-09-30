@@ -56,6 +56,9 @@ const (
 	BreakAll         = "break-all"
 	BreakWords       = "break-words"
 	Anywhere         = "wrap-anywhere"
+	Hash             = "w-12 break-all"
+	KeepAll          = "w-12 break-keep"
+	Context          = "relative ml-5 mt-2 w-60 h-12"
 
 	Fading     = "h-3 transition-colors duration-200 ease-linear"
 	Light      = "bg-zinc-100"

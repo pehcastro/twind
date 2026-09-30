@@ -40,6 +40,7 @@ type Node struct {
 	Truncate, NoWrap                       bool
 	Children                               []Node
 	text                                   Text
+	wrapping                               text.Wrapping
 }
 
 type Text struct {
@@ -48,8 +49,8 @@ type Text struct {
 }
 
 type wrapped struct {
-	widths text.Widths
-	lines  map[int][]string
+	wrapping text.Wrapping
+	lines    map[int][]string
 }
 
 func Sanitize(raw string) Text {
@@ -60,32 +61,47 @@ func Sanitize(raw string) Text {
 	return Text{clean, &wrapped{lines: map[int][]string{}}}
 }
 
-func (t Text) wrap(w text.Widths, width int) []string {
-	if t.wrapped == nil {
-		return w.Wrap(t.clean, width)
+func Wrapping(s *style.ComputedStyle) text.Wrapping {
+	return text.Wrapping{
+		Word: [...]text.WordBreak{
+			style.WordBreakNormal:  text.WordBreakNormal,
+			style.WordBreakAll:     text.WordBreakAll,
+			style.WordBreakKeepAll: text.WordBreakKeepAll,
+		}[s.WordBreak],
+		Overflow: [...]text.OverflowWrap{
+			style.OverflowWrapNormal:    text.OverflowWrapNormal,
+			style.OverflowWrapBreakWord: text.OverflowWrapBreakWord,
+			style.OverflowWrapAnywhere:  text.OverflowWrapAnywhere,
+		}[s.OverflowWrap],
 	}
-	if t.wrapped.widths != w {
-		t.wrapped.widths = w
+}
+
+func (t Text) wrap(b text.Wrapping, width int) []string {
+	if t.wrapped == nil {
+		return b.Wrap(t.clean, width)
+	}
+	if t.wrapped.wrapping != b {
+		t.wrapped.wrapping = b
 		clear(t.wrapped.lines)
 	}
 	lines, ok := t.wrapped.lines[width]
 	if !ok {
-		lines = w.Wrap(t.clean, width)
+		lines = b.Wrap(t.clean, width)
 		t.wrapped.lines[width] = lines
 	}
 	return lines
 }
 
-func (t Text) Size(w text.Widths, availableWidth int) (width, height int) {
-	lines := t.wrap(w, availableWidth)
+func (t Text) Size(b text.Wrapping, availableWidth int) (width, height int) {
+	lines := t.wrap(b, availableWidth)
 	for _, line := range lines {
-		width = max(width, w.Width(line))
+		width = max(width, b.Widths.Width(line))
 	}
 	return width, len(lines)
 }
 
-func (t Text) MinContent(w text.Widths) int {
-	return w.MinContent(t.clean)
+func (t Text) MinContent(b text.Wrapping) int {
+	return b.MinContent(t.clean)
 }
 
 func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
@@ -136,7 +152,7 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	n.Foreground = s.Color
 	n.Bold, n.Italic, n.Underline, n.Strikethrough = s.Bold, s.Italic, s.Underline, s.Strikethrough
 	n.TextAlign = s.TextAlign
-	n.text = content
+	n.text, n.wrapping = content, Wrapping(&s)
 	return n
 }
 
@@ -145,7 +161,9 @@ func (n Node) Lines(w text.Widths) []string {
 		return nil
 	}
 	if !n.NoWrap && !n.Truncate {
-		return n.text.wrap(w, n.Content.W)
+		b := n.wrapping
+		b.Widths = w
+		return n.text.wrap(b, n.Content.W)
 	}
 	lines := strings.Split(n.text.clean, "\n")
 	if n.Truncate {

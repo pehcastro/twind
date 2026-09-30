@@ -42,7 +42,7 @@ func (s *spec) add(k *spec) {
 
 func words(raw string) *spec {
 	t := scene.Sanitize(raw)
-	measure := func(available int) (int, int) { return t.Size(text.Widths{}, available) }
+	measure := func(available int) (int, int) { return t.Size(text.Wrapping{}, available) }
 	return &spec{box: &layout.Box{Measure: measure}, style: inked(plain()), text: t}
 }
 
