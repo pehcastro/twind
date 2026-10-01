@@ -29,8 +29,6 @@ type column struct {
 	holders []int32
 	free    []int32
 	memo    [1 << graphicskonst.LineMemoBits]int32
-	recipes []recipe
-	arena   []byte
 }
 
 func (c *column) line(y int) []run { return c.store[c.lineOf[y]] }
@@ -180,30 +178,31 @@ func (s *Screen) sample(x, y int) color.Color {
 		return s.samples[i]
 	}
 	r, c, at := s.area(x, y)
-	s.bands = s.bands[:0]
+	s.bands, s.sampling = s.bands[:0], s.sampling[:0]
 	for py := r.Min.Y; py < r.Max.Y; py++ {
-		s.bands = banded(s.bands, c.line(py))
+		if py == r.Min.Y || c.lineOf[py] != c.lineOf[py-1] {
+			s.sampling = append(s.sampling, c.line(py)...)
+		}
+		s.bands = banded(s.bands, [2]int32{int32(len(s.sampling) - len(c.line(py))), int32(len(s.sampling))})
 	}
-	s.sums = cellSums(s.sums, s.bands, c.width/s.Cell.X, s.Cell.X)
-	s.sampled[i], s.samples[i] = true, s.average(pixel(s.bands[0].runs, at), s.sums[at/s.Cell.X], s.plain[s.tileAt(x, y)])
+	s.sums = cellSums(s.sums, s.bands, s.sampling, c.width/s.Cell.X, s.Cell.X)
+	s.sampled[i], s.samples[i] = true, s.average(pixel(s.sampling[:s.bands[0].span[1]], at), s.sums[at/s.Cell.X], s.plain[s.tileAt(x, y)])
 	return s.samples[i]
 }
 
 func (w *worker) measure(s *Screen, t, twin int) {
 	cells, shift := s.tiles[t], 0
 	if twin >= 0 {
-		shift = (s.tiles[twin].Min.Y - cells.Min.Y) * s.cols
+		shift = (s.tiles[twin].Min.Y-cells.Min.Y)*s.cols + s.tiles[twin].Min.X - cells.Min.X
 	}
 	painted, grounded := s.underText() && s.painted.Load(), s.underText() && !s.plain[t] && s.hashes[t] != s.sent[t]
+	bands, sums := w.bands, w.sums
 	for y := cells.Min.Y; y < cells.Max.Y; y++ {
 		clear(s.sampled[y*s.cols+cells.Min.X : y*s.cols+cells.Max.X])
 		if !painted && !grounded {
 			continue
 		}
-		w.bands = w.bands[:0]
-		for _, sp := range w.spans[(y-cells.Min.Y)*s.Cell.Y:][:s.Cell.Y] {
-			w.bands = banded(w.bands, w.store[sp[0]:sp[1]])
-		}
+		spans := w.spans[(y-cells.Min.Y)*s.Cell.Y:][:s.Cell.Y]
 		var last [4]int
 		colour, summed := s.average(0, last, false), false
 		for x := cells.Min.X; x < cells.Max.X; x++ {
@@ -214,33 +213,64 @@ func (w *worker) measure(s *Screen, t, twin int) {
 			case twin >= 0 && s.sampled[i+shift]:
 				s.sampled[i], s.samples[i] = true, s.samples[i+shift]
 				continue
+			case w.lazy:
+				w.unpack(s, t)
+			}
+			switch {
 			case s.plain[t]:
-				s.sampled[i], s.samples[i] = true, s.average(pixel(w.bands[0].runs, (x-cells.Min.X)*s.Cell.X), last, true)
+				s.sampled[i], s.samples[i] = true, s.average(pixel(w.store[spans[0][0]:spans[0][1]], (x-cells.Min.X)*s.Cell.X), last, true)
 				continue
 			case !summed:
-				w.sums, summed = cellSums(w.sums, w.bands, cells.Dx(), s.Cell.X), true
+				bands = bands[:0]
+				for _, sp := range spans {
+					bands = banded(bands, sp)
+				}
+				sums, summed = cellSums(sums, bands, w.store, cells.Dx(), s.Cell.X), true
 			}
-			if sum := w.sums[x-cells.Min.X]; sum != last {
+			if sum := sums[x-cells.Min.X]; sum != last {
 				last, colour = sum, s.average(0, sum, false)
 			}
 			s.sampled[i], s.samples[i] = true, colour
 		}
 	}
+	w.bands, w.sums = bands, sums
 }
 
-func cellSums(dst [][4]int, bands []band, cells, width int) [][4]int {
+func (w *worker) unpack(s *Screen, t int) {
+	r, c := s.lines(t)
+	store, of := w.store[:0], c.lineOf[r.Min.Y:r.Max.Y]
+	c.lock.Lock()
+	for i, k := range of {
+		if i > 0 && k == of[i-1] {
+			w.spans[i] = w.spans[i-1]
+			continue
+		}
+		w.spans[i] = [2]int32{int32(len(store)), int32(len(store) + len(c.store[k]))}
+		store = append(store, c.store[k]...)
+	}
+	c.lock.Unlock()
+	w.keep(store)
+	w.lazy = false
+}
+
+func cellSums(dst [][4]int, bands []band, store []run, cells, width int) [][4]int {
 	dst = slices.Grow(dst[:0], cells)[:cells]
 	clear(dst)
 	for _, b := range bands {
-		for x, i := 0, 0; x < cells*width; {
-			r := b.runs[i]
-			end := min(int(r.End), (x/width+1)*width)
-			sum := &dst[x/width]
-			for ch := range sum {
-				sum[ch] += b.n * (end - x) * int(r.Pixel>>(8*ch)&math.MaxUint8)
-			}
+		runs := store[b.span[0]:b.span[1]]
+		for x, i, cell := 0, 0, 0; cell < cells; {
+			r, edge := runs[i], (cell+1)*width
+			end := min(int(r.End), edge)
+			n, sum := b.n*(end-x), &dst[cell]
+			sum[0] += n * int(r.Pixel&math.MaxUint8)
+			sum[1] += n * int(r.Pixel>>8&math.MaxUint8)
+			sum[2] += n * int(r.Pixel>>16&math.MaxUint8)
+			sum[3] += n * int(r.Pixel>>24)
 			if x = end; x == int(r.End) {
 				i++
+			}
+			if x == edge {
+				cell++
 			}
 		}
 	}
@@ -248,16 +278,16 @@ func cellSums(dst [][4]int, bands []band, cells, width int) [][4]int {
 }
 
 type band struct {
-	runs []run
+	span [2]int32
 	n    int
 }
 
-func banded(bands []band, runs []run) []band {
-	if n := len(bands); n > 0 && &bands[n-1].runs[0] == &runs[0] {
+func banded(bands []band, span [2]int32) []band {
+	if n := len(bands); n > 0 && bands[n-1].span == span {
 		bands[n-1].n++
 		return bands
 	}
-	return append(bands, band{runs, 1})
+	return append(bands, band{span, 1})
 }
 
 func pixel(runs []run, x int) uint32 { return runs[find(runs, x)].Pixel }

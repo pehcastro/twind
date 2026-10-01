@@ -3,12 +3,14 @@ package present
 import (
 	"bytes"
 	"encoding/binary"
+	"hash/maphash"
 	"image"
 	"math"
 	"slices"
 	"sync/atomic"
 
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
+	presentkonst "github.com/twind-dev/twind/internal/konst/present"
 	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
 	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
@@ -22,12 +24,20 @@ type pending struct {
 	pieces [][2]int
 	pix    []uint8
 	width  int
+	alias  int
 	jobs   int32
 }
 
+const unaliased = -2
+
 type job struct {
-	look, left, top, bottom, at int
-	piece                       [2]int
+	look, left, top, bottom, at, copy int
+	piece                             [2]int
+}
+
+type seen struct {
+	hash         uint64
+	job, at, end int
 }
 
 func (s *Screen) look(b *scene.Box) *cached {
@@ -87,9 +97,8 @@ func (s *Screen) canonical(key []byte, b *scene.Box) []byte {
 	return key
 }
 
-func (s *Screen) rasterise(n int, then func(w *worker, i int)) {
+func (s *Screen) rasterise(n int, first func(), then func(w *worker, i int)) {
 	s.jobs, s.lookOps, s.lookRows, s.lookPieces, s.lookAt = s.jobs[:0], s.lookOps[:0], s.lookRows[:0], s.lookPieces[:0], s.lookAt[:0]
-	pixels := 0
 	for i := range s.pending {
 		l := &s.pending[i]
 		size, ops, rows, pieces := l.box.Visual.Size(), len(s.lookOps), len(s.lookRows), len(s.lookPieces)
@@ -142,38 +151,182 @@ func (s *Screen) rasterise(n int, then func(w *worker, i int)) {
 			drawn += end - y
 			y = end
 		}
-		l.jobs = int32(len(s.jobs) - first)
-		s.lookAt = append(s.lookAt, [4]int{ops, rows, pieces, pixels})
-		pixels += 4 * l.width * drawn
+		l.jobs, l.alias = int32(len(s.jobs)-first), -1
+		s.lookAt = append(s.lookAt, [4]int{ops, rows, pieces, 4 * l.width * drawn})
 	}
-	s.lookPix = slices.Grow(s.lookPix[:0], pixels)[:pixels]
 	for i, a := range s.lookAt {
-		l, next := &s.pending[i], [4]int{len(s.lookOps), len(s.lookRows), len(s.lookPieces), pixels}
+		l, next := &s.pending[i], [3]int{len(s.lookOps), len(s.lookRows), len(s.lookPieces)}
 		if i+1 < len(s.lookAt) {
-			next = s.lookAt[i+1]
+			next = [3]int(s.lookAt[i+1][:3])
 		}
-		l.ops, l.drawn, l.pieces, l.pix = s.lookOps[a[0]:next[0]], s.lookRows[a[1]:next[1]], s.lookPieces[a[2]:next[2]], s.lookPix[a[3]:next[3]]
+		l.ops, l.drawn, l.pieces = s.lookOps[a[0]:next[0]], s.lookRows[a[1]:next[1]], s.lookPieces[a[2]:next[2]]
 	}
 	slices.SortStableFunc(s.jobs, func(a, b job) int {
 		return (b.bottom-b.top)*(b.piece[1]-b.piece[0]) - (a.bottom-a.top)*(a.piece[1]-a.piece[0])
 	})
-	jobs := len(s.jobs)
-	s.parallel(jobs+n, func(w *worker, i int) {
+	drawn := s.share()
+	pixels := 0
+	for i, a := range s.lookAt {
+		if s.pending[i].alias < 0 {
+			pixels += a[3]
+		}
+	}
+	s.lookPix = slices.Grow(s.lookPix[:0], pixels)[:pixels]
+	at := 0
+	for i, a := range s.lookAt {
+		if l := &s.pending[i]; l.alias < 0 {
+			l.pix, at = s.lookPix[at:at+a[3]], at+a[3]
+		}
+	}
+	for i := range s.pending {
+		if l := &s.pending[i]; l.alias >= 0 {
+			l.pix = s.pending[l.alias].pix
+		}
+	}
+	jobs := len(s.order)
+	s.parallel(jobs+n, jobs, n+drawn/presentkonst.PixelsPerTile, first, func(w *worker, i int) {
 		if i >= jobs {
 			then(w, i-jobs)
 			return
 		}
-		j := s.jobs[i]
+		j := s.jobs[s.order[i]]
 		l := &s.pending[j.look]
 		stride := 4 * l.width
 		canvas := image.RGBA{Pix: l.pix[j.at*stride+4*j.left:], Stride: stride, Rect: image.Rect(j.piece[0], j.top, j.piece[1], j.bottom)}
 		w.raster.Draw(&canvas, l.ops, canvas.Rect)
-		if atomic.AddInt32(&l.jobs, -1) == 0 {
-			w.finish(l)
-			l.c.ready.Done()
+		for c := j.copy; c >= 0; c = s.jobs[c].copy {
+			d := s.jobs[c]
+			to := &s.pending[d.look]
+			for y := 0; y < j.bottom-j.top && to.alias < 0; y++ {
+				copy(to.pix[(d.at+y)*4*to.width+4*d.left:][:4*(j.piece[1]-j.piece[0])], l.pix[(j.at+y)*stride+4*j.left:])
+			}
+		}
+		w.done(s, l)
+		for c := j.copy; c >= 0; c = s.jobs[c].copy {
+			w.done(s, &s.pending[s.jobs[c].look])
 		}
 	})
 	s.pending = s.pending[:0]
+}
+
+func (w *worker) done(s *Screen, l *pending) {
+	if atomic.AddInt32(&l.jobs, -1) != 0 {
+		return
+	}
+	if l.alias >= 0 && segments(l.drawn, s.pending[l.alias].drawn) {
+		w.derive(l, &s.pending[l.alias])
+	} else {
+		w.finish(l)
+	}
+	l.c.ready.Done()
+}
+
+func segments(a, b []bool) bool {
+	i, j := 0, 0
+	for i < len(a) || j < len(b) {
+		for i < len(a) && !a[i] {
+			i++
+		}
+		for j < len(b) && !b[j] {
+			j++
+		}
+		n, m := i, j
+		for i < len(a) && a[i] {
+			i++
+		}
+		for j < len(b) && b[j] {
+			j++
+		}
+		if i-n != j-m {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Screen) share() int {
+	s.order, s.jobKeys, s.seen = s.order[:0], s.jobKeys[:0], s.seen[:0]
+	drawn := 0
+	for k := range s.jobs {
+		j := &s.jobs[k]
+		j.copy = -1
+		at, l := len(s.jobKeys), &s.pending[j.look]
+		key, ok := shareKey(s.jobKeys, l.ops, image.Rect(j.piece[0], j.top, j.piece[1], j.bottom))
+		if ok {
+			h := maphash.Bytes(s.seed, key[at:])
+			i := slices.IndexFunc(s.seen, func(e seen) bool { return e.hash == h && bytes.Equal(s.jobKeys[e.at:e.end], key[at:]) })
+			if i >= 0 {
+				src := &s.jobs[s.seen[i].job]
+				j.copy, src.copy = src.copy, k
+				switch {
+				case src.at != j.at || src.left != j.left || l.alias == unaliased || l.alias >= 0 && l.alias != src.look:
+					l.alias = unaliased
+				default:
+					l.alias = src.look
+				}
+				continue
+			}
+			s.jobKeys, s.seen = key, append(s.seen, seen{hash: h, job: k, at: at, end: len(key)})
+		}
+		l.alias = unaliased
+		s.order = append(s.order, k)
+		drawn += (j.bottom - j.top) * (j.piece[1] - j.piece[0])
+	}
+	for i := range s.pending {
+		l := &s.pending[i]
+		if l.alias < 0 || s.lookAt[i][3] != s.lookAt[l.alias][3] || l.width != s.pending[l.alias].width {
+			l.alias = -1
+		}
+	}
+	return drawn
+}
+
+func shareKey(key []byte, ops []raster.Op, canvas image.Rectangle) ([]byte, bool) {
+	margin := 0.0
+	for _, op := range ops {
+		if op.Kind > raster.Shadow || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset {
+			return key, false
+		}
+		r, sh := op.Box.Radii, op.Shadow
+		margin = max(margin, max(r[0], r[1], r[2], r[3])+op.Width+sh.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach+math.Abs(sh.Spread)+math.Abs(sh.X)+math.Abs(sh.Y)+presentkonst.ShareSlack)
+	}
+	w, h := float64(canvas.Dx()), float64(canvas.Dy())
+	far := presentkonst.ShareFar * (margin + max(w, h))
+	key = binary.AppendUvarint(binary.AppendUvarint(key, uint64(canvas.Dx())), uint64(canvas.Dy()))
+	for _, op := range ops {
+		b, r, sh := op.Box, op.Box.Radii, op.Shadow
+		for _, v := range [...]float64{b.X, b.Y, b.W, b.H, r[0], r[1], r[2], r[3], op.Width, sh.X, sh.Y, sh.Blur, sh.Spread} {
+			if v*presentkonst.ShareGrid != math.Trunc(v*presentkonst.ShareGrid) || math.Abs(v) >= presentkonst.ShareLimit {
+				return key, false
+			}
+		}
+		if min(b.W, b.H)-2*math.Abs(sh.Spread) < 2*margin {
+			return key, false
+		}
+		x0, x1, across := snap(b.X-float64(canvas.Min.X), b.X+b.W-float64(canvas.Min.X), w, margin, far)
+		y0, y1, down := snap(b.Y-float64(canvas.Min.Y), b.Y+b.H-float64(canvas.Min.Y), h, margin, far)
+		if !across || !down {
+			return key, false
+		}
+		key = append(key, byte(op.Kind), op.Color.R, op.Color.G, op.Color.B, op.Color.A)
+		for _, v := range [...]float64{x0, y0, x1, y1, r[0], r[1], r[2], r[3], op.Width, sh.X, sh.Y, sh.Blur, sh.Spread} {
+			key = binary.LittleEndian.AppendUint32(key, uint32(int32(v*presentkonst.ShareGrid)))
+		}
+	}
+	return key, true
+}
+
+func snap(lo, hi, n, margin, far float64) (float64, float64, bool) {
+	if hi <= -margin || lo >= n+margin {
+		return lo, hi, false
+	}
+	if lo <= -margin {
+		lo = -far
+	}
+	if hi >= n+margin {
+		hi = n + far
+	}
+	return lo, hi, true
 }
 
 func (w *worker) finish(l *pending) {
@@ -211,22 +364,65 @@ func (w *worker) finish(l *pending) {
 		}
 		c.row[y], w.ends = int32(k), append(w.ends, len(w.runs))
 	}
-	all, from := slices.Clone(w.runs), 0
-	c.lines, c.change = make([][]run, len(w.ends)), make([][2]int32, len(w.ends))
-	for k, to := range w.ends {
+	c.index(slices.Clone(w.runs), w.ends)
+}
+
+func (w *worker) derive(l, a *pending) {
+	a.c.ready.Wait()
+	c, size := l.c, l.box.Visual.Size()
+	w.ends = w.ends[:0]
+	for y, drawn := range a.drawn {
+		if drawn {
+			w.ends = append(w.ends, int(a.c.row[y]))
+		}
+	}
+	for y, p := 0, 0; y < size.Y; y++ {
+		if !l.drawn[y] {
+			c.row[y] = c.row[y-1]
+			continue
+		}
+		c.row[y], p = int32(w.ends[p]), p+1
+	}
+	w.runs, w.ends = w.runs[:0], w.ends[:0]
+	for _, line := range a.c.lines {
+		for _, r := range line {
+			end, i := r.End, 0
+			for i < len(a.pieces) && int(end) > a.pieces[i][1] {
+				i++
+			}
+			switch {
+			case i == len(a.pieces):
+				end = int32(size.X)
+			case int(end) <= a.pieces[i][0]:
+				end = int32(l.pieces[i][0])
+			default:
+				end += int32(l.pieces[i][0] - a.pieces[i][0])
+			}
+			w.runs = append(w.runs, run{End: end, Pixel: r.Pixel})
+		}
+		w.ends = append(w.ends, len(w.runs))
+	}
+	c.index(slices.Clone(w.runs), w.ends)
+}
+
+func (c *cached) index(all []run, ends []int) {
+	from := 0
+	c.lines, c.change = make([][]run, len(ends)), make([][2]int32, len(ends))
+	for k, to := range ends {
 		c.lines[k], from = all[from:to:to], to
 		if k > 0 {
 			c.change[k] = differ(c.lines[k], c.lines[k-1])
 		}
 	}
-	for y, start := 1, 0; y <= size.Y; y++ {
-		if y < size.Y && c.row[y] == c.row[y-1] {
+	c.starts = append(make([]int32, 0, len(c.lines)+1), 0)
+	for y := 1; y <= len(c.row); y++ {
+		if y < len(c.row) && c.row[y] == c.row[y-1] {
 			continue
 		}
-		if y-start > c.uniform[1]-c.uniform[0] {
+		if start := int(c.starts[len(c.starts)-1]); y-start > c.uniform[1]-c.uniform[0] {
 			c.uniform = [2]int{start, y}
 		}
-		start = y
+		c.starts = append(c.starts, int32(y))
 	}
 }
 
@@ -300,6 +496,8 @@ func plan(drawn []bool, ops []raster.Op) {
 		switch {
 		case op.Kind == raster.Opacity || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset:
 			mark(0, float64(h))
+		case op.Kind == raster.Fill && r == [4]float64{} && b.Y <= 0 && b.Y+b.H >= float64(h):
+			continue
 		case op.Kind == raster.Shadow:
 			s := op.Shadow
 			pad := s.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + math.Abs(s.Spread) + 1

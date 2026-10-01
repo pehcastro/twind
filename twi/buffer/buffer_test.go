@@ -76,6 +76,45 @@ func TestWideFill(t *testing.T) {
 	assertRow(t, b, 1, "中", "~", "中", "~", " ")
 }
 
+func TestNarrowFillCutsWideGlyphsAtItsEdges(t *testing.T) {
+	b := New(7, 2)
+	for y := range 2 {
+		b.Set(0, y, Cell{Grapheme: "中", Width: Wide, Bg: red})
+		b.Set(4, y, Cell{Grapheme: "日", Width: Wide, Bg: red})
+	}
+	b.Fill(Rect{X: 1, Y: 1, W: 4, H: 1}, Cell{Grapheme: "a", Attr: Bold})
+	assertRow(t, b, 0, "中", "~", " ", " ", "日", "~", " ")
+	assertRow(t, b, 1, " ", "a", "a", "a", "a", " ", " ")
+	for _, x := range []int{0, 5} {
+		if got := b.At(x, 1); got.Width != Narrow || got.Bg != red {
+			t.Fatalf("cell %d cut from its glyph = %+v, want a narrow space keeping the glyph's background", x, got)
+		}
+	}
+	if got := b.At(2, 1); got != (Cell{Grapheme: "a", Attr: Bold}) {
+		t.Fatalf("filled cell = %+v, want the fill cell", got)
+	}
+}
+
+func TestFreshCellsAreSpacesOrTheFillCell(t *testing.T) {
+	b := New(3, 1)
+	b.Set(0, 0, Cell{Grapheme: "a", Fg: red, Attr: Bold})
+	b.Resize(4, 2)
+	want := [][]Cell{{{Grapheme: "a", Fg: red, Attr: Bold}, {Grapheme: " "}, {Grapheme: " "}, {Grapheme: " "}}, {{Grapheme: " "}, {Grapheme: " "}, {Grapheme: " "}, {Grapheme: " "}}}
+	for y := range want {
+		if got := b.Row(y); !slices.Equal(got, want[y]) {
+			t.Fatalf("row %d after a resize = %+v, want %+v", y, got, want[y])
+		}
+	}
+	for _, c := range []Cell{{}, {Grapheme: "\x00"}, {Grapheme: "x", Bg: red, Attr: Bold}} {
+		f := Filled(5, 3, c)
+		for y := range 3 {
+			if got := f.Row(y); slices.ContainsFunc(got, func(g Cell) bool { return g != c }) {
+				t.Fatalf("Filled with %+v: row %d = %+v", c, y, got)
+			}
+		}
+	}
+}
+
 func TestWideResizeNarrower(t *testing.T) {
 	b := New(5, 1)
 	b.Set(0, 0, Cell{Grapheme: "a"})

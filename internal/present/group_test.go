@@ -144,6 +144,30 @@ func TestGroupsCompositeAsDrawMaskDoes(t *testing.T) {
 	}
 }
 
+func TestFloodedRoundsEveryChannelLikeOneDivision(t *testing.T) {
+	for a := range uint32(256) {
+		for under := range uint32(256) {
+			for src := range uint32(256) {
+				px := a<<24 | src<<16 | (255-src)<<8 | src
+				back := under<<24 | (255-under)<<16 | under<<8 | (under ^ src)
+				want := back
+				if a == math.MaxUint8 {
+					want = px
+				} else if a > 0 {
+					want = 0
+					for shift := 0; shift < 32; shift += 8 {
+						kept := (back >> shift & math.MaxUint8) * (math.MaxUint8 - a)
+						want |= uint32(uint8(px>>shift)+uint8((kept+math.MaxUint8/2)/math.MaxUint8)) << shift
+					}
+				}
+				if got := flooded(back, px); got != want {
+					t.Fatalf("flooded(%08x, %08x) = %08x, want %08x", back, px, got, want)
+				}
+			}
+		}
+	}
+}
+
 func TestFadingOverAKeptPageMatchesAFullComposite(t *testing.T) {
 	steps := []struct {
 		name string

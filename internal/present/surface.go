@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
+	konst "github.com/twind-dev/twind/internal/konst/present"
 	scenekonst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/graphics"
@@ -31,6 +32,8 @@ type worker struct {
 	key    []byte
 	recipe []byte
 	hashed uint64
+	links  []link
+	lazy   bool
 	lines  [][]run
 	bands  []band
 	sums   [][4]int
@@ -41,6 +44,12 @@ type worker struct {
 	parts  []part
 	groups []group
 	out    []byte
+}
+
+type link struct {
+	k       int32
+	n, size int
+	hash    uint64
 }
 
 type piece struct {
@@ -67,26 +76,50 @@ const (
 	copyBlend
 )
 
-func (s *Screen) limit() int {
-	return min(runtime.GOMAXPROCS(0), cmp.Or(s.Workers, graphicskonst.Workers))
-}
+type segment uint8
 
-func (s *Screen) parallel(n int, do func(w *worker, i int)) {
-	workers := max(min(n, s.limit()), 1)
+const (
+	flatRows segment = iota
+	lookRows
+)
+
+func (s *Screen) parallel(n, lead, tiles int, first func(), do func(w *worker, i int)) {
+	workers := max(min(cmp.Or(s.Workers, runtime.GOMAXPROCS(0)), 1+tiles/konst.TilesPerWorker), 1)
 	for len(s.workers) < workers {
 		s.workers = append(s.workers, &worker{})
 	}
 	var next atomic.Int64
-	run := func(w *worker) {
-		for i := int(next.Add(1)) - 1; i < n; i = int(next.Add(1)) - 1 {
-			do(w, i)
+	take := func(w *worker, below int) {
+		for i := next.Load(); int(i) < below; i = next.Load() {
+			if next.CompareAndSwap(i, i+1) {
+				do(w, int(i))
+			}
+		}
+	}
+	var claimed atomic.Bool
+	once := func() {
+		if first != nil && claimed.CompareAndSwap(false, true) {
+			first()
 		}
 	}
 	var wg sync.WaitGroup
-	for _, w := range s.workers[1:workers] {
-		wg.Go(func() { run(w) })
+	helpers := s.workers[1:workers]
+	if first != nil && len(helpers) > 0 {
+		lane := helpers[0]
+		helpers = helpers[1:]
+		wg.Go(func() {
+			take(lane, lead)
+			once()
+		})
 	}
-	run(s.workers[0])
+	for _, w := range helpers[:min(len(helpers), max(n-1, 0))] {
+		wg.Go(func() { take(w, n) })
+	}
+	if workers == 1 {
+		once()
+	}
+	take(s.workers[0], n)
+	once()
 	wg.Wait()
 }
 
@@ -162,6 +195,7 @@ func (w *worker) close() {
 }
 
 func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
+	w.lazy = false
 	w.collect(s, f, t)
 	r, c := s.lines(t)
 	parts, deep := w.parts, 0
@@ -193,28 +227,47 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
 	if from == 0 {
 		w.recipe = w.describe(w.recipe[:0], r)
 		w.hashed = maphash.Bytes(s.seed, w.recipe)
-		c.lock.Lock()
-		if twin := c.recall(w.hashed, w.recipe); twin >= 0 {
-			top := s.pixels(s.tiles[twin]).Min.Y
-			for i := range spans {
-				k := c.lineOf[top+i]
-				c.link(c.lineOf, r.Min.Y+i, k)
-				if len(c.baseOf) > 0 {
-					c.link(c.baseOf, r.Min.Y+i, -1)
+		s.lock.Lock()
+		twin := s.recall(w.hashed, w.recipe)
+		s.lock.Unlock()
+		if twin >= 0 {
+			area, source := s.lines(twin)
+			links := w.links[:0]
+			source.lock.Lock()
+			for y := area.Min.Y; y < area.Max.Y; {
+				k, n := source.lineOf[y], 1
+				for y+n < area.Max.Y && source.lineOf[y+n] == k {
+					n++
 				}
-				if i > 0 && k == c.lineOf[top+i-1] {
-					spans[i] = spans[i-1]
-					continue
+				links = append(links, link{k: k, n: n, hash: source.hash[k], size: len(source.store[k])})
+				if source != c {
+					store = append(store, source.store[k]...)
 				}
-				spans[i] = [2]int32{int32(len(store)), int32(len(store) + len(c.store[k]))}
-				store = append(store, c.store[k]...)
+				y += n
+			}
+			if source != c {
+				source.lock.Unlock()
+				c.lock.Lock()
+			}
+			y, at := r.Min.Y, 0
+			for _, e := range links {
+				if source != c {
+					e.k, at = c.intern(store[at:at+e.size], e.hash), at+e.size
+				}
+				for range e.n {
+					c.link(c.lineOf, y, e.k)
+					if len(c.baseOf) > 0 {
+						c.link(c.baseOf, y, -1)
+					}
+					y++
+				}
 			}
 			c.lock.Unlock()
+			w.links, w.lazy = links, true
 			w.keep(store)
 			s.hashes[t] = s.hashes[twin]
 			return twin, false
 		}
-		c.lock.Unlock()
 	}
 	for len(w.layers) <= deep {
 		w.layers = append(w.layers, layer{})
@@ -295,31 +348,55 @@ func (w *worker) rowLines(n int) [][]run {
 }
 
 func (w *worker) describe(key []byte, r image.Rectangle) []byte {
-	key = binary.AppendUvarint(key, uint64(r.Dy()))
+	key = binary.AppendUvarint(binary.AppendUvarint(key, uint64(r.Dx())), uint64(r.Dy()))
 	for _, p := range w.parts {
 		key = binary.AppendUvarint(append(key, byte(p.step)), uint64(p.into))
 		key = binary.LittleEndian.AppendUint64(key, math.Float64bits(p.opacity))
 		if p.step != drawBox {
 			continue
 		}
-		for _, v := range [6]int{p.r.Min.X - r.Min.X, p.r.Min.Y - r.Min.Y, p.r.Max.X - r.Min.X, p.r.Max.Y - r.Min.Y, p.c.id, p.r.Min.X - p.at.X} {
+		for _, v := range [4]int{p.r.Min.X - r.Min.X, p.r.Min.Y - r.Min.Y, p.r.Max.X - r.Min.X, p.r.Max.Y - r.Min.Y} {
 			key = binary.AppendUvarint(key, uint64(v))
 		}
-		for y := p.r.Min.Y; y < p.r.Max.Y; {
-			k, n := p.c.row[y-p.at.Y], 1
-			for y+n < p.r.Max.Y && p.c.row[y+n-p.at.Y] == k {
-				n++
+		lo, hi := p.r.Min.X-p.at.X, int32(p.r.Max.X-p.at.X)
+		flat, rows := uint32(0), 0
+		flush := func() {
+			if rows > 0 {
+				key = binary.AppendUvarint(binary.LittleEndian.AppendUint32(append(key, byte(flatRows)), flat), uint64(rows))
 			}
-			key = binary.AppendUvarint(binary.AppendUvarint(key, uint64(k)), uint64(n))
-			y += n
+			rows = 0
 		}
+		uniform, pixel := false, uint32(0)
+		for y := p.r.Min.Y; y < p.r.Max.Y; {
+			k := p.c.row[y-p.at.Y]
+			n := min(int(p.c.starts[k+1])+p.at.Y, p.r.Max.Y) - y
+			if change := p.c.change[k]; y == p.r.Min.Y || change[0] < hi && int32(lo) < change[1] {
+				line := p.c.lines[k]
+				i := find(line, lo)
+				uniform, pixel = line[i].End >= hi, line[i].Pixel
+			}
+			y += n
+			if uniform {
+				if pixel != flat {
+					flush()
+				}
+				flat, rows = pixel, rows+n
+				continue
+			}
+			flush()
+			key = append(key, byte(lookRows))
+			for _, v := range [4]int{p.c.id, int(k), lo, n} {
+				key = binary.AppendUvarint(key, uint64(v))
+			}
+		}
+		flush()
 	}
 	return key
 }
 
-func (c *column) recall(hash uint64, key []byte) int {
-	for _, e := range c.recipes {
-		if e.hash == hash && bytes.Equal(c.arena[e.at:e.end], key) {
+func (s *Screen) recall(hash uint64, key []byte) int {
+	for _, e := range s.recipes {
+		if e.hash == hash && bytes.Equal(s.arena[e.at:e.end], key) {
 			return e.tile
 		}
 	}
@@ -327,13 +404,12 @@ func (c *column) recall(hash uint64, key []byte) int {
 }
 
 func (w *worker) remember(s *Screen, t int) {
-	_, c := s.lines(t)
-	c.lock.Lock()
-	if c.recall(w.hashed, w.recipe) < 0 {
-		c.recipes = append(c.recipes, recipe{hash: w.hashed, tile: t, at: len(c.arena), end: len(c.arena) + len(w.recipe)})
-		c.arena = append(c.arena, w.recipe...)
+	s.lock.Lock()
+	if s.recall(w.hashed, w.recipe) < 0 {
+		s.recipes = append(s.recipes, recipe{hash: w.hashed, tile: t, at: len(s.arena), end: len(s.arena) + len(w.recipe)})
+		s.arena = append(s.arena, w.recipe...)
 	}
-	c.lock.Unlock()
+	s.lock.Unlock()
 }
 
 func repeat(c *column, from, to int) {
@@ -483,13 +559,14 @@ func flooded(under, px uint32) uint32 {
 	case math.MaxUint8:
 		return px
 	default:
-		var out uint32
-		for shift := 0; shift < 32; shift += 8 {
-			kept := (under >> shift & math.MaxUint8) * (math.MaxUint8 - a)
-			out |= uint32(uint8(px>>shift)+uint8((kept+math.MaxUint8/2)/math.MaxUint8)) << shift
-		}
-		return out
+		return lanes(under, px, math.MaxUint8-a) | lanes(under>>8, px>>8, math.MaxUint8-a)<<8
 	}
+}
+
+func lanes(under, px, keep uint32) uint32 {
+	t := (under&konst.ByteLanes)*keep + konst.HalfLanes
+	t += t >> 8 & konst.ByteLanes
+	return (px&konst.ByteLanes + t>>8&konst.ByteLanes) & konst.ByteLanes
 }
 
 func (s *Screen) damage(r image.Rectangle) {

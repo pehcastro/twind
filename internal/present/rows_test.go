@@ -2,7 +2,10 @@ package present
 
 import (
 	"bytes"
+	"hash/maphash"
 	"image"
+	"math"
+	"math/rand/v2"
 	"slices"
 	"testing"
 
@@ -11,6 +14,100 @@ import (
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/terminal"
 )
+
+func TestSharedJobsDrawTheSamePixels(t *testing.T) {
+	rng := rand.New(rand.NewPCG(1, 2))
+	quarter := func(n float64) float64 { return math.Round(rng.Float64()*n*4) / 4 }
+	inks := []color.RGBA{{R: 255, G: 255, B: 255, A: 255}, {A: 26}, {R: 228, G: 228, B: 231, A: 255}, {R: 40, G: 90, B: 200, A: 140}}
+	look := func(x, y, w, h, radius, width float64, shadows [2]raster.BoxShadow) []raster.Op {
+		b := raster.Box{Rect: raster.Rect{X: x, Y: y, W: w, H: h}, Radii: [4]float64{radius, radius, radius, radius}}
+		ops := []raster.Op{{Kind: raster.Shadow, Box: b, Color: inks[1], Shadow: shadows[0]}, {Kind: raster.Shadow, Box: b, Color: inks[1], Shadow: shadows[1]}}
+		ops = append(ops, raster.Op{Kind: raster.Fill, Box: b, Color: inks[rng.IntN(len(inks))]})
+		if width > 0 {
+			ops = append(ops, raster.Op{Kind: raster.Border, Box: b, Color: inks[2], Width: width})
+		}
+		return ops
+	}
+	shared := 0
+	for range 40000 {
+		radius, width := quarter(14), quarter(3)
+		var shadows [2]raster.BoxShadow
+		for i := range shadows {
+			shadows[i] = raster.BoxShadow{X: quarter(8) - 4, Y: quarter(8) - 4, Blur: quarter(16), Spread: quarter(6) - 3}
+		}
+		x, y, w, h := quarter(40), quarter(40), 20+quarter(160), 20+quarter(120)
+		grow := image.Pt(rng.IntN(100), rng.IntN(100))
+		a, b := look(x, y, w, h, radius, width, shadows), look(x, y, w+float64(grow.X), h+float64(grow.Y), radius, width, shadows)
+		ca := image.Rect(0, 0, 1+rng.IntN(60), 1+rng.IntN(60)).Add(image.Pt(int(x)-40+rng.IntN(int(w)+80), int(y)-40+rng.IntN(int(h)+80)))
+		cb := ca
+		if float64(ca.Min.X) > x+w/2 {
+			cb = cb.Add(image.Pt(grow.X, 0))
+		}
+		if float64(ca.Min.Y) > y+h/2 {
+			cb = cb.Add(image.Pt(0, grow.Y))
+		}
+		ka, okA := shareKey(nil, a, ca)
+		kb, okB := shareKey(nil, b, cb)
+		if !okA || !okB || !bytes.Equal(ka, kb) {
+			continue
+		}
+		shared++
+		var r raster.Raster
+		pa, pb := image.NewRGBA(ca), image.NewRGBA(cb)
+		r.Draw(pa, a, ca)
+		r.Draw(pb, b, cb)
+		if !bytes.Equal(pa.Pix, pb.Pix) {
+			t.Fatalf("radius %v, width %v, shadows %+v, box %v,%v %vx%v grown by %v: canvas %v and %v share a key but differ", radius, width, shadows, x, y, w, h, grow, ca, cb)
+		}
+	}
+	if shared < 3000 {
+		t.Errorf("%d of 40000 pairs shared a key, want at least 3000 so the comparison means something", shared)
+	}
+}
+
+func TestStretchedLooksMatchAFullRaster(t *testing.T) {
+	ink, edge, shade := color.RGBA{R: 255, G: 255, B: 255, A: 255}, color.RGBA{R: 228, G: 228, B: 231, A: 255}, color.RGBA{A: 26}
+	card := func(w, h float64, border bool) []raster.Op {
+		b := raster.Box{Rect: raster.Rect{X: 10, Y: 5, W: w, H: h}, Radii: [4]float64{10, 10, 10, 10}}
+		ops := []raster.Op{
+			{Kind: raster.Shadow, Box: b, Color: shade, Shadow: raster.BoxShadow{Y: 2.5, Blur: 5, Spread: -2.5}},
+			{Kind: raster.Shadow, Box: b, Color: shade, Shadow: raster.BoxShadow{Y: 5, Blur: 7.5, Spread: -1.25}},
+			{Kind: raster.Fill, Box: b, Color: ink},
+		}
+		if border {
+			ops = append(ops, raster.Op{Kind: raster.Border, Box: b, Color: edge, Width: 1})
+		}
+		return ops
+	}
+	for _, sizes := range [][2][2]float64{{{860, 100}, {480, 180}}, {{120, 60}, {300, 61}}, {{90, 90}, {91, 400}}} {
+		for _, border := range []bool{true, false} {
+			s, _ := screen(terminal.GraphicsSixel)
+			s.cache, s.shapes, s.seed = map[uint64]*cached{}, map[string]*cached{}, maphash.MakeSeed()
+			var looks []*cached
+			for i, size := range sizes {
+				visual := image.Rect(0, 0, int(size[0])+20, int(size[1])+20).Add(image.Pt(1000*i, 0))
+				ops := card(size[0], size[1], border)
+				for k := range ops {
+					ops[k].Box.X += float64(visual.Min.X)
+				}
+				looks = append(looks, s.look(&scene.Box{Visual: visual, Ops: ops, Look: uint64(i + 1)}))
+			}
+			s.rasterise(0, nil, nil)
+			for i, size := range sizes {
+				full := image.NewRGBA(image.Rect(0, 0, int(size[0])+20, int(size[1])+20))
+				var r raster.Raster
+				r.Draw(full, card(size[0], size[1], border), full.Rect)
+				got := image.NewRGBA(full.Rect)
+				paintLook(got, got.Rect, looks[i], image.Point{})
+				for y := range full.Rect.Dy() {
+					if !bytes.Equal(got.Pix[y*got.Stride:][:got.Stride], full.Pix[y*full.Stride:][:full.Stride]) {
+						t.Fatalf("sizes %v, border %v: look %d row %d differs from a full raster", sizes, border, i, y)
+					}
+				}
+			}
+		}
+	}
+}
 
 func TestLooksShareOnlyTheSamePixels(t *testing.T) {
 	ink := color.RGBA{R: 20, G: 120, B: 200, A: 255}
@@ -96,9 +193,9 @@ func TestPlannedRowsMatchAFullRaster(t *testing.T) {
 		for i := range shifted {
 			shifted[i].Box.X, shifted[i].Box.Y = shifted[i].Box.X+10, shifted[i].Box.Y+20
 		}
-		s.cache, s.shapes = map[uint64]*cached{}, map[string]*cached{}
+		s.cache, s.shapes, s.seed = map[uint64]*cached{}, map[string]*cached{}, maphash.MakeSeed()
 		c := s.look(&scene.Box{Visual: image.Rect(10, 20, 60, 70), Ops: shifted})
-		s.rasterise(0, nil)
+		s.rasterise(0, nil, nil)
 		got := image.NewRGBA(want.Rect)
 		paintLook(got, got.Rect, c, image.Point{})
 		for y := range 50 {
