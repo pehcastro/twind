@@ -158,13 +158,13 @@ func (t *Tree) ScrollIntoView(path []int) bool {
 	target, moved := s.box.BorderBox, false
 	for _, b := range slices.Backward(scrollers) {
 		view, x, y := b.PaddingBox, b.ScrollX, b.ScrollY
-		moved = t.scrollTo(b, x+reveal(target.X, target.W, view.X, view.W), y+reveal(target.Y, target.H, view.Y, view.H)) || moved
+		moved = t.scrollTo(b, x+Reveal(target.X, target.W, view.X, view.W), y+Reveal(target.Y, target.H, view.Y, view.H)) || moved
 		target.X, target.Y = target.X-(b.ScrollX-x), target.Y-(b.ScrollY-y)
 	}
 	return moved
 }
 
-func reveal(at, size, view, span int) int {
+func Reveal(at, size, view, span int) int {
 	switch {
 	case at < view:
 		return at - view
@@ -234,6 +234,17 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 			r.absolute = r.flow
 		}
 	}
+	dx := int(math.Round(translated(st.TranslateX, n.Bounds.W) + translated(s.pose.TranslateX, n.Bounds.W) + s.lift.X))
+	dy := int(math.Round(translated(st.TranslateY, n.Bounds.H) + translated(s.pose.TranslateY, n.Bounds.H) + s.lift.Y))
+	sx, sy := st.ScaleX*s.lift.Scale*s.pose.Scale, st.ScaleY*s.lift.Scale*s.pose.Scale
+	transformed := dx != 0 || dy != 0 || sx != 1 || sy != 1
+	if transformed {
+		r.on, r.flow = true, layout.Rect{X: -lkonst.Unbounded / 2, Y: -lkonst.Unbounded / 2, W: lkonst.Unbounded, H: lkonst.Unbounded}
+		if n.HidesOverflow {
+			r.flow = n.Padding
+		}
+		r.absolute = r.flow
+	}
 	n.Children = make([]scene.Node, 0, len(s.children)+len(s.exiting))
 	for _, list := range [2][]*styledBox{s.children, s.exiting} {
 		for _, c := range list {
@@ -252,10 +263,7 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 		}
 	}
 	n.Opacity *= s.lift.Opacity
-	dx := int(math.Round(translated(st.TranslateX, n.Bounds.W) + translated(s.pose.TranslateX, n.Bounds.W) + s.lift.X))
-	dy := int(math.Round(translated(st.TranslateY, n.Bounds.H) + translated(s.pose.TranslateY, n.Bounds.H) + s.lift.Y))
-	sx, sy := st.ScaleX*s.lift.Scale*s.pose.Scale, st.ScaleY*s.lift.Scale*s.pose.Scale
-	if dx != 0 || dy != 0 || sx != 1 || sy != 1 {
+	if transformed {
 		transform(&n, dx, dy, sx, sy)
 	}
 	n.Turn = s.pose.Turn

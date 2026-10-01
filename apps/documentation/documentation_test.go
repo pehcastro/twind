@@ -100,7 +100,7 @@ func TestPages(t *testing.T) {
 	if !errors.As(err, &problem) || problem.Problem != markdown.UnknownAttribute || problem.Line != 3 {
 		t.Errorf("a Preview with an unknown attribute: got %v, want an unknown attribute at line 3", err)
 	}
-	err = checked(fresh(), pagesWith(t, "button.md", "# Button\n\n<Props of=\"Carousel\" />\n"))
+	err = checked(fresh(), pagesWith(t, "button.md", "# Button\n\n<Props of=\"Gallery\" />\n"))
 	if err == nil || !strings.Contains(err.Error(), "button.md:3") {
 		t.Errorf("Props of a component with no table: got %v, want an error at button.md:3", err)
 	}
@@ -286,7 +286,7 @@ func TestSidebarScrolls(t *testing.T) {
 		d.Press("tab")
 	}
 	d.Press("enter")
-	for range 51 {
+	for range 58 {
 		d.Press("tab")
 	}
 	d.Press("enter")

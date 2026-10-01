@@ -44,6 +44,10 @@ type kit struct {
 	calendar                     *ui.Calendar
 	nav                          *ui.NavigationMenu
 	started, parts               *ui.NavigationMenuItem
+	scroller                     *ui.MessageScroller
+	panes, stack                 *ui.Resizable
+	carousel                     *ui.Carousel
+	sent                         int
 	chosen, pressed, side        string
 	person, panel, href          string
 	bookmarks, statusBar         bool
@@ -102,6 +106,9 @@ func newKit(rt *twi.Runtime, today time.Time) *kit {
 	k.nav = ui.NewNavigationMenu(rt)
 	k.started, k.parts = k.nav.Item("started"), k.nav.Item("components")
 	k.nav.OnSelect = func(href string) { k.href = href }
+	k.scroller, k.sent = ui.NewMessageScroller(rt), len(chatLines())
+	k.panes, k.stack, k.carousel = ui.NewResizable(rt), ui.NewResizable(rt), ui.NewCarousel(rt)
+	k.panes.Sizes, k.stack.Orientation = []int{40, 60}, ui.Vertical
 	return k
 }
 
@@ -111,13 +118,16 @@ func components() []page {
 		{"alert", alertPage, nil},
 		{"alert dialog", alertDialogPage, nil},
 		{"aspect ratio", aspectRatioPage, nil},
+		{"attachment", attachmentPage, nil},
 		{"avatar", avatarPage, nil},
 		{"badge", badgePage, nil},
 		{"breadcrumb", breadcrumbPage, nil},
+		{"bubble", bubblePage, nil},
 		{"button", buttonPage, nil},
 		{"button group", buttonGroupPage, nil},
 		{"calendar", calendarPage, nil},
 		{"card", cardPage, nil},
+		{"carousel", carouselPage, nil},
 		{"checkbox", checkboxPage, nil},
 		{"collapsible", collapsiblePage, nil},
 		{"combobox", comboboxPage, nil},
@@ -136,13 +146,17 @@ func components() []page {
 		{"item", itemPage, nil},
 		{"kbd", kbdPage, nil},
 		{"label", labelPage, nil},
+		{"marker", markerPage, nil},
 		{"menubar", menubarPage, nil},
+		{"message", messagePage, nil},
+		{"message scroller", messageScrollerPage, []key{{"n", "reply"}}},
 		{"native select", nativeSelectPage, nil},
 		{"navigation menu", navigationMenuPage, nil},
 		{"pagination", paginationPage, nil},
 		{"popover", popoverPage, nil},
 		{"progress", progressPage, nil},
 		{"radio group", radioGroupPage, nil},
+		{"resizable", resizablePage, nil},
 		{"scroll area", scrollAreaPage, nil},
 		{"select", selectPage, nil},
 		{"separator", separatorPage, nil},

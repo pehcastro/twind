@@ -21,6 +21,9 @@ const (
 	Icon
 	Muted
 	Image
+	Tinted
+	Ruled
+	Bordered
 )
 
 type Size uint8
@@ -40,7 +43,7 @@ const (
 	Vertical
 )
 
-func pick[K Variant | Size | Orientation | Align | Side | Alignment | dialogKind | ringAt](component string, key K, classes map[K]string) string {
+func pick[K Variant | Size | Orientation | Align | Side | Alignment | dialogKind | ringAt | Upload](component string, key K, classes map[K]string) string {
 	c, ok := classes[key]
 	if !ok {
 		panic(fmt.Sprintf("ui: %s has no %T %d", component, key, key))

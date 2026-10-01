@@ -18,4 +18,7 @@ const (
 	HoverShut     = 150 * time.Millisecond
 	CollisionPadX = 1
 	CollisionPadY = 0
+	PercentWhole  = 100
+	PanelMin      = 10
+	PanelStep     = 5
 )

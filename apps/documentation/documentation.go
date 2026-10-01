@@ -59,10 +59,10 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 	for _, group := range [][]string{
 		{"Getting started", "introduction", "installation", "theming", "cli"},
 		{"Guides", "layout", "text", "motion", "events", "driving"},
-		{"Components", "accordion", "alert", "alert-dialog", "aspect-ratio", "avatar", "badge", "breadcrumb", "button", "button-group",
-			"calendar", "card", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "drawer", "dropdown-menu",
-			"empty", "field", "hover-card", "input", "input-group", "input-otp", "item", "kbd", "label", "menubar", "native-select",
-			"navigation-menu", "pagination", "popover", "progress", "radio-group", "scroll-area", "select", "separator", "sheet",
+		{"Components", "accordion", "alert", "alert-dialog", "aspect-ratio", "attachment", "avatar", "badge", "breadcrumb", "bubble", "button", "button-group",
+			"calendar", "card", "carousel", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "drawer", "dropdown-menu",
+			"empty", "field", "hover-card", "input", "input-group", "input-otp", "item", "kbd", "label", "marker", "menubar", "message", "message-scroller", "native-select",
+			"navigation-menu", "pagination", "popover", "progress", "radio-group", "resizable", "scroll-area", "select", "separator", "sheet",
 			"sidebar", "skeleton", "slider", "spinner", "switch", "table", "tabs", "textarea", "toaster", "toggle", "toggle-group", "tooltip"},
 		{"Examples", "blocks"},
 	} {

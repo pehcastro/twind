@@ -326,10 +326,9 @@ func (r *Runtime) draw(b Backend, now time.Time) error {
 	if err := r.frame(b, now); err != nil {
 		return err
 	}
-	if !r.pointer.seen {
-		return nil
+	if r.pointer.seen {
+		r.hover()
 	}
-	r.hover()
 	if r.dirty {
 		r.wakeUp()
 	}
@@ -339,7 +338,7 @@ func (r *Runtime) draw(b Backend, now time.Time) error {
 func (r *Runtime) Widths() text.Widths { return r.caps.Widths }
 
 func (r *Runtime) frame(b Backend, now time.Time) error {
-	r.caps = r.capabilities(b)
+	r.caps, r.dirty = r.capabilities(b), false
 	tree := r.app()
 	r.doc.update(tree.Events, &r.focus)
 	if r.changed.Swap(false) {
@@ -379,6 +378,9 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	for pass := 1; ; pass++ {
 		moved := r.measure()
 		r.scrolled()
+		if pass < konst.MeasurePasses && r.intoView != "" {
+			moved = r.scrollIntoView() || moved
+		}
 		if pass == konst.MeasurePasses || !r.changed.Swap(false) && !moved {
 			break
 		}
@@ -405,7 +407,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	if err := r.screen.Frame(r.highlight(r.scene), r.width, r.height); err != nil {
 		return err
 	}
-	r.dirty, r.lastFrame, r.lastMoved = false, now, r.moving
+	r.lastFrame, r.lastMoved = now, r.moving
 	if r.capabilities(b) != r.caps {
 		r.Invalidate()
 	}

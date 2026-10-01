@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/scene"
@@ -71,19 +72,16 @@ func (r *Runtime) scrollIntoView() bool {
 	if target == nil {
 		return false
 	}
-	at, moved := target.Bounds, false
+	at, moved, aligned := target.Bounds, false, false
 	for _, s := range around {
 		if len(s.path) == len(path) {
 			continue
 		}
 		view, content := s.node.Padding, s.node.ScrollContent
 		x, y := view.X-content.X, view.Y-content.Y
-		nx, ny := x, y+at.Y-view.Y
-		switch {
-		case at.X < view.X:
-			nx += at.X - view.X
-		case at.X+at.W > view.X+view.W:
-			nx += min(at.X+at.W-view.X-view.W, at.X-view.X)
+		nx, ny := x+render.Reveal(at.X, at.W, view.X, view.W), y+render.Reveal(at.Y, at.H, view.Y, view.H)
+		if !aligned {
+			ny, aligned = y+at.Y-view.Y, true
 		}
 		nx, ny = max(min(nx, content.W-view.W), 0), max(min(ny, content.H-view.H), 0)
 		moved = r.tree.ScrollTo(s.path, nx, ny) || moved

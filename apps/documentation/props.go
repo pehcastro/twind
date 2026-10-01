@@ -66,6 +66,22 @@ func props() map[string][]prop {
 			{"ButtonGroupSeparator(o)", "twi.Node", "a line between two buttons"},
 			{"ButtonGroupText(children...)", "twi.Node", "text that sits in the group like a button"},
 		},
+		"Attachment": {
+			{"u", "ui.Upload", "Done, Idle (a dashed border), Uploading, Processing or Failed (destructive)"},
+			{"o", "ui.Orientation", "Horizontal, media beside the text, or Vertical, media above it"},
+			{"AttachmentMedia(v, children...)", "twi.Node", "an Icon or an Image tile"},
+			{"AttachmentContent, AttachmentTitle, AttachmentDescription", "twi.Node", "the text; title and description truncate"},
+			{"AttachmentActions, AttachmentAction", "twi.Node", "small ghost buttons at the end, or the top right when vertical"},
+			{"AttachmentTrigger(children...)", "twi.Node", "a focusable layer over the whole attachment; give it twi.OnClick"},
+			{"AttachmentGroup(children...)", "twi.Node", "a row of attachments that scrolls sideways"},
+		},
+		"Bubble": {
+			{"v", "ui.Variant", "Default, Secondary, Muted, Tinted, Outline, Ghost or Destructive"},
+			{"a", "ui.Alignment", "Start or End; End also comes from an end-aligned Message"},
+			{"BubbleContent(children...)", "twi.Node", "the coloured box; at most four fifths of the message wide, wraps"},
+			{"BubbleReactions(side, a, children...)", "twi.Node", "a chip under (Bottom) or over (Top) a corner"},
+			{"BubbleGroup(children...)", "twi.Node", "consecutive bubbles from one sender"},
+		},
 		"Calendar": {
 			{"Month", "time.Time", "the month shown; follows Selected or Today when zero"},
 			{"Selected", "time.Time", "the chosen day"},
@@ -164,6 +180,14 @@ func props() map[string][]prop {
 			{"Slot(i)", "twi.Node", "the box for one character"},
 			{"InputOTPGroup, InputOTPSeparator", "twi.Node", "a run of slots and a dash between runs"},
 		},
+		"Carousel": {
+			{"Orientation", "ui.Orientation", "Horizontal, Left and Right turn it, or Vertical, Up and Down"},
+			{"Index", "int", "the slide shown"},
+			{"OnChange", "func(int)", "called on every turn"},
+			{"Node(children...)", "twi.Node", "the focusable region; it wraps at both ends"},
+			{"Content(children...), Item(children...)", "twi.Node", "the viewport and one slide; the new slide slides in"},
+			{"Previous(children...), Next(children...)", "twi.Node", "round buttons outside its sides"},
+		},
 		"Item": {
 			{"v", "ui.Variant", "Default, Outline or Muted"},
 			{"s", "ui.Size", "SizeDefault or SizeSM"},
@@ -176,6 +200,24 @@ func props() map[string][]prop {
 			{"KbdGroup(children...)", "twi.Node", "keys pressed together"},
 		},
 		"Label": {children},
+		"Marker": {
+			{"v", "ui.Variant", "Default, Ruled (a line either side) or Bordered (a line under)"},
+			{"MarkerIcon, MarkerContent", "twi.Node", "a leading glyph and the text"},
+			children,
+		},
+		"Message": {
+			{"a", "ui.Alignment", "Start, or End for the sender: the avatar moves right and the content aligns right"},
+			{"MessageAvatar(children...)", "twi.Node", "at the bottom of the message; put a ui.Avatar in it"},
+			{"MessageContent(children...)", "twi.Node", "the column of header, bubbles and footer"},
+			{"MessageHeader, MessageFooter", "twi.Node", "muted lines above and below"},
+			{"MessageGroup(children...)", "twi.Node", "a column of messages"},
+		},
+		"MessageScroller": {
+			{"Node(children...)", "twi.Node", "the frame; give it a height"},
+			{"Viewport(children...)", "twi.Node", "the focusable scrolling column; follows new content while at its end"},
+			{"Item(children...)", "twi.Node", "one row, usually a Message"},
+			{"Button(children...)", "twi.Node", "shown while scrolled up; jumps to the latest and follows again"},
+		},
 		"Menubar": {
 			{"Menu()", "*ui.MenubarMenu", "adds a menu; it has Node, Trigger(children...) and Content like a dropdown menu"},
 			{"Node(children...)", "twi.Node", "the bar"},
@@ -208,6 +250,13 @@ func props() map[string][]prop {
 			{"OnChange", "func(string)", "called when it changes"},
 			{"Item(value, options...)", "twi.Node", "one choice with its label"},
 			disabled,
+		},
+		"Resizable": {
+			{"Orientation", "ui.Orientation", "Horizontal, panels side by side, or Vertical, stacked"},
+			{"Sizes", "[]int", "each panel's percent of the group; even when left empty"},
+			{"OnResize", "func([]int)", "called with the new sizes on every move"},
+			{"Node(children...), Panel(children...)", "twi.Node", "the group and one panel"},
+			{"Handle(withHandle, children...)", "twi.Node", "the line between two panels; drag it, or focus it and use the arrows, Home and End"},
 		},
 		"ScrollArea": {
 			{"children", "...twi.NodeOption", "give it a height; the wheel, arrows and PageDown scroll it"},

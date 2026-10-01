@@ -135,7 +135,7 @@ func TestFocusSendsBlurThenFocus(t *testing.T) {
 	}
 }
 
-func nested() runtime.Tree {
+func nested(before int) runtime.Tree {
 	rows := func(prefix string, n int) []render.Node {
 		out := make([]render.Node, n)
 		for i := range out {
@@ -144,16 +144,34 @@ func nested() runtime.Tree {
 		return out
 	}
 	inner := render.Node{Classes: []string{"col", "h-3", "shrink-0", "overflow-y-auto"}, Children: rows("row", 100)}
-	outer := render.Node{Classes: []string{"col", "h-5", "w-12", "shrink-0", "overflow-y-auto"}, Children: append(append(rows("before", 10), inner), rows("after", 10)...)}
+	outer := render.Node{Classes: []string{"col", "h-5", "w-12", "shrink-0", "overflow-y-auto"}, Children: append(append(rows("before", before), inner), rows("after", 10)...)}
 	return runtime.Tree{
 		Root:   render.Node{Classes: []string{"col"}, Children: []render.Node{outer}},
-		Events: runtime.Node{Children: []runtime.Node{{Key: "outer", At: []int{0}, Children: []runtime.Node{{Key: "row 80", At: []int{10, 80}}, {Key: "row 99", At: []int{10, 99}}, {Key: "after 9", At: []int{20}}}}}},
+		Events: runtime.Node{Children: []runtime.Node{{Key: "outer", At: []int{0}, Children: []runtime.Node{{Key: "row 50", At: []int{before, 50}}, {Key: "row 80", At: []int{before, 80}}, {Key: "row 99", At: []int{before, 99}}, {Key: "after 9", At: []int{before + 10}}}}}},
 	}
 }
 
+type intoViewStep struct {
+	key  string
+	rows []string
+}
+
 func TestScrollIntoView(t *testing.T) {
+	scrollIntoView(t, 10, []intoViewStep{
+		{"row 80", []string{"before 6", "before 7", "before 8", "before 9", "row 80"}},
+		{"row 99", []string{"before 8", "before 9", "row 97", "row 98", "row 99"}},
+		{"after 9", []string{"after 5", "after 6", "after 7", "after 8", "after 9"}},
+	})
+}
+
+func TestScrollIntoViewKeepsAShownScroller(t *testing.T) {
+	scrollIntoView(t, 1, []intoViewStep{{"row 50", []string{"before 0", "row 50", "row 51", "row 52", "after 0"}}})
+}
+
+func scrollIntoView(t *testing.T, before int, steps []intoViewStep) {
+	t.Helper()
 	b := newBackend(20, 6)
-	tree := nested()
+	tree := nested(before)
 	rt := runtime.New(runtime.Config{Clock: &clock{}, Sheet: scrollSheet(t), Profile: color.None})
 	r := run{b: b, done: make(chan error, 1)}
 	go func() { r.done <- rt.Run(b, func() runtime.Tree { return tree }) }()
@@ -168,14 +186,7 @@ func TestScrollIntoView(t *testing.T) {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	for _, step := range []struct {
-		key  string
-		rows []string
-	}{
-		{"row 80", []string{"row 80", "row 81", "row 82", "after 0", "after 1"}},
-		{"row 99", []string{"row 99", "after 0", "after 1", "after 2", "after 3"}},
-		{"after 9", []string{"after 5", "after 6", "after 7", "after 8", "after 9"}},
-	} {
+	for _, step := range steps {
 		rt.Dispatch(func() { rt.ScrollIntoView(step.key) })
 		g.apply(t, r.next(t))
 		t.Logf("%s:\n%s", step.key, g.text())

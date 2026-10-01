@@ -223,6 +223,8 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 				update(func(s *state) { s.card = true })
 				later = rt.After(cardShown, func() { update(func(s *state) { s.card = false }) })
 			})
+		case cmd == "reply":
+			k.sent++
 		case cmd == "dialog":
 			k.dialog.Open = true
 		case cmd == "sheet":
