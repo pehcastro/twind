@@ -697,3 +697,19 @@ func TestEveryComponent(t *testing.T) {
 	}
 	t.Logf("%d components: %s", len(found), strings.Join(found, ", "))
 }
+
+func TestHeaderNarrow(t *testing.T) {
+	d := open(t)
+	for _, width := range []int{60, 80, 120} {
+		d.Resize(width, 30)
+		row := strings.TrimRight(strings.Split(d.Frame().Text(), "\n")[0], " ")
+		t.Logf("%d columns:\n%s", width, row)
+		wide := width >= 100
+		if !strings.HasSuffix(row, "☾") || !strings.Contains(row, "twind-dark ") || !strings.Contains(row, "Search") {
+			t.Errorf("%d columns: want search, the theme name and the toggle at the right edge of the header:\n%s", width, row)
+		}
+		if strings.Contains(row, "Theme: ") != wide || strings.Contains(row, "Ctrl") != wide {
+			t.Errorf("%d columns: want the Theme label and the Ctrl K hint only at md and up:\n%s", width, row)
+		}
+	}
+}
