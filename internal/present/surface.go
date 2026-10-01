@@ -273,7 +273,7 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
 		w.layers = append(w.layers, layer{})
 	}
 	l, width := &w.layers[0], int32(c.width)
-	h, hash, linked := uint64(scenekonst.HashSeed), uint64(0), r.Min.Y
+	h, hash, linked := uint64(scenekonst.HashSeed)^uint64(s.page), uint64(0), r.Min.Y
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		if y > r.Min.Y && repeats(parts, y) {
 			h = (h ^ hash) * scenekonst.HashPrime
@@ -293,6 +293,9 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
 			below, base = w.base, s.digest(&w.key, w.base)
 		}
 		w.draw(parts[from:], y, r.Min.X, width)
+		if s.page != 0 {
+			l.n[l.cur] = int32(len(unpaged(l.runs(), s.page)))
+		}
 		if s.Profile == color.ANSI256 {
 			l.n[l.cur] = int32(len(quantise(l.runs())))
 		}

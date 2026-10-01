@@ -160,7 +160,7 @@ func (w *worker) encode(s *Screen, t int) {
 
 func (s *Screen) hash(t int) uint64 {
 	r, c := s.lines(t)
-	h := uint64(scenekonst.HashSeed)
+	h := uint64(scenekonst.HashSeed) ^ uint64(s.page)
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		h = (h ^ c.hash[c.lineOf[y]]) * scenekonst.HashPrime
 	}
@@ -297,11 +297,18 @@ func (s *Screen) average(first uint32, sum [4]int, plain bool) color.Color {
 	switch {
 	case plain && first>>24 > 0:
 		return color.Color{Kind: color.Literal, RGBA: color.RGBA{R: uint8(first), G: uint8(first >> 8), B: uint8(first >> 16), A: math.MaxUint8}}
-	case plain || (sum[3]+n/2)/n == 0:
-		return color.Color{}
+	case plain || sum[3] == 0 || s.page == 0 && (sum[3]+n/2)/n == 0:
+		return s.pageBg
+	}
+	coverage := uint8(max(1, sum[3]/n))
+	if rest := n*math.MaxUint8 - sum[3]; s.page != 0 {
+		for i := range 3 {
+			sum[i] += int(s.page>>(8*i)&math.MaxUint8) * rest / math.MaxUint8
+		}
+		sum[3] += rest
 	}
 	unmul := func(v int) uint8 { return uint8((v*math.MaxUint8 + sum[3]/2) / sum[3]) }
-	m := color.RGBA{R: unmul(sum[0]), G: unmul(sum[1]), B: unmul(sum[2]), A: uint8(max(1, sum[3]/n))}
+	m := color.RGBA{R: unmul(sum[0]), G: unmul(sum[1]), B: unmul(sum[2]), A: coverage}
 	if s.Graphics == terminal.GraphicsSixel {
 		m.R, m.G, m.B = register(m.R), register(m.G), register(m.B)
 	}
@@ -344,6 +351,17 @@ func quantise(runs []run) []run {
 		if r.Pixel>>24 == math.MaxUint8 {
 			rgb := palette(color.RGBA{R: uint8(r.Pixel), G: uint8(r.Pixel >> 8), B: uint8(r.Pixel >> 16)}.ANSI256())
 			r.Pixel = uint32(rgb[0]) | uint32(rgb[1])<<8 | uint32(rgb[2])<<16 | math.MaxUint8<<24
+		}
+		out = add(out, r.End, r.Pixel)
+	}
+	return out
+}
+
+func unpaged(runs []run, page uint32) []run {
+	out := runs[:0]
+	for _, r := range runs {
+		if r.Pixel == page {
+			r.Pixel = 0
 		}
 		out = add(out, r.End, r.Pixel)
 	}

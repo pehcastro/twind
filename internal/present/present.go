@@ -2,6 +2,7 @@ package present
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"hash/maphash"
 	"image"
@@ -102,6 +103,8 @@ type Screen struct {
 	rastered     int
 	imageBytes   int
 	kitty        *graphics.Kitty
+	pageBg       color.Color
+	page         uint32
 }
 
 type cached struct {
@@ -171,6 +174,10 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 		look = paint.Composited
 	}
 	s.painter.Widths, s.painter.Profile, s.imageBytes = s.Widths, s.Profile, 0
+	s.pageBg, s.page = color.Color{}, 0
+	if bg := root.Background; s.Graphics == terminal.GraphicsSixel && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
+		s.pageBg, s.page = bg, uint32(bg.RGBA.R)|uint32(bg.RGBA.G)<<8|uint32(bg.RGBA.B)<<16|math.MaxUint8<<24
+	}
 	s.painted.Store(false)
 	paint := func() {
 		if s.text == nil {
@@ -524,7 +531,7 @@ func (s *Screen) ground() {
 			switch {
 			case !blank(text[x]):
 				s.needs[x] = either
-			case *c != buffer.Cell{Bg: ground} || ground.RGBA.A == 0 && s.sent[t] != 0:
+			case *c != buffer.Cell{Bg: ground} || ground.RGBA.A == 0 && (s.sent[t] != 0 || s.page != 0):
 				s.needs[x] = erase
 			}
 			if c.Grapheme != "" {
@@ -545,7 +552,7 @@ func (s *Screen) ground() {
 					n = i - x + 1
 				}
 			}
-			dst = eraser.Erase(dst, x, y, n, shown[x].Bg)
+			dst = eraser.Erase(dst, x, y, n, cmp.Or(shown[x].Bg, s.pageBg))
 			x += n - 1
 		}
 	}

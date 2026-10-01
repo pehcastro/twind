@@ -128,7 +128,7 @@ func grounded(t *testing.T, s *Screen, m *term, name string) {
 			ground := sample
 			for p := range wt.X * wt.Y {
 				if img.RGBAAt(x*wt.X+p%wt.X, y*wt.Y+p/wt.X).A != 255 {
-					ground = color.RGBA{}
+					ground = s.pageBg.RGBA
 				}
 			}
 			switch {

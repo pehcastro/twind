@@ -62,7 +62,7 @@ func TestScrollMatchesAFreshFrame(t *testing.T) {
 				t.Errorf("margins %v, offset %d: the card under the view is %v, above it %v: a row painted outside the view", margins, offsets[i], below, above)
 			}
 			for y := range rows {
-				if !slices.Equal(s.shown.Row(y), fresh.shown.Row(y)) {
+				if !slices.Equal(onScreen(s.shown.Row(y)), onScreen(fresh.shown.Row(y))) {
 					t.Errorf("margins %v, offset %d: row %d on screen is %q, a fresh frame shows %q", margins, offsets[i], y, cells(s.shown.Row(y)), cells(fresh.shown.Row(y)))
 				}
 			}
@@ -80,6 +80,16 @@ func TestScrollMatchesAFreshFrame(t *testing.T) {
 			}
 		}
 	}
+}
+
+func onScreen(row []buffer.Cell) []buffer.Cell {
+	out := slices.Clone(row)
+	for i, c := range out {
+		if c == (buffer.Cell{Grapheme: " ", Bg: c.Bg, Width: buffer.Narrow}) {
+			out[i] = buffer.Cell{Bg: c.Bg}
+		}
+	}
+	return out
 }
 
 func overlaid(offset int) scene.Node {
