@@ -4,7 +4,67 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	konst "github.com/twind-dev/twind/internal/konst/terminal"
 )
+
+func TestDoctorAsksConhostNothingItPrints(t *testing.T) {
+	queries := []string{konst.VersionQuery, konst.SecondaryQuery, konst.KeyboardQuery, konst.DoctorModes, konst.TruecolorQuery, konst.ClipboardQuery, konst.PointerQuery, konst.KittyQuery, konst.KittyRawQuery, konst.GridQuery}
+	cases := []struct {
+		name  string
+		da1   string
+		asked bool
+	}{
+		{"conhost", "\x1b[?1;0c", false},
+		{"silent", "", false},
+		{"wezterm", "\x1b[?65;4;6;18;22;52c", true},
+		{"kitty", "\x1b[?62;c", true},
+	}
+	for _, tc := range cases {
+		var writes []string
+		raw, skipped, err := doctorAsk(func(q string) ([]byte, error) {
+			writes = append(writes, q)
+			answer := tc.da1
+			if strings.Contains(q, konst.KittyRawQuery) {
+				answer = "\x1b_Gi=32;OK\x1b\\" + answer
+			}
+			if strings.HasPrefix(q, konst.ProbeBegin) {
+				answer = "\x1b[5;1R\x1b[5;2R\x1b[5;4R" + answer
+			}
+			return []byte(answer), nil
+		}, []string{"a", "b"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := parseAnswers(raw, 2, 80)
+		if !reflect.DeepEqual(a.widths, []int{1, 3}) {
+			t.Errorf("%s: widths %v, want [1 3]", tc.name, a.widths)
+		}
+		if tc.asked != (a.kittyRaw == "OK") {
+			t.Errorf("%s: kitty raw %q, asked %v", tc.name, a.kittyRaw, tc.asked)
+		}
+		all := strings.Join(writes, "")
+		if leaked := strings.Contains(all, konst.DCS) || strings.Contains(all, "\x1b_"); leaked != tc.asked {
+			t.Errorf("%s: APC or DCS written %v, want %v in %q", tc.name, leaked, tc.asked, all)
+		}
+		if skipped == tc.asked {
+			t.Errorf("%s: skipped %v, asked %v", tc.name, skipped, tc.asked)
+		}
+		if !tc.asked {
+			continue
+		}
+		sent := 0
+		for _, q := range queries {
+			if !strings.Contains(all, q) {
+				t.Errorf("%s: %q never sent", tc.name, q)
+			}
+			sent += len(q)
+		}
+		if sent != len(konst.DoctorQueries) {
+			t.Errorf("%s: the queries add up to %d bytes, DoctorQueries is %d", tc.name, sent, len(konst.DoctorQueries))
+		}
+	}
+}
 
 func TestDoctorParsesEachReplyKind(t *testing.T) {
 	cases := []struct {

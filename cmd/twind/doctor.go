@@ -60,7 +60,7 @@ func doctor(args []string, stdout io.Writer) error {
 	}
 	glyphs := strings.Fields(doctorGlyphs)
 	start := time.Now()
-	raw, err := terminal.Probe(os.Stdin, os.Stdout, konst.ProbeBegin+strings.Join(glyphs, konst.ProbeStep)+konst.ProbeStep+konst.ProbeEnd+konst.DoctorQueries)
+	raw, skipped, err := doctorAsk(func(q string) ([]byte, error) { return terminal.Probe(os.Stdin, os.Stdout, q) }, glyphs)
 	if err != nil {
 		return err
 	}
@@ -92,6 +92,9 @@ func doctor(args []string, stdout io.Writer) error {
 		width, height, text.Sanitize(os.Getenv("TERM"), text.ShowBidi), text.Sanitize(os.Getenv("COLORTERM"), text.ShowBidi), text.Sanitize(os.Getenv("TERM_PROGRAM"), text.ShowBidi), os.Getenv("WT_SESSION") != "",
 		profileName(terminal.Profile(os.Stdout, os.Getenv)), caps.Sync, caps.Graphemes, caps.Focus, caps.Margins, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell)
 	fmt.Fprintf(&report, "%sdetected   in %s, first answer after %s\n", answerLines(a, glyphs), took.Round(time.Millisecond), answered.Round(time.Millisecond))
+	if skipped {
+		report.WriteString("skipped    truecolor, clipboard and kitty: no DA1, or conhost's 1;0, which prints DCS and APC as text\n")
+	}
 	if *file != "" {
 		if err := os.WriteFile(*file, []byte(report.String()), 0o600); err != nil {
 			return err
@@ -99,6 +102,15 @@ func doctor(args []string, stdout io.Writer) error {
 	}
 	_, err = io.WriteString(stdout, report.String())
 	return err
+}
+
+func doctorAsk(probe func(string) ([]byte, error), glyphs []string) ([]byte, bool, error) {
+	raw, err := probe(konst.ProbeBegin + strings.Join(glyphs, konst.ProbeStep) + konst.ProbeStep + konst.ProbeEnd + konst.VersionQuery + konst.SecondaryQuery + konst.KeyboardQuery + konst.DoctorModes + konst.PointerQuery + konst.GridQuery)
+	if primary := parseAnswers(raw, len(glyphs), 0).primary; err != nil || primary == "" || primary == joinParams([]int{konst.ConhostClass, konst.ConhostOption}) {
+		return raw, true, err
+	}
+	printable, err := probe(konst.TruecolorQuery + konst.ClipboardQuery + konst.KittyQuery + konst.KittyRawQuery)
+	return append(raw, printable...), false, err
 }
 
 func parseAnswers(raw []byte, glyphs, columns int) answers {
