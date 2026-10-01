@@ -29,7 +29,7 @@ func near(t *testing.T, f drive.Frame, anchor, s string) spot {
 }
 
 func TestOverlaysPointer(t *testing.T) {
-	light := zinc(theme.Light)
+	light := theme.Default().WithScheme(theme.Light)
 	ring, accent, background := light.Tokens[theme.Ring].RGBA, light.Tokens[theme.Accent].RGBA, light.Tokens[theme.Background].RGBA
 	d := driven(t, "overlays", theme.Light)
 	defer func() {
@@ -64,7 +64,7 @@ func TestOverlaysPointer(t *testing.T) {
 	expect("Edit Profile rests on the background", bg("Dialog", "Edit Profile") == background)
 	move(at("Dialog", "Edit Profile"))
 	expect("hover paints Edit Profile with hover:bg-accent", bg("Dialog", "Edit Profile") == accent)
-	t.Logf("hover on Edit Profile, zinc light, 150x45:\n%s", d.Frame().ANSI())
+	t.Logf("hover on Edit Profile, twind light, 150x45:\n%s", d.Frame().ANSI())
 	move(at("Dropdown menu", "Selected"))
 	expect("leaving Edit Profile drops the hover colour", bg("Dialog", "Edit Profile") == background)
 
@@ -145,7 +145,7 @@ func BenchmarkPointerToFrame(b *testing.B) {
 		b.Fatal(err)
 	}
 	be := &counting{events: make(chan input.Event), written: make(chan int, 1)}
-	rt := twi.New(twi.Backend(be, &stepping{}), twi.Styles(sheet), twi.Theme(zinc(theme.Dark)), twi.ColorProfile(color.TrueColor))
+	rt := twi.New(twi.Backend(be, &stepping{}), twi.Styles(sheet), twi.Theme(theme.Default()), twi.ColorProfile(color.TrueColor))
 	body, _ := page(rt, "overlays", "", "")
 	done := make(chan error, 1)
 	go func() { done <- rt.Run(func() twi.Node { return screen(twi.Class(""), body()) }) }()
@@ -229,7 +229,7 @@ func TestFormPointer(t *testing.T) {
 	off := line("Airplane Mode")
 	click("Airplane Mode", -5)
 	expect("a click on the switch moves its thumb", line("Airplane Mode") != off)
-	t.Logf("after clicks on terms, Compact and the switch, zinc light, 150x45:\n%s", d.Frame().Text())
+	t.Logf("after clicks on terms, Compact and the switch, twind light, 150x45:\n%s", d.Frame().Text())
 	if err := d.Err(); err != nil {
 		t.Fatal(err)
 	}

@@ -65,7 +65,7 @@ func inputLine(d *drive.Driver) string {
 func cursorColumn(t *testing.T, d *drive.Driver) (int, string) {
 	t.Helper()
 	cells := d.Frame().Cells()
-	foreground := color.RGBA{R: 250, G: 250, B: 250, A: 255}
+	foreground := theme.Default().Tokens[theme.Foreground].RGBA
 	for y := range cells.Height() {
 		row := cells.Row(y)
 		start := -1
@@ -135,7 +135,7 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 	}
 	t.Logf("picker open, focus on close:\n%s", d.Frame().Text())
 	press(d, "shift+tab", "4", "escape")
-	if text := d.Frame().Text(); strings.Contains(text, "Enter keeps") || status(d) != "● fullscreen headless truecolor zinc-dark focus theme surfaces" {
+	if text := d.Frame().Text(); strings.Contains(text, "Enter keeps") || status(d) != "● fullscreen headless truecolor twind-dark focus theme surfaces" {
 		t.Errorf("escape: want the picker closed, focus back on the theme button and no key leaked, status %q:\n%s", status(d), text)
 	}
 	t.Logf("after escape:\n%s", d.Frame().Text())
@@ -157,73 +157,122 @@ func TestPages(t *testing.T) {
 	}
 }
 
+func themeNames() []string {
+	var names []string
+	for _, t := range theme.Builtin() {
+		if t.Scheme == theme.Light {
+			names = append(names, t.Name)
+		}
+	}
+	return names
+}
+
+func pickerNames(d *drive.Driver) []string {
+	var shown []string
+	in := false
+	for _, l := range lines(d) {
+		in = in && !strings.Contains(l, "close")
+		for _, w := range strings.Fields(l) {
+			if in && slices.Contains(themeNames(), w) {
+				shown = append(shown, w)
+			}
+		}
+		in = in || strings.Contains(l, "Enter keeps")
+	}
+	return shown
+}
+
+func pickerSpot(t *testing.T, d *drive.Driver, name string) (int, int) {
+	t.Helper()
+	all := lines(d)
+	_, top := spot(t, d, "Enter keeps")
+	for y := top + 1; y < len(all); y++ {
+		if before, _, ok := strings.Cut(all[y], " "+name+" "); ok {
+			return utf8.RuneCountInString(before) + 1, y
+		}
+	}
+	t.Fatalf("no %s row in the picker:\n%s", name, d.Frame().Text())
+	return 0, 0
+}
+
+func pickerRow(t *testing.T, d *drive.Driver, name string) buffer.Cell {
+	t.Helper()
+	x, y := pickerSpot(t, d, name)
+	return d.Frame().Cells().Row(y)[x]
+}
+
+func builtinTheme(t *testing.T, name string) theme.Theme {
+	t.Helper()
+	for _, th := range theme.Builtin() {
+		if themeName(th) == name {
+			return th
+		}
+	}
+	t.Fatalf("%s: not built in", name)
+	return theme.Theme{}
+}
+
 func TestPickerOwnsKeys(t *testing.T) {
 	d := open(t)
 	run(d, "theme")
-	if text := d.Frame().Text(); !strings.Contains(text, "● zinc-dark") {
-		t.Fatalf("picker open does not mark the applied theme:\n%s", text)
+	if got := pickerNames(d); len(got) != 7 || !slices.Equal(got, themeNames()) || !strings.Contains(d.Frame().Text(), "● twind ") {
+		t.Fatalf("picker lists %v, want the seven %v once each with twind marked:\n%s", got, themeNames(), d.Frame().Text())
 	}
 	press(d, "4", "+", "escape")
-	if got := status(d); got != "● fullscreen headless truecolor zinc-dark focus input surfaces" {
+	if got := status(d); got != "● fullscreen headless truecolor twind-dark focus input surfaces" {
 		t.Errorf("keys reached the page under the picker, or escape applied: status %q", got)
 	}
 	run(d, "t")
 	press(d, "down", "enter")
-	if got := status(d); !strings.Contains(got, "slate-light") || strings.Contains(d.Frame().Text(), "Enter keeps") {
-		t.Errorf("down, enter: want slate-light applied and the picker closed, status %q", got)
+	if got := status(d); !strings.Contains(got, "dream-dark") || strings.Contains(d.Frame().Text(), "Enter keeps") {
+		t.Errorf("down, enter: want dream-dark applied and the picker closed, status %q", got)
 	}
 	run(d, "t")
 	press(d, "up", "up", "escape")
 	run(d, "t")
 	press(d, "enter")
-	if got := status(d); !strings.Contains(got, "slate-light") {
+	if got := status(d); !strings.Contains(got, "dream-dark") {
 		t.Errorf("reopened picker did not start on the applied theme: status %q", got)
 	}
 	run(d, "t")
-	for range themeIndex("slate-light") + 1 {
-		press(d, "up")
-	}
-	if text := d.Frame().Text(); !strings.Contains(text, "violet-dark") {
-		t.Errorf("cursor wrapped past the first theme to violet-dark but the list does not show it:\n%s", text)
+	press(d, "up", "up")
+	if got := pickerRow(t, d, "sukuna").Bg.RGBA; got != builtinTheme(t, "sukuna-dark").Tokens[theme.Accent].RGBA {
+		t.Errorf("up twice from dream: sukuna, the last, is not the highlighted row (bg %v):\n%s", got, d.Frame().Text())
 	}
 }
 
-func TestPickerScheme(t *testing.T) {
+func TestSchemeToggle(t *testing.T) {
 	d := open(t)
-	run(d, "t")
-	press(d, "left")
-	if got := cellAt(t, d, "zinc-light").Bg.RGBA; got != builtinTheme(t, "zinc-light").Tokens[theme.Accent].RGBA {
-		t.Errorf("left on zinc-dark: zinc-light is not the highlighted row (bg %v):\n%s", got, d.Frame().Text())
+	background := func() color.RGBA { return cellAt(t, d, "fullscreen").Bg.RGBA }
+	if text := d.Frame().Text(); !strings.Contains(text, "☾") || strings.Contains(text, "☼") {
+		t.Fatalf("dark at start: want the moon in the top bar and no sun:\n%s", text)
 	}
-	press(d, "enter")
-	if got := status(d); !strings.Contains(got, "zinc-light") {
-		t.Errorf("left, enter: status %q, want zinc-light applied", got)
+	run(d, "scheme")
+	if got := status(d); !strings.Contains(got, "twind-light") || background() != builtinTheme(t, "twind-light").Tokens[theme.Background].RGBA || !strings.Contains(d.Frame().Text(), "☼") {
+		t.Errorf("scheme command: status %q, background %v, want twind-light with the sun:\n%s", got, background(), d.Frame().Text())
 	}
-	run(d, "t")
-	var x, y int
-	for row, line := range lines(d) {
-		if before, after, ok := strings.Cut(line, "scheme"); ok {
-			dark, _, _ := strings.Cut(after, "dark")
-			x, y = utf8.RuneCountInString(before+"scheme"+dark), row
-		}
+	d.Click(spot(t, d, "☼"))
+	if got := status(d); !strings.Contains(got, "twind-dark") || background() != builtinTheme(t, "twind-dark").Tokens[theme.Background].RGBA {
+		t.Errorf("click on the sun: status %q, background %v, want twind-dark", got, background())
 	}
-	if y == 0 {
-		t.Fatalf("no scheme toggle in the picker:\n%s", d.Frame().Text())
+	press(d, "t", "down", "enter")
+	if got := status(d); !strings.Contains(got, "dream-dark") {
+		t.Errorf("picking dream while dark: status %q, want dream-dark", got)
 	}
-	d.Click(x, y)
-	press(d, "enter")
-	if got := status(d); !strings.Contains(got, "zinc-dark") {
-		t.Errorf("click on dark, enter: status %q, want zinc-dark applied:\n%s", got, d.Frame().Text())
+	press(d, "m")
+	if got := status(d); !strings.Contains(got, "dream-light") || background() != builtinTheme(t, "dream-light").Tokens[theme.Background].RGBA {
+		t.Errorf("m off the input: status %q, want dream-light", got)
 	}
-}
-
-func builtinTheme(t *testing.T, name string) theme.Theme {
-	t.Helper()
-	i := themeIndex(name)
-	if i < 0 {
-		t.Fatalf("%s: not built in", name)
+	press(d, "t")
+	if got := pickerNames(d); !slices.Equal(got, themeNames()) || !strings.Contains(d.Frame().Text(), "● dream ") {
+		t.Errorf("picker in light lists %v with dream marked, want %v:\n%s", got, themeNames(), d.Frame().Text())
 	}
-	return theme.Builtin()[i]
+	press(d, "escape")
+	d.Click(spot(t, d, "Ask twind"))
+	d.Type("m")
+	if got := status(d); !strings.Contains(got, "dream-light") || inputLine(d) != "m" {
+		t.Errorf("m typed in the input: status %q, input %q, want the scheme kept and the letter typed", got, inputLine(d))
+	}
 }
 
 func spot(t *testing.T, d *drive.Driver, s string) (int, int) {
@@ -245,23 +294,22 @@ func cellAt(t *testing.T, d *drive.Driver, s string) buffer.Cell {
 
 func TestPickerPreviews(t *testing.T) {
 	d := open(t)
-	themes := theme.Builtin()
-	from := themeIndex("zinc-dark")
 	run(d, "t")
 	for step := 1; step <= 3; step++ {
 		press(d, "down")
-		want := themes[(from+step)%len(themes)]
+		name := themeNames()[step]
+		want := builtinTheme(t, name+"-dark")
 		if got := cellAt(t, d, "Theme").Bg.RGBA; got != want.Tokens[theme.Popover].RGBA {
 			t.Errorf("down %d: the picker is drawn in %v, want %s's popover %v", step, got, themeName(want), want.Tokens[theme.Popover].RGBA)
 		}
-		if got := cellAt(t, d, themeName(want)).Bg.RGBA; got != want.Tokens[theme.Accent].RGBA {
+		if got := pickerRow(t, d, name).Bg.RGBA; got != want.Tokens[theme.Accent].RGBA {
 			t.Errorf("down %d: the highlighted row is %v, want %s's accent %v", step, got, themeName(want), want.Tokens[theme.Accent].RGBA)
 		}
 		t.Logf("down %d, previewing %s:\n%s", step, themeName(want), d.Frame().Text())
 	}
 	press(d, "escape")
-	if got, want := cellAt(t, d, "fullscreen").Bg.RGBA, themes[from].Tokens[theme.Background].RGBA; got != want || !strings.Contains(status(d), "zinc-dark") {
-		t.Errorf("escape: the page is drawn in %v, want zinc-dark's background %v back, status %q", got, want, status(d))
+	if got, want := cellAt(t, d, "fullscreen").Bg.RGBA, theme.Default().Tokens[theme.Background].RGBA; got != want || !strings.Contains(status(d), "twind-dark") {
+		t.Errorf("escape: the page is drawn in %v, want twind-dark's background %v back, status %q", got, want, status(d))
 	}
 	t.Logf("after escape:\n%s", d.Frame().Text())
 }
@@ -293,7 +341,7 @@ func TestCounter(t *testing.T) {
 	d := open(t)
 	run(d, "counter")
 	press(d, "shift+tab", "shift+tab")
-	if got := status(d); !strings.HasSuffix(got, "focus theme counter") {
+	if got := status(d); !strings.HasSuffix(got, "focus scheme counter") {
 		t.Fatalf("shift+tab from increment skips the decrement disabled at 0: status %q", got)
 	}
 	press(d, "tab", "enter", "enter", "shift+tab")

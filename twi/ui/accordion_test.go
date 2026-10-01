@@ -54,7 +54,7 @@ func TestAccordionKeysAndClicks(t *testing.T) {
 		}
 	}
 	ring := light.Tokens[theme.Ring].RGBA
-	t.Logf("first frame, 80x30, zinc light:\n%s", d.Frame().Text())
+	t.Logf("first frame, 80x30, twind light:\n%s", d.Frame().Text())
 	expect("the default value opens its item only", has("Product-panel") && !has("Shipping-panel") && !has("Returns-panel"))
 	expect("a value naming no item opens nothing", !has("Alpha-panel") && !has("Beta-panel"))
 	expect("the open trigger shows the turned chevron, the closed ones the plain one", strings.Count(d.Frame().Text(), "⌃") == 1 && strings.Count(d.Frame().Text(), "⌄") == 4)

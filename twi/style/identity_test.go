@@ -82,7 +82,7 @@ func TestComputeMatchesFixture(t *testing.T) {
 		for bit := style.StateHover; bit <= style.StateChecked; bit <<= 1 {
 			states = append(states, bit)
 		}
-		for _, th := range []*theme.Theme{nil, builtin(t, "zinc", theme.Light), builtin(t, "zinc", theme.Dark)} {
+		for _, th := range []*theme.Theme{nil, builtin(t, "twind", theme.Light), builtin(t, "twind", theme.Dark)} {
 			for _, columns := range []int{40, 120, 240} {
 				themed := sheet.WithTheme(th).WithColumns(columns)
 				h := sha256.New()

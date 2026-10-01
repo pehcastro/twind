@@ -14,6 +14,7 @@ import (
 	"github.com/twind-dev/twind/docs"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/highlight"
+	"github.com/twind-dev/twind/twi/icon"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/markdown"
 	"github.com/twind-dev/twind/twi/theme"
@@ -47,6 +48,7 @@ type site struct {
 	area, body          *twi.Ref
 	heads               map[string]*twi.Ref
 	page, theme, trying int
+	scheme              theme.Scheme
 	section             int
 	picker              bool
 	copied              string
@@ -84,7 +86,7 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 			highlight.Builtin: "text-blue-700 dark:text-blue-400", highlight.Regex: "text-amber-700 dark:text-amber-300",
 			highlight.Datetime: "text-orange-700 dark:text-orange-300", highlight.TableHeader: "text-primary",
 		},
-		themes:  theme.Builtin(),
+		themes:  slices.DeleteFunc(theme.Builtin(), func(t theme.Theme) bool { return t.Scheme == theme.Dark }),
 		palette: ui.NewCommandDialog(rt),
 		sidebar: ui.NewSidebar(rt),
 		area:    twi.NewRef(rt),
@@ -184,7 +186,14 @@ func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
 		return nil, err
 	}
 	s.page = slices.IndexFunc(s.entries, func(e entry) bool { return e.slug == start.Page })
-	s.theme = slices.IndexFunc(s.themes, func(t theme.Theme) bool { return themeName(t) == start.Theme })
+	s.theme = -1
+	for i, t := range s.themes {
+		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
+			if themeName(t.WithScheme(scheme)) == start.Theme {
+				s.theme, s.scheme = i, scheme
+			}
+		}
+	}
 	if s.page < 0 {
 		return nil, fmt.Errorf("page %q: not a page of the documentation", start.Page)
 	}
@@ -195,21 +204,31 @@ func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
 		return nil, err
 	}
 	s.folds[s.entries[s.page].group].Open = true
-	rt.SetTheme(s.themes[s.theme])
+	s.show(s.theme)
 	s.palette.OnSelect = func(value string) {
 		if i := slices.IndexFunc(s.entries, func(e entry) bool { return e.title == value }); i >= 0 {
 			s.open(i)
 		}
-		if i := slices.IndexFunc(s.themes, func(t theme.Theme) bool { return themeName(t) == value }); i >= 0 {
+		if i := slices.IndexFunc(s.themes, func(t theme.Theme) bool { return t.Name == value }); i >= 0 {
 			s.theme = i
-			rt.SetTheme(s.themes[i])
+			s.show(i)
 		}
 	}
 	return s.view, nil
 }
 
+func (s *site) show(i int) {
+	s.rt.SetTheme(s.themes[i].WithScheme(s.scheme))
+	s.rt.Invalidate()
+}
+
+func (s *site) flipScheme() {
+	s.scheme = map[theme.Scheme]theme.Scheme{theme.Light: theme.Dark, theme.Dark: theme.Light}[s.scheme]
+	s.show(s.theme)
+}
+
 func App(rt *twi.Runtime) func() twi.Node {
-	view, err := New(rt, Start{Page: "introduction", Theme: "zinc-dark"})
+	view, err := New(rt, Start{Page: "introduction", Theme: "twind-dark"})
 	if err != nil {
 		panic(err)
 	}
@@ -239,8 +258,14 @@ func (s *site) view() twi.Node {
 	return el("flex flex-col h-full bg-background text-foreground",
 		twi.OnKeyDown(func(ev *twi.Event) {
 			k := ev.Key
-			if k.Key == input.KeyRune && k.Rune == 't' && k.Modifiers == 0 && !s.palette.Open && !s.picker {
+			if k.Key != input.KeyRune || k.Modifiers != 0 || s.palette.Open || s.picker {
+				return
+			}
+			switch k.Rune {
+			case 't':
 				s.openPicker()
+			case 'm':
+				s.flipScheme()
 			}
 		}),
 		el("flex flex-row shrink-0 items-center gap-2 border-b px-2",
@@ -249,7 +274,9 @@ func (s *site) view() twi.Node {
 			el("grow"),
 			s.palette.Trigger(ui.Outline, ui.SizeSM, twi.Key("search"), twi.Class("w-40 justify-between text-muted-foreground"),
 				twi.Text("Search documentation..."), ui.KbdGroup(ui.Kbd(twi.Text("Ctrl")), ui.Kbd(twi.Text("K")))),
-			ui.Button(ui.Ghost, ui.SizeSM, twi.Key("theme"), twi.OnClick(func(*twi.Event) { s.openPicker() }), twi.Text("Theme: "+themeName(s.themes[s.theme]))),
+			ui.Button(ui.Ghost, ui.SizeSM, twi.Key("theme"), twi.OnClick(func(*twi.Event) { s.openPicker() }), twi.Text("Theme: "+themeName(s.themes[s.theme].WithScheme(s.scheme)))),
+			ui.Button(ui.Ghost, ui.SizeSM, twi.Key("scheme"), twi.OnClick(func(*twi.Event) { s.flipScheme() }),
+				twi.Text(string(map[theme.Scheme]icon.Name{theme.Light: icon.Sun, theme.Dark: icon.Moon}[s.scheme].Glyph()))),
 		),
 		el("flex flex-row flex-1 min-h-0", s.sidebar.Provider(s.nav(), ui.SidebarInset(el("flex flex-row flex-1 min-h-0", s.content(e), s.outline(e))))),
 		s.search(),
@@ -383,7 +410,7 @@ func (s *site) search() twi.Node {
 		}
 		var themes []ui.CommandItem
 		for _, t := range s.themes {
-			themes = append(themes, p.Item(themeName(t)))
+			themes = append(themes, p.Item(t.Name))
 		}
 		s.commands = append(s.commands, p.Group("Theme", themes...))
 	}
@@ -401,13 +428,11 @@ func (s *site) pickerNode() twi.Node {
 	}
 	show := func(i int) {
 		s.trying = (i + len(s.themes)) % len(s.themes)
-		s.rt.SetTheme(s.themes[s.trying])
-		s.rt.Invalidate()
+		s.show(s.trying)
 	}
 	restore := func() {
 		s.picker = false
-		s.rt.SetTheme(s.themes[s.theme])
-		s.rt.Invalidate()
+		s.show(s.theme)
 	}
 	apply := func() {
 		s.theme = s.trying
@@ -423,8 +448,7 @@ func (s *site) pickerNode() twi.Node {
 			apply()
 		}
 	})}
-	first := min(max(s.trying-pickerRows/2, 0), len(s.themes)-pickerRows)
-	for i := first; i < first+pickerRows; i++ {
+	for i, t := range s.themes {
 		class, mark := "px-1", "  "
 		if i == s.trying {
 			class = "px-1 bg-accent text-accent-foreground font-medium"
@@ -432,7 +456,7 @@ func (s *site) pickerNode() twi.Node {
 		if i == s.theme {
 			mark = "● "
 		}
-		list = append(list, twi.Element(twi.Class(class), twi.Text(mark+themeName(s.themes[i])),
+		list = append(list, twi.Element(twi.Class(class), twi.Text(mark+t.Name),
 			twi.OnPointerEnter(func() { show(i) }), twi.OnClick(func(*twi.Event) { apply() })))
 	}
 	return twi.Element(twi.Key("picker"), twi.FocusScope(), twi.Class("fixed inset-0 z-50 flex items-center justify-center bg-black/50"),

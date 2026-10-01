@@ -19,22 +19,22 @@ func TestShadeReusedAcrossThemesAndClasses(t *testing.T) {
 		scheme  theme.Scheme
 		classes string
 	}{
-		{"zinc", theme.Light, "ring-2 ring-ring"},
-		{"zinc", theme.Dark, "ring-2 ring-ring"},
-		{"zinc", theme.Light, "ring-2 ring-ring"},
-		{"zinc", theme.Light, "ring-1 ring-ring"},
-		{"zinc", theme.Light, "ring-inset ring-2 ring-ring"},
-		{"zinc", theme.Light, "ring-offset-2 ring-offset-background ring-2 ring-ring"},
-		{"zinc", theme.Dark, "shadow-md"},
-		{"zinc", theme.Dark, "shadow-md shadow-red-500"},
-		{"zinc", theme.Dark, "shadow-md shadow-red-500/50"},
-		{"zinc", theme.Dark, "shadow-md inset-shadow-xs inset-shadow-red-500 ring-1"},
-		{"zinc", theme.Dark, "border shadow-xs focus-visible:ring-ring/50 focus-visible:ring-2"},
-		{"zinc", theme.Light, "border shadow-xs focus-visible:ring-ring/50 focus-visible:ring-2"},
-		{"zinc", theme.Light, "shadow-[0_0_0_1px_var(--color-ring)]"},
-		{"rose", theme.Light, "shadow-[0_0_0_1px_var(--color-ring)]"},
-		{"zinc", theme.Dark, "shadow-[0_0_0_1px_var(--color-ring)]"},
-		{"rose", theme.Dark, "shadow-[0_0_0_1px_var(--color-ring)]"},
+		{"twind", theme.Light, "ring-2 ring-ring"},
+		{"twind", theme.Dark, "ring-2 ring-ring"},
+		{"twind", theme.Light, "ring-2 ring-ring"},
+		{"twind", theme.Light, "ring-1 ring-ring"},
+		{"twind", theme.Light, "ring-inset ring-2 ring-ring"},
+		{"twind", theme.Light, "ring-offset-2 ring-offset-background ring-2 ring-ring"},
+		{"twind", theme.Dark, "shadow-md"},
+		{"twind", theme.Dark, "shadow-md shadow-red-500"},
+		{"twind", theme.Dark, "shadow-md shadow-red-500/50"},
+		{"twind", theme.Dark, "shadow-md inset-shadow-xs inset-shadow-red-500 ring-1"},
+		{"twind", theme.Dark, "border shadow-xs focus-visible:ring-ring/50 focus-visible:ring-2"},
+		{"twind", theme.Light, "border shadow-xs focus-visible:ring-ring/50 focus-visible:ring-2"},
+		{"twind", theme.Light, "shadow-[0_0_0_1px_var(--color-ring)]"},
+		{"dream", theme.Light, "shadow-[0_0_0_1px_var(--color-ring)]"},
+		{"twind", theme.Dark, "shadow-[0_0_0_1px_var(--color-ring)]"},
+		{"dream", theme.Dark, "shadow-[0_0_0_1px_var(--color-ring)]"},
 	} {
 		th := builtin(t, step.name, step.scheme)
 		classes := strings.Fields(step.classes)

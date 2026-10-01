@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/icon"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/ui"
 )
@@ -53,11 +54,23 @@ func pressed(k input.KeyEvent) bool {
 func gallery(rt *twi.Runtime, s start) func() twi.Node {
 	current, cursor, navFocused := s.page, s.page, false
 	overlayView, modal := newOverlays(rt, s.open)
-	toaster := ui.NewToaster(rt)
-	views := [...]func() twi.Node{dashboard: newDashboard(rt), forms: newForms(rt), overlays: overlayView, settings: newSettings(rt, s.theme, toaster)}
-	quit := twi.OnKeyDown(func(e *twi.Event) {
-		if k := e.Key; !k.Release && k.Key == input.KeyRune && k.Rune == 'q' && k.Modifiers == 0 && !modal() {
+	toaster, dark := ui.NewToaster(rt), ui.NewSwitch(rt)
+	views := [...]func() twi.Node{dashboard: newDashboard(rt), forms: newForms(rt), overlays: overlayView, settings: newSettings(rt, s.theme, toaster, dark)}
+	flip := func() {
+		dark.Checked = !dark.Checked
+		dark.OnChange(dark.Checked)
+		rt.Invalidate()
+	}
+	keys := twi.OnKeyDown(func(e *twi.Event) {
+		k := e.Key
+		if k.Release || k.Key != input.KeyRune || k.Modifiers != 0 || modal() {
+			return
+		}
+		switch k.Rune {
+		case 'q':
 			rt.Quit()
+		case 'm':
+			flip()
 		}
 	})
 	focus := func(on bool) func() {
@@ -104,7 +117,7 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 			}
 			nav = append(nav, el(class, open(p), txt("w-1 text-muted-foreground", [...]string{"▦", "≡", "▣", "◎"}[p]), txt(label, p.String())))
 		}
-		return el("flex flex-row h-full bg-background text-foreground", quit,
+		return el("flex flex-row h-full bg-background text-foreground", keys,
 			el("flex flex-col w-20 shrink-0 border-r bg-muted/40 lg:w-26",
 				el("flex flex-row items-center gap-1 px-2 pt-1 border-b",
 					txt("px-1 rounded-md bg-primary text-primary-foreground font-bold", "◆"), txt("font-semibold", "Acme Inc.")),
@@ -114,7 +127,7 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 					txt("px-1 pt-1 text-muted-foreground", "Documents"),
 					el("flex flex-col", doc("◫", "Data Library"), doc("◩", "Reports"), doc("◪", "Assistant")),
 					el("grow"),
-					el("flex flex-col gap-1 px-1", hint("↑↓", "move"), hint("⏎", "open"), hint("tab", "focus"), hint("q", "quit")),
+					el("flex flex-col gap-1 px-1", hint("↑↓", "move"), hint("⏎", "open"), hint("tab", "focus"), hint("m", "scheme"), hint("q", "quit")),
 				),
 				el("flex flex-row items-center gap-1 px-2 py-1 border-t",
 					ui.Avatar(ui.SizeSM, ui.AvatarFallback(twi.Text("CN"))),
@@ -130,6 +143,8 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 					el("grow"),
 					txt("text-muted-foreground", "Twind gallery"),
 					ui.Badge(ui.Outline, twi.Text("v0.7")),
+					el("px-1 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground", clicked(rt, flip),
+						twi.Text(string(map[bool]icon.Name{false: icon.Sun, true: icon.Moon}[dark.Checked].Glyph()))),
 				),
 				el("flex flex-col grow min-h-0 px-2 py-1 lg:px-4", views[current]()),
 			),

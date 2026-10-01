@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	pickerRows = 7
 	titleBytes = 128
 	tabCells   = "  "
 	copiedFor  = 2 * time.Second

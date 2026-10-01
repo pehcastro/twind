@@ -26,6 +26,7 @@ import (
 	"github.com/twind-dev/twind/twi/markdown"
 	"github.com/twind-dev/twind/twi/tailwind"
 	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 func TestStylesFresh(t *testing.T) {
@@ -213,12 +214,12 @@ func TestTour(t *testing.T) {
 		t.Fatalf("first page: breadcrumb %q", got)
 	}
 	t.Logf("introduction:\n%s", d.Frame().Text())
-	for range 5 {
+	for range 6 {
 		d.Press("tab")
 	}
 	d.Press("enter")
 	if got := breadcrumb(t, d); !strings.Contains(got, "Getting started › Installation") {
-		t.Fatalf("tab past search, theme, the Getting started group and Introduction, then enter: breadcrumb %q\n%s", got, d.Frame().Text())
+		t.Fatalf("tab past search, theme, scheme, the Getting started group and Introduction, then enter: breadcrumb %q\n%s", got, d.Frame().Text())
 	}
 	d.Click(spot(t, d, "Theming"))
 	if got := breadcrumb(t, d); !strings.Contains(got, "Getting started › Theming") {
@@ -281,7 +282,7 @@ func TestSidebarScrolls(t *testing.T) {
 	if strings.Contains(d.Frame().Text(), "Accordion") {
 		t.Fatalf("the Components group starts open on the Introduction:\n%s", d.Frame().Text())
 	}
-	toComponents := 2 + 1 + 4 + 1 + 5 + 1
+	toComponents := 3 + 1 + 4 + 1 + 5 + 1
 	for range toComponents {
 		d.Press("tab")
 	}
@@ -486,22 +487,72 @@ func BenchmarkFirstFrame(b *testing.B) {
 	}
 }
 
+func pickerNames(t *testing.T, d *drive.Driver) []string {
+	t.Helper()
+	x, y := spot(t, d, "↑ ↓ preview")
+	var names []string
+	for _, l := range strings.Split(d.Frame().Text(), "\n")[y+1:] {
+		if strings.Contains(l, "╰") {
+			return names
+		}
+		for _, f := range strings.Fields(string([]rune(l)[x:])) {
+			if slices.ContainsFunc(theme.Builtin(), func(th theme.Theme) bool { return th.Name == f }) {
+				names = append(names, f)
+			}
+		}
+	}
+	return names
+}
+
 func TestThemePicker(t *testing.T) {
 	d := open(t)
 	d.Press("t")
+	if got, want := pickerNames(t, d), []string{"twind", "dream", "mono", "minimal", "dew", "cloud", "sukuna"}; !slices.Equal(got, want) {
+		t.Fatalf("picker lists %v, want the seven %v:\n%s", got, want, d.Frame().Text())
+	}
 	d.Press("down")
-	if text := d.Frame().Text(); !strings.Contains(text, "● zinc-dark") || !strings.Contains(text, "Theme: zinc-dark") {
-		t.Fatalf("down in the picker: want zinc-dark still applied and marked:\n%s", text)
+	if text := d.Frame().Text(); !strings.Contains(text, "● twind") || !strings.Contains(text, "Theme: twind-dark") {
+		t.Fatalf("down in the picker: want twind-dark still applied and marked:\n%s", text)
 	}
 	d.Press("escape")
-	if text := d.Frame().Text(); strings.Contains(text, "Enter keeps") || !strings.Contains(text, "Theme: zinc-dark") {
-		t.Fatalf("escape: want the picker closed and zinc-dark kept:\n%s", text)
+	if text := d.Frame().Text(); strings.Contains(text, "Enter keeps") || !strings.Contains(text, "Theme: twind-dark") {
+		t.Fatalf("escape: want the picker closed and twind-dark kept:\n%s", text)
 	}
 	d.Press("t")
 	d.Press("up")
 	d.Press("enter")
-	if text := d.Frame().Text(); !strings.Contains(text, "Theme: zinc-light") {
-		t.Errorf("up, enter from zinc-dark: want zinc-light applied:\n%s", text)
+	if text := d.Frame().Text(); !strings.Contains(text, "Theme: sukuna-dark") {
+		t.Errorf("up, enter from twind-dark: want sukuna-dark applied:\n%s", text)
+	}
+}
+
+func TestSchemeToggle(t *testing.T) {
+	d := open(t)
+	if text := d.Frame().Text(); !strings.Contains(text, "☾") || strings.Contains(text, "☼") {
+		t.Fatalf("dark at start: want the moon in the top bar and no sun:\n%s", text)
+	}
+	d.Press("m")
+	if text := d.Frame().Text(); !strings.Contains(text, "Theme: twind-light") || !strings.Contains(text, "☼") {
+		t.Fatalf("m: want twind-light and the sun:\n%s", text)
+	}
+	d.Press("t")
+	d.Press("down")
+	d.Press("enter")
+	if text := d.Frame().Text(); !strings.Contains(text, "Theme: dream-light") {
+		t.Fatalf("dream picked while light: want dream-light:\n%s", text)
+	}
+	d.Click(spot(t, d, "☼"))
+	if text := d.Frame().Text(); !strings.Contains(text, "Theme: dream-dark") || !strings.Contains(text, "☾") {
+		t.Fatalf("a click on the sun: want dream-dark and the moon:\n%s", text)
+	}
+	d.Press("ctrl+k")
+	d.Type("sukuna")
+	if n := strings.Count(d.Frame().Text(), "sukuna"); n != 2 {
+		t.Errorf("search for sukuna: %d matches on screen, want the query and one Theme item:\n%s", n, d.Frame().Text())
+	}
+	d.Press("enter")
+	if text := d.Frame().Text(); !strings.Contains(text, "Theme: sukuna-dark") {
+		t.Errorf("sukuna from the search while dark: want sukuna-dark:\n%s", text)
 	}
 }
 

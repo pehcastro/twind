@@ -85,15 +85,15 @@ func TestStateAttributes(t *testing.T) {
 func TestStateCascade(t *testing.T) {
 	sheet := appSheet(t)
 	hover := style.NodeState{States: style.StateHover}
-	dark := sheet.WithTheme(builtin(t, "zinc", theme.Dark))
-	light := sheet.WithTheme(builtin(t, "zinc", theme.Light))
+	dark := sheet.WithTheme(builtin(t, "twind", theme.Dark))
+	light := sheet.WithTheme(builtin(t, "twind", theme.Light))
 	if got := light.ComputeState(style.ComputedStyle{}, []string{"dark:hover:bg-input/50"}, hover).Background; got.Kind != color.Unset {
 		t.Errorf("dark:hover under light with hover: %+v", got)
 	}
 	if got := dark.ComputeState(style.ComputedStyle{}, []string{"dark:hover:bg-input/50"}, style.NodeState{}).Background; got.Kind != color.Unset {
 		t.Errorf("dark:hover under dark without hover: %+v", got)
 	}
-	if got := dark.ComputeState(style.ComputedStyle{}, []string{"dark:hover:bg-input/50"}, hover).Background; got != rgba(255, 255, 255, 19) {
+	if got := dark.ComputeState(style.ComputedStyle{}, []string{"dark:hover:bg-input/50"}, hover).Background; got != rgba(36, 31, 46, 128) {
 		t.Errorf("dark:hover under dark with hover: %+v, want the input token at half alpha", got)
 	}
 	classes := strings.Fields("bg-card text-card-foreground border shadow-md p-2 hover:bg-muted focus-visible:ring-2 data-[state=open]:bg-accent")

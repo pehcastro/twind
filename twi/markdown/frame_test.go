@@ -104,12 +104,7 @@ func TestCodeBlockBoxesSameWithGraphics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var zinc theme.Theme
-	for _, th := range theme.Builtin() {
-		if th.Name == "zinc" && th.Scheme == theme.Dark {
-			zinc = th
-		}
-	}
+	twind := theme.Default()
 	page, err := Parse("sample.md", sample, callout())
 	if err != nil {
 		t.Fatal(err)
@@ -136,7 +131,7 @@ func TestCodeBlockBoxesSameWithGraphics(t *testing.T) {
 	if !find(reflect.ValueOf(&root).Elem()) {
 		t.Fatal("a twi.Node holds no render.Node")
 	}
-	frame := render.Frame{Sheet: sheet.WithTheme(&zinc), Width: 60, Height: layout.Length{Unit: layout.Cells, Value: 40}}
+	frame := render.Frame{Sheet: sheet.WithTheme(&twind), Width: 60, Height: layout.Length{Unit: layout.Cells, Value: 40}}
 	cells, err := render.Scene(built, frame)
 	if err != nil {
 		t.Fatal(err)

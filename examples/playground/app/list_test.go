@@ -73,7 +73,7 @@ func TestListScript(t *testing.T) {
 func TestListPageTabReveals(t *testing.T) {
 	d := open(t)
 	run(d, "list")
-	for range 10 {
+	for range 12 {
 		if strings.HasSuffix(status(d), "focus row 1 list") {
 			break
 		}

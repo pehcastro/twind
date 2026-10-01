@@ -20,7 +20,7 @@ func BenchmarkCommandKeyToFrame(b *testing.B) {
 		b.Fatal(err)
 	}
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
-		rt.SetTheme(zinc(theme.Dark))
+		rt.SetTheme(theme.Default())
 		palette := ui.NewCommandDialog(rt)
 		palette.Open = true
 		return func() twi.Node {
@@ -80,7 +80,7 @@ func TestWave3bScript(t *testing.T) {
 	expect("tab, down and enter open Shipping Details and close Product Information", has("worldwide shipping") && !has("Our flagship product"))
 	click("Accordion", "Return Policy")
 	expect("a click opens Return Policy", has("comprehensive 30-day return") && !has("worldwide shipping"))
-	t.Logf("wave3b, two accordion items opened in turn, Return Policy open, zinc light, 150x45:\n%s", d.Frame().Text())
+	t.Logf("wave3b, two accordion items opened in turn, Return Policy open, twind light, 150x45:\n%s", d.Frame().Text())
 
 	click("Sonner", "Show Toast")
 	click("Sonner", "Success")

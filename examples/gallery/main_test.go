@@ -34,7 +34,7 @@ func app(t testing.TB) (drive.App, []drive.Option) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := parse("zinc-light", "dashboard", "")
+	s, err := parse("twind-light", "dashboard", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,9 +69,9 @@ func TestTour(t *testing.T) {
 		{"overlays", []string{"Acme › Overlays", "Edit Profile", "Open menu", "Dimensions", "Open sheet", "Focus me", "Delete account"}, []string{"@peduarte", "My Account"}, nil},
 		{"dialog", []string{"Edit profile", "@peduarte", "Save changes", "Cancel"}, nil, nil},
 		{"menu-sub", []string{"My Account", "Invite users", "Email", "Message", "More..."}, []string{"@peduarte"}, nil},
-		{"settings", []string{"Acme › Settings", "Appearance", "Palette", "neutral", "violet", "Dark mode", "Preview: zinc Light"}, []string{"My Account"}, map[string]bool{background("zinc-light", theme.Background): true, background("zinc-dark", theme.Background): false}},
-		{"dark", []string{"Preview: zinc Dark"}, nil, map[string]bool{background("zinc-dark", theme.Background): true, background("zinc-light", theme.Background): false}},
-		{"slate", []string{"Preview: slate Dark"}, nil, map[string]bool{background("slate-dark", theme.Primary): true, background("zinc-dark", theme.Primary): false}},
+		{"settings", []string{"Acme › Settings", "Appearance", "Palette", "twind", "sukuna", "Dark mode", "Preview: twind Light"}, []string{"My Account", "zinc", "violet"}, map[string]bool{background("twind-light", theme.Background): true, background("twind-dark", theme.Background): false}},
+		{"dark", []string{"Preview: twind Dark"}, nil, map[string]bool{background("twind-dark", theme.Background): true, background("twind-light", theme.Background): false}},
+		{"dream", []string{"Preview: dream Dark"}, nil, map[string]bool{background("dream-dark", theme.Primary): true, background("twind-dark", theme.Primary): false}},
 	} {
 		read := func(ext string) string {
 			b, err := os.ReadFile(filepath.Join(out, c.frame+ext))
@@ -186,7 +186,7 @@ func TestClicks(t *testing.T) {
 	x, y = inMain(t, d, "Capabilities")
 	d.Click(x, y)
 	d.Move(0, 0)
-	light, _ := builtin("zinc-light")
+	light, _ := builtin("twind-light")
 	if got, want := d.Frame().Cells().Row(y)[x+len("Capabilities")+1].Bg.RGBA, light.Tokens[theme.Muted].RGBA; got != want {
 		t.Errorf("a click on a row did not select it: background %v, want muted %v", got, want)
 	}
@@ -210,23 +210,58 @@ func TestSettingsPreview(t *testing.T) {
 		return th.Tokens[theme.Primary].RGBA
 	}
 	d.Click(inSidebar(t, d, "Settings"))
-	d.Move(inMain(t, d, "violet"))
-	if got := page(); got != shows("violet-light") {
-		t.Errorf("hovering violet: the page is %v, want violet-light's %v", got, shows("violet-light"))
+	d.Move(inMain(t, d, "sukuna"))
+	if got := page(); got != shows("sukuna-light") {
+		t.Errorf("hovering sukuna: the page is %v, want sukuna-light's %v", got, shows("sukuna-light"))
 	}
 	d.Move(inMain(t, d, "Twind gallery"))
-	if got := page(); got != shows("zinc-light") {
-		t.Errorf("leaving the palette: the page is %v, want zinc-light's %v back", got, shows("zinc-light"))
+	if got := page(); got != shows("twind-light") {
+		t.Errorf("leaving the palette: the page is %v, want twind-light's %v back", got, shows("twind-light"))
 	}
 	d.Press("tab")
 	d.Press("down")
 	d.Press("down")
-	if text := d.Frame().Text(); !strings.Contains(text, "Preview: stone Light") {
-		t.Errorf("down twice from zinc did not choose stone:\n%s", text)
+	if text := d.Frame().Text(); !strings.Contains(text, "Preview: mono Light") {
+		t.Errorf("down twice from twind did not choose mono:\n%s", text)
 	}
 	d.Press("escape")
-	if text := d.Frame().Text(); !strings.Contains(text, "Preview: zinc Light") || page() != shows("zinc-light") {
-		t.Errorf("escape did not bring zinc back:\n%s", text)
+	if text := d.Frame().Text(); !strings.Contains(text, "Preview: twind Light") || page() != shows("twind-light") {
+		t.Errorf("escape did not bring twind back:\n%s", text)
+	}
+}
+
+func TestSchemeToggle(t *testing.T) {
+	a, opts := app(t)
+	d := drive.New(a, opts...)
+	defer func() {
+		if err := d.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	canvas := func() color.RGBA {
+		x, y := inMain(t, d, "Twind gallery")
+		return d.Frame().Cells().Row(y)[x].Bg.RGBA
+	}
+	want := func(name string) color.RGBA {
+		th, _ := builtin(name)
+		return th.Tokens[theme.Background].RGBA
+	}
+	if text := d.Frame().Text(); !strings.Contains(text, "☼") || strings.Contains(text, "☾") || canvas() != want("twind-light") {
+		t.Fatalf("light at start: want the sun in the top bar and twind-light:\n%s", text)
+	}
+	d.Click(inMain(t, d, "☼"))
+	if text := d.Frame().Text(); !strings.Contains(text, "☾") || canvas() != want("twind-dark") {
+		t.Errorf("a click on the sun: want the moon and twind-dark, canvas %v:\n%s", canvas(), text)
+	}
+	d.Click(inSidebar(t, d, "Settings"))
+	d.Click(inMain(t, d, "dream"))
+	if text := d.Frame().Text(); !strings.Contains(text, "Preview: dream Dark") || canvas() != want("dream-dark") {
+		t.Errorf("dream picked while dark: want dream-dark, canvas %v:\n%s", canvas(), text)
+	}
+	d.Click(inSidebar(t, d, "Dashboard"))
+	d.Press("m")
+	if text := d.Frame().Text(); !strings.Contains(text, "☼") || canvas() != want("dream-light") {
+		t.Errorf("m: want the sun and dream-light, canvas %v:\n%s", canvas(), text)
 	}
 }
 
@@ -295,13 +330,13 @@ func TestFormsPlanSelectAndSave(t *testing.T) {
 }
 
 func TestParseRejectsUnknownFlags(t *testing.T) {
-	for _, c := range [][3]string{{"zinc-dusk", "dashboard", ""}, {"zinc-dark", "home", ""}, {"zinc-dark", "overlays", "drawer"}} {
+	for _, c := range [][3]string{{"zinc-dark", "dashboard", ""}, {"twind-dusk", "dashboard", ""}, {"twind-dark", "home", ""}, {"twind-dark", "overlays", "drawer"}} {
 		if _, err := parse(c[0], c[1], c[2]); err == nil {
 			t.Errorf("parse%q accepted", c)
 		}
 	}
-	if s, err := parse("violet-dark", "Overlays", "menu-sub"); err != nil || s.page != overlays || s.theme.Name != "violet" || s.theme.Scheme != theme.Dark {
-		t.Errorf("parse violet-dark Overlays menu-sub: %+v, %v", s, err)
+	if s, err := parse("sukuna-dark", "Overlays", "menu-sub"); err != nil || s.page != overlays || s.theme.Name != "sukuna" || s.theme.Scheme != theme.Dark {
+		t.Errorf("parse sukuna-dark Overlays menu-sub: %+v, %v", s, err)
 	}
 }
 

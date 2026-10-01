@@ -47,17 +47,7 @@ func TestPresetThemeSyntaxTokens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	zinc := map[style.Scheme]theme.Tokens{}
-	for _, th := range theme.Builtin() {
-		if th.Name != "zinc" {
-			continue
-		}
-		scheme := style.SchemeAny
-		if th.Scheme == theme.Dark {
-			scheme = style.SchemeDark
-		}
-		zinc[scheme] = th.Tokens
-	}
+	twind := map[style.Scheme]theme.Tokens{style.SchemeAny: theme.Default().Schemes[theme.Light], style.SchemeDark: theme.Default().Schemes[theme.Dark]}
 	for _, token := range tokens {
 		class := "text-" + token.String()
 		found := map[style.Scheme]bool{}
@@ -70,8 +60,8 @@ func TestPresetThemeSyntaxTokens(t *testing.T) {
 			if d.Token != token {
 				t.Errorf("%s scheme %v: token %v, want %v", class, r.When.Scheme, d.Token, token)
 			}
-			if want := zinc[r.When.Scheme][token]; d.Color != want {
-				t.Errorf("%s scheme %v: colour %+v, want zinc %+v", class, r.When.Scheme, d.Color.RGBA, want.RGBA)
+			if want := twind[r.When.Scheme][token]; d.Color != want {
+				t.Errorf("%s scheme %v: colour %+v, want twind %+v", class, r.When.Scheme, d.Color.RGBA, want.RGBA)
 			}
 		}
 		if !found[style.SchemeAny] || !found[style.SchemeDark] {

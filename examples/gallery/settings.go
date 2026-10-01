@@ -7,8 +7,8 @@ import (
 	"github.com/twind-dev/twind/twi/ui"
 )
 
-func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster) func() twi.Node {
-	palette, dark := ui.NewRadioGroup(rt), ui.NewSwitch(rt)
+func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster, dark *ui.Switch) func() twi.Node {
+	palette := ui.NewRadioGroup(rt)
 	palette.Value, dark.Checked = start.Name, start.Scheme == theme.Dark
 	preview := func(name string) {
 		for _, t := range theme.Builtin() {
@@ -51,7 +51,7 @@ func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster) func()
 		return ui.Card(twi.Class("py-1"),
 			ui.CardHeader(
 				ui.CardTitle(twi.Text("Appearance")),
-				ui.CardDescription(twi.Text("Every shadcn palette the runtime ships, light and dark. A hover previews, Escape goes back.")),
+				ui.CardDescription(twi.Text("Every theme the runtime ships, light and dark. A hover previews, Escape goes back.")),
 			),
 			ui.CardContent(el("flex flex-row gap-4",
 				ui.FieldSet(twi.Class("w-26 shrink-0"), ui.FieldLegend(twi.Text("Palette")), palette.Node(items...)),

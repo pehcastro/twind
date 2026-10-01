@@ -193,7 +193,7 @@ func TestEveryTextCellIsACellOverPixelSurfaces(t *testing.T) {
 		t.Fatalf("found %d playground pages, want every component page", len(pages))
 	}
 	checked := 0
-	for _, theme := range []string{"zinc-dark", "zinc-light"} {
+	for _, theme := range []string{"twind-dark", "twind-light"} {
 		for _, page := range pages {
 			cells, pixels := shot(t, page, theme, terminal.GraphicsNone), shot(t, page, theme, terminal.GraphicsSixel)
 			for y := range pageRows {

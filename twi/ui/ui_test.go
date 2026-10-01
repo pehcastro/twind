@@ -18,15 +18,8 @@ import (
 
 //go:generate go run github.com/twind-dev/twind/internal/twirgen -o twir_gen_test.go -func styles
 
-func zinc(t *testing.T, scheme theme.Scheme) theme.Theme {
-	t.Helper()
-	for _, th := range theme.Builtin() {
-		if th.Name == "zinc" && th.Scheme == scheme {
-			return th
-		}
-	}
-	t.Fatal("no zinc theme")
-	return theme.Theme{}
+func zinc(_ *testing.T, scheme theme.Scheme) theme.Theme {
+	return theme.Default().WithScheme(scheme)
 }
 
 func rendered(n twi.Node) reflect.Value {
@@ -476,7 +469,7 @@ func TestRendersEveryComponent(t *testing.T) {
 	if err := d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("driven, zinc dark, 60x40:\n%s", driven)
+	t.Logf("driven, twind dark, 60x40:\n%s", driven)
 	for _, l := range labels {
 		if !strings.Contains(static, l) || !strings.Contains(driven, l) {
 			t.Errorf("%q missing: in RenderString %v, in the driven frame %v", l, strings.Contains(static, l), strings.Contains(driven, l))
@@ -545,7 +538,7 @@ func TestRendersWave1b(t *testing.T) {
 	if err := d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("driven, zinc dark, 60x30:\n%s", frame)
+	t.Logf("driven, twind dark, 60x30:\n%s", frame)
 	lines := strings.Split(frame, "\n")
 	find := func(s string) (int, int) {
 		for i, l := range lines {

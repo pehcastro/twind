@@ -15,22 +15,13 @@ import (
 
 const settleTime = time.Second
 
-func zinc(scheme theme.Scheme) theme.Theme {
-	for _, th := range theme.Builtin() {
-		if th.Name == "zinc" && th.Scheme == scheme {
-			return th
-		}
-	}
-	panic("no zinc theme")
-}
-
 func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
 	sheet, err := Styles()
 	if err != nil {
 		t.Fatal(err)
 	}
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
-		rt.SetTheme(zinc(scheme))
+		rt.SetTheme(theme.Default().WithScheme(scheme))
 		body, ok := page(rt, name, "", "")
 		if !ok {
 			t.Fatalf("no page %q", name)
@@ -102,7 +93,7 @@ func ringRows(f drive.Frame, ring color.RGBA) []int {
 }
 
 func TestFormKeys(t *testing.T) {
-	light := zinc(theme.Light)
+	light := theme.Default().WithScheme(theme.Light)
 	ring, accent := light.Tokens[theme.Ring].RGBA, light.Tokens[theme.Accent].RGBA
 	d := driven(t, "form", theme.Light)
 	defer func() {
@@ -212,7 +203,7 @@ func TestFormKeys(t *testing.T) {
 	}, otp), "123-456"))
 
 	focused("Email", 2, 1)
-	t.Logf("after the script, zinc light, 150x45:\n%s", d.Frame().Text())
+	t.Logf("after the script, twind light, 150x45:\n%s", d.Frame().Text())
 	if err := d.Err(); err != nil {
 		t.Fatal(err)
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/edit"
+	"github.com/twind-dev/twind/twi/icon"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/text"
 	"github.com/twind-dev/twind/twi/theme"
@@ -19,7 +20,6 @@ import (
 //go:generate go run github.com/twind-dev/twind/internal/twirgen
 
 const (
-	pickerRows = 9
 	listRows   = 40
 	cardDelay  = 700 * time.Millisecond
 	cardShown  = 3 * time.Second
@@ -46,6 +46,7 @@ type Start struct {
 type state struct {
 	page, count   int
 	theme, cursor int
+	scheme        theme.Scheme
 	picker        bool
 	card, loading bool
 	focus         string
@@ -124,8 +125,23 @@ func themeName(t theme.Theme) string {
 	return t.Name + map[theme.Scheme]string{theme.Light: "-light", theme.Dark: "-dark"}[t.Scheme]
 }
 
-func themeIndex(name string) int {
-	return slices.IndexFunc(theme.Builtin(), func(t theme.Theme) bool { return themeName(t) == name })
+func themeList() []theme.Theme {
+	return slices.DeleteFunc(theme.Builtin(), func(t theme.Theme) bool { return t.Scheme == theme.Dark })
+}
+
+func pickTheme(name string) (state, bool) {
+	for i, t := range themeList() {
+		for _, s := range []theme.Scheme{theme.Light, theme.Dark} {
+			if themeName(t.WithScheme(s)) == name {
+				return state{theme: i, scheme: s}, true
+			}
+		}
+	}
+	return state{}, false
+}
+
+func flipScheme(s *state) {
+	s.scheme = map[theme.Scheme]theme.Scheme{theme.Light: theme.Dark, theme.Dark: theme.Light}[s.scheme]
 }
 
 func el(class string, children ...twi.Node) twi.Node {
@@ -140,20 +156,21 @@ func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 
 func App(rt *twi.Runtime) func() twi.Node {
 	env := Env{Cwd: "/home/user/twind", Profile: "truecolor", Size: func() string { return "headless" }, Today: time.Date(2026, time.September, 30, 0, 0, 0, 0, time.UTC)}
-	return playground(rt, env, state{theme: themeIndex("zinc-dark")}, Start{Focus: "input"})
+	s, _ := pickTheme("twind-dark")
+	return playground(rt, env, s, Start{Focus: "input"})
 }
 
 func New(rt *twi.Runtime, env Env, start Start) (func() twi.Node, error) {
-	at := slices.IndexFunc(pages(), func(p page) bool { return p.name == start.Page })
-	if n, err := strconv.Atoi(start.Page); err == nil && n >= 1 && n <= len(basics()) {
-		at = n - 1
+	s, ok := pickTheme(start.Theme)
+	if !ok {
+		return nil, fmt.Errorf("theme %q: not a built-in theme", start.Theme)
 	}
-	s := state{page: at, theme: themeIndex(start.Theme), picker: start.Picker}
+	s.page, s.picker = slices.IndexFunc(pages(), func(p page) bool { return p.name == start.Page }), start.Picker
+	if n, err := strconv.Atoi(start.Page); err == nil && n >= 1 && n <= len(basics()) {
+		s.page = n - 1
+	}
 	if s.page < 0 {
 		return nil, fmt.Errorf("page %q: want 1 to %d or a page name", start.Page, len(basics()))
-	}
-	if s.theme < 0 {
-		return nil, fmt.Errorf("theme %q: not a built-in theme", start.Theme)
 	}
 	if !slices.Contains([]string{"", "dialog", "sheet", "spinner", "combobox", "navigation"}, start.Open) {
 		return nil, fmt.Errorf("open %q: want dialog, sheet, spinner, combobox or navigation", start.Open)
@@ -162,7 +179,7 @@ func New(rt *twi.Runtime, env Env, start Start) (func() twi.Node, error) {
 }
 
 func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi.Node {
-	themes := theme.Builtin()
+	themes := themeList()
 	all := pages()
 	bar := len(basics())
 	counter := slices.IndexFunc(all, func(p page) bool { return p.name == "counter" })
@@ -173,19 +190,19 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 	slices.SortFunc(alphabetical, func(a, b int) int { return strings.Compare(all[a].name, all[b].name) })
 	start.cursor = start.theme
 	st := twi.NewSignal(rt, start)
-	rt.SetTheme(themes[start.theme])
-	shown := start.theme
+	shown := themes[start.theme].WithScheme(start.scheme)
+	rt.SetTheme(shown)
 	update := func(change func(*state)) {
 		s := st.Get()
 		change(&s)
 		st.Set(s)
-		want := s.theme
+		want := themes[s.theme]
 		if s.picker {
-			want = s.cursor
+			want = themes[s.cursor]
 		}
-		if want != shown {
+		if want = want.WithScheme(s.scheme); want.Name != shown.Name || want.Scheme != shown.Scheme {
 			shown = want
-			rt.SetTheme(themes[want])
+			rt.SetTheme(want)
 		}
 	}
 	k := newKit(rt, env.Today)
@@ -210,6 +227,8 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			s.page = n - 1
 		case cmd == "t" || cmd == "theme":
 			openPicker(s)
+		case cmd == "m" || cmd == "scheme":
+			flipScheme(s)
 		case cmd == "+" || cmd == "increment":
 			s.page, s.count = counter, s.count+1
 		case cmd == "-" || cmd == "decrement":
@@ -245,7 +264,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			}
 		}
 	}
-	global := []key{{"1-" + strconv.Itoa(bar), "page"}, {"ctrl+k", "components"}, {"t", "theme"}, {"q", "quit"}}
+	global := []key{{"1-" + strconv.Itoa(bar), "page"}, {"ctrl+k", "components"}, {"t", "theme"}, {"m", "scheme"}, {"q", "quit"}}
 	field := twi.NewInput(rt)
 	field.Insert(opening.Value)
 	field.Placeholder = "Ask twind: a page, theme, dialog, toast, load, later or quit"
@@ -253,7 +272,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 	return func() twi.Node {
 		c := controls{state: st.Get(), update: update, command: command, auto: opening.Focus, kit: k}
 		s := c.state
-		name := themeName(themes[s.theme])
+		name := themeName(themes[s.theme].WithScheme(s.scheme))
 		keys := slices.Concat(global, all[s.page].keys)
 		tabs := []twi.Node{
 			txt("shrink-0 rounded-full px-1 bg-linear-to-r from-primary-600 to-primary-400 text-primary-foreground font-bold", "twind"),
@@ -272,6 +291,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 				k.tip.Trigger(ui.Ghost, ui.SizeXS, append(c.pressable("theme", openPicker), twi.Class("rounded-full text-muted-foreground"), twi.Text(name))...),
 				k.tip.Content(twi.Text("t or a click opens the picker")),
 			),
+			c.button("scheme", pill, string(map[theme.Scheme]icon.Name{theme.Light: icon.Sun, theme.Dark: icon.Moon}[s.scheme].Glyph()), flipScheme),
 		)
 		var hints []twi.Node
 		for _, h := range keys {
@@ -316,7 +336,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 				txt("shrink-0 text-foreground", "tab"), txt("shrink-0", "focus"),
 				txt("shrink-0 pl-1 text-foreground", "enter"), txt("shrink-0", "run"),
 			),
-			el("flex flex-row gap-3 px-3 text-muted-foreground",
+			el("flex flex-row gap-2 px-3 text-muted-foreground",
 				txt("text-primary", "● fullscreen"),
 				twi.Text(env.Size()),
 				twi.Text(env.Profile),
@@ -353,31 +373,16 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 
 func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 	s := c.state
-	first := min(max(s.cursor-pickerRows/2, 0), len(themes)-pickerRows)
-	scheme := func(to theme.Scheme) func(*state) {
-		return func(s *state) {
-			t := themes[s.cursor].WithScheme(to)
-			s.cursor = slices.IndexFunc(themes, func(o theme.Theme) bool { return o.Name == t.Name && o.Scheme == t.Scheme })
-		}
-	}
 	list := append(c.focusable("themes"), twi.Class("flex flex-col rounded-md"+focusRing), twi.OnKeyDown(func(e *twi.Event) {
 		step := map[input.Key]int{input.KeyArrowDown: 1, input.KeyArrowUp: -1}[e.Key.Key]
 		switch {
 		case step != 0:
 			c.update(func(s *state) { s.cursor = (s.cursor + step + len(themes)) % len(themes) })
-		case e.Key.Key == input.KeyArrowLeft || e.Key.Key == input.KeyArrowRight:
-			c.update(scheme(map[input.Key]theme.Scheme{input.KeyArrowLeft: theme.Light, input.KeyArrowRight: theme.Dark}[e.Key.Key]))
 		case e.Key.Key == input.KeyEnter:
 			c.update(apply)
 		}
 	}))
-	toggle := []twi.Node{txt("grow px-1 text-muted-foreground", "← → scheme")}
-	for _, to := range []theme.Scheme{theme.Light, theme.Dark} {
-		label := map[theme.Scheme]string{theme.Light: "light", theme.Dark: "dark"}[to]
-		toggle = append(toggle, twi.Element(twi.Class(pill+activePill), twi.Text(label), twi.OnClick(func(*twi.Event) { c.update(scheme(to)) }),
-			twi.Data("state", map[bool]string{true: "active", false: "inactive"}[themes[s.cursor].Scheme == to])))
-	}
-	for i := first; i < first+pickerRows; i++ {
+	for i, t := range themes {
 		class, mark := "px-1", "  "
 		if i == s.cursor {
 			class = "px-1 bg-accent text-accent-foreground font-bold"
@@ -385,7 +390,7 @@ func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 		if i == s.theme {
 			mark = "● "
 		}
-		list = append(list, twi.Element(twi.Class(class), twi.Text(mark+themeName(themes[i])),
+		list = append(list, twi.Element(twi.Class(class), twi.Text(mark+t.Name),
 			twi.OnPointerEnter(func() { c.update(func(s *state) { s.cursor = i }) }),
 			twi.OnClick(func(*twi.Event) { c.update(apply) }),
 		))
@@ -405,7 +410,6 @@ func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 				txt("px-1 text-muted-foreground", "↑ ↓ preview, Enter keeps, Esc restores"),
 			),
 			twi.Element(list...),
-			el("flex flex-row items-center gap-1", toggle...),
 			c.button("close", "self-end rounded-full px-1 bg-secondary text-secondary-foreground hover:bg-secondary/80", "close", closePicker),
 		),
 	)

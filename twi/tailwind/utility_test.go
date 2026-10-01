@@ -132,19 +132,14 @@ func TestRing(t *testing.T) {
 	if got := sheet.ComputeState(style.ComputedStyle{}, strings.Fields("focus-visible:ring-ring/50 focus-visible:ring-[3px]"), focused).Shadows; !reflect.DeepEqual(got, []style.Shadow{{Spread: 3, Color: half}}) {
 		t.Errorf("shadcn focus ring: %+v", got)
 	}
-	var rose theme.Theme
-	for _, th := range theme.Builtin() {
-		if th.Name == "rose" && th.Scheme == theme.Dark {
-			rose = th
-		}
+	twind := theme.Default()
+	twindRing := twind.Tokens[theme.Ring]
+	themed := sheet.WithTheme(&twind)
+	if got := themed.Compute(style.ComputedStyle{}, strings.Fields("ring-2 ring-ring")).Shadows; !reflect.DeepEqual(got, []style.Shadow{{Spread: 2, Color: twindRing}}) {
+		t.Errorf("ring-ring under twind dark: %+v, want %+v", got, twindRing)
 	}
-	roseRing := rose.Tokens[theme.Ring]
-	themed := sheet.WithTheme(&rose)
-	if got := themed.Compute(style.ComputedStyle{}, strings.Fields("ring-2 ring-ring")).Shadows; !reflect.DeepEqual(got, []style.Shadow{{Spread: 2, Color: roseRing}}) {
-		t.Errorf("ring-ring under rose dark: %+v, want %+v", got, roseRing)
-	}
-	if got := themed.Compute(style.ComputedStyle{}, []string{"shadow-[0_0_0_1px_var(--color-ring)]"}).Shadows; len(got) != 1 || got[0].Color != roseRing {
-		t.Errorf("shadow-[0_0_0_1px_var(--color-ring)] under rose dark: %+v, want colour %+v", got, roseRing)
+	if got := themed.Compute(style.ComputedStyle{}, []string{"shadow-[0_0_0_1px_var(--color-ring)]"}).Shadows; len(got) != 1 || got[0].Color != twindRing {
+		t.Errorf("shadow-[0_0_0_1px_var(--color-ring)] under twind dark: %+v, want colour %+v", got, twindRing)
 	}
 	if got := sheet.Compute(style.ComputedStyle{}, []string{"shadow-[0_0_0_1px_var(--color-ring)]"}).Shadows; len(got) != 1 || got[0].Color != ring {
 		t.Errorf("shadow-[0_0_0_1px_var(--color-ring)] with no theme: %+v, want the build ring %+v", got, ring)
@@ -263,15 +258,8 @@ func TestColorMix(t *testing.T) {
 		}
 	}
 	sheet, _ := compileFixture(t, appFixture)
-	var dark, light theme.Theme
-	for _, th := range theme.Builtin() {
-		switch {
-		case th.Name == "zinc" && th.Scheme == theme.Dark:
-			dark = th
-		case th.Name == "zinc" && th.Scheme == theme.Light:
-			light = th
-		}
-	}
+	dark := theme.Default()
+	light := dark.WithScheme(theme.Light)
 	destructive := dark.Tokens[theme.Destructive]
 	cases := []struct {
 		name    string
@@ -279,10 +267,10 @@ func TestColorMix(t *testing.T) {
 		classes string
 		want    []style.Shadow
 	}{
-		{"/40 under zinc dark", sheet.WithTheme(&dark), halo40, halo(destructive, 40)},
-		{"/40 under zinc light", sheet.WithTheme(&light), halo40, nil},
+		{"/40 under twind dark", sheet.WithTheme(&dark), halo40, halo(destructive, 40)},
+		{"/40 under twind light", sheet.WithTheme(&light), halo40, nil},
 		{"/20 with no theme", sheet, halo20, halo(red600, 20)},
-		{"/20 under zinc dark", sheet.WithTheme(&dark), halo20, halo(destructive, 20)},
+		{"/20 under twind dark", sheet.WithTheme(&dark), halo20, halo(destructive, 20)},
 	}
 	for _, tc := range cases {
 		if got := tc.sheet.Compute(style.ComputedStyle{}, []string{tc.classes}).Shadows; !reflect.DeepEqual(got, tc.want) {

@@ -64,7 +64,7 @@ func TestToastTiming(t *testing.T) {
 	expect("a toast shows its title and description at the bottom right", has("Event 1 has been created") && has("Sunday, December 03"))
 	x, y, _ := at(d.Frame(), "Event 1")
 	expect("in the bottom right corner, "+strconv.Itoa(x)+","+strconv.Itoa(y), x > 40 && y > 20)
-	t.Logf("one toast, 100x30, zinc light:\n%s", d.Frame().Text())
+	t.Logf("one toast, 100x30, twind light:\n%s", d.Frame().Text())
 	d.Advance(3900 * time.Millisecond)
 	expect("still visible at 3.9 s", has("Event 1 has been created"))
 	d.Advance(100 * time.Millisecond)

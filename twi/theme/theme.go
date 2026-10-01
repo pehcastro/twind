@@ -129,10 +129,7 @@ func Default() Theme { return twind() }
 
 func Builtin() []Theme {
 	var out []Theme
-	for _, t := range []Theme{
-		twind(), dream(), mono(), minimal(), dew(), cloud(), sukuna(),
-		neutral(), zinc(), slate(), stone(), rose(), blue(), green(), orange(), violet(),
-	} {
+	for _, t := range []Theme{twind(), dream(), mono(), minimal(), dew(), cloud(), sukuna()} {
 		out = append(out, t.WithScheme(Light), t.WithScheme(Dark))
 	}
 	return out

@@ -23,7 +23,7 @@ func main() {
 }
 
 func run(scheme string) error {
-	if _, ok := zinc(scheme); !ok {
+	if _, ok := parseScheme(scheme); !ok {
 		return fmt.Errorf("-theme %q: want Light or Dark", scheme)
 	}
 	sheet, err := Styles()
@@ -36,13 +36,9 @@ func run(scheme string) error {
 
 func App(rt *twi.Runtime) func() twi.Node { return app(rt, "Light") }
 
-func zinc(scheme string) (theme.Theme, bool) {
-	for _, t := range theme.Builtin() {
-		if t.Name == "zinc" && map[theme.Scheme]string{theme.Light: "Light", theme.Dark: "Dark"}[t.Scheme] == scheme {
-			return t, true
-		}
-	}
-	return theme.Theme{}, false
+func parseScheme(name string) (theme.Scheme, bool) {
+	s, ok := map[string]theme.Scheme{"Light": theme.Light, "Dark": theme.Dark}[name]
+	return s, ok
 }
 
 func el(class string, children ...twi.NodeOption) twi.Node {
@@ -55,8 +51,8 @@ func app(rt *twi.Runtime, scheme string) func() twi.Node {
 	picker, dialog := ui.NewDropdownMenu(rt), ui.NewDialog(rt)
 	picker.Align = ui.End
 	picker.OnSelect = func(string) {
-		t, _ := zinc(scheme)
-		rt.SetTheme(t)
+		s, _ := parseScheme(scheme)
+		rt.SetTheme(theme.Default().WithScheme(s))
 	}
 	picker.OnSelect(scheme)
 	shortcuts := twi.OnKeyDown(func(e *twi.Event) {
@@ -105,7 +101,7 @@ func app(rt *twi.Runtime, scheme string) func() twi.Node {
 				el("flex flex-row gap-2",
 					stat("Components", "twi/ui", "shadcn/ui, styled by Tailwind"),
 					stat("Frame budget", "16 ms", "one write per frame"),
-					stat("Themes", "2", "zinc light and dark"),
+					stat("Themes", "2", "twind light and dark"),
 				),
 				ui.Card(twi.Class("py-1"),
 					ui.CardHeader(ui.CardTitle(twi.Text("Start a project")), ui.CardDescription(twi.Text("A dialog traps focus, dims the page and closes on Escape."))),

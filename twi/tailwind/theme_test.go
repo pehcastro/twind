@@ -7,6 +7,7 @@ import (
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/theme"
+	"github.com/twind-dev/twind/twi/theme/shadcn"
 )
 
 func TestSidebarChartSelectionTokens(t *testing.T) {
@@ -22,15 +23,15 @@ func TestSidebarChartSelectionTokens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	type named struct {
-		name   string
-		scheme theme.Scheme
+	preset, err := os.ReadFile("../theme/testdata/zinc.css")
+	if err != nil {
+		t.Fatal(err)
 	}
-	builtin := map[named]theme.Theme{}
-	for _, th := range theme.Builtin() {
-		builtin[named{th.Name, th.Scheme}] = th
+	zinc, _, err := shadcn.Parse("zinc.css", preset)
+	if err != nil {
+		t.Fatal(err)
 	}
-	zincLight, zincDark, violetDark := builtin[named{"zinc", theme.Light}], builtin[named{"zinc", theme.Dark}], builtin[named{"violet", theme.Dark}]
+	zincLight, zincDark, twindDark := zinc.WithScheme(theme.Light), zinc.WithScheme(theme.Dark), theme.Default()
 	background := func(c style.ComputedStyle) color.Color { return c.Background }
 	foreground := func(c style.ComputedStyle) color.Color { return c.Color }
 	cases := []struct {
@@ -71,8 +72,8 @@ func TestSidebarChartSelectionTokens(t *testing.T) {
 		if want := zincDark.Tokens[tc.token]; dark.Color != want {
 			t.Errorf("%s: dark build colour %+v, want zinc dark %+v", tc.class, dark.Color.RGBA, want.RGBA)
 		}
-		if got, want := tc.pick(sheet.WithTheme(&violetDark).Compute(style.ComputedStyle{}, []string{tc.class})), violetDark.Tokens[tc.token]; got != want {
-			t.Errorf("%s under violet dark: %+v, want %+v", tc.class, got.RGBA, want.RGBA)
+		if got, want := tc.pick(sheet.WithTheme(&twindDark).Compute(style.ComputedStyle{}, []string{tc.class})), twindDark.Tokens[tc.token]; got != want {
+			t.Errorf("%s under twind dark: %+v, want %+v", tc.class, got.RGBA, want.RGBA)
 		}
 	}
 }

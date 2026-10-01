@@ -10,7 +10,7 @@ import (
 )
 
 func TestOverlaysKeys(t *testing.T) {
-	ring := zinc(theme.Light).Tokens[theme.Ring].RGBA
+	ring := theme.Default().WithScheme(theme.Light).Tokens[theme.Ring].RGBA
 	d := driven(t, "overlays", theme.Light)
 	defer func() {
 		if err := d.Close(); err != nil {
@@ -42,7 +42,7 @@ func TestOverlaysKeys(t *testing.T) {
 	press("down", 2)
 	press("right", 1)
 	expect("right opens Invite users", has("Email") && has("Message"))
-	t.Logf("menu open, Down twice, Right into the sub menu, zinc light, 150x45:\n%s", d.Frame().Text())
+	t.Logf("menu open, Down twice, Right into the sub menu, twind light, 150x45:\n%s", d.Frame().Text())
 	press("enter", 1)
 	expect("enter on Email closes every level and shows the choice", !has("My Account") && !has("Message") && has("Selected: Email"))
 	expect("focus is back on the menu trigger", ringWithin(find(t, d.Frame(), "Dropdown menu").y, find(t, d.Frame(), "Selected:").y))

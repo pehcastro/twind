@@ -63,7 +63,7 @@ func TestMessageBubbleAttachmentMarkerLook(t *testing.T) {
 	expect("the long bubble wraps inside four fifths of a 50-cell message", where["message."].y-where["A long"].y >= 2 && where["message."].x+len("message.") <= where["AI"].x+50)
 	page := cells.At(0, 0).Bg.RGBA
 	if len(map[color.RGBA]bool{bg("Thanks"): true, bg("secondary"): true, bg("tinted"): true, bg("destructive"): true, page: true}) != 5 || bg("A long") == page {
-		t.Errorf("default, secondary, tinted and destructive bubbles each paint their own background, muted one too (zinc dark's muted is its secondary): %v %v %v %v %v on %v", bg("Thanks"), bg("secondary"), bg("tinted"), bg("destructive"), bg("A long"), page)
+		t.Errorf("default, secondary, tinted and destructive bubbles each paint their own background, muted one too:%v %v %v %v %v on %v", bg("Thanks"), bg("secondary"), bg("tinted"), bg("destructive"), bg("A long"), page)
 	}
 	expect("the destructive bubble and the failed attachment use the destructive colour", fg("destructive") != fg("secondary") && fg("failed") != fg("done"))
 	expect("the ruled marker draws a line either side of its content on its own row", cells.At(where["Today"].x-2, where["Today"].y).Grapheme == "─" && cells.At(where["Today"].x+len("Today")+1, where["Today"].y).Grapheme == "─")

@@ -553,10 +553,10 @@ func TestHandlerSetAndSetThemeDrawOnce(t *testing.T) {
 	}
 	var light, dark theme.Theme
 	for _, th := range theme.Builtin() {
-		if th.Name == "zinc" && th.Scheme == theme.Light {
+		if th.Name == "twind" && th.Scheme == theme.Light {
 			light = th
 		}
-		if th.Name == "zinc" && th.Scheme == theme.Dark {
+		if th.Name == "twind" && th.Scheme == theme.Dark {
 			dark = th
 		}
 	}
@@ -576,8 +576,8 @@ func TestHandlerSetAndSetThemeDrawOnce(t *testing.T) {
 	r.next(t)
 	time.Sleep(50 * time.Millisecond)
 	r.b.events <- key('k')
-	if f := r.next(t); !strings.Contains(f, "dark") || !strings.Contains(f, "48;2;24;24;27") {
-		t.Fatalf("frame after a key that sets a signal and the theme is %q, want the text and the zinc dark card together", f)
+	if f := r.next(t); !strings.Contains(f, "dark") || !strings.Contains(f, "48;2;9;8;13") {
+		t.Fatalf("frame after a key that sets a signal and the theme is %q, want the text and the twind dark card together", f)
 	}
 	r.quiet(t)
 	if err := r.stop(t); err != nil {

@@ -55,7 +55,7 @@ Opens this documentation:
 
 ```bash
 twind docs
-twind docs -page button -theme zinc-light
+twind docs -page button -theme dream-light
 ```
 
 ## twind doctor

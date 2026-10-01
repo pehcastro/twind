@@ -29,13 +29,7 @@ type state struct {
 }
 
 func Themes() [2]theme.Theme {
-	var pair [2]theme.Theme
-	for _, t := range theme.Builtin() {
-		if t.Name == "zinc" {
-			pair[map[theme.Scheme]int{theme.Dark: 0, theme.Light: 1}[t.Scheme]] = t
-		}
-	}
-	return pair
+	return [2]theme.Theme{theme.Default().WithScheme(theme.Dark), theme.Default().WithScheme(theme.Light)}
 }
 
 func App(rt *twi.Runtime) func() twi.Node {
@@ -71,7 +65,7 @@ func App(rt *twi.Runtime) func() twi.Node {
 		for _, name := range []string{"text", "layout", "counter"} {
 			tabs = append(tabs, txt("shrink-0 px-1 text-muted-foreground", name))
 		}
-		tabs = append(tabs, el("grow"), txt("shrink-0 text-muted-foreground", "[t zinc]"))
+		tabs = append(tabs, el("grow"), txt("shrink-0 text-muted-foreground", "[t twind]"))
 		rows := []twi.Node{txt("font-bold", "List")}
 		for i := range listRows {
 			class := "px-1"
@@ -105,7 +99,7 @@ func App(rt *twi.Runtime) func() twi.Node {
 				txt("text-emerald-400", "● fullscreen"),
 				twi.Text("120x40"),
 				twi.Text("truecolor"),
-				twi.Text("zinc"),
+				twi.Text("twind"),
 				el("grow"),
 				twi.Text("surfaces"),
 			),

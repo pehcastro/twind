@@ -60,11 +60,11 @@ func TestSchemeTwinWithoutThemeToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	bare := func(scheme theme.Scheme) *theme.Theme {
-		th := *builtin(t, "zinc", scheme)
+		th := *builtin(t, "twind", scheme)
 		th.Tokens[theme.Card] = color.Color{}
 		return &th
 	}
-	full := builtin(t, "zinc", theme.Dark)
+	full := builtin(t, "twind", theme.Dark)
 	for _, tc := range []struct {
 		name  string
 		theme *theme.Theme

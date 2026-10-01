@@ -9,7 +9,7 @@ import (
 )
 
 func BenchmarkCompute(b *testing.B) {
-	sheet := appSheet(b).WithTheme(builtin(b, "zinc", theme.Dark))
+	sheet := appSheet(b).WithTheme(builtin(b, "twind", theme.Dark))
 	parent := sheet.Compute(style.ComputedStyle{}, strings.Fields("text-foreground bg-background"))
 	for _, tc := range []struct {
 		name    string

@@ -93,7 +93,7 @@ func TestCommandFilterAndChoose(t *testing.T) {
 	selectedRow := func() string { return line(d, palette.selected) }
 	expect("closed at first", !palette.Open && !has("Suggestions"))
 	settledPress(d, "ctrl+k")
-	t.Logf("open, 100x30, zinc light:\n%s", d.Frame().Text())
+	t.Logf("open, 100x30, twind light:\n%s", d.Frame().Text())
 	expect("ctrl+k opens the dialog with both groups, the separator and the shortcuts", palette.Open && has("Suggestions") && has("Settings") && has("⌘P") && has("Type a command or search..."))
 	expect("the first item is selected", palette.selected == "Calendar")
 	settledPress(d, "down")

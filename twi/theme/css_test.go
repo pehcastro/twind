@@ -123,7 +123,7 @@ func TestCSSTokensMatchTheOwnersThemes(t *testing.T) {
 
 func valid(t *testing.T) string {
 	t.Helper()
-	src, err := os.ReadFile(filepath.Join("css", "neutral.css"))
+	src, err := os.ReadFile(filepath.Join("testdata", "neutral.css"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,8 +196,8 @@ func TestCSSColourFormsAndInheritance(t *testing.T) {
 
 func TestGeneratedThemesAreCurrent(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("css", "*.css"))
-	if err != nil || len(paths) != 16 {
-		t.Fatalf("%d css files, %v: want 16", len(paths), err)
+	if err != nil || len(paths) != len(owners) {
+		t.Fatalf("%d css files, %v: want %d", len(paths), err, len(owners))
 	}
 	var files []shadcn.File
 	for _, p := range paths {
@@ -225,8 +225,8 @@ func TestGeneratedThemesAreCurrent(t *testing.T) {
 
 func TestSchemeSwapsEveryToken(t *testing.T) {
 	all := theme.Builtin()
-	if len(all) != 32 {
-		t.Fatalf("%d built-in themes, want 16 in two schemes", len(all))
+	if len(all) != 2*len(owners) {
+		t.Fatalf("%d built-in themes, want %d in two schemes", len(all), len(owners))
 	}
 	for _, th := range all {
 		for _, s := range []theme.Scheme{theme.Light, theme.Dark} {

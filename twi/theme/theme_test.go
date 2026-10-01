@@ -11,22 +11,25 @@ import (
 )
 
 func TestThemeBuiltin(t *testing.T) {
-	seen := map[string]int{}
-	all := theme.Builtin()
-	if all[0].Name != "twind" {
-		t.Errorf("first built-in theme %q, want the default twind", all[0].Name)
-	}
-	for _, th := range all {
-		seen[th.Name]++
+	var names []string
+	schemes := map[string][]theme.Scheme{}
+	for _, th := range theme.Builtin() {
+		if len(schemes[th.Name]) == 0 {
+			names = append(names, th.Name)
+		}
+		schemes[th.Name] = append(schemes[th.Name], th.Scheme)
 		for tok := theme.Background; tok <= theme.DestructiveForeground; tok++ {
 			if th.Tokens[tok].Kind != color.Literal {
 				t.Errorf("%s %d: %s unset", th.Name, th.Scheme, tok)
 			}
 		}
 	}
-	for _, name := range append([]string{"neutral", "zinc", "slate", "stone", "rose", "blue", "green", "orange", "violet"}, owners...) {
-		if seen[name] != 2 {
-			t.Errorf("%s: %d schemes, want light and dark", name, seen[name])
+	if !slices.Equal(names, owners) {
+		t.Errorf("built-in themes %v, want exactly %v", names, owners)
+	}
+	for _, name := range names {
+		if !slices.Equal(schemes[name], []theme.Scheme{theme.Light, theme.Dark}) {
+			t.Errorf("%s: schemes %v, want light and dark", name, schemes[name])
 		}
 	}
 }
@@ -83,14 +86,6 @@ func TestThemeSyntaxReadable(t *testing.T) {
 func TestThemeSyntaxHues(t *testing.T) {
 	five := []theme.Token{theme.SyntaxKeyword, theme.SyntaxString, theme.SyntaxNumber, theme.SyntaxFunction, theme.SyntaxComment}
 	for _, th := range theme.Builtin() {
-		if slices.Contains([]string{"rose", "blue", "green", "orange", "violet"}, th.Name) {
-			_, comment := chromaHue(th.Tokens[theme.SyntaxComment].RGBA)
-			_, primary := chromaHue(th.Tokens[theme.Primary].RGBA)
-			if d := math.Abs(comment - primary); min(d, 360-d) > 10 {
-				t.Errorf("%s %d: comment hue %.0f is not tinted to primary hue %.0f", th.Name, th.Scheme, comment, primary)
-			}
-			continue
-		}
 		hues := map[theme.Token]float64{}
 		for _, tok := range five {
 			chroma, hue := chromaHue(th.Tokens[tok].RGBA)
@@ -128,20 +123,13 @@ func TestThemeSidebarChartSelection(t *testing.T) {
 		}
 	}
 	for _, c := range []struct{ theme, token, value string }{
-		{"zinc light", "chart-1", "oklch(0.871 0.006 286.286)"},
-		{"zinc dark", "sidebar", "oklch(0.21 0.006 285.885)"},
-		{"zinc dark", "sidebar-primary", "oklch(0.488 0.243 264.376)"},
-		{"slate light", "chart-4", "oklch(0.828 0.189 84.429)"},
-		{"slate dark", "chart-4", "oklch(0.627 0.265 303.9)"},
-		{"slate dark", "sidebar-ring", "oklch(0.551 0.027 264.364)"},
-		{"violet light", "chart-3", "oklch(0.541 0.281 293.009)"},
-		{"violet light", "sidebar-primary", "oklch(0.541 0.281 293.009)"},
-		{"violet dark", "sidebar-primary", "oklch(0.606 0.25 292.717)"},
-		{"violet light", "sidebar", "oklch(0.985 0 0)"},
-		{"rose dark", "sidebar", "oklch(0.21 0.006 285.885)"},
-		{"violet light", "selection", "oklch(0% 0 0)"},
-		{"zinc dark", "selection", "oklch(0.922 0 0)"},
-		{"slate dark", "selection-foreground", "oklch(0.205 0 0)"},
+		{"twind light", "chart-1", "oklch(0.4865 0.2423 291.8661)"},
+		{"twind dark", "sidebar", "oklch(0.1249 0.0104 301.6956)"},
+		{"dream dark", "sidebar-primary", "oklch(0.6969 0.1630 252.9094)"},
+		{"dream light", "chart-4", "oklch(0.6408 0.1898 22.1208)"},
+		{"twind light", "selection", "oklch(0% 0 0)"},
+		{"twind dark", "selection", "oklch(0.922 0 0)"},
+		{"dream dark", "selection-foreground", "oklch(0.205 0 0)"},
 	} {
 		tok, _ := theme.ParseToken(c.token)
 		want, err := color.Parse(c.value)

@@ -39,7 +39,7 @@ func TestShellScript(t *testing.T) {
 	icon := find(t, d.Frame(), "▸")
 	press("ctrl+b")
 	expect("ctrl+b folds the sidebar to its icons", !has("Playground") && !has("Platform") && !has("Acme Inc") && find(t, d.Frame(), "▸").x == icon.x)
-	t.Logf("shell, sidebar folded by ctrl+b, zinc light, 150x45:\n%s", d.Frame().Text())
+	t.Logf("shell, sidebar folded by ctrl+b, twind light, 150x45:\n%s", d.Frame().Text())
 
 	click(find(t, d.Frame(), "File"))
 	expect("a click on File opens it", has("New Tab") && has("Print..."))

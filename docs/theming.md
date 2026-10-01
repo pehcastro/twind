@@ -18,19 +18,15 @@ Colours come from theme tokens, the same names shadcn/ui uses: `background`, `fo
 
 ## Built-in themes
 
-Nine themes ship with Twind, each in a light and a dark scheme: the shadcn/ui base colours neutral, zinc, slate and stone, and the accent colours rose, blue, green, orange and violet. Press **t** in this app to try them: the arrows preview each one live, Enter keeps it and Escape puts back the one you had.
+Seven themes ship with Twind, each in a light and a dark scheme: twind, the default, then dream, mono, minimal, dew, cloud and sukuna. Press **t** in this app to try them: the arrows preview each one live, Enter keeps it and Escape puts back the one you had. Press **m**, or the sun or moon in the top bar, to switch between light and dark and keep the theme.
 
 ## Change the theme at runtime
 
 ```go
-for _, t := range theme.Builtin() {
-	if t.Name == "zinc" && t.Scheme == theme.Dark {
-		rt.SetTheme(t)
-	}
-}
+rt.SetTheme(theme.Default().WithScheme(theme.Light))
 ```
 
-The next frame repaints with the new colours. Nothing is rebuilt and no class changes.
+`theme.Default()` is twind in its dark scheme, and `WithScheme` gives the same theme in the other one. The next frame repaints with the new colours. Nothing is rebuilt and no class changes.
 
 ## A custom theme
 

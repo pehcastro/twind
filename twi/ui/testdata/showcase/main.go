@@ -15,7 +15,7 @@ import (
 //go:generate go run github.com/twind-dev/twind/internal/twirgen
 
 func main() {
-	scheme := flag.String("scheme", "light", "zinc scheme, light or dark")
+	scheme := flag.String("scheme", "light", "twind scheme, light or dark")
 	name := flag.String("page", "wave1", "wave1, tables, breadcrumbs, pagination, items, button-groups, fields, form, overlays, tabs, wave3b or shell")
 	focus := flag.String("focus", "", "on the form page, the control focused at start: email, textarea, checkbox, radio, toggles or otp")
 	open := flag.String("open", "", "the overlay open at start: on the overlays page dialog, alert, sheet, drawer, menu, menu-sub, popover, tooltip or hovercard, on the tabs page select, on the wave3b page collapsible, toasts or command=search, on the shell page menubar, context or collapsed")
@@ -24,13 +24,7 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
-	var zinc theme.Theme
-	for _, t := range theme.Builtin() {
-		if t.Name == "zinc" && (t.Scheme == theme.Dark) == (*scheme == "dark") {
-			zinc = t
-		}
-	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet), twi.Theme(zinc))
+	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet), twi.Theme(theme.Default().WithScheme(map[string]theme.Scheme{"light": theme.Light, "dark": theme.Dark}[*scheme])))
 	body, ok := page(rt, *name, *focus, *open)
 	if !ok {
 		fail(fmt.Errorf("no page %q", *name))

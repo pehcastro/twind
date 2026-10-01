@@ -14,7 +14,7 @@
     "docs:wt": "node scripts/head.mjs window 120,36 twind-docs ./cmd/twind docs",
     "gallery": "node scripts/head.mjs run ./examples/gallery",
     "gallery:wt": "node scripts/head.mjs window 110,34 twind-gallery ./examples/gallery",
-    "gallery:dark:wt": "node scripts/head.mjs window 110,34 twind-gallery ./examples/gallery -theme zinc-dark",
+    "gallery:dark:wt": "node scripts/head.mjs window 110,34 twind-gallery ./examples/gallery -theme twind-dark",
     "sheet": "node -e \"require('fs').mkdirSync('.local/prints/dev',{recursive:true})\" && TWIND_SHEET=$INIT_CWD/.local/prints/dev node scripts/head.mjs go test ./twi/raster/ -run Sheet -count=1",
     "test": "node scripts/head.mjs go test -p 8 ./...",
     "test:dev": "go test -p 8 ./...",

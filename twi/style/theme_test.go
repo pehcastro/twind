@@ -55,9 +55,9 @@ func TestThemeTokens(t *testing.T) {
 		theme               *theme.Theme
 		card, muted, border color.Color
 	}{
-		{"zinc light", builtin(t, "zinc", theme.Light), rgba(255, 255, 255, 255), rgba(113, 113, 123, 255), rgba(228, 228, 231, 255)},
-		{"zinc dark", builtin(t, "zinc", theme.Dark), rgba(24, 24, 27, 255), rgba(159, 159, 169, 255), rgba(255, 255, 255, 26)},
-		{"rose dark", builtin(t, "rose", theme.Dark), rgba(23, 23, 23, 255), rgba(161, 161, 161, 255), rgba(255, 255, 255, 26)},
+		{"twind light", builtin(t, "twind", theme.Light), rgba(255, 255, 255, 255), rgba(107, 114, 128, 255), rgba(229, 231, 235, 255)},
+		{"twind dark", builtin(t, "twind", theme.Dark), rgba(9, 8, 13, 255), rgba(176, 171, 186, 255), rgba(36, 31, 46, 255)},
+		{"dream dark", builtin(t, "dream", theme.Dark), rgba(21, 26, 32, 255), rgba(153, 159, 166, 255), rgba(45, 50, 56, 255)},
 	}
 	plain := sheet.Compute(style.ComputedStyle{}, []string{"bg-red-500"}).Background
 	for _, c := range cases {
@@ -76,8 +76,8 @@ func TestThemeTokens(t *testing.T) {
 			t.Errorf("%s: bg-card/50 %v, want the card at alpha 0.5 %v", c.name, got, half)
 		}
 	}
-	if got := sheet.WithTheme(builtin(t, "rose", theme.Dark)).Compute(style.ComputedStyle{}, []string{"bg-primary"}).Background; got != rgba(165, 0, 54, 255) {
-		t.Errorf("rose dark bg-primary %v, want 165,0,54", got)
+	if got := sheet.WithTheme(builtin(t, "dream", theme.Dark)).Compute(style.ComputedStyle{}, []string{"bg-primary"}).Background; got != rgba(73, 160, 255, 255) {
+		t.Errorf("dream dark bg-primary %v, want 73,160,255", got)
 	}
 }
 
@@ -124,7 +124,7 @@ func TestGradientFollowsTheme(t *testing.T) {
 	sheet := pinnedSheet(t, append(gradient, "from-primary/40")...)
 	primary300, _ := theme.ParseToken("primary-300")
 	seen := map[[2]color.RGBA]bool{}
-	for _, name := range []string{"twind", "dream", "cloud", "sukuna", "zinc"} {
+	for _, name := range []string{"twind", "dream", "cloud", "sukuna", "mono"} {
 		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
 			th := builtin(t, name, scheme)
 			from, to := th.Tokens[theme.Primary], th.Tokens[primary300]
