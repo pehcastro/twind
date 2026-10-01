@@ -49,7 +49,7 @@ type Frame struct {
 
 type styledBox struct {
 	state    style.NodeState
-	box      *layout.Box
+	box      layout.Box
 	classes  []string
 	computed style.ComputedStyle
 	element  style.Element
@@ -67,7 +67,7 @@ type styledBox struct {
 	raw      string
 	text     scene.Text
 	natural  [2]int
-	sizes    map[int][2]int
+	sizes    []sized
 	children []*styledBox
 	exiting  []*styledBox
 	node     scene.Node
@@ -136,7 +136,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	if err != nil {
 		return scene.Node{}, err
 	}
-	layout.Layout(styled.box, f.Width, f.Height)
+	layout.Layout(&styled.box, f.Width, f.Height)
 	return t.scene(styled, reclip{viewport: styled.box.Clip}), nil
 }
 
@@ -176,7 +176,7 @@ func reveal(at, size, view, span int) int {
 
 func (t *Tree) scroller(path []int) *layout.Box {
 	if s, _ := t.find(path); s != nil && s.box.Style.Overflow == layout.OverflowScroll {
-		return s.box
+		return &s.box
 	}
 	return nil
 }
@@ -189,7 +189,7 @@ func (t *Tree) find(path []int) (*styledBox, []*layout.Box) {
 			return nil, nil
 		}
 		if s.box.Style.Overflow == layout.OverflowScroll {
-			scrollers = append(scrollers, s.box)
+			scrollers = append(scrollers, &s.box)
 		}
 		s = s.children[i]
 	}
@@ -220,7 +220,7 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 	if s.animated {
 		st = s.shown
 	}
-	n := scene.New(s.box, *st, s.text)
+	n := scene.New(&s.box, *st, s.text)
 	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
 	if s.top > 0 {
 		r.on, r.flow, r.absolute = true, r.viewport, r.viewport
@@ -274,7 +274,7 @@ func overlap(a, b layout.Rect) layout.Rect {
 func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node, place style.Place, siblings []*styledBox) (*styledBox, error) {
 	s := prev
 	if s == nil {
-		s = &styledBox{box: &layout.Box{}, key: t.key(), born: t.now, lift: motion.Still(), pose: motion.Pose{Scale: 1}}
+		s = &styledBox{key: t.key(), born: t.now, lift: motion.Still(), pose: motion.Pose{Scale: 1}}
 	}
 	s.enter, s.exit = n.Enter, n.Exit
 	changed, animating := false, false
@@ -336,7 +336,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		wrapping.Widths = s.wrapping.Widths
 		if nowrap != s.nowrap || wrapping != s.wrapping {
 			s.nowrap, s.wrapping = nowrap, wrapping
-			clear(s.sizes)
+			s.sizes = s.sizes[:0]
 			s.box.Invalidate()
 		}
 		ellipsis := computed.TextOverflow == style.TextOverflowEllipsis || len(n.Classes) == 0 && parent.TextOverflow == style.TextOverflowEllipsis
@@ -393,12 +393,12 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		if s.reverse {
 			at = len(n.Children) - 1 - i
 		}
-		s.children[i], s.box.Children[at] = child, child.box
+		s.children[i], s.box.Children[at] = child, &child.box
 		s.painted = s.painted && child.painted
 	}
 	s.box.Children = s.box.Children[:len(n.Children)]
 	for _, e := range s.exiting {
-		s.box.Children = append(s.box.Children, e.box)
+		s.box.Children = append(s.box.Children, &e.box)
 	}
 	t.ancestors = t.ancestors[:len(t.ancestors)-1]
 	return s, nil
@@ -480,41 +480,48 @@ func has(sheet style.Sheet, m *style.Match, children []Node) bool {
 }
 
 func (s *styledBox) retext(f Frame, raw string) (moved bool) {
-	next := styledBox{nowrap: s.nowrap, wrapping: s.wrapping}
-	next.wrapping.Widths = f.Widths
+	var next scene.Text
 	if raw != "" {
-		next.text = f.Sanitize(raw)
+		next = f.Sanitize(raw)
 	}
-	moved = (s.text == scene.Text{}) != (next.text == scene.Text{})
-	if next.text != (scene.Text{}) {
-		next.natural[0], next.natural[1] = next.text.Size(next.wrapping, math.MaxInt)
-		next.sizes = map[int][2]int{}
-		for width, size := range s.sizes {
-			w, h := next.measure(width)
-			moved = moved || size != [2]int{w, h}
-		}
+	moved = (s.text == scene.Text{}) != (next == scene.Text{})
+	stale := s.sizes
+	s.raw, s.text, s.natural, s.sizes, s.wrapping.Widths, s.painted = raw, next, [2]int{}, s.sizes[:0], f.Widths, false
+	if next == (scene.Text{}) {
+		s.box.Measure = nil
+		return moved
 	}
-	s.raw, s.text, s.natural, s.sizes, s.wrapping, s.painted = raw, next.text, next.natural, next.sizes, next.wrapping, false
-	s.box.Measure = nil
-	if s.text != (scene.Text{}) {
+	s.natural[0], s.natural[1] = next.Size(s.wrapping, math.MaxInt)
+	for _, old := range stale {
+		w, h := s.measure(old.width)
+		moved = moved || old.size != [2]int{w, h}
+	}
+	if s.box.Measure == nil {
 		s.box.Measure = s.measure
 	}
 	return moved
 }
 
+type sized struct {
+	width int
+	size  [2]int
+}
+
 func (s *styledBox) measure(availableWidth int) (int, int) {
-	size, ok := s.sizes[availableWidth]
-	if !ok {
-		size = s.natural
-		if availableWidth < size[0] && !s.nowrap {
-			wrapAt := availableWidth
-			if wrapAt <= 0 {
-				wrapAt = s.text.MinContent(s.wrapping)
-			}
-			size[0], size[1] = s.text.Size(s.wrapping, wrapAt)
+	for _, m := range s.sizes {
+		if m.width == availableWidth {
+			return m.size[0], m.size[1]
 		}
-		s.sizes[availableWidth] = size
 	}
+	size := s.natural
+	if availableWidth < size[0] && !s.nowrap {
+		wrapAt := availableWidth
+		if wrapAt <= 0 {
+			wrapAt = s.text.MinContent(s.wrapping)
+		}
+		size[0], size[1] = s.text.Size(s.wrapping, wrapAt)
+	}
+	s.sizes = append(s.sizes, sized{availableWidth, size})
 	return size[0], size[1]
 }
 
