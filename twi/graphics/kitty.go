@@ -1,7 +1,6 @@
 package graphics
 
 import (
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 
@@ -9,8 +8,9 @@ import (
 )
 
 type Kitty struct {
-	file []byte
-	z    deflater
+	file  []byte
+	z     deflater
+	pairs base64Pairs
 }
 
 func (k *Kitty) Encode(dst []byte, rows [][]byte, at Placement, id, placement uint32) []byte {
@@ -18,7 +18,7 @@ func (k *Kitty) Encode(dst []byte, rows [][]byte, at Placement, id, placement ui
 		return dst
 	}
 	rows, flat := k.z.prepare(rows)
-	bpp, compression := 4, ""
+	bpp, size := 4, ",s="
 	if flat {
 		p := straight(pixel(rows[0], 0))
 		if p>>24 == 0xff {
@@ -27,20 +27,21 @@ func (k *Kitty) Encode(dst []byte, rows [][]byte, at Placement, id, placement ui
 		k.file = binary.LittleEndian.AppendUint32(k.file[:0], p)[:bpp]
 	} else {
 		k.file, bpp = k.z.zlib(k.file[:0], rows, rawRows)
-		compression = "o=z,"
+		size = ",o=z,s="
 	}
-	dst = fmt.Appendf(dst, "\x1b[%d;%dH\x1b_Ga=T,f=%d,%ss=%d,v=%d,i=%d,p=%d,c=%d,r=%d,z=-1,C=1,q=2",
-		at.Row+1, at.Col+1, 8*bpp, compression, len(rows[0])/4, len(rows), id, placement, at.Cols, at.Rows)
+	dst = field(field(field(dst, "\x1b[", at.Row+1), ";", at.Col+1), "H\x1b_Ga=T,f=", 8*bpp)
+	dst = field(field(field(field(dst, size, len(rows[0])/4), ",v=", len(rows)), ",i=", int(id)), ",p=", int(placement))
+	dst = append(field(field(dst, ",c=", at.Cols), ",r=", at.Rows), ",z=-1,C=1,q=2"...)
 	for start := 0; start < len(k.file); start += graphics.KittyRawChunk {
 		if start > 0 {
 			dst = append(dst, "\x1b_Gq=2"...)
 		}
 		end := min(start+graphics.KittyRawChunk, len(k.file))
 		if start > 0 || end < len(k.file) {
-			dst = fmt.Appendf(dst, ",m=%d", min(len(k.file)-end, 1))
+			dst = field(dst, ",m=", min(len(k.file)-end, 1))
 		}
 		dst = append(dst, ';')
-		dst = base64.StdEncoding.AppendEncode(dst, k.file[start:end])
+		dst = k.pairs.appendEncode(dst, k.file[start:end])
 		dst = append(dst, "\x1b\\"...)
 	}
 	return dst

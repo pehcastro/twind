@@ -13,6 +13,9 @@ const (
 	SixelSpread    = 0x0101010101010101
 	KittyChunk     = 4096
 	KittyRawChunk  = KittyChunk / 4 * 3
+	Base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	Base64Pairs    = 1 << 12
+	Base64Group    = 6
 
 	ZlibHeader             = "\x78\x01"
 	AdlerModulus           = 65521
@@ -41,7 +44,22 @@ const (
 	DeflateLongZerosMax    = 138
 	DeflateCodeLengthOrder = "\x10\x11\x12\x00\x08\x07\x09\x06\x0a\x05\x0b\x04\x0c\x03\x0d\x02\x0e\x01\x0f"
 	DeflateFlatSpan        = 64
-	ScalarRun              = 4
+	DeflateTokenBytes      = 8
+
+	TokenSlot     = 10
+	TokenMask     = 1<<TokenSlot - 1
+	TokenRepeat   = 3 * TokenSlot
+	TokenDistance = DeflateFixedLiterals
+	DistanceSlots = 4
+	TokenNone     = TokenDistance + DistanceSlots
+	TokenLength   = 1 << (TokenSlot - 1)
+	SymbolLength  = 32
+	SymbolBits    = 1<<SymbolLength - 1
+	ShiftMask     = 63
+	ByteShiftMask = 56
+	RunBlock      = 8
+	RunGuard      = 8
+	RunGuess      = 32
 
 	Workers      = 8
 	JobPixels    = 1 << 14
@@ -52,6 +70,8 @@ const (
 	AlphaPair    = 0xff000000ff000000
 
 	PNGSignature = "\x89PNG\r\n\x1a\n"
+	PNGHeader    = "\x00\x00\x00\x0dIHDR"
+	PNGDepth     = 8
 	PNGOpaque    = 2
 	PNGAlpha     = 6
 	PNGUpFilter  = 2

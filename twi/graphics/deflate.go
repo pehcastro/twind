@@ -26,24 +26,30 @@ const (
 type deflater struct {
 	same      []bool
 	spans     []flatSpan
-	tokens    []uint32
+	hint      []flatSpan
+	hi        int
+	tokens    []uint64
+	used      []int
 	rle       []uint32
 	one       [1][]byte
-	cur       []byte
-	above     []byte
-	filter    rowFilter
 	bpp       int
-	lead      int
-	n         int
 	sum       uint64
+	pos       uint64
 	moment    uint64
-	runDist   int
+	runTok    uint64
 	runLen    int
+	up        uint64
+	upLeft    uint64
+	upRight   uint64
+	left      uint64
+	dists     [graphics.DistanceSlots]int
+	litFreq   [graphics.DeflateLiterals]int32
+	distFreq  [graphics.DeflateDistances]int32
 	out       []byte
 	acc       uint64
 	nacc      uint
-	lit       [graphics.DeflateLiterals]int32
-	dist      [graphics.DeflateDistances]int32
+	freq      [graphics.TokenMask + 1]int32
+	sym       [graphics.TokenMask + 1]uint64
 	codeLen   [graphics.DeflateCodeLengths]int32
 	order     [graphics.DeflateLiterals]uint64
 	depth     [graphics.DeflateLiterals]int32
@@ -70,25 +76,7 @@ func (d *deflater) prepare(rows [][]byte) (prepared [][]byte, flat bool) {
 	return d.one[:], true
 }
 
-func pixel(r []byte, x int) uint32 { return binary.LittleEndian.Uint32(r[4*x:]) }
-
-func equalRun(a, b []byte, x, w int) int {
-	for end := min(x+graphics.ScalarRun, w); x < end; x++ {
-		if pixel(a, x) != pixel(b, x) {
-			return x
-		}
-	}
-	step := 1
-	for ; x+step <= w && bytes.Equal(a[4*x:4*(x+step)], b[4*x:4*(x+step)]); step *= 2 {
-		x += step
-	}
-	for ; step > 0; step /= 2 {
-		if x+step <= w && bytes.Equal(a[4*x:4*(x+step)], b[4*x:4*(x+step)]) {
-			x += step
-		}
-	}
-	return x
-}
+func pixel(r []byte, x int) uint32 { return binary.LittleEndian.Uint32(r[4*x : 4*x+4]) }
 
 func straight(p uint32) uint32 {
 	a := p >> 24
@@ -98,8 +86,8 @@ func straight(p uint32) uint32 {
 	return p&0xff*0xffff/a>>8 | (p>>8&0xff*0xffff/a>>8)<<8 | (p>>16&0xff*0xffff/a>>8)<<16 | a<<24
 }
 
-func (d *deflater) residual(x int) uint32 {
-	v, u := straight(pixel(d.cur, x)), straight(pixel(d.above, x))
+func residual(p, above uint32) uint32 {
+	v, u := straight(p), straight(above)
 	return ((v | graphics.ByteHighBits) - (u &^ graphics.ByteHighBits)) ^ ((v ^ ^u) & graphics.ByteHighBits)
 }
 
@@ -114,69 +102,61 @@ func (d *deflater) zlib(dst []byte, rows [][]byte, filter rowFilter) ([]byte, in
 func (d *deflater) encode(dst []byte, rows [][]byte, bpp int, filter rowFilter) ([]byte, bool) {
 	const m = graphics.AdlerModulus
 	w := len(rows[0]) / 4
-	d.filter, d.bpp, d.lead = filter, bpp, 0
+	lead := uint64(0)
 	if filter == pngUpRows {
-		d.lead = 1
+		lead = 1
 	}
-	d.n = d.lead + w*bpp
+	d.bpp = bpp
+	n := int(lead) + w*bpp
 	mask := uint32(1)<<(8*bpp) - 1
-	up := filter == rawRows && d.n+bpp <= graphics.DeflateWindow
-	d.tokens, d.runDist, d.runLen = d.tokens[:0], 0, 0
-	clear(d.lit[:])
-	clear(d.dist[:])
+	up := filter == rawRows && n+bpp <= graphics.DeflateWindow
+	d.tokens, d.runTok, d.runLen = d.tokens[:0], 0, 0
+	clear(d.freq[:])
+	d.used = d.used[:0]
+	d.dists = [graphics.DistanceSlots]int{n, n + bpp, max(n-bpp, 1), bpp}
+	var slots [graphics.DistanceSlots]uint64
+	for id, s := range d.dists {
+		slots[id] = uint64(graphics.TokenDistance+slices.Index(d.dists[:], s))<<graphics.TokenSlot | graphics.TokenNone<<(2*graphics.TokenSlot)
+	}
+	d.up, d.upLeft, d.upRight, d.left = slots[0], slots[1], slots[2], slots[3]
 	var a, b, sum, weight uint64 = 1, 0, 0, 0
 	for y, r := range rows {
-		d.cur, d.above = r, nil
+		var above []byte
 		if y > 0 && (up || filter == pngUpRows) {
-			d.above = rows[y-1]
+			above = rows[y-1]
 		}
-		same := d.same[y] && d.above != nil
-		if !same || filter == pngUpRows {
-			d.sum, d.moment = 0, 0
-			if filter == pngUpRows {
-				d.sum = graphics.PNGUpFilter
-				d.literals(graphics.PNGUpFilter, 1)
-			}
-			if same {
-				d.span(0, w, 0)
-			} else {
-				d.spans = d.spans[:0]
-				for x := 0; x < w; {
-					p := pixel(d.cur, x)
-					if bpp == 3 && p>>24 != 0xff {
-						return nil, false
-					}
-					v, e := straight(p), x+1
-					switch {
-					case d.above == nil || filter == rawRows:
-						e = equalRun(d.cur[4:], d.cur, x, w-1) + 1
-					case p == pixel(d.above, x):
-						v, e = 0, equalRun(d.cur, d.above, x, w)
-					default:
-						v = d.residual(x)
-						for e < w && d.residual(e) == v {
-							e = max(e+1, min(equalRun(d.cur[4:], d.cur, e, w-1), equalRun(d.above[4:], d.above, e, w-1))+1)
-						}
-					}
-					d.span(x, e, v&mask)
-					x = e
-				}
-				d.spans = append(d.spans, flatSpan{w, w})
-			}
-			sum, weight = d.sum%m, (uint64(d.n)*d.sum%m+m-d.moment%m)%m
-		} else {
+		same := d.same[y] && above != nil
+		if same && filter == rawRows {
 			x := 0
 			for _, s := range d.spans {
 				if end := min(s.x0+1, w); end > x {
-					d.run(d.n, (end-x)*bpp)
+					d.run(d.up, (end-x)*bpp)
 				}
 				if s.x1 > s.x0+1 {
-					d.run(bpp, (s.x1-s.x0-1)*bpp)
+					d.run(d.left, (s.x1-s.x0-1)*bpp)
 				}
 				x = s.x1
 			}
+		} else {
+			d.sum, d.pos, d.moment = 0, 0, 0
+			ok := true
+			switch {
+			case filter == rawRows:
+				ok = d.rawRow(r, above, w, mask)
+			case same:
+				d.literalByte(graphics.PNGUpFilter)
+				d.upSpan(0, w, 0)
+			default:
+				d.literalByte(graphics.PNGUpFilter)
+				ok = d.upRow(r, above, w, mask)
+			}
+			if !ok {
+				return nil, false
+			}
+			s, moment := d.sum+graphics.PNGUpFilter*lead, lead*d.sum+uint64(bpp)*d.pos/2+d.moment
+			sum, weight = s%m, (uint64(n)*s%m+m-moment%m)%m
 		}
-		b = (b + uint64(d.n)%m*a + weight) % m
+		b = (b + uint64(n)%m*a + weight) % m
 		a = (a + sum) % m
 	}
 	d.flush()
@@ -186,52 +166,216 @@ func (d *deflater) encode(dst []byte, rows [][]byte, bpp int, filter rowFilter) 
 	return binary.BigEndian.AppendUint32(d.out, uint32(b<<16|a)), true
 }
 
-func (d *deflater) span(x0, x1 int, c uint32) {
-	count := uint64(x1 - x0)
-	c0, c1, c2, c3 := uint64(c&0xff), uint64(c>>8&0xff), uint64(c>>16&0xff), uint64(c>>24)
-	d.sum += count * (c0 + c1 + c2 + c3)
-	d.moment += (c0+c1+c2+c3)*(count*uint64(d.lead)+uint64(d.bpp)*(count*uint64(x0+x1-1)/2)) + count*(c1+2*c2+3*c3)
-	last := x1
-	if d.filter == pngUpRows || x1-x0 >= graphics.DeflateFlatSpan {
-		last = x0 + 1
-	}
-	copies := d.filter == rawRows && d.above != nil
-	for x := x0; x < last; x++ {
-		p := pixel(d.cur, x)
+func (d *deflater) rawRow(cur, above []byte, w int, mask uint32) bool {
+	d.hint, d.spans, d.hi = d.spans, d.hint[:0], 0
+	bpp := d.bpp
+	for x := 0; x < w; {
+		p, e := pixel(cur, x), x+1
+		if above != nil && pixel(above, x) == p {
+			b := w
+			if h := d.hintAt(x); h.x1 > 0 {
+				b = h.x0
+			}
+			if b > x {
+				b = equalRun(cur, above, x+1, b, 0)
+				if q := pixel(cur, b-1); b < w && pixel(cur, b) == q {
+					for b > x && pixel(cur, b-1) == q {
+						b--
+					}
+				}
+			}
+			if b > x {
+				var sum, pos, moment uint64
+				for i := x; i < b; i++ {
+					s, m := sums(straight(pixel(cur, i)) & mask)
+					sum, pos, moment = sum+s, pos+s*uint64(2*i), moment+m
+				}
+				d.sum, d.pos, d.moment = d.sum+sum, d.pos+pos, d.moment+moment
+				d.run(d.up, (b-x)*bpp)
+				x = b
+				continue
+			}
+		}
+		if bpp == 3 && p>>24 != 0xff {
+			return false
+		}
+		if e < w && pixel(cur, e) == p {
+			e = equalRun(cur[4:], cur, e, w-1, d.hintAt(x).x1-1) + 1
+		}
+		c := straight(p) & mask
+		d.adler(uint64(x), uint64(e), c)
+		last := e
+		if e-x >= graphics.DeflateFlatSpan {
+			last = x + 1
+			d.spans = append(d.spans, flatSpan{x, e})
+		}
 		switch {
-		case copies && p == pixel(d.above, x):
-			d.run(d.n, d.bpp)
-		case x > x0:
-			d.run(d.bpp, d.bpp)
-		case copies && x > 0 && p == pixel(d.above, x-1):
-			d.run(d.n+d.bpp, d.bpp)
-		case copies && 4*x+4 < len(d.cur) && p == pixel(d.above, x+1):
-			d.run(d.n-d.bpp, d.bpp)
+		case above == nil:
+			d.literal(c)
+			last = x + 1
+		case pixel(above, x) == p:
+			d.run(d.up, bpp)
+		case x > 0 && pixel(above, x-1) == p:
+			d.run(d.upLeft, bpp)
+		case x+1 < w && pixel(above, x+1) == p:
+			d.run(d.upRight, bpp)
 		default:
-			d.literals(c, d.bpp)
+			d.literal(c)
+		}
+		for i := x + 1; i < last; i++ {
+			if pixel(above, i) == p {
+				d.run(d.up, bpp)
+			} else {
+				d.run(d.left, bpp)
+			}
+		}
+		if e > last {
+			d.run(d.left, (e-last)*bpp)
+		}
+		x = e
+	}
+	d.spans = append(d.spans, flatSpan{w, w})
+	return true
+}
+
+func (d *deflater) upRow(cur, above []byte, w int, mask uint32) bool {
+	d.hint, d.spans, d.hi = d.spans, d.hint[:0], 0
+	if above == nil {
+		for x := 0; x < w; {
+			p := pixel(cur, x)
+			if d.bpp == 3 && p>>24 != 0xff {
+				return false
+			}
+			e := equalRun(cur[4:], cur, x, w-1, 0) + 1
+			d.upSpan(x, e, straight(p)&mask)
+			x = e
+		}
+		return true
+	}
+	x0, x := 0, 0
+	p, u := pixel(cur, 0), pixel(above, 0)
+	v0 := residual(p, u)
+	for {
+		if d.bpp == 3 && p>>24 != 0xff {
+			return false
+		}
+		e := x + 1
+		switch {
+		case p == u:
+			e = equalRun(cur, above, e, w, d.hintAt(x).x1)
+		case e < w && pixel(cur, e) == p && pixel(above, e) == u:
+			g := d.hintAt(x).x1
+			e = min(equalRun(cur[4:], cur, e, w-1, g-1), equalRun(above[4:], above, e, w-1, g-1)) + 1
+		}
+		if e >= w {
+			break
+		}
+		p, u = pixel(cur, e), pixel(above, e)
+		if v := residual(p, u); v != v0 {
+			d.hintSpan(x0, e, v0&mask)
+			x0, v0 = e, v
+		}
+		x = e
+	}
+	d.hintSpan(x0, w, v0&mask)
+	return true
+}
+
+func (d *deflater) hintSpan(x0, x1 int, c uint32) {
+	if x1-x0 >= graphics.DeflateFlatSpan {
+		d.spans = append(d.spans, flatSpan{x0, x1})
+	}
+	d.upSpan(x0, x1, c)
+}
+
+func (d *deflater) hintAt(x int) flatSpan {
+	for d.hi < len(d.hint) && d.hint[d.hi].x1 <= x {
+		d.hi++
+	}
+	if d.hi == len(d.hint) {
+		return flatSpan{}
+	}
+	return d.hint[d.hi]
+}
+
+func equalRun(a, b []byte, x, w, guess int) int {
+	if g := min(guess, w) - graphics.RunGuard; g-x >= graphics.RunGuess && bytes.Equal(a[4*x:4*g], b[4*x:4*g]) {
+		x = g
+	}
+	for end := min(x+graphics.RunBlock, w); x < end; x++ {
+		if pixel(a, x) != pixel(b, x) {
+			return x
 		}
 	}
-	if x1 > last {
-		d.run(d.bpp, (x1-last)*d.bpp)
-		if d.filter == rawRows {
-			d.spans = append(d.spans, flatSpan{x0, x1})
+	step := graphics.RunBlock
+	for ; x+step <= w && bytes.Equal(a[4*x:4*(x+step)], b[4*x:4*(x+step)]); step *= 2 {
+		x += step
+	}
+	for step /= 2; step > 0; step /= 2 {
+		if x+step <= w && bytes.Equal(a[4*x:4*(x+step)], b[4*x:4*(x+step)]) {
+			x += step
 		}
+	}
+	return x
+}
+
+func (d *deflater) upSpan(x0, x1 int, c uint32) {
+	d.adler(uint64(x0), uint64(x1), c)
+	d.literal(c)
+	if x1 > x0+1 {
+		d.run(d.left, (x1-x0-1)*d.bpp)
 	}
 }
 
-func (d *deflater) literals(c uint32, n int) {
-	d.flush()
-	for j := range n {
-		v := byte(c >> (8 * j))
-		d.tokens = append(d.tokens, uint32(v))
-		d.lit[v]++
-	}
+func sums(c uint32) (uint64, uint64) {
+	return uint64(c&0xff + c>>8&0xff + c>>16&0xff + c>>24), uint64(c>>8&0xff + c>>15&0x1fe + c>>24*3)
 }
 
-func (d *deflater) run(dist, length int) {
-	if dist != d.runDist {
+func (d *deflater) adler(x0, x1 uint64, c uint32) {
+	s, m := sums(c)
+	d.sum += (x1 - x0) * s
+	d.pos += s * (x1 - x0) * (x0 + x1 - 1)
+	d.moment += (x1 - x0) * m
+}
+
+func byteToken(c uint32) uint64 {
+	return uint64(c) | graphics.TokenNone<<graphics.TokenSlot | graphics.TokenNone<<(2*graphics.TokenSlot)
+}
+
+func (d *deflater) literal(c uint32) {
+	if d.runLen > 0 {
 		d.flush()
-		d.runDist = dist
+	}
+	d.tokens = append(d.tokens, uint64(c&0xff)|uint64(c>>8&0xff)<<graphics.TokenSlot|uint64(c>>16&0xff)<<(2*graphics.TokenSlot))
+	d.freq[c&0xff]++
+	d.freq[c>>8&0xff]++
+	d.freq[c>>16&0xff]++
+	if d.bpp == 4 {
+		d.literalByte(c >> 24)
+	}
+}
+
+func (d *deflater) literalByte(c uint32) {
+	d.flush()
+	d.tokens = append(d.tokens, byteToken(c))
+	d.freq[c]++
+}
+
+func (d *deflater) match(length int, repeat int32) {
+	if d.freq[graphics.TokenLength+length] == 0 {
+		d.used = append(d.used, length)
+	}
+	d.tokens = append(d.tokens, graphics.TokenLength+uint64(length)|d.runTok|uint64(repeat-1)<<graphics.TokenRepeat)
+	d.freq[graphics.TokenLength+length] += repeat
+	d.freq[d.runTok>>graphics.TokenSlot&graphics.TokenMask] += repeat
+}
+
+func (d *deflater) run(dist uint64, length int) {
+	if dist != d.runTok {
+		if d.runLen > 0 {
+			d.flush()
+		}
+		d.runTok = dist
 	}
 	d.runLen += length
 }
@@ -240,19 +384,27 @@ func (d *deflater) flush() {
 	if d.runLen == 0 {
 		return
 	}
-	dc, _, _ := distCode(d.runDist)
-	for n := d.runLen; n > 0; {
-		take := min(n, graphics.DeflateMaxMatch)
-		if n-take > 0 && n-take < graphics.DeflateMinMatch {
-			take = n - graphics.DeflateMinMatch
-		}
-		lc, _, _ := lengthCode(take)
-		d.lit[lc]++
-		d.dist[dc]++
-		d.tokens = append(d.tokens, uint32(take)<<16|uint32(d.runDist))
-		n -= take
+	if d.runLen <= graphics.DeflateMaxMatch {
+		d.match(d.runLen, 1)
+		d.runLen = 0
+		return
 	}
+	full, r := d.runLen/graphics.DeflateMaxMatch, d.runLen%graphics.DeflateMaxMatch
 	d.runLen = 0
+	three := r > 0 && r < graphics.DeflateMinMatch
+	if three {
+		full--
+		r += graphics.DeflateMaxMatch - graphics.DeflateMinMatch
+	}
+	if full > 0 {
+		d.match(graphics.DeflateMaxMatch, int32(full))
+	}
+	if r > 0 {
+		d.match(r, 1)
+	}
+	if three {
+		d.match(graphics.DeflateMinMatch, 1)
+	}
 }
 
 func lengthCode(l int) (int, uint, uint32) {
@@ -280,40 +432,86 @@ func (d *deflater) put(v uint32, n uint) {
 	}
 }
 
-func (h *huffman) put(d *deflater, s int) {
-	d.put(uint32(h.codes[s]), uint(h.lengths[s]))
+func (h *huffman) symbol(s int, extra uint, v uint32) uint64 {
+	l := uint(h.lengths[s])
+	return uint64(h.codes[s]) | uint64(v)<<l | uint64(l+extra)<<graphics.SymbolLength
 }
 
 func (d *deflater) block() {
-	d.lit[graphics.DeflateEndOfBlock]++
+	freq := &d.freq
+	lit, dist := d.litFreq[:], d.distFreq[:]
+	clear(dist)
+	copy(lit, freq[:graphics.DeflateLiterals])
+	symbols := 0
+	for _, f := range lit {
+		symbols += int(f)
+	}
+	for _, l := range d.used {
+		f := freq[graphics.TokenLength+l]
+		lc, _, _ := lengthCode(l)
+		lit[lc] += f
+		symbols += int(f)
+	}
+	for id, s := range d.dists {
+		if f := freq[graphics.TokenDistance+id]; f > 0 {
+			dc, _, _ := distCode(s)
+			dist[dc] += f
+		}
+	}
+	lit[graphics.DeflateEndOfBlock]++
 	d.acc, d.nacc = 0, 0
-	lit, dist := &d.litCode, &d.distCode
-	if len(d.tokens) < graphics.DeflateFixedTokens {
-		lit, dist = d.fixedCodes()
+	lh, dh := &d.litCode, &d.distCode
+	if symbols < graphics.DeflateFixedTokens {
+		lh, dh = d.fixedCodes()
 		d.put(graphics.DeflateFixedFinal, 3)
 	} else {
-		d.dynamicHeader()
+		d.dynamicHeader(lit, dist)
 	}
-	for _, t := range d.tokens {
-		if t < 1<<16 {
-			lit.put(d, int(t))
-			continue
+	sym := &d.sym
+	for s, f := range lit[:graphics.DeflateEndOfBlock+1] {
+		if f > 0 {
+			sym[s] = lh.symbol(s, 0, 0)
 		}
-		lc, le, lv := lengthCode(int(t >> 16))
-		dc, de, dv := distCode(int(t & 0xffff))
-		d.put(uint32(lit.codes[lc])|lv<<lit.lengths[lc], uint(lit.lengths[lc])+le)
-		d.put(uint32(dist.codes[dc])|dv<<dist.lengths[dc], uint(dist.lengths[dc])+de)
 	}
-	lit.put(d, graphics.DeflateEndOfBlock)
-	for ; d.nacc > 0; d.nacc -= min(d.nacc, 8) {
-		d.out = append(d.out, byte(d.acc))
-		d.acc >>= 8
+	for id, s := range d.dists {
+		if freq[graphics.TokenDistance+id] > 0 {
+			dc, de, dv := distCode(s)
+			sym[graphics.TokenDistance+id] = dh.symbol(dc, de, dv)
+		}
 	}
+	for _, l := range d.used {
+		lc, le, lv := lengthCode(l)
+		sym[graphics.TokenLength+l] = lh.symbol(lc, le, lv)
+	}
+	pos := len(d.out)
+	buf := slices.Grow(d.out, graphics.DeflateTokenBytes*(symbols+2))
+	buf = buf[:cap(buf)]
+	binary.LittleEndian.PutUint64(buf[pos:], d.acc)
+	pos += int(d.nacc >> 3)
+	acc, nacc := d.acc>>(d.nacc&^7), d.nacc&7
+	d.tokens = append(d.tokens, byteToken(graphics.DeflateEndOfBlock))
+	tokens := d.tokens
+	for i := 0; i < len(tokens); i++ {
+		t := tokens[i]
+		a, b, c := sym[t&graphics.TokenMask], sym[t>>graphics.TokenSlot&graphics.TokenMask], sym[t>>(2*graphics.TokenSlot)&graphics.TokenMask]
+		la, lb := a>>graphics.SymbolLength, b>>graphics.SymbolLength
+		acc |= (a&graphics.SymbolBits | b&graphics.SymbolBits<<(la&graphics.ShiftMask) | c&graphics.SymbolBits<<((la+lb)&graphics.ShiftMask)) << (nacc & graphics.ShiftMask)
+		nacc += uint(la + lb + c>>graphics.SymbolLength)
+		binary.LittleEndian.PutUint64(buf[pos:], acc)
+		pos += int(nacc >> 3)
+		acc >>= nacc & graphics.ByteShiftMask
+		nacc &= 7
+		if t >= 1<<graphics.TokenRepeat {
+			tokens[i] -= 1 << graphics.TokenRepeat
+			i--
+		}
+	}
+	d.out = buf[:pos+int(nacc+7)/8]
 }
 
-func (d *deflater) dynamicHeader() {
-	d.build(&d.litCode, d.lit[:], graphics.DeflateMaxBits)
-	d.build(&d.distCode, d.dist[:], graphics.DeflateMaxBits)
+func (d *deflater) dynamicHeader(lit, dist []int32) {
+	d.build(&d.litCode, lit, graphics.DeflateMaxBits)
+	d.build(&d.distCode, dist, graphics.DeflateMaxBits)
 	nlit, ndist := graphics.DeflateLiterals, graphics.DeflateDistances
 	for d.litCode.lengths[nlit-1] == 0 {
 		nlit--
@@ -366,7 +564,7 @@ func (d *deflater) dynamicHeader() {
 		d.put(uint32(d.lenCode.lengths[order[i]]), 3)
 	}
 	for _, r := range d.rle {
-		d.lenCode.put(d, int(r&0xff))
+		d.put(uint32(d.lenCode.codes[r&0xff]), uint(d.lenCode.lengths[r&0xff]))
 		d.put(r>>8&0xff, uint(r>>16))
 	}
 }
@@ -406,7 +604,7 @@ func (d *deflater) build(h *huffman, freq []int32, limit int) {
 		count[b+1] += 2
 		count[limit]--
 	}
-	clear(h.lengths[:])
+	clear(h.lengths[:len(freq)])
 	i := 0
 	for l := limit; l > 0; l-- {
 		for range count[l] {
@@ -414,19 +612,19 @@ func (d *deflater) build(h *huffman, freq []int32, limit int) {
 			i++
 		}
 	}
-	h.canonical()
+	h.canonical(len(freq))
 }
 
-func (h *huffman) canonical() {
+func (h *huffman) canonical(n int) {
 	var count, next [graphics.DeflateMaxBits + 1]uint16
-	for _, l := range h.lengths {
+	for _, l := range h.lengths[:n] {
 		count[l]++
 	}
 	count[0] = 0
 	for l := 1; l <= graphics.DeflateMaxBits; l++ {
 		next[l] = (next[l-1] + count[l-1]) << 1
 	}
-	for s, l := range h.lengths {
+	for s, l := range h.lengths[:n] {
 		if l > 0 {
 			h.codes[s] = bits.Reverse16(next[l]) >> (16 - l)
 			next[l]++
@@ -448,8 +646,8 @@ func (d *deflater) fixedCodes() (*huffman, *huffman) {
 		for s := range graphics.DeflateDistances {
 			d.fixedDist.lengths[s] = 5
 		}
-		d.fixedLit.canonical()
-		d.fixedDist.canonical()
+		d.fixedLit.canonical(graphics.DeflateFixedLiterals)
+		d.fixedDist.canonical(graphics.DeflateDistances)
 	}
 	return &d.fixedLit, &d.fixedDist
 }

@@ -9,10 +9,76 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"testing"
 )
+
+func randomImage(rng *rand.Rand, wide bool) *image.RGBA {
+	w, h := 1+rng.IntN(120), 1+rng.IntN(40)
+	if wide {
+		w, h = 10900+rng.IntN(200), 1+rng.IntN(4)
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	palette := make([][4]byte, 1+rng.IntN(6))
+	translucent := rng.IntN(3)
+	for i := range palette {
+		a := byte(255)
+		if translucent == 1 && rng.IntN(4) == 0 || translucent == 2 {
+			a = byte(rng.IntN(256))
+		}
+		palette[i] = [4]byte{byte(rng.IntN(int(a) + 1)), byte(rng.IntN(int(a) + 1)), byte(rng.IntN(int(a) + 1)), a}
+	}
+	fill := func(row []byte, x0, x1 int) {
+		p := palette[rng.IntN(len(palette))]
+		for x := x0; x < x1; x++ {
+			copy(row[4*x:], p[:])
+		}
+	}
+	for y := range h {
+		row := img.Pix[y*img.Stride : y*img.Stride+4*w]
+		if y > 0 && rng.IntN(2) == 0 {
+			copy(row, img.Pix[(y-1)*img.Stride:])
+			for range rng.IntN(4) {
+				x0 := rng.IntN(w)
+				fill(row, x0, min(w, x0+1+rng.IntN(80)))
+			}
+			continue
+		}
+		for x := 0; x < w; {
+			e := min(w, x+1+rng.IntN([]int{2, 10, 100, 500}[rng.IntN(4)]))
+			fill(row, x, e)
+			x = e
+		}
+	}
+	if rng.IntN(4) == 0 && w > 4 && h > 2 {
+		return img.SubImage(image.Rect(1, 1, w-1, h)).(*image.RGBA)
+	}
+	return img
+}
+
+func TestCardBytesNotHigher(t *testing.T) {
+	images := roundTripImages(t)
+	for name, limit := range map[string][2]int{"card": {5127, 4252}, "card alpha": {5979, 5728}} {
+		var k Kitty
+		var enc ITerm
+		at := Placement{Cols: 44, Rows: 8}
+		kitty, iterm := len(k.Encode(nil, lines(images[name]), at, 1, 1)), len(enc.Encode(nil, lines(images[name]), at))
+		if kitty > limit[0] || iterm > limit[1] {
+			t.Errorf("%s: kitty %d bytes, iterm %d bytes, want at most %d and %d", name, kitty, iterm, limit[0], limit[1])
+		}
+	}
+}
+
+func TestRoundTripRandom(t *testing.T) {
+	rng := rand.New(rand.NewPCG(1, 2))
+	for i := range 400 {
+		img := randomImage(rng, i%40 == 0)
+		roundTripKitty(t, img)
+		roundTripITerm(t, img)
+	}
+}
 
 func straightPixels(img *image.RGBA, bpp int) []byte {
 	var want []byte

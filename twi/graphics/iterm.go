@@ -1,18 +1,16 @@
 package graphics
 
 import (
-	"encoding/base64"
 	"encoding/binary"
-	"fmt"
 	"hash/crc32"
 
 	"github.com/twind-dev/twind/internal/konst/graphics"
 )
 
 type ITerm struct {
-	file []byte
-	idat []byte
-	z    deflater
+	file  []byte
+	z     deflater
+	pairs base64Pairs
 }
 
 func pngChunk(file []byte, start int) []byte {
@@ -25,22 +23,21 @@ func (i *ITerm) Encode(dst []byte, rows [][]byte, at Placement) []byte {
 		return dst
 	}
 	rows, _ = i.z.prepare(rows)
-	var bpp int
-	i.idat, bpp = i.z.zlib(i.idat[:0], rows, pngUpRows)
-	colour := byte(graphics.PNGAlpha)
-	if bpp == 3 {
-		colour = graphics.PNGOpaque
-	}
-	i.file = append(i.file[:0], graphics.PNGSignature+"\x00\x00\x00\x00IHDR"...)
+	i.file = append(i.file[:0], graphics.PNGSignature+graphics.PNGHeader...)
 	i.file = binary.BigEndian.AppendUint32(i.file, uint32(len(rows[0])/4))
 	i.file = binary.BigEndian.AppendUint32(i.file, uint32(len(rows)))
-	i.file = pngChunk(append(i.file, 8, colour, 0, 0, 0), len(graphics.PNGSignature))
-	start := len(i.file)
-	i.file = pngChunk(append(append(i.file, "\x00\x00\x00\x00IDAT"...), i.idat...), start)
-	start = len(i.file)
-	i.file = pngChunk(append(i.file, "\x00\x00\x00\x00IEND"...), start)
-	dst = fmt.Appendf(dst, "\x1b[%d;%dH\x1b]1337;File=inline=1;size=%d;width=%d;height=%d;preserveAspectRatio=0;doNotMoveCursor=1:",
-		at.Row+1, at.Col+1, len(i.file), at.Cols, at.Rows)
-	dst = base64.StdEncoding.AppendEncode(dst, i.file)
+	i.file = append(append(i.file, graphics.PNGDepth, graphics.PNGAlpha, 0, 0, 0), "\x00\x00\x00\x00\x00\x00\x00\x00IDAT"...)
+	idat := len(i.file) - 8
+	file, bpp := i.z.zlib(i.file, rows, pngUpRows)
+	if bpp == 3 {
+		file[idat-8] = graphics.PNGOpaque
+	}
+	binary.BigEndian.PutUint32(file[idat-4:], crc32.ChecksumIEEE(file[len(graphics.PNGSignature)+4:idat-4]))
+	file = pngChunk(file, idat)
+	i.file = pngChunk(append(file, "\x00\x00\x00\x00IEND"...), len(file))
+	dst = field(field(dst, "\x1b[", at.Row+1), ";", at.Col+1)
+	dst = field(field(field(dst, "H\x1b]1337;File=inline=1;size=", len(i.file)), ";width=", at.Cols), ";height=", at.Rows)
+	dst = append(dst, ";preserveAspectRatio=0;doNotMoveCursor=1:"...)
+	dst = i.pairs.appendEncode(dst, i.file)
 	return append(dst, '\a')
 }
