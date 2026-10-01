@@ -103,3 +103,16 @@ Bench: `.local/planning/scripts/probe/zed_probe.ps1 -Tag zed`, run inside Zed. R
 Always emit 24-bit colours in Zed so `minimum_contrast` leaves them alone.
 
 
+
+## Status after the night of 2026-10-01
+
+Done, each checked live in Alacritty, WT and the PowerShell window:
+- e4fec90: every Windows console gets 24-bit colour; Twind names the terminal (conhost, InboxConPTY, Zed, Other).
+- dc59971, b603928: without pixels, cards get rounded box borders with the fill inside; badges and one-row controls get a fill or tint, no half-block slivers, no side bars.
+- 4621944: sixel leaves the page colour to the terminal, so no darker box around cards.
+- a39ce3b: the PowerShell window asks its font which characters exist and draws stand-ins for the rest.
+- f374ed1: in Zed only, cell shadows are ▒ then ░ (waiting for your look).
+- 00cf027: `twind doctor` tells users of the inbox ConPTY how to get mouse and images back.
+- Docs: sidebar follows the palette (62fb85c), previews stay in their frame (e5f6288), card header grid (a14b1e7), header fits narrow windows (33dd3f7).
+
+Not started, needs your go-ahead: drawing rounded rings with pixels where the terminal has none (GDI on the conhost window, an overlay window for Alacritty and Zed on Windows). Both are Windows-only and fragile (see the probe results above).
