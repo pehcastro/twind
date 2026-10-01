@@ -75,4 +75,7 @@ const (
 	PNGOpaque    = 2
 	PNGAlpha     = 6
 	PNGUpFilter  = 2
+
+	GDIOpaque = 128
+	GDIBytes  = 4
 )

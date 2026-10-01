@@ -26,6 +26,7 @@ const (
 	GraphicsSixel
 	GraphicsITerm2
 	GraphicsKitty
+	GraphicsGDI
 )
 
 type Identity uint8
@@ -72,6 +73,7 @@ type Backend struct {
 	grid    atomic.Pointer[image.Point]
 	polling atomic.Bool
 	settled chan struct{}
+	canvas  atomic.Pointer[canvas]
 	mu      sync.Mutex
 	asked   bool
 	again   bool
@@ -97,6 +99,7 @@ type tty interface {
 	lacks(face, cluster string) bool
 	cancel()
 	restore() error
+	drawable() (window, error)
 }
 
 var errQuiet = errors.New("terminal: no input within the escape timeout")
@@ -204,10 +207,16 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		return nil, err
 	}
 	b.Capabilities = b.detect(raw, replies, o)
+	if b.Capabilities.Identity == IdentityConhost && !o.forced {
+		if c, err := openCanvas(t); err == nil {
+			b.Capabilities.Graphics, b.Capabilities.CellPixels = GraphicsGDI, c.cell
+			b.canvas.Store(c)
+		}
+	}
 	if b.Capabilities.Graphics != GraphicsNone {
 		cell := b.Capabilities.CellPixels
 		b.cell.Store(&cell)
-		b.polling.Store(!b.Capabilities.InBandResize)
+		b.polling.Store(!b.Capabilities.InBandResize && b.Capabilities.Graphics != GraphicsGDI)
 	}
 	seq = ""
 	if b.Capabilities.KittyKeyboard {
@@ -363,8 +372,11 @@ func (b *Backend) read(events chan<- input.Event) {
 	lastAsk := time.Now()
 	for {
 		var wait time.Duration
-		if quiet {
+		switch {
+		case quiet:
 			wait = konst.EscapeTimeout
+		case b.canvas.Load() != nil:
+			wait = konst.GDIIdlePoll
 		}
 		n, recheck, err := b.tty.read(buf, wait)
 		var evs []input.Event
@@ -430,6 +442,17 @@ func (b *Backend) read(events chan<- input.Event) {
 				b.learn(ev.Cell)
 			}
 			events <- ev
+		}
+		if c := b.canvas.Load(); c != nil {
+			cols, rows, _ := b.tty.size()
+			if cell, redraw := c.refit(cols, rows, time.Now()); redraw {
+				width, height = cols, rows
+				resize := input.ResizeEvent{Width: cols, Height: rows}
+				if b.learn(cell) {
+					resize.Cell = cell
+				}
+				events <- resize
+			}
 		}
 		if b.asking.Load() && (n > 0 || len(replies) > 0) {
 			select {
@@ -523,6 +546,9 @@ func (b *Backend) Write(frame []byte) (int, error) {
 	if err != nil {
 		return n, errors.Join(err, b.Exit())
 	}
+	if c := b.canvas.Load(); c != nil {
+		c.written()
+	}
 	return n, nil
 }
 
@@ -533,6 +559,9 @@ func (b *Backend) Exit() error {
 	b.mu.Unlock()
 	if exited {
 		return nil
+	}
+	if c := b.canvas.Load(); c != nil {
+		c.close()
 	}
 	if asked {
 		select {

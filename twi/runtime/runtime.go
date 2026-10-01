@@ -401,6 +401,9 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		if c, ok := b.(interface{ Covers(cluster string) bool }); ok {
 			r.screen.Covers = c.Covers
 		}
+		if p, ok := b.(interface{ Paint(terminal.Pixels) bool }); ok {
+			r.screen.Paint = p.Paint
+		}
 	}
 	r.screen.Cell, r.screen.Widths, r.screen.Font, r.screen.Identity, r.screen.Workers = cell, r.caps.Widths, r.caps.Font, r.caps.Identity, 0
 	if r.moving {

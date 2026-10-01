@@ -85,15 +85,18 @@ type console interface {
 	windowClass() string
 	font(h windows.Handle) Font
 	lacks(face, cluster string) bool
+	drawable() (window, error)
 }
 
 type win32 struct {
 	readConsoleInput, consoleWindow, currentFont                             *windows.LazyProc
 	createFont, createDC, selectObject, glyphIndices, deleteDC, deleteObject *windows.LazyProc
+	createDIB, bitBlt, alphaBlend                                            *windows.LazyProc
+	getDC, releaseDC, clientRect, invalidateRect, threadDPI                  *windows.LazyProc
 }
 
 func loadWin32() win32 {
-	kernel, gdi := windows.NewLazySystemDLL("kernel32.dll"), windows.NewLazySystemDLL("gdi32.dll")
+	kernel, gdi, user := windows.NewLazySystemDLL("kernel32.dll"), windows.NewLazySystemDLL("gdi32.dll"), windows.NewLazySystemDLL("user32.dll")
 	return win32{
 		readConsoleInput: kernel.NewProc("ReadConsoleInputW"),
 		consoleWindow:    kernel.NewProc("GetConsoleWindow"),
@@ -104,6 +107,14 @@ func loadWin32() win32 {
 		glyphIndices:     gdi.NewProc("GetGlyphIndicesW"),
 		deleteDC:         gdi.NewProc("DeleteDC"),
 		deleteObject:     gdi.NewProc("DeleteObject"),
+		createDIB:        gdi.NewProc("CreateDIBSection"),
+		bitBlt:           gdi.NewProc("BitBlt"),
+		alphaBlend:       gdi.NewProc("GdiAlphaBlend"),
+		getDC:            user.NewProc("GetDC"),
+		releaseDC:        user.NewProc("ReleaseDC"),
+		clientRect:       user.NewProc("GetClientRect"),
+		invalidateRect:   user.NewProc("InvalidateRect"),
+		threadDPI:        user.NewProc("SetThreadDpiAwarenessContext"),
 	}
 }
 
@@ -336,6 +347,10 @@ func (t *consoleTTY) font() Font {
 
 func (t *consoleTTY) lacks(face, cluster string) bool {
 	return t.console.lacks(face, cluster)
+}
+
+func (t *consoleTTY) drawable() (window, error) {
+	return t.console.drawable()
 }
 
 func (t *consoleTTY) cancel() {

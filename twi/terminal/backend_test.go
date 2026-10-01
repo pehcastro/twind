@@ -28,6 +28,7 @@ type fakeTTY struct {
 	face      Font
 	lacking   string
 	asked     []string
+	win       *fakeWindow
 }
 
 func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
@@ -66,6 +67,12 @@ func (f *fakeTTY) lacks(face, cluster string) bool {
 	return strings.Contains(f.lacking, cluster)
 }
 func (f *fakeTTY) restore() error { f.restored++; return nil }
+func (f *fakeTTY) drawable() (window, error) {
+	if f.win == nil {
+		return nil, errNoWindow
+	}
+	return f.win, nil
+}
 
 type fakeTerminal struct {
 	tty     *fakeTTY

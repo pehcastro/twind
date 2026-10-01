@@ -39,6 +39,7 @@ type Screen struct {
 	Covers   func(cluster string) bool
 	Identity terminal.Identity
 	Workers  int
+	Paint    func(terminal.Pixels) bool
 
 	cols, rows        int
 	cell              image.Point
@@ -109,6 +110,9 @@ type Screen struct {
 	kitty        *graphics.Kitty
 	pageBg       color.Color
 	page         uint32
+	masks        []uint64
+	painting     terminal.Pixels
+	gdiPix       []byte
 }
 
 type cached struct {
@@ -179,7 +183,7 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	}
 	s.painter.Widths, s.painter.Profile, s.painter.Covers, s.painter.Identity, s.imageBytes = s.Widths, s.Profile, s.Covers, s.Identity, 0
 	s.pageBg, s.page = color.Color{}, 0
-	if bg := root.Background; s.Graphics == terminal.GraphicsSixel && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
+	if bg := root.Background; (s.Graphics == terminal.GraphicsSixel || s.Graphics == terminal.GraphicsGDI) && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
 		s.pageBg, s.page = bg, uint32(bg.RGBA.R)|uint32(bg.RGBA.G)<<8|uint32(bg.RGBA.B)<<16|math.MaxUint8<<24
 	}
 	s.painted.Store(false)
@@ -207,14 +211,22 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	}
 	s.shown, s.want = s.want, s.shown
 	s.fresh = false
-	if s.out.Len() == start {
-		return nil
+	if s.out.Len() > start {
+		if s.Sync {
+			s.out.WriteString(termkonst.SyncEnd)
+		}
+		if _, err := s.Out.Write(s.out.Bytes()); err != nil {
+			return err
+		}
 	}
-	if s.Sync {
-		s.out.WriteString(termkonst.SyncEnd)
+	if p := &s.painting; p.Clear || len(p.Tiles) > 0 {
+		p.Cell, p.Grid = s.Cell, image.Pt(s.cols, s.rows)
+		if s.Paint != nil && !s.Paint(*p) {
+			s.text = nil
+		}
+		p.Clear, p.Tiles = false, p.Tiles[:0]
 	}
-	_, err := s.Out.Write(s.out.Bytes())
-	return err
+	return nil
 }
 
 func (s *Screen) reset(cols, rows int) {
@@ -267,6 +279,9 @@ func (s *Screen) reset(cols, rows int) {
 	s.hashes, s.sent, s.dirty, s.send, s.moved, s.plain = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n), make([]bool, n), make([]bool, n)
 	s.pieces, s.twins, s.claims, s.bases, s.based = make([]piece, n), make([]int, n), map[twin]int{}, make([][]part, n), make([]bool, n)
 	s.samples, s.sampled, s.needs = make([]color.Color, cols*rows), make([]bool, cols*rows), make([]need, cols)
+	if s.Graphics == terminal.GraphicsGDI {
+		s.masks, s.painting.Clear = make([]uint64, n), true
+	}
 	if s.Graphics == terminal.GraphicsKitty {
 		s.images, s.uses = map[uint64]uint32{}, make([]int, n)
 		if s.kitty == nil {
@@ -317,6 +332,11 @@ func (s *Screen) compose() {
 				c.Bg = s.sample(x, y)
 			case s.Graphics == terminal.GraphicsKitty:
 				c.Bg = color.Color{}
+			case s.Graphics == terminal.GraphicsGDI && blank(*c):
+				c.Fg, c.Bg, c.Attr, c.Width = color.Color{}, s.sample(x, y), 0, buffer.Narrow
+				if c.Bg.RGBA.A != math.MaxUint8 {
+					c.Bg = s.pageBg
+				}
 			case blank(*c) && shown[x].Grapheme == "":
 				c.Grapheme, c.Fg, c.Bg, c.Attr, c.Width = "", shown[x].Fg, shown[x].Bg, shown[x].Attr, shown[x].Width
 			case blank(*c):
@@ -423,6 +443,10 @@ func (s *Screen) claim(t int) {
 }
 
 func (s *Screen) transmit() {
+	if s.Graphics == terminal.GraphicsGDI {
+		s.gdi()
+		return
+	}
 	for t, dirty := range s.dirty {
 		cells := s.tiles[t]
 		switch {
@@ -506,8 +530,8 @@ func (s *Screen) put(t int) {
 		}
 		s.uses[slot]++
 		s.out.Write(dst)
-	case terminal.GraphicsNone:
-		panic("present: a tile put without graphics")
+	case terminal.GraphicsNone, terminal.GraphicsGDI:
+		panic(fmt.Sprintf("present: a tile put for graphics %d", s.Graphics))
 	default:
 		panic(fmt.Sprintf("present: unknown graphics %d", s.Graphics))
 	}

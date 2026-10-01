@@ -100,6 +100,17 @@ const (
 )
 
 const (
+	GDISettle          = 300 * time.Millisecond
+	GDISettlePoll      = 15 * time.Millisecond
+	GDIIdlePoll        = 250 * time.Millisecond
+	GDIResizeSettle    = 100 * time.Millisecond
+	DPIPerMonitorAware = ^uintptr(3)
+	DIBBitCount        = 32
+	SourceCopy         = 0x00CC0020
+	BlendPremultiplied = 0x01FF0000
+)
+
+const (
 	QueryTimeout    = 100 * time.Millisecond
 	StartupTimeout  = time.Second
 	EscapeTimeout   = 50 * time.Millisecond

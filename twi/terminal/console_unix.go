@@ -128,6 +128,10 @@ func (t *unixTTY) lacks(string, string) bool {
 	return false
 }
 
+func (t *unixTTY) drawable() (window, error) {
+	return nil, errNoWindow
+}
+
 func (t *unixTTY) cancel() {
 	signal.Stop(t.winch)
 	close(t.winch)

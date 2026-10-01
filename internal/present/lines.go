@@ -150,7 +150,7 @@ func (w *worker) encode(s *Screen, t int) {
 		}
 		w.pix, w.rows = expand(w.pix, w.rows, w.lines)
 		w.out = w.iterm.Encode(w.out, w.rows, s.placement(t))
-	case terminal.GraphicsKitty, terminal.GraphicsNone:
+	case terminal.GraphicsKitty, terminal.GraphicsNone, terminal.GraphicsGDI:
 		panic(fmt.Sprintf("present: a tile encoded for graphics %d", s.Graphics))
 	default:
 		panic(fmt.Sprintf("present: unknown graphics %d", s.Graphics))
