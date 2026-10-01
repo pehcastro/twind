@@ -185,8 +185,8 @@ func TestParts(t *testing.T) {
 		{"card description: text-muted-foreground", light, card, []int{0, 1}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.MutedForeground]
 		}},
-		{"card action: top right of the header", light, card, []int{0, 2}, func(s style.ComputedStyle) bool {
-			return s.Position == style.PositionAbsolute && s.Inset.Top == cells(0) && s.Inset.Right == cells(2)
+		{"card action: col-start-2 row-span-2 row-start-1 self-start justify-self-end", light, card, []int{0, 2}, func(s style.ComputedStyle) bool {
+			return s.Position == style.PositionStatic && s.GridColumn.Start.Line == 2 && s.GridRow.Start.Line == 1 && s.GridRow.End.Span == 2 && s.AlignSelf == style.AlignStart && s.JustifySelf == style.AlignEnd
 		}},
 		{"card footer: flex row", light, card, []int{2}, func(s style.ComputedStyle) bool {
 			return s.Display == style.DisplayFlex && s.Direction == style.Row && s.Padding.Left == cells(2)
