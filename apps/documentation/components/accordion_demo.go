@@ -15,7 +15,7 @@ func AccordionDemo(rt *twi.Runtime) func() twi.Node {
 		)
 	}
 	return func() twi.Node {
-		return accordion.Node(twi.Class("w-56"),
+		return accordion.Node(twi.Class("w-full max-w-56"),
 			item("shipping", "What are your shipping options?", "Standard in 5 to 7 days, express in 2 to 3, or overnight."),
 			item("returns", "What is your return policy?", "Returns within 30 days, in the original packaging."),
 			item("support", "How can I reach support?", "By email, chat or phone, around the clock."),

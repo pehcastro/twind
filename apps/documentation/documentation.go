@@ -413,7 +413,7 @@ func (s *site) outline(e entry) twi.Node {
 			s.rt.Invalidate()
 		})))
 	}
-	return el("flex flex-col w-24 shrink-0 gap-1 px-2 py-1", items...)
+	return el("hidden md:flex flex-col w-24 shrink-0 gap-1 px-2 py-1", items...)
 }
 
 func (s *site) search() twi.Node {

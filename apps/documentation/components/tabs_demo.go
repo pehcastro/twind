@@ -17,7 +17,7 @@ func TabsDemo(rt *twi.Runtime) func() twi.Node {
 		)
 	}
 	return func() twi.Node {
-		return tabs.Node(twi.Class("w-48"),
+		return tabs.Node(twi.Class("w-full max-w-48"),
 			tabs.List(
 				tabs.Trigger("account", twi.Text("Account")),
 				tabs.Trigger("password", twi.Text("Password")),

@@ -11,7 +11,7 @@ func FieldDemo(rt *twi.Runtime) func() twi.Node {
 	number.Insert("1234 5678")
 	number.Invalid = true
 	return func() twi.Node {
-		return ui.FieldSet(twi.Class("w-56"),
+		return ui.FieldSet(twi.Class("w-full max-w-56"),
 			ui.FieldLegend(twi.Text("Payment method")),
 			ui.FieldGroup(
 				ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Name on card")), name.Node(), ui.FieldDescription(twi.Text("As it is printed on the card"))),

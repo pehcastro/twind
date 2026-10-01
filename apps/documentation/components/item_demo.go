@@ -7,7 +7,7 @@ import (
 
 func ItemDemo(*twi.Runtime) func() twi.Node {
 	return func() twi.Node {
-		return ui.ItemGroup(twi.Class("w-56 gap-1"),
+		return ui.ItemGroup(twi.Class("w-full max-w-56 gap-1"),
 			ui.Item(ui.Outline, ui.SizeDefault,
 				ui.ItemContent(ui.ItemTitle(twi.Text("Basic item")), ui.ItemDescription(twi.Text("A title and a description."))),
 				ui.ItemActions(ui.Button(ui.Outline, ui.SizeSM, twi.Text("Action"))),

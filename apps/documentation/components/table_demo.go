@@ -21,7 +21,7 @@ func TableDemo(*twi.Runtime) func() twi.Node {
 				ui.TableCell(twi.Class("text-right"), twi.Text(inv[3])),
 			))
 		}
-		return twi.Element(twi.Class("w-60"), ui.Table(
+		return twi.Element(twi.Class("w-full max-w-60"), ui.Table(
 			ui.TableHeader(ui.TableRow(
 				ui.TableHead(twi.Text("Invoice")), ui.TableHead(twi.Text("Status")),
 				ui.TableHead(twi.Text("Method")), ui.TableHead(twi.Class("text-right"), twi.Text("Amount")),

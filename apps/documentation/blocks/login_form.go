@@ -17,7 +17,7 @@ func LoginForm(rt *twi.Runtime) func() twi.Node {
 		rt.Invalidate()
 	})
 	return func() twi.Node {
-		return ui.Card(twi.Class("w-56 gap-2 py-1"),
+		return ui.Card(twi.Class("w-full max-w-56 gap-2 py-1"),
 			ui.CardHeader(
 				ui.CardTitle(twi.Text("Login to your account")),
 				ui.CardDescription(twi.Text("Enter your email below to login")),

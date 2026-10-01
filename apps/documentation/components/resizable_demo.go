@@ -12,7 +12,7 @@ func ResizableDemo(rt *twi.Runtime) func() twi.Node {
 		return twi.Element(twi.Class("flex flex-1 items-center justify-center font-semibold"), twi.Text(s))
 	}
 	return func() twi.Node {
-		return twi.Element(twi.Class("flex h-12 w-56 rounded-lg border"),
+		return twi.Element(twi.Class("flex h-12 w-full max-w-56 rounded-lg border"),
 			panes.Node(
 				panes.Panel(center("One")),
 				panes.Handle(true),
