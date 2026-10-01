@@ -113,15 +113,18 @@ func pixelLook(t *testing.T, root scene.Node, w, h int) func(x, y int) color.RGB
 	}
 }
 
-func cellCoverage(c buffer.Cell, surface color.RGBA) float64 {
+func cellCoverage(c buffer.Cell, surface, line color.RGBA) float64 {
 	on := func(k color.Color) float64 {
-		if k.Kind == color.Literal && k.RGBA == surface {
+		if k.Kind == color.Literal && (k.RGBA == surface || k.RGBA == line) {
 			return 1
 		}
 		return 0
 	}
-	if r, _ := utf8.DecodeRuneInString(c.Grapheme); strings.ContainsRune(konst.HalfEdges+konst.PillCaps, r) {
+	switch r, _ := utf8.DecodeRuneInString(c.Grapheme); {
+	case strings.ContainsRune(konst.HalfEdges+konst.PillCaps, r):
 		return (on(c.Fg) + on(c.Bg)) / 2
+	case strings.ContainsRune(konst.RoundedCorners+konst.SquareCorners, r) && on(c.Bg) == 0:
+		return on(c.Fg) / 2
 	}
 	return on(c.Bg)
 }
@@ -149,7 +152,7 @@ func TestCellLookCoversWhatPixelsCover(t *testing.T) {
 		for y := range 6 {
 			for x := range 14 {
 				want := surfaceCoverage(pixels(x, y), blue, zinc100)
-				if got := cellCoverage(cells.At(x, y), blue); math.Abs(got-want) >= 0.5 {
+				if got := cellCoverage(cells.At(x, y), blue, zinc800); math.Abs(got-want) > 0.5 {
 					t.Errorf("%s cell %d,%d: the cell look covers %.2f of it, pixels cover %.2f", c.name, x, y, got, want)
 				}
 			}

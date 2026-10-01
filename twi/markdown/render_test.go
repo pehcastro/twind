@@ -34,7 +34,10 @@ func driven(t *testing.T, src string, o *Options) *drive.Driver {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(func(*twi.Runtime) func() twi.Node {
+	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
+		if copied := o.Copy; copied != nil {
+			o.Copy = func(code string) { copied(code); rt.Invalidate() }
+		}
 		return func() twi.Node { return Render(page, *o) }
 	}, drive.Styles(sheet), drive.Size(80, 30))
 	t.Cleanup(func() {

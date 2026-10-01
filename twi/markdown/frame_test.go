@@ -27,7 +27,9 @@ func TestCodeBlockOneRing(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var copied []string
-			d := driven(t, c.src, &Options{Copy: func(code string) { copied = append(copied, code) }})
+			o := &Options{}
+			o.Copy = func(code string) { copied, o.Copied = append(copied, code), code }
+			d := driven(t, c.src, o)
 			frame := d.Frame().Text()
 			t.Logf("80x30 frame:\n%s", frame)
 			if top, bottom := strings.Count(frame, "╭")+strings.Count(frame, "┌"), strings.Count(frame, "╰")+strings.Count(frame, "└"); top != 1 || bottom != 1 {
@@ -38,16 +40,18 @@ func TestCodeBlockOneRing(t *testing.T) {
 			bottom := slices.IndexFunc(lines, func(l string) bool { return strings.ContainsAny(l, "╰└") })
 			rows := lines[top : bottom+1]
 			cells, page := d.Frame().Cells(), d.Frame().Cells().At(0, bottom+1).Bg
+			left, right := strings.IndexAny(lines[top], "╭┌"), len([]rune(strings.TrimRight(lines[top], " ")))-1
 			for y := top; y <= bottom; y++ {
-				for x, cell := range cells.Row(y) {
-					if strings.ContainsAny(cell.Grapheme, "─│"+corners) && cell.Bg != page {
-						t.Fatalf("the ring glyph %q at %d,%d sits on %v, the page is %v: a fill band outside the line reads as a second frame", cell.Grapheme, x, y, cell.Bg, page)
+				for x, cell := range cells.Row(y)[left : right+1] {
+					ring := y == top || y == bottom || x == 0 || x == right-left
+					if ring != (cell.Bg == page) {
+						t.Fatalf("cell %d,%d %q on %v, the page is %v: want the page on the ring and the muted fill inside it, one frame", left+x, y, cell.Grapheme, cell.Bg, page)
 					}
 				}
 			}
 			for i, row := range rows[1 : len(rows)-1] {
-				inner := strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(row), "│"), "│")
-				if strings.ContainsAny(inner, "─│├┤┬┴┼"+corners) {
+				inner := []rune(row)[left+1 : right]
+				if strings.ContainsAny(string(inner), "─│▄▌▀▐├┤┬┴┼"+corners) {
 					t.Errorf("inner row %d draws a line inside the ring: %q", i+1, row)
 				}
 			}
@@ -65,6 +69,9 @@ func TestCodeBlockOneRing(t *testing.T) {
 			}
 			if len(copied) != 1 || copied[0] != c.want {
 				t.Errorf("the copy area copied %q, want the raw source %q once", copied, c.want)
+			}
+			if after := d.Frame().Text(); !strings.Contains(after, "Copied") {
+				t.Errorf("after the click the copy area does not read Copied:\n%s", after)
 			}
 		})
 	}
@@ -92,7 +99,7 @@ func TestTableFrame(t *testing.T) {
 	}
 }
 
-func TestFrameBoxesSameWithGraphics(t *testing.T) {
+func TestCodeBlockBoxesSameWithGraphics(t *testing.T) {
 	sheet, err := styles()
 	if err != nil {
 		t.Fatal(err)

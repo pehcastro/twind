@@ -13,6 +13,7 @@ type Options struct {
 	Highlight func(language, code string) twi.Node
 	Follow    func(target string)
 	Copy      func(code string)
+	Copied    string
 }
 
 func Render(p Page, o Options) twi.Node {
@@ -57,13 +58,17 @@ func (o Options) block(b Block, depth int) twi.Node {
 		if o.Highlight != nil {
 			body = o.Highlight(b.Language, b.Code)
 		}
-		box, code := twi.Class("flex flex-col gap-1 rounded-lg border"), twi.Element(twi.Class("px-2 whitespace-pre overflow-x-auto"), body)
+		box, code := twi.Class("flex flex-col gap-1 rounded-lg border bg-muted"), twi.Element(twi.Class("px-2 whitespace-pre overflow-x-auto"), body)
 		if b.Language == "" && o.Copy == nil {
 			return twi.Element(box, code)
 		}
 		head := []twi.NodeOption{twi.Class("flex flex-row justify-between pl-2 pr-1 text-muted-foreground"), twi.Text(b.Language)}
 		if o.Copy != nil {
-			head = append(head, ui.Button(ui.Ghost, ui.SizeXS, twi.OnClick(func(*twi.Event) { o.Copy(source) }), twi.Text("Copy")))
+			label := "Copy"
+			if o.Copied == source {
+				label = "Copied"
+			}
+			head = append(head, ui.Button(ui.Ghost, ui.SizeXS, twi.OnClick(func(*twi.Event) { o.Copy(source) }), twi.Text(label)))
 		}
 		return twi.Element(box, twi.Element(head...), code)
 	case Table:

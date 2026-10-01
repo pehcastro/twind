@@ -43,14 +43,36 @@ func painted(w, h int, root scene.Node, look Look) *buffer.Buffer {
 	return buf
 }
 
-func TestBorderOnTheFill(t *testing.T) {
+func TestOneFrameFilledBorderedBox(t *testing.T) {
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
-	buf := painted(12, 6, page(12, 6, "", card(place(1, 1, 10, 4, one), style.RadiusNone)), Composited)
-	expect(t, buf, "            ", " ┌────────┐ ", " │        │ ", " │        │ ", " └────────┘ ", "            ")
-	for _, at := range [][2]int{{1, 1}, {9, 1}, {1, 2}, {10, 3}, {4, 4}, {10, 4}} {
-		c := buf.At(at[0], at[1])
-		if c.Bg != literal(white) || c.Fg != literal(zinc800) {
-			t.Errorf("border cell %v: bg %+v fg %+v, want the border colour on the card's fill", at, c.Bg, c.Fg)
+	muted, line := color.RGBA{R: 39, G: 39, B: 42, A: 255}, color.RGBA{R: 255, G: 255, B: 255, A: 26}
+	s := filled(muted)
+	s.BorderStyle, s.BorderColor, s.Radius = style.BorderSingle, literal(line), style.RadiusLg
+	root := scene.New(place(0, 0, 12, 6, layout.Edges{}), filled(zinc950), scene.Text{})
+	root.Children = []scene.Node{scene.New(place(1, 1, 10, 4, one), s, scene.Text{})}
+	rim := over(literal(line), literal(muted))
+	for _, profile := range []color.Profile{color.TrueColor, color.ANSI16} {
+		p := Painter{Profile: profile}
+		buf := buffer.New(12, 6)
+		p.Paint(buf, &root, Composited)
+		t.Logf("profile %d:\n%s", profile, strings.Join(rows(buf), "\n"))
+		expect(t, buf, "            ", " ╭▄▄▄▄▄▄▄▄╮ ", " ▐        ▌ ", " ▐        ▌ ", " ╰▀▀▀▀▀▀▀▀╯ ", "            ")
+		for y := range 6 {
+			for x := range 12 {
+				c := buf.At(x, y)
+				inside := x >= 2 && x < 10 && y >= 2 && y < 4
+				ring := !inside && x >= 1 && x < 11 && y >= 1 && y < 5
+				switch {
+				case inside && c.Bg.RGBA.ANSI16() == zinc950.ANSI16() && (profile == color.ANSI16 || c.Bg != literal(muted)):
+					t.Errorf("profile %d cell %d,%d inside the line: bg %+v, want the fill", profile, x, y, c.Bg)
+				case !inside && c.Bg != literal(zinc950):
+					t.Errorf("profile %d cell %d,%d outside the line: bg %+v, want the page; fill here reads as a second frame", profile, x, y, c.Bg)
+				case ring && profile == color.TrueColor && c.Fg != rim:
+					t.Errorf("ring cell %d,%d: fg %+v, want the border over the fill %+v", x, y, c.Fg, rim)
+				case ring && profile == color.ANSI16 && c.Fg.RGBA.ANSI16() == c.Bg.RGBA.ANSI16():
+					t.Errorf("profile %d ring cell %d,%d: the line and the page share index %d", profile, x, y, c.Fg.RGBA.ANSI16())
+				}
+			}
 		}
 	}
 }
@@ -59,7 +81,7 @@ func TestBorderRounded(t *testing.T) {
 	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
 	text := "abcdefghijkl\nmnopqrstuvwx\nABCDEFGHIJKL\nMNOPQRSTUVWX\nyz"
 	buf := painted(12, 6, page(12, 6, text, card(place(1, 1, 10, 4, one), style.RadiusLg)), Composited)
-	expect(t, buf, "abcdefghijkl", "m╭────────╮x", "A│        │L", "M│        │X", "y╰────────╯ ")
+	expect(t, buf, "abcdefghijkl", "m╭▄▄▄▄▄▄▄▄╮x", "A▐        ▌L", "M▐        ▌X", "y╰▀▀▀▀▀▀▀▀╯ ")
 }
 
 func TestBorderOneEdge(t *testing.T) {
@@ -159,7 +181,7 @@ func TestShadowInset(t *testing.T) {
 	s.BorderStyle, s.BorderColor = style.BorderSingle, literal(zinc800)
 	s.InsetShadows = []style.Shadow{{Y: 16, Color: literal(shadowMd), Inset: true}}
 	buf := painted(6, 5, page(6, 5, "", scene.New(place(0, 0, 6, 5, one), s, scene.Text{})), Composited)
-	expect(t, buf, "┌────┐", "│    │", "│    │", "│    │", "└────┘")
+	expect(t, buf, "┌▄▄▄▄┐", "▐    ▌", "▐    ▌", "▐    ▌", "└▀▀▀▀┘")
 	if c := buf.At(2, 1); !near(c.Bg, color.RGBA{R: 237, G: 237, B: 237}) {
 		t.Errorf("inset shade %+v, want black at alpha 18 over white", c)
 	}

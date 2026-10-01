@@ -45,6 +45,9 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 	if pill {
 		fill.X, fill.W = fill.X+1, fill.W-2
 	}
+	if framed(n, look) {
+		fill = n.Padding
+	}
 	if filled {
 		f, cell := overlap(overlap(fill, clip), layout.Rect{W: buf.Width(), H: buf.Height()}), buffer.Cell{Grapheme: " ", Bg: bg}
 		palette := p.paletted()
@@ -265,16 +268,25 @@ func rounded(r style.Radius) (corners [4]string) {
 	return corners
 }
 
+func framed(n *scene.Node, look Look) bool {
+	b := n.Border
+	return look == Composited && n.Background.Kind == color.Literal && n.Background.RGBA.A > 0 && b.Style == style.BorderSingle && b.Top && b.Right && b.Bottom && b.Left
+}
+
 func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 	r, b := n.Bounds, n.Border
 	edgeSet, corners := glyphs(b, look)
 	if edgeSet == "" || r.W == 0 || r.H == 0 {
 		return
 	}
+	ink := b.Color
+	if framed(n, look) {
+		edgeSet, ink = konst.HalfEdges, over(b.Color, n.Background)
+	}
 	edges := split(edgeSet)
 	right, bottom := r.X+r.W-1, r.Y+r.H-1
 	glyph := func(x, y int, g string) {
-		put(buf, clip, x, y, buffer.Cell{Grapheme: g, Fg: b.Color, Bg: color.Color{Kind: color.Literal}})
+		put(buf, clip, x, y, buffer.Cell{Grapheme: g, Fg: ink, Bg: color.Color{Kind: color.Literal}})
 	}
 	for x := max(r.X, clip.X); x <= min(right, clip.X+clip.W-1); x++ {
 		if x == r.X && b.Left || x == right && b.Right {

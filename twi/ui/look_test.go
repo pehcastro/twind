@@ -112,18 +112,49 @@ func TestCellLookPageMatchesPixels(t *testing.T) {
 	}
 	cells := buffer.New(w, h)
 	paint.Paint(cells, root, paint.Composited)
-	seen := func(c buffer.Cell) color.RGBA {
-		if r, _ := utf8.DecodeRuneInString(c.Grapheme); !strings.ContainsRune(konst.HalfEdges+konst.PillCaps, r) || c.Fg.Kind != color.Literal {
+	glyph := func(x, y int) rune {
+		if x < 0 || y < 0 || x >= w || y >= h {
+			return 0
+		}
+		r, _ := utf8.DecodeRuneInString(cells.At(x, y).Grapheme)
+		return r
+	}
+	corners := map[rune]int{'╭': -1, '╰': -1, '╮': 1, '╯': 1}
+	ring := func(x, y int) bool {
+		switch r := glyph(x, y); r {
+		case '▄', '▀':
+			return true
+		case '▐', '▌':
+			edge := func(n rune) bool { _, corner := corners[n]; return n == r || corner }
+			return edge(glyph(x, y-1)) || edge(glyph(x, y+1))
+		}
+		return false
+	}
+	seen := func(x, y int) color.RGBA {
+		c := cells.At(x, y)
+		if r := glyph(x, y); !strings.ContainsRune(konst.HalfEdges+konst.PillCaps, r) || c.Fg.Kind != color.Literal {
 			return c.Bg.RGBA
+		}
+		if ring(x, y) {
+			return c.Fg.RGBA
 		}
 		avg := func(a, b uint8) uint8 { return uint8((int(a) + int(b)) / 2) }
 		return color.RGBA{R: avg(c.Fg.RGBA.R, c.Bg.RGBA.R), G: avg(c.Fg.RGBA.G, c.Bg.RGBA.G), B: avg(c.Fg.RGBA.B, c.Bg.RGBA.B), A: math.MaxUint8}
 	}
 	apart := func(a, b uint8) int { return max(int(a)-int(b), int(b)-int(a)) }
-	wrong := 0
+	wrong, rings := 0, 0
 	for y := range h {
 		for x := range w {
-			got, want := seen(cells.At(x, y)), raster.Mean(pixels, image.Rect(x*cell.X, y*cell.Y, (x+1)*cell.X, (y+1)*cell.Y))
+			if side, ok := corners[glyph(x, y)]; ok {
+				if outside := cells.At(x+side, y).Bg.RGBA; cells.At(x, y).Bg.RGBA != outside {
+					t.Errorf("corner %d,%d %q: bg %v, want the parent's %v", x, y, cells.At(x, y).Grapheme, cells.At(x, y).Bg.RGBA, outside)
+				}
+				continue
+			}
+			if ring(x, y) {
+				rings++
+			}
+			got, want := seen(x, y), raster.Mean(pixels, image.Rect(x*cell.X, y*cell.Y, (x+1)*cell.X, (y+1)*cell.Y))
 			if max(apart(got.R, want.R), apart(got.G, want.G), apart(got.B, want.B)) > math.MaxUint8/2 {
 				wrong++
 				t.Errorf("cell %d,%d %q: the cell look shows %v, the pixels %v", x, y, cells.At(x, y).Grapheme, got, want)
@@ -138,5 +169,8 @@ func TestCellLookPageMatchesPixels(t *testing.T) {
 		}
 		rows[y] = line.String()
 	}
-	t.Logf("%d of %d cells differ from the pixel look; cell look, %dx%d:\n%s", wrong, w*h, w, h, strings.Join(rows, "\n"))
+	if rings == 0 {
+		t.Error("no ring cell found: the card and the alert should draw half-block rings")
+	}
+	t.Logf("%d of %d cells differ from the pixel look, %d ring cells compared by their inner half; cell look, %dx%d:\n%s", wrong, w*h, rings, w, h, strings.Join(rows, "\n"))
 }

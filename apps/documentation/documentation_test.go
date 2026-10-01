@@ -347,6 +347,24 @@ func TestCopy(t *testing.T) {
 	}
 }
 
+func TestCodeBlockCopy(t *testing.T) {
+	d := open(t)
+	jump(t, d, "Button")
+	x, y := spot(t, d, "Copy")
+	d.Click(x+1, y)
+	if got, want := d.Clipboard(), `import "github.com/twind-dev/twind/twi/ui"`; got != want {
+		t.Fatalf("the Usage block's copy area copied %q, want %q\n%s", got, want, d.Frame().Text())
+	}
+	if _, at := spot(t, d, "Copied"); at != y {
+		t.Errorf("Copied shows on row %d, the clicked block is on row %d", at, y)
+	}
+	t.Logf("after the click:\n%s", d.Frame().Text())
+	d.Advance(copiedFor)
+	if strings.Contains(d.Frame().Text(), "Copied") {
+		t.Errorf("the code block still says Copied %v later", copiedFor)
+	}
+}
+
 var buttonSections = []string{"Usage", "Variants", "Sizes", "API reference"}
 
 func column(d *drive.Driver, from, to int, text string) int {

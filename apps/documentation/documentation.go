@@ -49,6 +49,8 @@ type site struct {
 	page, theme, trying int
 	section             int
 	picker              bool
+	copied              string
+	copying             *twi.Timer
 }
 
 func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
@@ -307,7 +309,7 @@ func (s *site) follow(target string) {
 }
 
 func (s *site) sections(e entry) twi.Node {
-	options := markdown.Options{Highlight: s.code, Follow: s.follow}
+	options := markdown.Options{Highlight: s.code, Follow: s.follow, Copy: s.copy, Copied: s.copied}
 	var out []twi.NodeOption
 	for blocks := e.page.Blocks; len(blocks) > 0; {
 		end := 1 + slices.IndexFunc(blocks[1:], func(b markdown.Block) bool { return b.Kind == markdown.Heading && outlined(b.Level) })

@@ -26,7 +26,20 @@ type preview struct {
 	build  func(*twi.Runtime) func() twi.Node
 	view   func() twi.Node
 	source string
-	copied *twi.Timer
+}
+
+func (s *site) copy(code string) {
+	if s.rt.Copy(code) != nil {
+		return
+	}
+	if s.copying != nil {
+		s.copying.Stop()
+	}
+	s.copied, s.copying = code, s.rt.After(copiedFor, func() {
+		s.copied, s.copying = "", nil
+		s.rt.Invalidate()
+	})
+	s.rt.Invalidate()
 }
 
 func (s *site) addPreview(name string) error {
@@ -52,28 +65,15 @@ func (s *site) previewNode(name string) twi.Node {
 	}
 	t := p.tabs
 	label := "Copy"
-	if p.copied != nil {
+	if s.copied == p.source {
 		label = "Copied"
-	}
-	copyCode := func(*twi.Event) {
-		if s.rt.Copy(p.source) != nil {
-			return
-		}
-		if p.copied != nil {
-			p.copied.Stop()
-		}
-		p.copied = s.rt.After(copiedFor, func() {
-			p.copied = nil
-			s.rt.Invalidate()
-		})
-		s.rt.Invalidate()
 	}
 	return t.Node(twi.Key("preview-"+name),
 		t.List(t.Trigger("preview", twi.Text("Preview")), t.Trigger("code", twi.Text("Code"))),
 		t.Content("preview", el("flex flex-row min-h-9 items-center justify-center rounded-lg border px-2 py-1", p.view())),
 		t.Content("code", el("relative flex flex-col rounded-lg border bg-muted py-1",
 			el("px-2 whitespace-pre overflow-x-auto", s.code("go", p.source)),
-			ui.Button(ui.Ghost, ui.SizeXS, twi.Key("copy-"+name), twi.Class("absolute top-0 right-1"), twi.OnClick(copyCode), twi.Text(label)),
+			ui.Button(ui.Ghost, ui.SizeXS, twi.Key("copy-"+name), twi.Class("absolute top-0 right-1"), twi.OnClick(func(*twi.Event) { s.copy(p.source) }), twi.Text(label)),
 		)),
 	)
 }

@@ -17,7 +17,11 @@ func TestCornerHidesThePage(t *testing.T) {
 		buf := painted(12, 5, page(12, 5, text, card(place(1, 1, 10, 3, one), style.RadiusMd)), look)
 		for i, at := range corners {
 			c, want := buf.At(at[0], at[1]), buffer.Cell{Grapheme: rounded[i], Fg: literal(zinc800), Bg: literal(white)}
-			if look == Glyphs {
+			switch look {
+			case Composited:
+				want.Bg = literal(zinc100)
+			case Plain:
+			case Glyphs:
 				want = buffer.Cell{Grapheme: " ", Bg: literal(white)}
 			}
 			if c != want {
