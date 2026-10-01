@@ -1,7 +1,9 @@
 package render
 
 import (
+	"encoding/binary"
 	"fmt"
+	"hash/maphash"
 	"image"
 	"math"
 	"reflect"
@@ -48,21 +50,24 @@ type Frame struct {
 }
 
 type styledBox struct {
-	state    style.NodeState
 	box      layout.Box
+	computed *style.ComputedStyle
+	node     *scene.Node
+	state    style.NodeState
 	classes  []string
-	computed style.ComputedStyle
 	element  style.Element
+	truncate bool
+	nowrap   bool
+	placed   bool
+	reverse  bool
+	painted  bool
+	animated bool
 	marks    style.Markers
 	near     []int
 	hands    []int
 	related  []int
-	truncate bool
-	nowrap   bool
 	wrapping text.Wrapping
-	placed   bool
 	at       image.Point
-	reverse  bool
 	top      int
 	raw      string
 	text     scene.Text
@@ -70,17 +75,12 @@ type styledBox struct {
 	sizes    []sized
 	children []*styledBox
 	exiting  []*styledBox
-	node     scene.Node
-	painted  bool
 	reclip   reclip
 	key      motion.Key
 	born     time.Duration
 	enter    *motion.Presence
 	exit     *motion.Presence
-	animated bool
-	shown    *style.ComputedStyle
-	lift     motion.Offset
-	pose     motion.Pose
+	move     *moving
 }
 
 func Render(root Node, f Frame) (*buffer.Buffer, error) {
@@ -112,6 +112,18 @@ type Tree struct {
 	now              time.Duration
 	presenting       bool
 	graphics         bool
+	drawn            scene.Node
+	blank            style.ComputedStyle
+	seed             maphash.Seed
+	styles           map[cascade]*styledBox
+}
+
+type cascade struct {
+	parent              *style.ComputedStyle
+	hash                uint64
+	states              style.State
+	places              style.Place
+	enter, exit, placed bool
 }
 
 func (t *Tree) Restyle() { t.restyle = true }
@@ -131,13 +143,68 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	t.crossed = band != t.band
 	t.ancestors = t.ancestors[:0]
 	t.now, t.motion.Reduced, t.presenting, t.graphics = f.Now, f.ReducedMotion, false, f.Graphics
-	styled, err := t.build(f, t.root, style.ComputedStyle{}, false, root, style.PlaceOf(0, 1), nil)
+	if t.styles == nil {
+		t.seed, t.styles = maphash.MakeSeed(), map[cascade]*styledBox{}
+	}
+	styled, fresh := t.root, t.root == nil
+	if fresh {
+		styled = new(styledBox)
+	}
+	err := t.build(&f, styled, fresh, &t.blank, false, root, style.PlaceOf(0, 1), nil)
+	clear(t.styles)
 	t.root, t.cell, t.band, t.restyle = styled, f.Cell, band, false
 	if err != nil {
+		t.root = nil
 		return scene.Node{}, err
 	}
 	layout.Layout(&styled.box, f.Width, f.Height)
-	return t.scene(styled, reclip{viewport: styled.box.Clip}), nil
+	t.drawn = t.scene(styled, reclip{viewport: styled.box.Clip})
+	styled.node = &t.drawn
+	return t.drawn, nil
+}
+
+func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, n *Node, state *style.NodeState, related []int, placed bool, at image.Point) (*style.ComputedStyle, layout.Style, error) {
+	var h maphash.Hash
+	h.SetSeed(t.seed)
+	for _, c := range n.Classes {
+		h.WriteString(c)
+		h.WriteByte(0)
+	}
+	for _, a := range state.Attrs {
+		h.WriteString(a.Name)
+		h.WriteByte(0)
+		h.WriteString(a.Value)
+		h.WriteByte(0)
+	}
+	var word [8]byte
+	put := func(v int) {
+		binary.LittleEndian.PutUint64(word[:], uint64(v))
+		h.Write(word[:])
+	}
+	for _, r := range related {
+		put(r)
+	}
+	put(at.X)
+	put(at.Y)
+	k := cascade{parent, h.Sum64(), state.States, state.Places, n.Enter != nil, n.Exit != nil, placed}
+	if m := t.styles[k]; m != nil && m.at == at && slices.Equal(m.classes, n.Classes) && slices.Equal(m.state.Attrs, state.Attrs) && slices.Equal(m.related, related) {
+		return m.computed, m.box.Style, nil
+	}
+	t.styles[k] = s
+	computed := new(style.ComputedStyle)
+	*computed = f.Sheet.ComputeRelated(*parent, n.Classes, *state, related)
+	if k := computed.Animation.Keyframes; k == style.KeyframesEnter && n.Enter != nil || k == style.KeyframesExit && n.Exit != nil {
+		computed.Animation = style.Animation{}
+	}
+	if placed {
+		if computed.Position != style.PositionFixed {
+			computed.Position = style.PositionAbsolute
+		}
+		auto := style.Length{Unit: style.Auto}
+		computed.Inset = style.Edges{Top: style.Length{Value: float64(at.Y)}, Left: style.Length{Value: float64(at.X)}, Right: auto, Bottom: auto}
+	}
+	ls, err := boxStyle(parent, computed, f.Cell)
+	return computed, ls, err
 }
 
 func (t *Tree) ScrollBy(path []int, dx, dy int) bool {
@@ -213,12 +280,12 @@ type reclip struct {
 
 func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 	if s.painted && !s.box.Moved && r == s.reclip {
-		return s.node
+		return *s.node
 	}
 	s.reclip, s.box.Moved = r, false
-	st := &s.computed
+	st, m := s.computed, s.current()
 	if s.animated {
-		st = s.shown
+		st = m.shown
 	}
 	n := scene.New(&s.box, *st, s.text)
 	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
@@ -234,9 +301,9 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 			r.absolute = r.flow
 		}
 	}
-	dx := int(math.Round(translated(st.TranslateX, n.Bounds.W) + translated(s.pose.TranslateX, n.Bounds.W) + s.lift.X))
-	dy := int(math.Round(translated(st.TranslateY, n.Bounds.H) + translated(s.pose.TranslateY, n.Bounds.H) + s.lift.Y))
-	sx, sy := st.ScaleX*s.lift.Scale*s.pose.Scale, st.ScaleY*s.lift.Scale*s.pose.Scale
+	dx := int(math.Round(translated(st.TranslateX, n.Bounds.W) + translated(m.pose.TranslateX, n.Bounds.W) + m.lift.X))
+	dy := int(math.Round(translated(st.TranslateY, n.Bounds.H) + translated(m.pose.TranslateY, n.Bounds.H) + m.lift.Y))
+	sx, sy := st.ScaleX*m.lift.Scale*m.pose.Scale, st.ScaleY*m.lift.Scale*m.pose.Scale
 	transformed := dx != 0 || dy != 0 || sx != 1 || sy != 1
 	if transformed {
 		r.on, r.flow = true, layout.Rect{X: -lkonst.Unbounded / 2, Y: -lkonst.Unbounded / 2, W: lkonst.Unbounded, H: lkonst.Unbounded}
@@ -260,17 +327,18 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 				inner.on, inner.viewport = false, layout.Rect{}
 			}
 			n.Children = append(n.Children, t.scene(c, inner))
+			c.node = &n.Children[len(n.Children)-1]
 		}
 	}
-	n.Opacity *= s.lift.Opacity
+	n.Opacity *= m.lift.Opacity
 	if transformed {
 		transform(&n, dx, dy, sx, sy)
 	}
-	n.Turn = s.pose.Turn
+	n.Turn = m.pose.Turn
 	if k := s.computed.Animation.Keyframes; k != style.KeyframesNone && k != style.KeyframesExit {
 		t.motion.Unseen(s.key, n.Visibility == style.Hidden || n.Bounds.W <= 0 || n.Bounds.H <= 0 || k == style.KeyframesSpin && !t.graphics)
 	}
-	s.node, s.painted = n, true
+	s.painted = true
 	return n
 }
 
@@ -279,10 +347,9 @@ func overlap(a, b layout.Rect) layout.Rect {
 	return layout.Rect{X: x, Y: y, W: max(min(a.X+a.W, b.X+b.W)-x, 0), H: max(min(a.Y+a.H, b.Y+b.H)-y, 0)}
 }
 
-func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, parentChanged bool, n Node, place style.Place, siblings []*styledBox) (*styledBox, error) {
-	s := prev
-	if s == nil {
-		s = &styledBox{key: t.key(), born: t.now, lift: motion.Still(), pose: motion.Pose{Scale: 1}}
+func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedStyle, parentChanged bool, n Node, place style.Place, siblings []*styledBox) error {
+	if fresh {
+		s.key, s.born = t.key(), t.now
 	}
 	s.enter, s.exit = n.Enter, n.Exit
 	changed, animating := false, false
@@ -291,7 +358,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		state = *n.State
 	}
 	state.Places = place
-	reclassed := prev == nil || !slices.Equal(s.classes, n.Classes)
+	reclassed := fresh || !slices.Equal(s.classes, n.Classes)
 	if reclassed {
 		s.marks, s.near = f.Sheet.Marks(n.Classes), f.Sheet.Near(n.Classes, s.near[:0])
 	}
@@ -304,43 +371,29 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 	crossed := t.crossed && f.Sheet.Responsive(n.Classes)
 	if reclassed || t.restyle || parentChanged || restate || crossed {
 		t.cascades++
-		computed := f.Sheet.ComputeRelated(parent, n.Classes, state, related)
-		if k := computed.Animation.Keyframes; k == style.KeyframesEnter && n.Enter != nil || k == style.KeyframesExit && n.Exit != nil {
-			computed.Animation = style.Animation{}
-		}
-		if placed {
-			if computed.Position != style.PositionFixed {
-				computed.Position = style.PositionAbsolute
-			}
-			auto := style.Length{Unit: style.Auto}
-			computed.Inset = style.Edges{Top: style.Length{Value: float64(at.Y)}, Left: style.Length{Value: float64(at.X)}, Right: auto, Bottom: auto}
-		}
-		s.related = append(s.related[:0], related...)
-		s.hands = f.Sheet.Hands(n.Classes, state, s.hands[:0])
-		ls, err := boxStyle(parent, computed, f.Cell)
+		computed, ls, err := t.cascade(f, s, parent, &n, &state, related, placed, at)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if prev == nil || !reflect.DeepEqual(ls, s.box.Style) {
+		if fresh || !reflect.DeepEqual(ls, s.box.Style) {
 			s.box.Style = ls
 			s.box.Invalidate()
 		}
+		s.related = append(s.related[:0], related...)
+		s.hands = f.Sheet.Hands(n.Classes, state, s.hands[:0])
 		if reverse := reversed(computed); reverse != s.reverse {
 			s.reverse = reverse
 			s.box.Invalidate()
 		}
-		if animating = moves(&computed) || s.animated || t.motion.Holds(s.key); animating {
-			before := &s.computed
-			if prev == nil {
-				before = nil
-			}
-			t.animate(s, before, &computed)
+		if animating = moves(computed) || s.animated || t.motion.Holds(s.key); animating {
+			t.animate(s, s.computed, computed)
 		}
-		if changed = prev == nil || t.restyle || !reflect.DeepEqual(computed, s.computed); changed {
-			s.computed, s.painted = computed, false
+		if changed = fresh || t.restyle || !reflect.DeepEqual(*computed, *s.computed); changed {
+			s.painted = false
 		}
+		s.computed = computed
 		nowrap := unwrapped(computed.WhiteSpace)
-		wrapping := scene.Wrapping(&computed)
+		wrapping := scene.Wrapping(computed)
 		wrapping.Widths = s.wrapping.Widths
 		if nowrap != s.nowrap || wrapping != s.wrapping {
 			s.nowrap, s.wrapping = nowrap, wrapping
@@ -354,14 +407,14 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		s.classes, s.state, s.element, s.placed, s.at = n.Classes, state, n.Element, placed, at
 	}
 	if !animating && (s.animated || t.motion.Holds(s.key)) {
-		t.animate(s, &s.computed, &s.computed)
+		t.animate(s, s.computed, s.computed)
 	}
 	lift := motion.Still()
 	if age := t.now - s.born; s.enter != nil && age < s.enter.Duration && !t.motion.Reduced {
 		lift, t.presenting = s.enter.Enter(age), true
 	}
-	if lift != s.lift {
-		s.lift, s.painted = lift, false
+	if lift != s.current().lift {
+		s.moves().lift, s.painted = lift, false
 	}
 	if n.TopLayer != s.top {
 		s.top, s.painted = n.TopLayer, false
@@ -376,6 +429,13 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 			s.exiting = append(s.exiting, gone)
 		}
 		s.children, s.box.Children = make([]*styledBox, len(n.Children)), make([]*layout.Box, len(n.Children))
+		copy(s.children, old)
+		if len(old) < len(n.Children) {
+			born := make([]styledBox, len(n.Children)-len(old))
+			for i := range born {
+				s.children[len(old)+i] = &born[i]
+			}
+		}
 		s.painted = false
 		s.box.Invalidate()
 	}
@@ -385,23 +445,19 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 	t.ancestors = append(t.ancestors, s)
 	last, index := lastElement(n.Children), 0
 	for i, c := range n.Children {
-		var p *styledBox
-		if i < len(old) {
-			p = old[i]
-		}
 		var place style.Place
 		if !c.text() {
 			place, index = placeOf(index, i == last), index+1
 		}
-		child, err := t.build(f, p, s.computed, changed, c, place, s.children[:i])
-		if err != nil {
-			return nil, err
+		child := s.children[i]
+		if err := t.build(f, child, i >= len(old), s.computed, changed, c, place, s.children[:i]); err != nil {
+			return err
 		}
 		at := i
 		if s.reverse {
 			at = len(n.Children) - 1 - i
 		}
-		s.children[i], s.box.Children[at] = child, &child.box
+		s.box.Children[at] = &child.box
 		s.painted = s.painted && child.painted
 	}
 	s.box.Children = s.box.Children[:len(n.Children)]
@@ -409,7 +465,7 @@ func (t *Tree) build(f Frame, prev *styledBox, parent style.ComputedStyle, paren
 		s.box.Children = append(s.box.Children, &e.box)
 	}
 	t.ancestors = t.ancestors[:len(t.ancestors)-1]
-	return s, nil
+	return nil
 }
 
 func (n Node) text() bool {
@@ -487,7 +543,7 @@ func has(sheet style.Sheet, m *style.Match, children []Node) bool {
 	return false
 }
 
-func (s *styledBox) retext(f Frame, raw string) (moved bool) {
+func (s *styledBox) retext(f *Frame, raw string) (moved bool) {
 	var next scene.Text
 	if raw != "" {
 		next = f.Sanitize(raw)
@@ -533,7 +589,7 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 	return size[0], size[1]
 }
 
-func boxStyle(parent, s style.ComputedStyle, cell image.Point) (layout.Style, error) {
+func boxStyle(parent, s *style.ComputedStyle, cell image.Point) (layout.Style, error) {
 	var unsupported []string
 	cells := func(name string, l style.Length) int {
 		if l.Unit != style.Cells {
@@ -729,7 +785,7 @@ func tracks(ts []style.Track) []layout.Track {
 	return out
 }
 
-func reversed(s style.ComputedStyle) bool {
+func reversed(s *style.ComputedStyle) bool {
 	return s.Display == style.DisplayFlex && (s.Direction == style.RowReverse || s.Direction == style.ColumnReverse)
 }
 

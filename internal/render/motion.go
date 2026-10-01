@@ -30,15 +30,42 @@ func (t *Tree) animate(s *styledBox, prev, next *style.ComputedStyle) {
 		pose.Turn = t.overlay.Pose.Turn
 	}
 	if moving = moving || pose.Turn != 0; moving {
-		if s.shown == nil {
-			s.shown = new(style.ComputedStyle)
+		m := s.moves()
+		if m.shown == nil {
+			m.shown = new(style.ComputedStyle)
 		}
-		*s.shown = *next
-		t.motion.Overlay(&t.overlay, s.shown)
+		*m.shown = *next
+		t.motion.Overlay(&t.overlay, m.shown)
 		pose.Scale, pose.TranslateX, pose.TranslateY = t.overlay.Pose.Scale, t.overlay.Pose.TranslateX, t.overlay.Pose.TranslateY
 	}
 	s.painted = s.painted && !moving && !s.animated
-	s.animated, s.pose = moving, pose
+	s.animated = moving
+	if s.move != nil {
+		s.move.pose = pose
+	}
+}
+
+type moving struct {
+	shown *style.ComputedStyle
+	lift  motion.Offset
+	pose  motion.Pose
+}
+
+func still() moving { return moving{lift: motion.Still(), pose: motion.Pose{Scale: 1}} }
+
+func (s *styledBox) moves() *moving {
+	if s.move == nil {
+		s.move = new(moving)
+		*s.move = still()
+	}
+	return s.move
+}
+
+func (s *styledBox) current() moving {
+	if s.move == nil {
+		return still()
+	}
+	return *s.move
 }
 
 func (t *Tree) key() motion.Key {
@@ -69,7 +96,7 @@ func (t *Tree) exits(s *styledBox) {
 		s.painted = false
 		held := t.closing(e)
 		if age := t.now - e.born; e.exit != nil && age < e.exit.Total() && !t.motion.Reduced {
-			e.lift, e.painted, t.presenting, held = e.exit.Exit(age), false, true, true
+			e.moves().lift, e.painted, t.presenting, held = e.exit.Exit(age), false, true, true
 		}
 		if held {
 			kept = append(kept, e)
@@ -85,14 +112,20 @@ func (t *Tree) exits(s *styledBox) {
 func (t *Tree) closing(s *styledBox) bool {
 	held := false
 	if s.animated || t.motion.Holds(s.key) {
-		switch a := &s.computed.Animation; a.Fill {
+		fill := s.computed.Animation.Fill
+		switch fill {
 		case style.FillNone:
-			a.Fill = style.FillForwards
+			fill = style.FillForwards
 		case style.FillBackwards:
-			a.Fill = style.FillBoth
+			fill = style.FillBoth
 		case style.FillForwards, style.FillBoth:
 		}
-		t.animate(s, &s.computed, &s.computed)
+		if fill != s.computed.Animation.Fill {
+			filled := *s.computed
+			filled.Animation.Fill = fill
+			s.computed = &filled
+		}
+		t.animate(s, s.computed, s.computed)
 		held = t.motion.Closing(s.key)
 	}
 	for _, c := range s.children {
