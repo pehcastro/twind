@@ -35,6 +35,8 @@ func over(src, dst color.Color) color.Color {
 
 func (p *Painter) paletted() bool { return p.Profile == color.ANSI16 || p.Profile == color.ANSI256 }
 
+func luma(k color.RGBA) int { return 299*int(k.R) + 587*int(k.G) + 114*int(k.B) }
+
 func apart(c, from color.Color, p color.Profile) color.Color {
 	index := color.RGBA.ANSI256
 	if p == color.ANSI16 {
@@ -44,7 +46,6 @@ func apart(c, from color.Color, p color.Profile) color.Color {
 	if !opaque(c) || !opaque(from) || c.RGBA == from.RGBA || index(c.RGBA) != index(from.RGBA) {
 		return c
 	}
-	luma := func(k color.RGBA) int { return 299*int(k.R) + 587*int(k.G) + 114*int(k.B) }
 	white, toward := color.RGBA{R: math.MaxUint8, G: math.MaxUint8, B: math.MaxUint8, A: math.MaxUint8}, color.Color{Kind: color.Literal}
 	if lc, lf := luma(c.RGBA), luma(from.RGBA); lc > lf || lc == lf && 2*lf < luma(white) {
 		toward.RGBA = white

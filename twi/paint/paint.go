@@ -17,6 +17,7 @@ import (
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/text"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 type Look uint8
@@ -32,16 +33,28 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 	if look != Composited {
 		shadows, insets = nil, nil
 	}
-	body := n.Bounds
-	for i := len(shadows) - 1; i >= 0; i-- {
-		left, top, right, bottom := reach(shadows[i])
-		cast := layout.Rect{X: body.X - left, Y: body.Y - top, W: body.W + left + right, H: body.H + top + bottom}
-		shadow(buf, clip, cast, body, shadows[i], false)
-	}
-	bg := n.Background
+	body, bg, b := n.Bounds, n.Background, n.Border
 	filled := bg.Kind == color.Literal && bg.RGBA.A > 0
+	shape := filled && (look != Composited || body.H != 1 || !ground(buf, clip, body, bg))
+	var line color.Color
+	halo := false
+	for i := len(shadows) - 1; i >= 0; i-- {
+		s := shadows[i]
+		left, top, right, bottom := reach(s)
+		cast := layout.Rect{X: body.X - left, Y: body.Y - top, W: body.W + left + right, H: body.H + top + bottom}
+		switch hairline := shadow(buf, clip, cast, body, s, false); {
+		case hairline && (!shape || s.Token != theme.Border && s.Token != theme.Input):
+			line = s.Color
+		case !hairline && s.X == 0 && s.Y == 0 && s.Blur == 0:
+			halo = true
+		}
+	}
+	sides := look == Composited && body.H == 1 && b.Style != style.BorderNone && (b.Left || b.Right)
+	if sides && !shape {
+		line = b.Color
+	}
 	fill := body
-	if b := n.Border; look == Composited && filled && b.Style == style.BorderSingle && b.Top && b.Right && b.Bottom && b.Left {
+	if look == Composited && filled && b.Style == style.BorderSingle && b.Top && b.Right && b.Bottom && b.Left {
 		fill = n.Padding
 	}
 	if filled {
@@ -71,7 +84,12 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 		lit := layout.Rect{X: pad.X + right, Y: pad.Y + bottom, W: pad.W - left - right, H: pad.H - top - bottom}
 		shadow(buf, clip, pad, lit, s, true)
 	}
-	border(buf, n, look, clip)
+	if !halo {
+		tint(buf, clip, body, line)
+	}
+	if !sides {
+		border(buf, n, look, clip)
+	}
 	lines(buf, n, clip, p.Widths, p.Profile == color.ANSI16)
 }
 
@@ -136,19 +154,48 @@ const (
 	fullInk
 )
 
-func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, inset bool) {
+func ground(buf *buffer.Buffer, clip, row layout.Rect, fill color.Color) bool {
+	for x := row.X; x < row.X+row.W; x++ {
+		if visible(buf, clip, x, row.Y) && over(fill, buf.At(x, row.Y).Bg) != buf.At(x, row.Y).Bg {
+			return false
+		}
+	}
+	return true
+}
+
+func tint(buf *buffer.Buffer, clip, row layout.Rect, c color.Color) {
+	if c.Kind != color.Literal {
+		return
+	}
+	c.RGBA.A = uint8(math.Round(max(float64(c.RGBA.A), konst.OneRowLine*math.MaxUint8)))
+	for x := row.X; x < row.X+row.W; x++ {
+		if !visible(buf, clip, x, row.Y) {
+			continue
+		}
+		under := buf.At(x, row.Y).Bg
+		share := konst.OneRowTint
+		if lift := luma(over(c, under).RGBA) - luma(under.RGBA); lift > 0 {
+			share = min(max(share, konst.OneRowLiftLuma/float64(lift)), 1)
+		}
+		k := c
+		k.RGBA.A = uint8(math.Round(float64(c.RGBA.A) * share))
+		put(buf, clip, x, row.Y, buffer.Cell{Grapheme: " ", Bg: k})
+	}
+}
+
+func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, inset bool) (hairline bool) {
 	var weight [4]ink
 	if s.X == 0 && s.Y == 0 && s.Blur == 0 {
 		ring := func(cell float64) ink {
-			if math.Round(float64(s.Spread)*konst.CellEighths/cell) > 1 {
+			switch {
+			case math.Round(float64(s.Spread)*konst.CellEighths/cell) > 1:
 				return halfInk
+			case lit.H == 1:
+				return mergeInk
 			}
 			return thinInk
 		}
 		v, h := ring(stylekonst.NominalCellY), ring(stylekonst.NominalCellX)
-		if v == thinInk && lit.H == 1 {
-			v = mergeInk
-		}
 		weight = [4]ink{v, h, v, h}
 	} else {
 		for side, v := range depth(s) {
@@ -208,6 +255,7 @@ func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, i
 			}
 		}
 	}
+	return weight[1] == mergeInk
 }
 
 func edge(dst buffer.Cell, side int, weight ink, c color.Color) (buffer.Cell, bool) {

@@ -8,6 +8,7 @@ import (
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 func ring(c color.RGBA, spread style.Pixels) style.Shadow {
@@ -89,7 +90,9 @@ func TestRingShare(t *testing.T) {
 		edgeAt(t, buf, 3, 1, "▐", blue, zinc100)
 	})
 	buf := painted(10, 5, page(10, 5, "", ringed(1, 1, 2, ring(zinc800, 1)), ringed(4, 1, 2, ring(zinc800, 1))), Composited)
-	edgeAt(t, buf, 3, 1, "│", zinc800, zinc100)
+	if c := buf.At(3, 1); c.Grapheme != " " || c.Bg != literal(zinc100) {
+		t.Errorf("between two one-row boxes side by side with thin rings: %+v, want the page", c)
+	}
 }
 
 func TestRingOverContent(t *testing.T) {
@@ -107,11 +110,11 @@ func TestPillRing(t *testing.T) {
 		s.Radius, s.Shadows = style.RadiusFull, rings
 		return scene.New(place(x, 1, 4, 1, layout.Edges{}), s, scene.Text{})
 	}
-	buf := painted(12, 3, page(12, 3, "", pill(4, true, ring(zinc800, 1))), Composited)
-	expect(t, buf, "            ", "   │    │   ", "            ")
-	for _, at := range [][2]int{{3, 1}, {8, 1}} {
-		if c := buf.At(at[0], at[1]); c.Fg != literal(zinc800) {
-			t.Errorf("pill ring cell %v: fg %+v, want the ring colour", at, c.Fg)
+	buf := painted(12, 3, page(12, 3, "", pill(4, true, tokenRing(zinc800, theme.Border))), Composited)
+	expect(t, buf, "            ", "            ", "            ")
+	for _, x := range []int{3, 8} {
+		if c := buf.At(x, 1); c.Bg != literal(zinc100) {
+			t.Errorf("beside a one-row ringed pill, cell %d: bg %+v, want the page", x, c.Bg)
 		}
 	}
 	for x := 4; x < 8; x++ {
@@ -119,7 +122,7 @@ func TestPillRing(t *testing.T) {
 			t.Errorf("pill cell %d: bg %+v, want the pill fill across the whole box", x, c.Bg)
 		}
 	}
-	expect(t, painted(12, 3, page(12, 3, "", pill(4, false, ring(zinc800, 1))), Composited), "            ", "   │    │   ", "            ")
+	expect(t, painted(12, 3, page(12, 3, "", pill(4, false, ring(zinc800, 1))), Composited), "            ", "            ", "            ")
 	var p Painter
 	moved := painted(20, 3, page(20, 3, "", pill(9, true)), Composited)
 	buf = buffer.New(20, 3)
@@ -133,7 +136,7 @@ func TestPillRing(t *testing.T) {
 
 func TestFocusInvalid(t *testing.T) {
 	invalid := painted(10, 3, page(10, 3, "", ringed(2, 1, 4, ring(red, 1))), Composited)
-	expect(t, invalid, "          ", " │    │   ", "          ")
+	expect(t, invalid, "          ", "          ", "          ")
 	focused := painted(10, 3, page(10, 3, "", ringed(2, 1, 4, focusRing(red, 51)...)), Composited)
 	expect(t, focused, "  ▄▄▄▄    ", " ▐    ▌   ", "  ▀▀▀▀    ")
 	edgeAt(t, focused, 3, 0, "▄", red, zinc100)

@@ -61,12 +61,13 @@ func TestOverlaysPointer(t *testing.T) {
 		d.Advance(settleTime)
 	}
 
-	expect("Edit Profile rests on the background", bg("Dialog", "Edit Profile") == background)
+	rest := bg("Dialog", "Edit Profile")
+	expect("Edit Profile rests as an outline shape, its ring tinted over the background", rest != background && rest != accent)
 	move(at("Dialog", "Edit Profile"))
 	expect("hover paints Edit Profile with hover:bg-accent", bg("Dialog", "Edit Profile") == accent)
 	t.Logf("hover on Edit Profile, twind light, 150x45:\n%s", d.Frame().ANSI())
 	move(at("Dropdown menu", "Selected"))
-	expect("leaving Edit Profile drops the hover colour", bg("Dialog", "Edit Profile") == background)
+	expect("leaving Edit Profile drops the hover colour", bg("Dialog", "Edit Profile") == rest)
 
 	click(at("Dropdown menu", "Open"))
 	expect("a click on Open opens the menu", has("My Account") && has("Billing"))

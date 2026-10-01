@@ -29,6 +29,9 @@ const (
 	CoverAlpha     = 0.6
 	ShadowHalfCell = 0.25
 	ShadowFullCell = 0.75
+	OneRowTint     = 0.35
+	OneRowLine     = 0.6
+	OneRowLiftLuma = 20 * 1000
 )
 
 const (
