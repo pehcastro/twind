@@ -8,12 +8,18 @@ import (
 	"time"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/theme"
 )
 
 const settleTime = time.Second
+
+func cellRow(t *testing.T, f drive.Frame, anchor string) []buffer.Cell {
+	t.Helper()
+	return slices.Clone(f.Cells().Row(find(t, f, anchor).y))
+}
 
 func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
 	sheet, err := Styles()
@@ -165,9 +171,9 @@ func TestFormKeys(t *testing.T) {
 	focused("Enable notifications", 0, 1)
 
 	focused("Airplane Mode", 0, 1)
-	off := line("Airplane Mode")
+	off := cellRow(t, d.Frame(), "Airplane Mode")
 	d.Press("space")
-	expect("space moves the switch thumb", line("Airplane Mode") != off)
+	expect("space moves the switch thumb", !slices.Equal(cellRow(t, d.Frame(), "Airplane Mode"), off))
 
 	focused("Comfortable", 0, 1)
 	d.Press("down")

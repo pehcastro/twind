@@ -77,10 +77,10 @@ func TestOverride(t *testing.T) {
 	if filled != 26 {
 		t.Errorf("FieldGroup(twi.Class(\"w-26\")) fills %d cells, want 26:\n%s", filled, group.Text())
 	}
-	round, square := frame(Skeleton(twi.Class("h-1 w-6 rounded-full"))), frame(Skeleton(twi.Class("h-1 w-6")))
-	t.Logf("rounded-full %q, own rounded-md %q", strings.Split(round.Text(), "\n")[1], strings.Split(square.Text(), "\n")[1])
-	if round.ANSI() == square.ANSI() {
-		t.Error("Skeleton(twi.Class(\"h-1 w-6 rounded-full\")) draws the same cells as its own rounded-md")
+	square, round := strings.Split(frame(Skeleton(twi.Class("h-3 w-6 border rounded-none"))).Text(), "\n")[1], strings.Split(frame(Skeleton(twi.Class("h-3 w-6 border"))).Text(), "\n")[1]
+	t.Logf("rounded-none %q, own rounded-md %q", square, round)
+	if !strings.HasPrefix(strings.TrimSpace(square), "┌") || !strings.HasPrefix(strings.TrimSpace(round), "╭") {
+		t.Error("Skeleton(twi.Class(\"h-3 w-6 border rounded-none\")) does not draw square corners over its own rounded-md")
 	}
 }
 

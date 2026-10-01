@@ -141,10 +141,10 @@ func TestPill(t *testing.T) {
 		return scene.New(box, s, scene.Sanitize("Active"))
 	}
 	buf := painted(10, 1, page(10, 1, "", pill(1)), Composited)
-	expect(t, buf, " ▐Active▌ ")
+	expect(t, buf, "  Active  ")
 	for _, x := range []int{1, 8} {
-		if c := buf.At(x, 0); c.Fg != literal(green100) || c.Bg != literal(zinc100) {
-			t.Errorf("cap at x %d: fg %+v bg %+v, want the pill colour on the parent's", x, c.Fg, c.Bg)
+		if c := buf.At(x, 0); c.Bg != literal(green100) {
+			t.Errorf("end of the pill at x %d: bg %+v, want the pill colour", x, c.Bg)
 		}
 	}
 	if c := buf.At(2, 0); c.Fg != literal(green700) || c.Bg != literal(green100) {

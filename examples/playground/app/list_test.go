@@ -16,7 +16,7 @@ const listCardEnd = 56
 func listShown(frame string) []int {
 	var rows []int
 	for l := range strings.Lines(frame) {
-		if _, after, ok := strings.Cut(l, "▐ row "); ok {
+		if _, after, ok := strings.Cut(l, "│ row "); ok {
 			n, _ := strconv.Atoi(strings.Fields(after)[0])
 			rows = append(rows, n)
 		}

@@ -120,10 +120,7 @@ func cellCoverage(c buffer.Cell, surface, line color.RGBA) float64 {
 		}
 		return 0
 	}
-	switch r, _ := utf8.DecodeRuneInString(c.Grapheme); {
-	case strings.ContainsRune(konst.HalfEdges+konst.PillCaps, r):
-		return (on(c.Fg) + on(c.Bg)) / 2
-	case strings.ContainsRune(konst.RoundedCorners+konst.SquareCorners, r) && on(c.Bg) == 0:
+	if r, _ := utf8.DecodeRuneInString(c.Grapheme); strings.ContainsRune(konst.RoundedCorners+konst.SquareCorners+konst.SingleLines, r) && on(c.Bg) == 0 {
 		return on(c.Fg) / 2
 	}
 	return on(c.Bg)
@@ -167,10 +164,14 @@ func TestCellLookPillCapsSitInside(t *testing.T) {
 	box := place(1, 0, 6, 1, layout.Edges{})
 	box.ContentBox = layout.Rect{X: 2, W: 4, H: 1}
 	buf := painted(8, 1, page(8, 1, "", scene.New(box, s, scene.Sanitize("ab"))), Composited)
-	expect(t, buf, " ▐ab  ▌ ")
-	for _, x := range []int{1, 6} {
-		if c := buf.At(x, 0); c.Fg != literal(blue) || c.Bg != literal(zinc100) {
-			t.Errorf("cap %d: %+v, want the pill colour over the page", x, c)
+	expect(t, buf, "  ab    ")
+	for x := range 8 {
+		want := literal(blue)
+		if x == 0 || x == 7 {
+			want = literal(zinc100)
+		}
+		if c := buf.At(x, 0); c.Bg != want {
+			t.Errorf("cell %d: bg %+v, want %+v; the pill fills its box and nothing outside it", x, c.Bg, want)
 		}
 	}
 }

@@ -108,10 +108,15 @@ func TestPillRing(t *testing.T) {
 		return scene.New(place(x, 1, 4, 1, layout.Edges{}), s, scene.Text{})
 	}
 	buf := painted(12, 3, page(12, 3, "", pill(4, true, ring(zinc800, 1))), Composited)
-	expect(t, buf, "            ", "   │▐  ▌│   ", "            ")
+	expect(t, buf, "            ", "   │    │   ", "            ")
 	for _, at := range [][2]int{{3, 1}, {8, 1}} {
 		if c := buf.At(at[0], at[1]); c.Fg != literal(zinc800) {
 			t.Errorf("pill ring cell %v: fg %+v, want the ring colour", at, c.Fg)
+		}
+	}
+	for x := 4; x < 8; x++ {
+		if c := buf.At(x, 1); c.Bg != literal(green100) {
+			t.Errorf("pill cell %d: bg %+v, want the pill fill across the whole box", x, c.Bg)
 		}
 	}
 	expect(t, painted(12, 3, page(12, 3, "", pill(4, false, ring(zinc800, 1))), Composited), "            ", "   │    │   ", "            ")

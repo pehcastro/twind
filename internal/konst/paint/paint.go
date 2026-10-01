@@ -25,7 +25,6 @@ const (
 	DoubleLines    = "═║═║"
 	HalfEdges      = "▄▌▀▐"
 	UpperHalf      = "▀"
-	PillCaps       = "▐▌"
 	CellEighths    = 8
 	CoverAlpha     = 0.6
 	ShadowHalfCell = 0.25
