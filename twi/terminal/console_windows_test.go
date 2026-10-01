@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 	"unicode/utf16"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 
@@ -87,6 +88,9 @@ func TestConsoleModesRestored(t *testing.T) {
 		if quickEdit := in&windows.ENABLE_QUICK_EDIT_MODE != 0; quickEdit == mouse {
 			t.Errorf("mouse %v: quick edit %v inside", mouse, quickEdit)
 		}
+		if mouseInput := in&windows.ENABLE_MOUSE_INPUT != 0; mouseInput != mouse {
+			t.Errorf("mouse %v: mouse input %v inside", mouse, mouseInput)
+		}
 		if raw[fakeOut]&windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING == 0 {
 			t.Errorf("mouse %v: output mode %#x inside has no VT processing", mouse, raw[fakeOut])
 		}
@@ -123,6 +127,70 @@ func TestConsoleRecords(t *testing.T) {
 	}
 	defer b.Exit() //nolint:errcheck
 	for _, want := range []input.Event{input.KeyEvent{Rune: 'a'}, input.KeyEvent{Rune: '😀'}, input.ResizeEvent{Width: 80, Height: 30}, input.KeyEvent{Rune: 'b'}} {
+		select {
+		case ev := <-b.Events:
+			if ev != want {
+				t.Errorf("event %#v, want %#v", ev, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("no event, want %#v", want)
+		}
+	}
+}
+
+func TestConsoleMouse(t *testing.T) {
+	click := func(x, y int16, buttons, control, flags uint32) inputRecord {
+		m := mouseRecord{kind: windows.MOUSE_EVENT, x: x, y: y, buttons: buttons, control: control, flags: flags}
+		return *(*inputRecord)(unsafe.Pointer(&m))
+	}
+	wheel := func(delta int16) uint32 { return uint32(uint16(delta)) << 16 }
+	records := []inputRecord{
+		click(5, 103, windows.FROM_LEFT_1ST_BUTTON_PRESSED, windows.SHIFT_PRESSED, 0),
+		click(7, 104, windows.FROM_LEFT_1ST_BUTTON_PRESSED, 0, windows.MOUSE_MOVED),
+		click(7, 104, 0, windows.LEFT_CTRL_PRESSED, 0),
+		click(0, 100, 0, 0, windows.MOUSE_MOVED),
+		click(79, 123, wheel(120), windows.RIGHT_CTRL_PRESSED|windows.SHIFT_PRESSED, windows.MOUSE_WHEELED),
+		click(2, 101, wheel(-120), 0, windows.MOUSE_WHEELED),
+		click(3, 102, windows.RIGHTMOST_BUTTON_PRESSED, windows.LEFT_ALT_PRESSED, 0),
+		click(3, 102, windows.RIGHTMOST_BUTTON_PRESSED|windows.FROM_LEFT_2ND_BUTTON_PRESSED, 0, 0),
+		click(3, 102, windows.FROM_LEFT_2ND_BUTTON_PRESSED, 0, 0),
+		click(3, 102, 0, 0, 0),
+		click(4, 102, windows.FROM_LEFT_1ST_BUTTON_PRESSED, 0, windows.DOUBLE_CLICK),
+		click(4, 102, 0, 0, 0),
+	}
+	for _, c := range "\x1b[<0;2;2M" {
+		records = append(records, inputRecord{kind: windows.KEY_EVENT, keyDown: 1, char: uint16(c), repeat: 1})
+	}
+	records = append(records,
+		click(1, 101, windows.FROM_LEFT_1ST_BUTTON_PRESSED, 0, 0),
+		inputRecord{kind: windows.KEY_EVENT, keyDown: 1, char: 'z', repeat: 1},
+	)
+	c := &fakeConsole{rows: 24, modes: conhostModes(), records: records}
+	con, err := openConsole(c, fakeIn, fakeOut, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := enter(io.Discard, con, Options{}, offer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Exit() //nolint:errcheck
+	for _, want := range []input.Event{
+		input.MouseEvent{X: 5, Y: 3, Button: input.MouseLeft, Action: input.MousePress, Modifiers: input.ModShift},
+		input.MouseEvent{X: 7, Y: 4, Button: input.MouseLeft, Action: input.MouseMove},
+		input.MouseEvent{X: 7, Y: 4, Button: input.MouseLeft, Action: input.MouseRelease, Modifiers: input.ModCtrl},
+		input.MouseEvent{Button: input.MouseNone, Action: input.MouseMove},
+		input.MouseEvent{X: 79, Y: 23, Button: input.MouseWheelUp, Action: input.MouseScroll, Modifiers: input.ModShift | input.ModCtrl},
+		input.MouseEvent{X: 2, Y: 1, Button: input.MouseWheelDown, Action: input.MouseScroll},
+		input.MouseEvent{X: 3, Y: 2, Button: input.MouseRight, Action: input.MousePress, Modifiers: input.ModAlt},
+		input.MouseEvent{X: 3, Y: 2, Button: input.MouseMiddle, Action: input.MousePress},
+		input.MouseEvent{X: 3, Y: 2, Button: input.MouseRight, Action: input.MouseRelease},
+		input.MouseEvent{X: 3, Y: 2, Button: input.MouseMiddle, Action: input.MouseRelease},
+		input.MouseEvent{X: 4, Y: 2, Button: input.MouseLeft, Action: input.MousePress},
+		input.MouseEvent{X: 4, Y: 2, Button: input.MouseLeft, Action: input.MouseRelease},
+		input.MouseEvent{X: 1, Y: 1, Button: input.MouseLeft, Action: input.MousePress},
+		input.KeyEvent{Rune: 'z'},
+	} {
 		select {
 		case ev := <-b.Events:
 			if ev != want {

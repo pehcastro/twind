@@ -101,6 +101,19 @@ const (
 )
 
 const (
+	WheelLeftReport    = 66
+	WheelRightReport   = 67
+	LeftReport         = 0
+	MiddleReport       = 1
+	RightReport        = 2
+	NoButtonReport     = 3
+	MotionReport       = 32
+	ModifierShift      = 2
+	MouseReport        = CSI + "<"
+	ConsoleRecordBytes = len(MouseReport + "127;32767;32767M")
+)
+
+const (
 	OSC          = "\x1b]"
 	BEL          = "\x07"
 	ESC          = 0x1b

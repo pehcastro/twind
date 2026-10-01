@@ -4,6 +4,7 @@ package terminal
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/twi/input"
 )
 
 func size(fd uintptr) (width, height int, err error) {
@@ -49,6 +51,15 @@ type inputRecord struct {
 	scan    uint16
 	char    uint16
 	control uint32
+}
+
+type mouseRecord struct {
+	kind    uint16
+	_       uint16
+	x, y    int16
+	buttons uint32
+	control uint32
+	flags   uint32
 }
 
 type console interface {
@@ -97,6 +108,8 @@ type consoleTTY struct {
 	cancelled       windows.Handle
 	records         []inputRecord
 	high            rune
+	buttons         uint16
+	reportMatched   int
 }
 
 func openTTY(in, out *os.File, opt Options) (tty, error) {
@@ -105,7 +118,7 @@ func openTTY(in, out *os.File, opt Options) (tty, error) {
 }
 
 func openConsole(c console, in, out windows.Handle, opt Options) (tty, error) {
-	t := &consoleTTY{console: c, in: in, out: out, records: make([]inputRecord, konst.ReadBuffer/utf8.UTFMax)}
+	t := &consoleTTY{console: c, in: in, out: out, records: make([]inputRecord, konst.ReadBuffer/konst.ConsoleRecordBytes)}
 	if err := errors.Join(c.getMode(in, &t.inMode), c.getMode(out, &t.outMode)); err != nil {
 		return nil, err
 	}
@@ -117,6 +130,8 @@ func openConsole(c console, in, out windows.Handle, opt Options) (tty, error) {
 	mode := uint32(windows.ENABLE_VIRTUAL_TERMINAL_INPUT | windows.ENABLE_WINDOW_INPUT | windows.ENABLE_EXTENDED_FLAGS)
 	if opt.NoMouse {
 		mode |= t.inMode & windows.ENABLE_QUICK_EDIT_MODE
+	} else {
+		mode |= windows.ENABLE_MOUSE_INPUT
 	}
 	err = errors.Join(c.setMode(out, t.outMode|windows.ENABLE_PROCESSED_OUTPUT|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING), c.setMode(in, mode))
 	if err != nil {
@@ -148,13 +163,81 @@ func (t *consoleTTY) read(p []byte, wait time.Duration) (int, bool, error) {
 					c, t.high = utf16.DecodeRune(t.high, c), 0
 				}
 				p = utf8.AppendRune(p, c)
+				t.matchReport(c)
+			}
+		case windows.MOUSE_EVENT:
+			if t.reportMatched < len(konst.MouseReport) {
+				p = t.mouse(p, (*mouseRecord)(unsafe.Pointer(&r)))
 			}
 		case windows.WINDOW_BUFFER_SIZE_EVENT:
 			resized = true
-		case windows.MOUSE_EVENT, windows.FOCUS_EVENT, windows.MENU_EVENT:
+		case windows.FOCUS_EVENT, windows.MENU_EVENT:
 		}
 	}
 	return len(p), resized, nil
+}
+
+func (t *consoleTTY) matchReport(c rune) {
+	switch {
+	case t.reportMatched == len(konst.MouseReport):
+	case c == rune(konst.MouseReport[t.reportMatched]):
+		t.reportMatched++
+	case c == konst.ESC:
+		t.reportMatched = 1
+	default:
+		t.reportMatched = 0
+	}
+}
+
+func (t *consoleTTY) mouse(p []byte, m *mouseRecord) []byte {
+	var info windows.ConsoleScreenBufferInfo
+	if t.console.bufferInfo(t.out, &info) != nil {
+		return p
+	}
+	held := uint16(m.buttons)
+	pressed, released := held&^t.buttons, t.buttons&^held
+	t.buttons = held
+	wheel, code, final := int16(m.buttons>>16), 0, byte('M')
+	switch {
+	case m.flags&windows.MOUSE_WHEELED != 0 && wheel > 0:
+		code = konst.WheelUpReport
+	case m.flags&windows.MOUSE_WHEELED != 0:
+		code = konst.WheelDownReport
+	case m.flags&windows.MOUSE_HWHEELED != 0 && wheel > 0:
+		code = konst.WheelRightReport
+	case m.flags&windows.MOUSE_HWHEELED != 0:
+		code = konst.WheelLeftReport
+	case m.flags&windows.MOUSE_MOVED != 0:
+		code = buttonReport(held) | konst.MotionReport
+	case pressed != 0:
+		code = buttonReport(pressed)
+	case released != 0:
+		code, final = buttonReport(released), 'm'
+	default:
+		return p
+	}
+	if m.control&windows.SHIFT_PRESSED != 0 {
+		code |= int(input.ModShift) << konst.ModifierShift
+	}
+	if m.control&(windows.LEFT_ALT_PRESSED|windows.RIGHT_ALT_PRESSED) != 0 {
+		code |= int(input.ModAlt) << konst.ModifierShift
+	}
+	if m.control&(windows.LEFT_CTRL_PRESSED|windows.RIGHT_CTRL_PRESSED) != 0 {
+		code |= int(input.ModCtrl) << konst.ModifierShift
+	}
+	return fmt.Appendf(p, "%s%d;%d;%d%c", konst.MouseReport, code, m.x-info.Window.Left+1, m.y-info.Window.Top+1, final)
+}
+
+func buttonReport(buttons uint16) int {
+	switch {
+	case buttons&windows.FROM_LEFT_1ST_BUTTON_PRESSED != 0:
+		return konst.LeftReport
+	case buttons&windows.FROM_LEFT_2ND_BUTTON_PRESSED != 0:
+		return konst.MiddleReport
+	case buttons&windows.RIGHTMOST_BUTTON_PRESSED != 0:
+		return konst.RightReport
+	}
+	return konst.NoButtonReport
 }
 
 func (t *consoleTTY) size() (width, height int, err error) {
