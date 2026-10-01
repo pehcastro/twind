@@ -104,7 +104,7 @@ func (r *Runtime) Viewport() image.Rectangle { return image.Rect(0, 0, r.width, 
 func (r *Runtime) measure() bool {
 	moved := false
 	for _, e := range r.doc.refs {
-		at, ref := r.sceneOf(e).Bounds, e.node.Measure
+		at, ref := r.doc.sceneOf(e).Bounds, e.node.Measure
 		box := image.Rect(at.X, at.Y, at.X+at.W, at.Y+at.H)
 		moved = moved || box != ref.bounds
 		ref.bounds, ref.frame = box, r.doc.frame
@@ -121,8 +121,8 @@ func (r *Runtime) measure() bool {
 	return moved
 }
 
-func (r *Runtime) sceneOf(e *Elem) *scene.Node {
-	n := &r.scene
+func (d *document) sceneOf(e *Elem) *scene.Node {
+	n := d.scene
 	for _, i := range e.path() {
 		n = &n.Children[i]
 	}
@@ -131,7 +131,7 @@ func (r *Runtime) sceneOf(e *Elem) *scene.Node {
 
 func (r *Runtime) scrolled() {
 	for _, e := range r.doc.scrolls {
-		n, at := r.sceneOf(e), image.Point{}
+		n, at := r.doc.sceneOf(e), image.Point{}
 		if n.Scroll {
 			at = image.Pt(n.Padding.X-n.ScrollContent.X, n.Padding.Y-n.ScrollContent.Y)
 		}

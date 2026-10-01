@@ -291,6 +291,43 @@ func TestScriptWidthsAndButtons(t *testing.T) {
 	}
 }
 
+func TestModifierScript(t *testing.T) {
+	var seen []string
+	app := func(*twi.Runtime) func() twi.Node {
+		return func() twi.Node {
+			record := func(verb string) func(*twi.Event) {
+				return func(e *twi.Event) {
+					seen = append(seen, fmt.Sprintf("%s b%d m%d", verb, e.Mouse.Button, e.Mouse.Modifiers))
+				}
+			}
+			return twi.Element(twi.OnPointerDown(record("down")), twi.OnPointerUp(record("up")), twi.Text("target"))
+		}
+	}
+	script := "size 12x2\nclick shift+left 3 0\ndown ctrl+alt+right 1 0\nup ctrl+alt+right 1 0\nclick 4 0\n"
+	if err := drive.RunScript(strings.NewReader(script), app, t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	left, right, shift, ctrlAlt := input.MouseLeft, input.MouseRight, input.ModShift, input.ModCtrl|input.ModAlt
+	want := []string{
+		fmt.Sprintf("down b%d m%d", left, shift), fmt.Sprintf("up b%d m%d", left, shift),
+		fmt.Sprintf("down b%d m%d", right, ctrlAlt), fmt.Sprintf("up b%d m%d", right, ctrlAlt),
+		fmt.Sprintf("down b%d m0", left), fmt.Sprintf("up b%d m0", left),
+	}
+	if !slices.Equal(seen, want) {
+		t.Errorf("pointer events %q, want %q", seen, want)
+	}
+	for script, want := range map[string]string{
+		"click meta+left 1 1\n":  "line 1: drive: a mouse report carries shift, alt and ctrl only",
+		"click hyper+left 1 1\n": "line 1: drive: unknown modifier \"hyper\"",
+		"click shift+up 1 1\n":   "line 1: drive: unknown button \"up\"",
+		"down shift+left 1\n":    "line 1: drive: down \"1\" is not X Y",
+	} {
+		if err := drive.RunScript(strings.NewReader(script), app, t.TempDir()); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("script %q: error %v, want %q", script, err, want)
+		}
+	}
+}
+
 func TestScriptErrors(t *testing.T) {
 	cases := []struct{ script, want string }{
 		{"size 20x3\npress +\nfly away\n", "line 3: drive: unknown verb \"fly\""},

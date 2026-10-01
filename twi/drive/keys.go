@@ -47,15 +47,22 @@ func parseKey(name string) (input.KeyEvent, error) {
 		}
 		k.Rune = r
 	}
+	var err error
+	k.Modifiers, err = parseModifiers(mods, name)
+	return k, err
+}
+
+func parseModifiers(mods, name string) (input.Modifiers, error) {
 	if mods == "" {
-		return k, nil
+		return 0, nil
 	}
+	var all input.Modifiers
 	for m := range strings.SplitSeq(mods, "+") {
 		bit, ok := modifierNames()[strings.ToLower(m)]
 		if !ok {
-			return input.KeyEvent{}, fmt.Errorf("drive: unknown modifier %q in %q", m, name)
+			return 0, fmt.Errorf("drive: unknown modifier %q in %q", m, name)
 		}
-		k.Modifiers |= bit
+		all |= bit
 	}
-	return k, nil
+	return all, nil
 }

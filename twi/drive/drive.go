@@ -53,6 +53,7 @@ type Driver struct {
 	runErr  error
 	err     error
 	held    input.MouseButton
+	mods    input.Modifiers
 }
 
 func New(app App, opts ...Option) *Driver {
@@ -117,6 +118,14 @@ func (d *Driver) Up(x, y int) { d.UpWith(input.MouseLeft, x, y) }
 
 func (d *Driver) Click(x, y int) { d.ClickWith(input.MouseLeft, x, y) }
 
+func (d *Driver) Hold(m input.Modifiers) {
+	if m&^(input.ModShift|input.ModAlt|input.ModCtrl) != 0 {
+		d.fail(errors.New("drive: a mouse report carries shift, alt and ctrl only"))
+		return
+	}
+	d.mods = m
+}
+
 func (d *Driver) DownWith(b input.MouseButton, x, y int) {
 	if d.button("down", b) {
 		d.held = b
@@ -149,7 +158,7 @@ func (d *Driver) report(verb string, x, y, button int, final byte) {
 		d.fail(fmt.Errorf("drive: %s at %d,%d is off the %dx%d screen", verb, x, y, d.screen.cells.Width(), d.screen.cells.Height()))
 		return
 	}
-	d.feed(fmt.Appendf(nil, "%s<%d;%d;%d%c", ikonst.CSI, button, x+1, y+1, final))
+	d.feed(fmt.Appendf(nil, "%s<%d;%d;%d%c", ikonst.CSI, button|int(d.mods)<<ikonst.MouseModifierShift, x+1, y+1, final))
 }
 
 func (d *Driver) Resize(width, height int) {

@@ -114,6 +114,7 @@ func New(cfg Config) *Runtime {
 		texts: map[string]scene.Text{},
 		stale: map[string]scene.Text{},
 	}
+	r.doc.scene = &r.scene
 	r.sanitize = func(raw string) scene.Text {
 		t, ok := r.texts[raw]
 		if !ok {
@@ -302,7 +303,7 @@ func (r *Runtime) handle(ev input.Event) error {
 func (r *Runtime) activate(ev input.KeyEvent) {
 	current, ok := r.focus.Current()
 	pressed := ev.Key == input.KeyEnter || ev.Key == input.KeyRune && ev.Rune == ' '
-	if ok && pressed && ev.Modifiers == 0 && !ev.Release && len(current.node.Click) > 0 && !r.doc.Disabled(current) {
+	if ok && pressed && ev.Modifiers == 0 && !ev.Release && current.clickable() && !r.doc.Disabled(current) {
 		events.Dispatch(&r.doc, current, &events.Event[*Elem]{Type: events.Click, Key: ev})
 	}
 }
@@ -316,7 +317,7 @@ func (r *Runtime) refocused() {
 
 func (r *Runtime) draw(b Backend, now time.Time) error {
 	if r.pointer.moved {
-		r.hover()
+		r.move()
 		r.dirty = r.changed.Swap(false) || r.dirty
 	}
 	if !r.dirty {

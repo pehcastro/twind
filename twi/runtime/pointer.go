@@ -18,11 +18,14 @@ type pointer struct {
 }
 
 func (r *Runtime) point(ev input.MouseEvent) {
-	r.pointer.at, r.pointer.seen = ev, true
 	if ev.Action == input.MouseMove {
-		r.pointer.moved = true
+		r.pointer.at, r.pointer.seen, r.pointer.moved = ev, true, true
 		return
 	}
+	if r.pointer.moved {
+		r.move()
+	}
+	r.pointer.at, r.pointer.seen = ev, true
 	r.hover()
 	switch ev.Action {
 	case input.MouseScroll:
@@ -34,6 +37,20 @@ func (r *Runtime) point(ev input.MouseEvent) {
 	default:
 		panic(fmt.Sprintf("runtime: unknown mouse action %d", ev.Action))
 	}
+}
+
+func (r *Runtime) move() {
+	r.hover()
+	if target := r.captured(); target != nil {
+		r.send(target, events.PointerMove)
+	}
+}
+
+func (r *Runtime) captured() *Elem {
+	if down := r.pointer.down; down != nil && !r.doc.gone(down) {
+		return down
+	}
+	return r.pointer.over
 }
 
 func (r *Runtime) hover() {
@@ -71,13 +88,14 @@ func (r *Runtime) hover() {
 func (r *Runtime) press(ev input.MouseEvent) {
 	r.pointed = true
 	target := r.pointer.over
+	r.pointer.down = target
 	if ev.Button == input.MouseLeft {
 		r.dirty = r.restyles(r.pointer.pressed, r.pointer.hovered, style.StateActive) || r.dirty
-		r.pointer.pressed, r.pointer.down = r.pointer.hovered, target
+		r.pointer.pressed = r.pointer.hovered
 	}
 	prevented := target != nil && r.send(target, events.PointerDown).DefaultPrevented()
 	if ev.Button == input.MouseLeft {
-		r.pick(ev, prevented || target != nil && len(target.node.Click) > 0)
+		r.pick(ev, prevented || target != nil && target.clickable())
 	}
 	if target == nil {
 		return
@@ -107,19 +125,19 @@ func (r *Runtime) press(ev input.MouseEvent) {
 }
 
 func (r *Runtime) release(ev input.MouseEvent) {
-	target := r.pointer.over
-	if target != nil {
+	over, down := r.pointer.over, r.pointer.down
+	if target := r.captured(); target != nil {
 		r.send(target, events.PointerUp)
 	}
+	r.pointer.down = nil
 	if ev.Button != input.MouseLeft {
 		return
 	}
 	r.sel.dragging, r.sel.active = false, r.sel.shown
 	r.dirty = r.restyles(r.pointer.pressed, nil, style.StateActive) || r.dirty
-	down := r.pointer.down
-	r.pointer.pressed, r.pointer.down = nil, nil
-	if target != nil && target == down && !r.doc.Disabled(target) {
-		r.send(target, events.Click)
+	r.pointer.pressed = nil
+	if over != nil && over == down && !r.doc.Disabled(over) {
+		r.send(over, events.Click)
 	}
 }
 

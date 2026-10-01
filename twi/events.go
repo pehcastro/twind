@@ -20,7 +20,11 @@ func (n *node) behave() *runtime.Node {
 
 func push[T any](list *[]T, item T) { *list = append(*list, item) }
 
-func always(handler func()) listener { return listener{Handle: func(*Event) { handler() }} }
+func (n *node) listen(t events.Type, handler func(*Event)) {
+	push(&n.behave().Listeners, listener{Type: t, Handle: handler})
+}
+
+func always(handler func()) func(*Event) { return func(*Event) { handler() } }
 
 type behaviour func(*runtime.Node)
 
@@ -28,43 +32,55 @@ func (b behaviour) apply(n *node) { b(n.behave()) }
 
 type onKeyDown func(*Event)
 
-func (h onKeyDown) apply(n *node) { push(&n.behave().KeyDown, listener{Handle: h}) }
+func (h onKeyDown) apply(n *node) { n.listen(events.KeyDown, h) }
 
 func OnKeyDown(handler func(*Event)) NodeOption { return onKeyDown(handler) }
 
 type onFocus func()
 
-func (h onFocus) apply(n *node) { push(&n.behave().Focus, always(h)) }
+func (h onFocus) apply(n *node) { n.listen(events.Focus, always(h)) }
 
 func OnFocus(handler func()) NodeOption { return onFocus(handler) }
 
 type onBlur func()
 
-func (h onBlur) apply(n *node) { push(&n.behave().Blur, always(h)) }
+func (h onBlur) apply(n *node) { n.listen(events.Blur, always(h)) }
 
 func OnBlur(handler func()) NodeOption { return onBlur(handler) }
 
 type onClick func(*Event)
 
-func (h onClick) apply(n *node) { push(&n.behave().Click, listener{Handle: h}) }
+func (h onClick) apply(n *node) { n.listen(events.Click, h) }
 
 func OnClick(handler func(*Event)) NodeOption { return onClick(handler) }
 
 type onPointerDown func(*Event)
 
-func (h onPointerDown) apply(n *node) { push(&n.behave().PointerDown, listener{Handle: h}) }
+func (h onPointerDown) apply(n *node) { n.listen(events.PointerDown, h) }
 
 func OnPointerDown(handler func(*Event)) NodeOption { return onPointerDown(handler) }
 
+type onPointerMove func(*Event)
+
+func (h onPointerMove) apply(n *node) { n.listen(events.PointerMove, h) }
+
+func OnPointerMove(handler func(*Event)) NodeOption { return onPointerMove(handler) }
+
+type onPointerUp func(*Event)
+
+func (h onPointerUp) apply(n *node) { n.listen(events.PointerUp, h) }
+
+func OnPointerUp(handler func(*Event)) NodeOption { return onPointerUp(handler) }
+
 type onPointerEnter func()
 
-func (h onPointerEnter) apply(n *node) { push(&n.behave().Enter, always(h)) }
+func (h onPointerEnter) apply(n *node) { n.listen(events.PointerEnter, always(h)) }
 
 func OnPointerEnter(handler func()) NodeOption { return onPointerEnter(handler) }
 
 type onPointerLeave func()
 
-func (h onPointerLeave) apply(n *node) { push(&n.behave().Leave, always(h)) }
+func (h onPointerLeave) apply(n *node) { n.listen(events.PointerLeave, always(h)) }
 
 func OnPointerLeave(handler func()) NodeOption { return onPointerLeave(handler) }
 

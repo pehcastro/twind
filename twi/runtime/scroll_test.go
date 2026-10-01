@@ -128,16 +128,16 @@ func (a *scrollApp) tree() runtime.Tree {
 		if i == a.focused {
 			rows[i].Text += " *"
 		}
-		elems[i] = runtime.Node{At: []int{i}, Focusable: true, Focus: []events.Listener[*runtime.Elem]{{Handle: func(*events.Event[*runtime.Elem]) {
+		elems[i] = runtime.Node{At: []int{i}, Focusable: true, Listeners: []events.Listener[*runtime.Elem]{{Type: events.Focus, Handle: func(*events.Event[*runtime.Elem]) {
 			a.focused = i
 			a.rt.Invalidate()
 		}}}}
 	}
-	elems[consumer].KeyDown = []events.Listener[*runtime.Elem]{{Handle: func(e *events.Event[*runtime.Elem]) {
+	elems[consumer].Listeners = append(elems[consumer].Listeners, events.Listener[*runtime.Elem]{Type: events.KeyDown, Handle: func(e *events.Event[*runtime.Elem]) {
 		if e.Key.Key == input.KeyPageDown {
 			e.PreventDefault()
 		}
-	}}}
+	}})
 	return runtime.Tree{
 		Root: render.Node{Classes: []string{"row"}, Children: []render.Node{
 			{Classes: []string{"col", "h-5", "w-12", "shrink-0", "overflow-y-auto"}, Children: rows},

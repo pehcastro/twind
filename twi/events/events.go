@@ -1,6 +1,10 @@
 package events
 
-import "github.com/twind-dev/twind/twi/input"
+import (
+	"image"
+
+	"github.com/twind-dev/twind/twi/input"
+)
 
 type Type uint8
 
@@ -8,6 +12,7 @@ const (
 	KeyDown Type = iota
 	KeyUp
 	PointerDown
+	PointerMove
 	PointerUp
 	Click
 	PointerOver
@@ -27,6 +32,7 @@ const (
 )
 
 type Listener[N comparable] struct {
+	Type    Type
 	Capture bool
 	Handle  func(*Event[N])
 }
@@ -35,10 +41,11 @@ type Tree[N comparable] interface {
 	Root() N
 	Parent(N) (N, bool)
 	Children(N) []N
-	Listeners(N, Type) []Listener[N]
+	Listeners(N) []Listener[N]
 	Focusable(N) bool
 	TabIndex(N) int
 	Disabled(N) bool
+	Origin(N) image.Point
 }
 
 type Event[N comparable] struct {
@@ -46,10 +53,15 @@ type Event[N comparable] struct {
 	Key   input.KeyEvent
 	Mouse input.MouseEvent
 
+	tree            Tree[N]
 	target, current N
 	phase           Phase
 	prevented       bool
 	stopped         bool
+}
+
+func (e *Event[N]) Offset() image.Point {
+	return image.Pt(e.Mouse.X, e.Mouse.Y).Sub(e.tree.Origin(e.current))
 }
 
 func (e *Event[N]) Target() N              { return e.target }
@@ -61,7 +73,7 @@ func (e *Event[N]) StopPropagation()       { e.stopped = true }
 
 func (k Type) bubbles() bool {
 	switch k {
-	case KeyDown, KeyUp, PointerDown, PointerUp, Click, PointerOver, PointerOut:
+	case KeyDown, KeyUp, PointerDown, PointerMove, PointerUp, Click, PointerOver, PointerOut:
 		return true
 	case PointerEnter, PointerLeave, Focus, Blur:
 		return false
@@ -74,8 +86,7 @@ func Dispatch[N comparable](t Tree[N], target N, e *Event[N]) {
 	for n, ok := t.Parent(target); ok; n, ok = t.Parent(n) {
 		path = append(path, n)
 	}
-	e.target = target
-	e.phase = Capture
+	e.tree, e.target, e.phase = t, target, Capture
 	for i := len(path) - 1; i > 0; i-- {
 		if !e.run(t, path[i], true) {
 			return
@@ -95,8 +106,8 @@ func Dispatch[N comparable](t Tree[N], target N, e *Event[N]) {
 
 func (e *Event[N]) run(t Tree[N], n N, capture bool) bool {
 	e.current = n
-	for _, l := range t.Listeners(n, e.Type) {
-		if l.Capture != capture {
+	for _, l := range t.Listeners(n) {
+		if l.Type != e.Type || l.Capture != capture {
 			continue
 		}
 		l.Handle(e)

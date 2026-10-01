@@ -1,6 +1,7 @@
 package events
 
 import (
+	"image"
 	"slices"
 	"testing"
 
@@ -13,18 +14,19 @@ type testNode struct {
 	tab       int
 	focusable bool
 	disabled  bool
-	listeners map[Type][]Listener[string]
+	listeners []Listener[string]
 }
 
 type testTree map[string]testNode
 
-func (t testTree) Root() string                                  { return "root" }
-func (t testTree) Parent(n string) (string, bool)                { return t[n].parent, t[n].parent != "" }
-func (t testTree) Children(n string) []string                    { return t[n].children }
-func (t testTree) Listeners(n string, k Type) []Listener[string] { return t[n].listeners[k] }
-func (t testTree) Focusable(n string) bool                       { return t[n].focusable }
-func (t testTree) TabIndex(n string) int                         { return t[n].tab }
-func (t testTree) Disabled(n string) bool                        { return t[n].disabled }
+func (t testTree) Root() string                          { return "root" }
+func (t testTree) Parent(n string) (string, bool)        { return t[n].parent, t[n].parent != "" }
+func (t testTree) Children(n string) []string            { return t[n].children }
+func (t testTree) Listeners(n string) []Listener[string] { return t[n].listeners }
+func (t testTree) Focusable(n string) bool               { return t[n].focusable }
+func (t testTree) TabIndex(n string) int                 { return t[n].tab }
+func (t testTree) Disabled(n string) bool                { return t[n].disabled }
+func (t testTree) Origin(string) image.Point             { return image.Point{} }
 
 func (t testTree) add(parent, id string, n testNode) {
 	n.parent = parent
@@ -45,10 +47,7 @@ func (t testTree) detach(id string) {
 
 func (t testTree) listen(id string, k Type, capture bool, handle func(*Event[string])) {
 	n := t[id]
-	if n.listeners == nil {
-		n.listeners = map[Type][]Listener[string]{}
-	}
-	n.listeners[k] = append(n.listeners[k], Listener[string]{Capture: capture, Handle: handle})
+	n.listeners = append(n.listeners, Listener[string]{Type: k, Capture: capture, Handle: handle})
 	t[id] = n
 }
 

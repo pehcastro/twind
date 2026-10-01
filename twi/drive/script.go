@@ -75,14 +75,13 @@ func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {
 				d.Move(x, y)
 			}
 		case "down", "up", "click":
-			name, point, _ := strings.Cut(arg, " ")
-			button, named := map[string]input.MouseButton{"left": input.MouseLeft, "middle": input.MouseMiddle, "right": input.MouseRight}[name]
-			if !named {
-				button, point = input.MouseLeft, arg
-			}
+			var button input.MouseButton
+			var mods input.Modifiers
 			var x, y int
-			if x, y, err = parsePoint(verb, point); err == nil {
+			if button, mods, x, y, err = parseButton(verb, arg); err == nil {
+				d.Hold(mods)
 				map[string]func(input.MouseButton, int, int){"down": d.DownWith, "up": d.UpWith, "click": d.ClickWith}[verb](button, x, y)
+				d.Hold(0)
 			}
 		case "frame":
 			err = writeFrame(d.Frame(), out, arg)
@@ -131,6 +130,26 @@ func parseWheel(arg string) (notches, x, y int, err error) {
 		return 0, 0, 0, fmt.Errorf("drive: wheel %q is not up|down X Y", arg)
 	}
 	return notches, x, y, nil
+}
+
+func parseButton(verb, arg string) (b input.MouseButton, m input.Modifiers, x, y int, err error) {
+	name, point, _ := strings.Cut(arg, " ")
+	mods, button := "", name
+	if i := strings.LastIndex(name, "+"); i >= 0 {
+		mods, button = name[:i], name[i+1:]
+	}
+	b, named := map[string]input.MouseButton{"left": input.MouseLeft, "middle": input.MouseMiddle, "right": input.MouseRight}[button]
+	switch {
+	case !named && mods != "":
+		return 0, 0, 0, 0, fmt.Errorf("drive: unknown button %q in %q", button, name)
+	case !named:
+		b, point = input.MouseLeft, arg
+	}
+	if m, err = parseModifiers(mods, name); err != nil {
+		return 0, 0, 0, 0, err
+	}
+	x, y, err = parsePoint(verb, point)
+	return b, m, x, y, err
 }
 
 func parsePoint(verb, arg string) (x, y int, err error) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/twind-dev/twind/twi/events"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/runtime"
 )
@@ -86,19 +87,22 @@ func TestEmptyClassesAndLeavesStayNil(t *testing.T) {
 	}
 }
 
-func TestEachHandlerLandsInItsOwnList(t *testing.T) {
+func TestEachHandlerLandsWithItsType(t *testing.T) {
 	var got []string
 	call := func(name string) func() { return func() { got = append(got, name) } }
 	event := func(name string) func(*Event) { return func(*Event) { got = append(got, name) } }
 	e := Element(OnKeyDown(event("keydown")), OnFocus(call("focus")), OnBlur(call("blur")), OnClick(event("click")),
-		OnPointerDown(event("pointerdown")), OnPointerEnter(call("enter")), OnPointerLeave(call("leave")),
+		OnPointerDown(event("pointerdown")), OnPointerMove(event("pointermove")), OnPointerUp(event("pointerup")),
+		OnPointerEnter(call("enter")), OnPointerLeave(call("leave")),
 		OnPointerDownOutside(call("downoutside")), OnFocusOutside(call("focusoutside")), TopLayer(), Disabled()).runtimeTree()
 	ev := e.Events
-	for _, list := range [][]listener{ev.KeyDown, ev.Focus, ev.Blur, ev.Click, ev.PointerDown, ev.Enter, ev.Leave} {
-		if len(list) != 1 {
-			t.Fatalf("a listener list holds %d, want 1", len(list))
-		}
-		list[0].Handle(nil)
+	var types []events.Type
+	for _, l := range ev.Listeners {
+		types = append(types, l.Type)
+		l.Handle(nil)
+	}
+	if want := []events.Type{events.KeyDown, events.Focus, events.Blur, events.Click, events.PointerDown, events.PointerMove, events.PointerUp, events.PointerEnter, events.PointerLeave}; !slices.Equal(types, want) {
+		t.Errorf("listener types %v, want %v", types, want)
 	}
 	for _, list := range [][]func(){ev.PointerDownOutside, ev.FocusOutside} {
 		if len(list) != 1 {
@@ -106,7 +110,7 @@ func TestEachHandlerLandsInItsOwnList(t *testing.T) {
 		}
 		list[0]()
 	}
-	if want := []string{"keydown", "focus", "blur", "click", "pointerdown", "enter", "leave", "downoutside", "focusoutside"}; !slices.Equal(got, want) {
+	if want := []string{"keydown", "focus", "blur", "click", "pointerdown", "pointermove", "pointerup", "enter", "leave", "downoutside", "focusoutside"}; !slices.Equal(got, want) {
 		t.Errorf("handlers ran %q, want %q", got, want)
 	}
 	if !ev.TopLayer || !ev.Disabled || e.Root.TopLayer != 1 || e.Root.State == nil {

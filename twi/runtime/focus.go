@@ -6,6 +6,7 @@ import (
 
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/events"
+	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 )
 
@@ -24,8 +25,7 @@ type Node struct {
 	TopLayer                         bool
 	Scope                            Scope
 	Measure                          *Ref
-	KeyDown, Focus, Blur             []events.Listener[*Elem]
-	Click, Enter, Leave, PointerDown []events.Listener[*Elem]
+	Listeners                        []events.Listener[*Elem]
 	PointerDownOutside, FocusOutside []func()
 	Scroll                           []func(image.Point)
 	Children                         []Node
@@ -42,6 +42,7 @@ type Elem struct {
 
 type document struct {
 	root    *Elem
+	scene   *scene.Node
 	frame   uint64
 	scopes  []*Elem
 	opened  []*Elem
@@ -56,33 +57,22 @@ type document struct {
 
 type entered struct{ scope, previous *Elem }
 
-func (d *document) Root() *Elem                  { return d.root }
-func (d *document) Parent(e *Elem) (*Elem, bool) { return e.parent, e.parent != nil }
-func (d *document) Children(e *Elem) []*Elem     { return e.children }
-func (d *document) Focusable(e *Elem) bool       { return e.frame == d.frame && e.node.Focusable }
-func (d *document) TabIndex(*Elem) int           { return 0 }
-func (d *document) Disabled(e *Elem) bool        { return e.node.Disabled }
-func (d *document) gone(e *Elem) bool            { return e.frame != d.frame }
-func (d *document) Listeners(e *Elem, t events.Type) []events.Listener[*Elem] {
-	switch t {
-	case events.KeyDown:
-		return e.node.KeyDown
-	case events.Focus:
-		return e.node.Focus
-	case events.Blur:
-		return e.node.Blur
-	case events.Click:
-		return e.node.Click
-	case events.PointerEnter:
-		return e.node.Enter
-	case events.PointerLeave:
-		return e.node.Leave
-	case events.PointerDown:
-		return e.node.PointerDown
-	case events.KeyUp, events.PointerUp, events.PointerOver, events.PointerOut:
-		return nil
-	}
-	panic("runtime: unknown event type")
+func (d *document) Root() *Elem                                { return d.root }
+func (d *document) Parent(e *Elem) (*Elem, bool)               { return e.parent, e.parent != nil }
+func (d *document) Children(e *Elem) []*Elem                   { return e.children }
+func (d *document) Focusable(e *Elem) bool                     { return e.frame == d.frame && e.node.Focusable }
+func (d *document) TabIndex(*Elem) int                         { return 0 }
+func (d *document) Disabled(e *Elem) bool                      { return e.node.Disabled }
+func (d *document) gone(e *Elem) bool                          { return e.frame != d.frame }
+func (d *document) Listeners(e *Elem) []events.Listener[*Elem] { return e.node.Listeners }
+
+func (d *document) Origin(e *Elem) image.Point {
+	at := d.sceneOf(e).Bounds
+	return image.Pt(at.X, at.Y)
+}
+
+func (e *Elem) clickable() bool {
+	return slices.ContainsFunc(e.node.Listeners, func(l events.Listener[*Elem]) bool { return l.Type == events.Click })
 }
 
 func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
