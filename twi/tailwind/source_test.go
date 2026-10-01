@@ -241,8 +241,8 @@ func TestStaleWhenCompilerOutputChanges(t *testing.T) {
 }
 
 func TestInput(t *testing.T) {
-	css := Input([]string{`C:\tmp\twirgen\manifest.txt`})
-	for _, want := range []string{`@import "tailwindcss" source(none);`, `@source "C:/tmp/twirgen/manifest.txt";`, "--spacing: 1px;"} {
+	css := Input([]string{filepath.Join("tmp", "twirgen", "manifest.txt")})
+	for _, want := range []string{`@import "tailwindcss" source(none);`, `@source "tmp/twirgen/manifest.txt";`, "--spacing: 1px;"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("input css lacks %q:\n%s", want, css)
 		}
