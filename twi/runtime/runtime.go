@@ -402,7 +402,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 			r.screen.Covers = c.Covers
 		}
 	}
-	r.screen.Cell, r.screen.Widths, r.screen.Font, r.screen.Workers = cell, r.caps.Widths, r.caps.Font, 0
+	r.screen.Cell, r.screen.Widths, r.screen.Font, r.screen.Identity, r.screen.Workers = cell, r.caps.Widths, r.caps.Font, r.caps.Identity, 0
 	if r.moving {
 		r.screen.Workers = 1
 	}

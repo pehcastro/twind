@@ -37,6 +37,7 @@ type Screen struct {
 	Widths   text.Widths
 	Font     terminal.Font
 	Covers   func(cluster string) bool
+	Identity terminal.Identity
 	Workers  int
 
 	cols, rows        int
@@ -176,7 +177,7 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	case s.Graphics == terminal.GraphicsNone:
 		look = paint.Composited
 	}
-	s.painter.Widths, s.painter.Profile, s.painter.Covers, s.imageBytes = s.Widths, s.Profile, s.Covers, 0
+	s.painter.Widths, s.painter.Profile, s.painter.Covers, s.painter.Identity, s.imageBytes = s.Widths, s.Profile, s.Covers, s.Identity, 0
 	s.pageBg, s.page = color.Color{}, 0
 	if bg := root.Background; s.Graphics == terminal.GraphicsSixel && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
 		s.pageBg, s.page = bg, uint32(bg.RGBA.R)|uint32(bg.RGBA.G)<<8|uint32(bg.RGBA.B)<<16|math.MaxUint8<<24

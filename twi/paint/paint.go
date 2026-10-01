@@ -16,6 +16,7 @@ import (
 	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/terminal"
 	"github.com/twind-dev/twind/twi/text"
 	"github.com/twind-dev/twind/twi/theme"
 )
@@ -39,9 +40,11 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 	var line color.Color
 	halo := false
 	for i := len(shadows) - 1; i >= 0; i-- {
-		s := shadows[i]
-		left, top, right, bottom := reach(s)
-		cast := layout.Rect{X: body.X - left, Y: body.Y - top, W: body.W + left + right, H: body.H + top + bottom}
+		s, cast := shadows[i], p.cast(body, shadows[i])
+		if p.soft(s) {
+			shade(buf, clip, cast, body, s)
+			continue
+		}
 		switch hairline := shadow(buf, clip, cast, body, s, false); {
 		case hairline && (!shape || s.Token != theme.Border && s.Token != theme.Input):
 			line = s.Color
@@ -118,6 +121,79 @@ func whole(v float64) int {
 func reach(s style.Shadow) (left, top, right, bottom int) {
 	d := depth(s)
 	return whole(d[3]), whole(d[0]), whole(d[1]), whole(d[2])
+}
+
+func (p *Painter) soft(s style.Shadow) bool {
+	return p.Identity == terminal.IdentityZed && (s.X != 0 || s.Y != 0 || s.Blur != 0)
+}
+
+func (p *Painter) cast(body layout.Rect, s style.Shadow) layout.Rect {
+	left, top, right, bottom := reach(s)
+	if p.soft(s) {
+		d := depth(s)
+		top, right, bottom, left = shades(d[0]), shades(d[1]), shades(d[2]), shades(d[3])
+	}
+	return layout.Rect{X: body.X - left, Y: body.Y - top, W: body.W + left + right, H: body.H + top + bottom}
+}
+
+const within = 3
+
+func level(depth float64, cell int) int {
+	switch c := depth - float64(cell-1); {
+	case c >= konst.ShadeDark:
+		return 2
+	case c >= konst.ShadeLight, cell > 1 && c+1 >= konst.ShadeDark:
+		return 1
+	}
+	return 0
+}
+
+func shades(depth float64) int {
+	cells := 0
+	for level(depth, cells+1) > 0 {
+		cells++
+	}
+	if cells == 0 {
+		return min(whole(depth), 0)
+	}
+	return cells
+}
+
+func shade(buf *buffer.Buffer, clip, cast, body layout.Rect, s style.Shadow) {
+	if s.Color.Kind != color.Literal || s.Color.RGBA.A == 0 {
+		return
+	}
+	ink := s.Color
+	ink.RGBA.A = uint8(min(float64(ink.RGBA.A)/konst.MediumShadeAlpha, math.MaxUint8))
+	d := depth(s)
+	axis := func(before, after float64, v, start, size int) int {
+		switch {
+		case v < start:
+			return level(before, start-v)
+		case v >= start+size:
+			return level(after, v-start-size+1)
+		}
+		return within
+	}
+	glyphs := [...]string{1: konst.LightShade, 2: konst.MediumShade}
+	area := overlap(cast, clip)
+	for y := area.Y; y < area.Y+area.H; y++ {
+		for x := area.X; x < area.X+area.W; x++ {
+			h, v := axis(d[3], d[1], x, body.X, body.W), axis(d[0], d[2], y, body.Y, body.H)
+			step := min(h, v)
+			if h != within && v != within {
+				step--
+			}
+			if step <= 0 || step == within || !visible(buf, clip, x, y) {
+				continue
+			}
+			dst := buf.At(x, y)
+			if dst.Grapheme != " " && (dst.Grapheme != konst.LightShade || step < 2) {
+				continue
+			}
+			buf.Set(x, y, buffer.Cell{Grapheme: glyphs[step], Fg: over(ink, dst.Bg), Bg: dst.Bg})
+		}
+	}
 }
 
 func gradient(buf *buffer.Buffer, n *scene.Node, fill layout.Rect, look Look, clip layout.Rect) {

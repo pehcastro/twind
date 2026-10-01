@@ -12,6 +12,7 @@ import (
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/terminal"
 	"github.com/twind-dev/twind/twi/text"
 )
 
@@ -19,6 +20,7 @@ type Painter struct {
 	Widths                 text.Widths
 	Profile                color.Profile
 	Covers                 func(cluster string) bool
+	Identity               terminal.Identity
 	buf                    *buffer.Buffer
 	width, height, columns int
 	seed                   maphash.Seed
@@ -145,7 +147,7 @@ func (p *Painter) preorder(n *scene.Node, screen layout.Rect) {
 	case p.shapes[i] != s:
 		p.shapes[i], p.reshaped = s, true
 	}
-	p.nodes, p.areas = append(p.nodes, n), append(p.areas, overlap(overlap(extent(n), n.Clip), screen))
+	p.nodes, p.areas = append(p.nodes, n), append(p.areas, overlap(overlap(p.extent(n), n.Clip), screen))
 	for i := range n.Children {
 		p.preorder(&n.Children[i], screen)
 	}
@@ -232,12 +234,12 @@ func (p *Painter) mark(area layout.Rect, h uint64, wide bool) {
 
 func mix(h, v uint64) uint64 { return bits.RotateLeft64((h^v)*konst.HashPrime, konst.HashRotate) }
 
-func extent(n *scene.Node) layout.Rect {
+func (p *Painter) extent(n *scene.Node) layout.Rect {
 	r := n.Bounds
 	x0, y0, x1, y1 := r.X, r.Y, r.X+r.W, r.Y+r.H
 	for _, s := range n.Shadows {
-		left, top, right, bottom := reach(s)
-		x0, y0, x1, y1 = min(x0, r.X-left), min(y0, r.Y-top), max(x1, r.X+r.W+right), max(y1, r.Y+r.H+bottom)
+		c := p.cast(r, s)
+		x0, y0, x1, y1 = min(x0, c.X), min(y0, c.Y), max(x1, c.X+c.W), max(y1, c.Y+c.H)
 	}
 	return layout.Rect{X: x0, Y: y0, W: x1 - x0, H: y1 - y0}
 }
