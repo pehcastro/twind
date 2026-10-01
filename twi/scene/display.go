@@ -138,13 +138,12 @@ func (f *Frame) shapes(n *Node, bounds, visual image.Rectangle, origin image.Poi
 	if len(f.ops) == start || n.Turn == 0 {
 		return visual
 	}
-	sin, cos := math.Sincos(n.Turn * 2 * math.Pi)
-	cx, cy := shape.X+shape.W/2, shape.Y+shape.H/2
-	x, y := float64(visual.Min.X+visual.Max.X)/2-cx, float64(visual.Min.Y+visual.Max.Y)/2-cy
-	x, y = cx+x*cos-y*sin, cy+x*sin+y*cos
-	w, h := float64(visual.Dx())/2, float64(visual.Dy())/2
-	reachX, reachY := w*math.Abs(cos)+h*math.Abs(sin), w*math.Abs(sin)+h*math.Abs(cos)
-	return image.Rect(int(math.Floor(x-reachX)), int(math.Floor(y-reachY)), int(math.Ceil(x+reachX)), int(math.Ceil(y+reachY)))
+	centre := raster.Point{X: shape.X + shape.W/2, Y: shape.Y + shape.H/2}
+	for i := start; i < len(f.ops); i++ {
+		op := &f.ops[i]
+		op.Turn, op.Pivot = n.Turn, raster.Point{X: centre.X - op.Box.X - op.Box.W/2, Y: centre.Y - op.Box.Y - op.Box.H/2}
+	}
+	return raster.Turned(visual, n.Turn, centre)
 }
 
 func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point, round int32) (image.Rectangle, bool) {

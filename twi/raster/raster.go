@@ -16,6 +16,8 @@ import (
 
 type Rect struct{ X, Y, W, H float64 }
 
+type Point struct{ X, Y float64 }
+
 type Box struct {
 	Rect
 	Radii [4]float64
@@ -52,6 +54,8 @@ type Op struct {
 	Dash    Dash
 	Shadow  BoxShadow
 	Opacity float64
+	Turn    float64
+	Pivot   Point
 }
 
 type layer struct {
@@ -95,6 +99,8 @@ type Raster struct {
 	strips   []strip
 	corners  [4]corner
 	sides    [2]side
+	inner    *Raster
+	spun     image.RGBA
 }
 
 func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
@@ -114,6 +120,10 @@ func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
 	r.layers = append(r.layers[:0], layer{img: dst, clip: tile, opacity: 1})
 	for i, op := range ops {
 		r.index = i
+		if op.Turn != 0 && op.Kind <= Shadow {
+			r.turn(op)
+			continue
+		}
 		switch op.Kind {
 		case Fill:
 			r.fill(op)
@@ -160,7 +170,7 @@ func covers(ops []Op, tile image.Rectangle) bool {
 	}
 	op := ops[0]
 	b := op.Box
-	return op.Kind == Fill && len(op.Stops) == 0 && op.Color.A == math.MaxUint8 && b.Radii == [4]float64{} &&
+	return op.Kind == Fill && op.Turn == 0 && len(op.Stops) == 0 && op.Color.A == math.MaxUint8 && b.Radii == [4]float64{} &&
 		b.X <= float64(tile.Min.X) && b.Y <= float64(tile.Min.Y) && b.X+b.W >= float64(tile.Max.X) && b.Y+b.H >= float64(tile.Max.Y)
 }
 

@@ -88,7 +88,7 @@ func (s *Screen) canonical(key []byte, b *scene.Box) []byte {
 			inset = 1
 		}
 		key = binary.AppendUvarint(append(key, byte(op.Kind), byte(op.Dash), inset, op.Color.R, op.Color.G, op.Color.B, op.Color.A), uint64(len(op.Stops)))
-		number(x, y, op.Box.W, op.Box.H, r[0], r[1], r[2], r[3], op.Angle, op.Width, op.Opacity, op.Shadow.X, op.Shadow.Y, op.Shadow.Blur, op.Shadow.Spread)
+		number(x, y, op.Box.W, op.Box.H, r[0], r[1], r[2], r[3], op.Angle, op.Width, op.Opacity, op.Shadow.X, op.Shadow.Y, op.Shadow.Blur, op.Shadow.Spread, op.Turn, op.Pivot.X, op.Pivot.Y)
 		for _, stop := range op.Stops {
 			key = append(key, stop.Color.R, stop.Color.G, stop.Color.B, stop.Color.A)
 			number(stop.At)
@@ -284,7 +284,7 @@ func (s *Screen) share() int {
 func shareKey(key []byte, ops []raster.Op, canvas image.Rectangle) ([]byte, bool) {
 	margin := 0.0
 	for _, op := range ops {
-		if op.Kind > raster.Shadow || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset {
+		if op.Kind > raster.Shadow || op.Turn != 0 || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset {
 			return key, false
 		}
 		r, sh := op.Box.Radii, op.Shadow
@@ -494,7 +494,7 @@ func plan(drawn []bool, ops []raster.Op) {
 		}
 		top, bottom := max(fit*max(r[0], r[1]), op.Width), max(fit*max(r[2], r[3]), op.Width)
 		switch {
-		case op.Kind == raster.Opacity || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset:
+		case op.Kind == raster.Opacity || op.Turn != 0 || len(op.Stops) > 0 || op.Dash != raster.Solid || op.Shadow.Inset:
 			mark(0, float64(h))
 		case op.Kind == raster.Fill && r == [4]float64{} && b.Y <= 0 && b.Y+b.H >= float64(h):
 			continue

@@ -23,6 +23,11 @@ func (r *Raster) plan(ops []Op, tile image.Rectangle) {
 	for i, op := range ops {
 		f := r.frames[len(r.frames)-1]
 		c := f.clip
+		if op.Turn != 0 && op.Kind <= Shadow {
+			s := turning(op)
+			r.band(Turned(upright(op), op.Turn, Point{s.cx, s.cy}).Intersect(c), 1, 0)
+			continue
+		}
 		switch op.Kind {
 		case Fill:
 			b := op.Box.fit()
