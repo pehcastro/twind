@@ -22,6 +22,7 @@ import (
 	"github.com/twind-dev/twind/docs"
 	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/markdown"
 	"github.com/twind-dev/twind/twi/tailwind"
@@ -473,6 +474,62 @@ func TestLink(t *testing.T) {
 	if got := breadcrumb(t, d); !strings.Contains(got, "Getting started › Installation") {
 		t.Errorf("a click on the Installation link: breadcrumb %q", got)
 	}
+}
+
+func highlightedSidebarRows(t *testing.T, d *drive.Driver) []string {
+	t.Helper()
+	crumb, y := spot(t, d, "Docs ›")
+	right := slices.Index([]rune(strings.Split(d.Frame().Text(), "\n")[y])[:crumb], '│')
+	_, header := spot(t, d, "Search documentation")
+	type row struct {
+		text string
+		bg   color.Color
+	}
+	cells, count := d.Frame().Cells(), map[color.Color]int{}
+	var rows []row
+	for y := header + 2; y < cells.Height(); y++ {
+		var text strings.Builder
+		for x := range right {
+			text.WriteString(cells.At(x, y).Grapheme)
+		}
+		if lead := len(text.String()) - len(strings.TrimLeft(text.String(), " ")); lead < right {
+			rows = append(rows, row{strings.TrimSpace(text.String()), cells.At(lead, y).Bg})
+			count[cells.At(lead, y).Bg]++
+		}
+	}
+	var plain color.Color
+	for bg, n := range count {
+		if n > count[plain] {
+			plain = bg
+		}
+	}
+	var lit []string
+	for _, r := range rows {
+		if r.bg != plain {
+			lit = append(lit, r.text)
+		}
+	}
+	return lit
+}
+
+func TestPaletteMovesTheSidebarHighlight(t *testing.T) {
+	d := open(t)
+	d.Click(spot(t, d, "Installation"))
+	if got := highlightedSidebarRows(t, d); !slices.Equal(got, []string{"Installation"}) {
+		t.Fatalf("after a click on Installation: highlighted sidebar rows %q\n%s", got, d.Frame().Text())
+	}
+	d.Press("ctrl+k")
+	d.Type("card")
+	d.Advance(settle)
+	d.Press("enter")
+	d.Advance(settle)
+	if got := breadcrumb(t, d); !strings.HasSuffix(got, "› Card") {
+		t.Fatalf("Ctrl+K, card, Enter: breadcrumb %q\n%s", got, d.Frame().Text())
+	}
+	if got := highlightedSidebarRows(t, d); !slices.Equal(got, []string{"Card"}) {
+		t.Errorf("Ctrl+K, card, Enter: highlighted sidebar rows %q, want only Card\n%s", got, d.Frame().Text())
+	}
+	t.Logf("card through the palette:\n%s", d.Frame().Text())
 }
 
 func BenchmarkFirstFrame(b *testing.B) {

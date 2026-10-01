@@ -48,6 +48,7 @@ type site struct {
 	area, body          *twi.Ref
 	heads               map[string]*twi.Ref
 	page, theme, trying int
+	heldRow, returnRow  int
 	scheme              theme.Scheme
 	section             int
 	picker              bool
@@ -92,6 +93,7 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 		area:    twi.NewRef(rt),
 		body:    twi.NewRef(rt),
 		heads:   map[string]*twi.Ref{},
+		heldRow: -1, returnRow: -1,
 	}
 }
 
@@ -208,6 +210,7 @@ func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
 	s.palette.OnSelect = func(value string) {
 		if i := slices.IndexFunc(s.entries, func(e entry) bool { return e.title == value }); i >= 0 {
 			s.open(i)
+			s.returnRow = s.heldRow
 		}
 		if i := slices.IndexFunc(s.themes, func(t theme.Theme) bool { return t.Name == value }); i >= 0 {
 			s.theme = i
@@ -293,7 +296,12 @@ func (s *site) nav() twi.Node {
 			at, e := i, s.entries[i]
 			if fold.Open {
 				items = append(items, ui.SidebarMenuButton(ui.SizeDefault, i == s.page,
-					twi.Key("nav-"+e.slug), twi.OnClick(func(*twi.Event) { s.open(at) }), twi.Text(e.title)))
+					twi.Key("nav-"+e.slug), twi.OnClick(func(*twi.Event) { s.open(at) }), twi.Text(e.title),
+					twi.OnFocus(func() { s.focusRow(at) }), twi.OnBlur(func() {
+						if !s.palette.Open {
+							s.heldRow = -1
+						}
+					})))
 			}
 		}
 		chevron := map[bool]string{true: "⌄", false: "›"}[fold.Open]
@@ -303,6 +311,17 @@ func (s *site) nav() twi.Node {
 		))
 	}
 	return s.sidebar.Node(ui.SidebarContent(append(groups, twi.Class("gap-2 py-1"))...))
+}
+
+func (s *site) focusRow(at int) {
+	s.heldRow = at
+	if at != s.returnRow {
+		return
+	}
+	s.returnRow = -1
+	if at != s.page {
+		s.rt.Focus("nav-" + s.entries[s.page].slug)
+	}
 }
 
 func (s *site) content(e entry) twi.Node {
