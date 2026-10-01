@@ -128,6 +128,29 @@ func TestDoctorNamesEachIdentity(t *testing.T) {
 	identityName(terminal.IdentityZed + 1)
 }
 
+func TestDoctorFixesOnlyTheInboxConPTY(t *testing.T) {
+	for _, identity := range []terminal.Identity{terminal.IdentityConhost, terminal.IdentityZed, terminal.IdentityOther} {
+		if got := identityFix(identity); got != "" {
+			t.Errorf("identity %d: fix %q, want none", identity, got)
+		}
+	}
+	fix := identityFix(terminal.IdentityInboxConPTY)
+	for _, want := range []string{"mouse", "images", "colour replies", "conpty.dll", "OpenConsole.exe", "beside the terminal's exe", "Windows Terminal", "WezTerm", "MSYS=disable_pcon"} {
+		if !strings.Contains(fix, want) {
+			t.Errorf("fix %q lacks %q", fix, want)
+		}
+	}
+	if lines := strings.Count(fix, "\n"); lines == 0 || lines > 6 || !strings.HasSuffix(fix, "\n") {
+		t.Errorf("fix is %d lines, want 1 to 6 ending in a newline: %q", lines, fix)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an unknown identity did not panic")
+		}
+	}()
+	identityFix(terminal.IdentityZed + 1)
+}
+
 func TestDoctorReportNamesUnknowns(t *testing.T) {
 	out := answerLines(answers{widths: []int{0, 2}}, []string{"a", "b"})
 	for _, line := range []string{"terminal   no answer\n", "secondary  no answer\n", "truecolor  false\n", "clipboard  false\n", "pointer    no answer\n", "grid       no answer\n", "kitty      raw no answer, zlib no answer\n", "glyphs     a ? b 2\n"} {
