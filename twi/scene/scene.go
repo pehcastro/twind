@@ -18,28 +18,28 @@ type Border struct {
 
 type Node struct {
 	Bounds                                 layout.Rect
-	Padding                                layout.Rect
-	Content                                layout.Rect
 	Clip                                   layout.Rect
-	Position                               layout.Position
+	Children                               []Node
 	ZIndex                                 int
 	TopLayer                               int
-	Visibility                             style.Visibility
-	PointerEvents                          style.PointerEvents
 	Opacity                                float64
 	Turn                                   float64
+	Position                               layout.Position
 	Scroll                                 bool
 	HidesOverflow                          bool
-	ScrollContent                          layout.Rect
 	Background                             color.Color
-	Gradient                               style.Gradient
 	Border                                 Border
 	Shadows, InsetShadows                  []style.Shadow
+	Gradient                               style.Gradient
+	Padding                                layout.Rect
+	Content                                layout.Rect
+	ScrollContent                          layout.Rect
+	Visibility                             style.Visibility
+	PointerEvents                          style.PointerEvents
 	Foreground                             color.Color
 	Bold, Italic, Underline, Strikethrough bool
 	TextAlign                              style.TextAlign
 	Truncate, NoWrap                       bool
-	Children                               []Node
 	text                                   Text
 	wrapping                               text.Wrapping
 }

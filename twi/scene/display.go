@@ -15,32 +15,81 @@ import (
 	"github.com/twind-dev/twind/twi/style"
 )
 
-func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
-	edges := &n.Border
-	bordered := edges.Style != style.BorderNone && shows(edges.Color)
-	if !bordered && !shows(n.Background) && len(n.Shadows)+len(n.InsetShadows) == 0 && n.Gradient.Kind != style.GradientLinear {
-		return image.Rectangle{}, false
+func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image.Rectangle) (image.Rectangle, uint64, bool) {
+	if !paints(n) {
+		return image.Rectangle{}, 0, false
 	}
-	start := len(f.ops)
 	bounds := f.pixels(n.Bounds).Sub(origin)
 	if bounds.Empty() {
-		return bounds, false
+		return bounds, 0, false
 	}
+	start, plain := len(f.ops), n != f.root && n.Gradient.Kind != style.GradientLinear && n.Turn == 0
+	var st *stamp
+	hit, visual := false, bounds
+	if len(n.Shadows) > 0 {
+		visual = f.cast(bounds, n.Shadows)
+	}
+	if plain {
+		st = f.stamps.find(n, bounds.Size())
+		hit = st.holds(&f.stamps, n, bounds.Size(), visual.Sub(bounds.Min))
+	}
+	if hit {
+		x, y := float64(bounds.Min.X), float64(bounds.Min.Y)
+		for i := st.from; i < st.to; i++ {
+			f.ops = append(f.ops, f.stamps.ops[i])
+			op := &f.ops[len(f.ops)-1]
+			op.Box.X += x
+			op.Box.Y += y
+		}
+	} else if visual = f.shapes(n, bounds, visual, origin); len(f.ops) == start {
+		return visual, 0, false
+	}
+	drawn, ok := len(f.ops), true
+	if clip := f.pixels(n.Clip); clip != layerClip || round != 0 {
+		visual, ok = f.clip(start, visual, clip, layerClip, origin, round)
+	}
+	switch {
+	case !ok:
+		return visual, 0, false
+	case hit && len(f.ops) == drawn:
+		return visual, st.look, true
+	}
+	look := f.looks.look(f.ops[start:], visual)
+	if plain && len(f.ops) == drawn {
+		f.stamps.keep(st, n, f.ops[start:], bounds, visual, look)
+	}
+	return visual, look, true
+}
+
+func (f *Frame) cast(bounds image.Rectangle, shadows []style.Shadow) image.Rectangle {
+	visual, shape := bounds, rect(bounds)
+	for i := len(shadows) - 1; i >= 0; i-- {
+		if s := &shadows[i]; shows(s.Color) {
+			cast := f.shadow(*s)
+			reach := cast.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + cast.Spread
+			visual = visual.Union(image.Rect(
+				int(math.Floor(shape.X+cast.X-reach)), int(math.Floor(shape.Y+cast.Y-reach)),
+				int(math.Ceil(shape.X+shape.W+cast.X+reach)), int(math.Ceil(shape.Y+shape.H+cast.Y+reach)),
+			))
+		}
+	}
+	return visual
+}
+
+func paints(n *Node) bool {
+	return bordered(&n.Border) || shows(n.Background) || len(n.Shadows)+len(n.InsetShadows) > 0 || n.Gradient.Kind == style.GradientLinear
+}
+
+func bordered(b *Border) bool { return b.Style != style.BorderNone && shows(b.Color) }
+
+func (f *Frame) shapes(n *Node, bounds, visual image.Rectangle, origin image.Point) image.Rectangle {
+	edges, start, bordered := &n.Border, len(f.ops), bordered(&n.Border)
 	shape := rect(bounds)
 	outer := raster.Box{Rect: shape, Radii: f.radii(n.Border.Radius)}
-	visual := bounds
 	for i := len(n.Shadows) - 1; i >= 0; i-- {
-		s := &n.Shadows[i]
-		if !shows(s.Color) {
-			continue
+		if s := &n.Shadows[i]; shows(s.Color) {
+			f.put(raster.Shadow, outer, s.Color.RGBA).Shadow = f.shadow(*s)
 		}
-		cast := f.shadow(*s)
-		f.put(raster.Shadow, outer, s.Color.RGBA).Shadow = cast
-		reach := cast.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + cast.Spread
-		visual = visual.Union(image.Rect(
-			int(math.Floor(shape.X+cast.X-reach)), int(math.Floor(shape.Y+cast.Y-reach)),
-			int(math.Ceil(shape.X+shape.W+cast.X+reach)), int(math.Ceil(shape.Y+shape.H+cast.Y+reach)),
-		))
 	}
 	if shows(n.Background) {
 		if n == f.root {
@@ -86,19 +135,16 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 			}
 		}
 	}
-	if len(f.ops) == start {
-		return visual, false
+	if len(f.ops) == start || n.Turn == 0 {
+		return visual
 	}
-	if n.Turn != 0 {
-		sin, cos := math.Sincos(n.Turn * 2 * math.Pi)
-		cx, cy := shape.X+shape.W/2, shape.Y+shape.H/2
-		x, y := float64(visual.Min.X+visual.Max.X)/2-cx, float64(visual.Min.Y+visual.Max.Y)/2-cy
-		x, y = cx+x*cos-y*sin, cy+x*sin+y*cos
-		w, h := float64(visual.Dx())/2, float64(visual.Dy())/2
-		reachX, reachY := w*math.Abs(cos)+h*math.Abs(sin), w*math.Abs(sin)+h*math.Abs(cos)
-		visual = image.Rect(int(math.Floor(x-reachX)), int(math.Floor(y-reachY)), int(math.Ceil(x+reachX)), int(math.Ceil(y+reachY)))
-	}
-	return f.clip(start, visual, f.pixels(n.Clip), layerClip, origin, round)
+	sin, cos := math.Sincos(n.Turn * 2 * math.Pi)
+	cx, cy := shape.X+shape.W/2, shape.Y+shape.H/2
+	x, y := float64(visual.Min.X+visual.Max.X)/2-cx, float64(visual.Min.Y+visual.Max.Y)/2-cy
+	x, y = cx+x*cos-y*sin, cy+x*sin+y*cos
+	w, h := float64(visual.Dx())/2, float64(visual.Dy())/2
+	reachX, reachY := w*math.Abs(cos)+h*math.Abs(sin), w*math.Abs(sin)+h*math.Abs(cos)
+	return image.Rect(int(math.Floor(x-reachX)), int(math.Floor(y-reachY)), int(math.Ceil(x+reachX)), int(math.Ceil(y+reachY)))
 }
 
 func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin image.Point, round int32) (image.Rectangle, bool) {
@@ -160,10 +206,10 @@ func dash(s style.BorderStyle) raster.Dash {
 	panic(fmt.Sprintf("scene: unknown border style %d", s))
 }
 
-func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (image.Rectangle, bool) {
+func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (image.Rectangle, uint64, bool) {
 	from, to, ok := n.Thumb(f.cell.Y)
 	if !ok {
-		return image.Rectangle{}, false
+		return image.Rectangle{}, 0, false
 	}
 	inset := int(math.Round(konst.ThumbInsetCell * float64(f.cell.X)))
 	width := int(math.Round(konst.ThumbWidthCell * float64(f.cell.X)))
@@ -177,7 +223,10 @@ func (f *Frame) thumb(n *Node, origin image.Point, layerClip image.Rectangle) (i
 	start := len(f.ops)
 	half := float64(width) / 2
 	f.put(raster.Fill, raster.Box{Rect: rect(visual), Radii: [4]float64{half, half, half, half}}, c)
-	return f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin, 0)
+	if visual, ok = f.clip(start, visual, f.pixels(n.Clip).Intersect(view), layerClip, origin, 0); !ok {
+		return visual, 0, false
+	}
+	return visual, f.looks.look(f.ops[start:], visual), true
 }
 
 func GradientFill(g style.Gradient, shape raster.Box) raster.Op {

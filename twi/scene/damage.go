@@ -8,6 +8,7 @@ import (
 	konst "github.com/twind-dev/twind/internal/konst/scene"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/raster"
+	"github.com/twind-dev/twind/twi/style"
 )
 
 type Move struct {
@@ -26,9 +27,19 @@ type Damage struct {
 	Scrolls []Scroll
 }
 
+type scratch struct {
+	damage        Damage
+	layers, boxes map[uint64]int
+	whole         []bool
+}
+
 func Diff(prev, next *Frame) Damage {
-	var d Damage
-	index := make(map[uint64]int, len(prev.Layers))
+	s := &next.scratch
+	if s.layers == nil {
+		s.layers, s.boxes = map[uint64]int{}, map[uint64]int{}
+	}
+	d, index := Damage{Rects: s.damage.Rects[:0], Moves: s.damage.Moves[:0], Scrolls: s.damage.Scrolls[:0]}, s.layers
+	clear(index)
 	for i, l := range prev.Layers {
 		index[l.key] = i
 	}
@@ -39,7 +50,9 @@ func Diff(prev, next *Frame) Damage {
 		return f.Layers[l.Parent].key
 	}
 	latest := -1
-	whole := make([]bool, len(next.Layers))
+	s.whole = slices.Grow(s.whole[:0], len(next.Layers))[:len(next.Layers)]
+	whole := s.whole
+	clear(whole)
 	for i := range next.Layers {
 		l := &next.Layers[i]
 		j, ok := index[l.key]
@@ -64,7 +77,7 @@ func Diff(prev, next *Frame) Damage {
 			d.Moves = append(d.Moves, Move{Layer: i, From: p.Origin, To: l.Origin})
 		}
 		if p.hash != l.hash {
-			d.boxes(p, l)
+			d.boxes(p, l, s.boxes)
 		}
 	}
 	for _, p := range prev.Layers {
@@ -72,10 +85,11 @@ func Diff(prev, next *Frame) Damage {
 			d.add(p.Visual)
 		}
 	}
+	s.damage = d
 	return d
 }
 
-func (d *Damage) boxes(p, l *Layer) {
+func (d *Damage) boxes(p, l *Layer, index map[uint64]int) {
 	same := 0
 	for ; same < min(len(p.Boxes), len(l.Boxes)) && p.Boxes[same].key == l.Boxes[same].key; same++ {
 		if p.Boxes[same].hash != l.Boxes[same].hash {
@@ -84,7 +98,7 @@ func (d *Damage) boxes(p, l *Layer) {
 		}
 	}
 	olds, news := p.Boxes[same:], l.Boxes[same:]
-	index := make(map[uint64]int, len(olds))
+	clear(index)
 	for j, b := range olds {
 		index[b.key] = j
 	}
@@ -143,6 +157,54 @@ func (m *looks) look(ops []raster.Op, visual image.Rectangle) uint64 {
 	*slot = memo{look: look, at: visual.Min, size: visual.Size(), from: len(m.ops), to: len(m.ops) + len(ops)}
 	m.ops = append(m.ops, ops...)
 	return look
+}
+
+type stamps struct {
+	slots   [konst.StampSlots]stamp
+	ops     []raster.Op
+	shadows []style.Shadow
+}
+
+type stamp struct {
+	size                  image.Point
+	visual                image.Rectangle
+	border                Border
+	background            color.Color
+	look                  uint64
+	from, to              int
+	shadows, insets, ends int
+}
+
+func (s *stamps) reset() {
+	s.slots, s.ops, s.shadows = [konst.StampSlots]stamp{}, s.ops[:0], s.shadows[:0]
+}
+
+func (s *stamps) find(n *Node, size image.Point) *stamp {
+	h := mix(uint64(size.X)<<32|uint64(uint32(size.Y)), packed(n.Background.RGBA)<<32|packed(n.Border.Color.RGBA))
+	h = mix(h, uint64(n.Border.Radius)<<16|uint64(n.Border.Style)<<8|uint64(len(n.Shadows))<<4|uint64(len(n.InsetShadows)))
+	return &s.slots[h%konst.StampSlots]
+}
+
+func (st *stamp) holds(s *stamps, n *Node, size image.Point, visual image.Rectangle) bool {
+	return st.size == size && st.background == n.Background && st.border == n.Border && st.visual == visual &&
+		slices.Equal(s.shadows[st.shadows:st.insets], n.Shadows) && slices.Equal(s.shadows[st.insets:st.ends], n.InsetShadows)
+}
+
+func (s *stamps) keep(st *stamp, n *Node, ops []raster.Op, bounds, visual image.Rectangle, look uint64) {
+	if len(s.ops)+len(ops) > konst.StampOps || len(s.shadows)+len(n.Shadows)+len(n.InsetShadows) > konst.StampShadows {
+		s.reset()
+	}
+	*st = stamp{size: bounds.Size(), visual: visual.Sub(bounds.Min), border: n.Border, background: n.Background, look: look, from: len(s.ops), shadows: len(s.shadows)}
+	x, y := float64(bounds.Min.X), float64(bounds.Min.Y)
+	for _, op := range ops {
+		op.Box.X -= x
+		op.Box.Y -= y
+		s.ops = append(s.ops, op)
+	}
+	s.shadows = append(s.shadows, n.Shadows...)
+	st.insets = len(s.shadows)
+	s.shadows = append(s.shadows, n.InsetShadows...)
+	st.to, st.ends = len(s.ops), len(s.shadows)
 }
 
 func same(a []raster.Op, aAt image.Point, b []raster.Op, bAt image.Point) bool {
