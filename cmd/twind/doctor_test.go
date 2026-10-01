@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/twi/terminal"
 )
 
 func TestDoctorAsksConhostNothingItPrints(t *testing.T) {
@@ -106,6 +107,25 @@ func TestDoctorParsesEachReplyKind(t *testing.T) {
 			t.Errorf("%s: %+v, want %+v", tc.name, got, tc.want)
 		}
 	}
+}
+
+func TestDoctorNamesEachIdentity(t *testing.T) {
+	for identity, want := range map[terminal.Identity]string{
+		terminal.IdentityConhost:     "conhost, from the console window: visible, class ConsoleWindowClass",
+		terminal.IdentityInboxConPTY: "InboxConPTY, from DA1: exactly 1;0, no 16t reply, no visible conhost window",
+		terminal.IdentityZed:         "Zed, from TERM_PROGRAM=zed confirmed by a 14t reply and no sixel in DA1",
+		terminal.IdentityOther:       "Other, no rule matched: not a visible conhost window, DA1 not exactly 1;0, not Zed",
+	} {
+		if got := identityName(identity); got != want {
+			t.Errorf("identity %d: %q, want %q", identity, got, want)
+		}
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an unknown identity did not panic")
+		}
+	}()
+	identityName(terminal.IdentityZed + 1)
 }
 
 func TestDoctorReportNamesUnknowns(t *testing.T) {

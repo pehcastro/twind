@@ -86,6 +86,12 @@ const (
 )
 
 const (
+	ConhostWindowClass = "ConsoleWindowClass"
+	WindowClassLength  = 256
+	ZedProgram         = "zed"
+)
+
+const (
 	QueryTimeout    = 100 * time.Millisecond
 	StartupTimeout  = time.Second
 	EscapeTimeout   = 50 * time.Millisecond

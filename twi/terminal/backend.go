@@ -28,7 +28,17 @@ const (
 	GraphicsKitty
 )
 
+type Identity uint8
+
+const (
+	IdentityOther Identity = iota
+	IdentityConhost
+	IdentityInboxConPTY
+	IdentityZed
+)
+
 type Capabilities struct {
+	Identity      Identity
 	Sync          bool
 	KittyKeyboard bool
 	Graphics      Graphics
@@ -69,11 +79,13 @@ type answer struct {
 type offer struct {
 	graphics Graphics
 	forced   bool
+	zed      bool
 }
 
 type tty interface {
 	read(p []byte, wait time.Duration) (n int, recheck bool, err error)
 	size() (width, height int, err error)
+	conhost() bool
 	cancel()
 	restore() error
 }
@@ -94,7 +106,7 @@ func Enter(in, out *os.File, opt Options) (*Backend, error) {
 
 func Query(in, out *os.File) (Capabilities, image.Point, error) {
 	o, err := offered(os.Getenv)
-	if err != nil || o == (offer{GraphicsNone, true}) {
+	if err != nil || o.forced && o.graphics == GraphicsNone {
 		return Capabilities{}, image.Point{}, err
 	}
 	t, err := openTTY(in, out, Options{NoMouse: true})
@@ -138,23 +150,25 @@ func probe(out io.Writer, t tty, queries string, wait time.Duration) (*Backend, 
 }
 
 func offered(env func(string) string) (offer, error) {
+	program := env("TERM_PROGRAM")
+	o := offer{forced: true, zed: program == konst.ZedProgram}
 	switch v := env("TWIND_GRAPHICS"); v {
 	case "":
+		o.forced = false
+		if program == "iTerm.app" || program == "WezTerm" || env("LC_TERMINAL") == "iTerm2" {
+			o.graphics = GraphicsITerm2
+		}
 	case "none":
-		return offer{GraphicsNone, true}, nil
 	case "sixel":
-		return offer{GraphicsSixel, true}, nil
+		o.graphics = GraphicsSixel
 	case "iterm2":
-		return offer{GraphicsITerm2, true}, nil
+		o.graphics = GraphicsITerm2
 	case "kitty":
-		return offer{GraphicsKitty, true}, nil
+		o.graphics = GraphicsKitty
 	default:
 		return offer{}, fmt.Errorf("terminal: TWIND_GRAPHICS=%q, want none, sixel, iterm2 or kitty", v)
 	}
-	if p := env("TERM_PROGRAM"); p == "iTerm.app" || p == "WezTerm" || env("LC_TERMINAL") == "iTerm2" {
-		return offer{graphics: GraphicsITerm2}, nil
-	}
-	return offer{}, nil
+	return o, nil
 }
 
 func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
@@ -242,6 +256,7 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 	caps := Capabilities{CellPixels: cell}
 	graphics := o.graphics
 	var cursors [][]int
+	var primary, reports []int
 	for _, r := range replies {
 		switch r.Kind {
 		case input.ReplyMode:
@@ -257,15 +272,29 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 		case input.ReplyKeyboardFlags:
 			caps.KittyKeyboard = true
 		case input.ReplyPrimaryAttributes:
-			if slices.Index(r.Params, konst.SixelAttribute) > 0 {
-				graphics = max(graphics, GraphicsSixel)
-			}
+			primary = r.Params
 		case input.ReplyCursorPosition:
 			if len(r.Params) == 2 {
 				cursors = append(cursors, r.Params)
 			}
-		case input.ReplySecondaryAttributes, input.ReplyWindow:
+		case input.ReplyWindow:
+			if len(r.Params) == konst.WindowParams {
+				reports = append(reports, r.Params[0])
+			}
+		case input.ReplySecondaryAttributes:
 		}
+	}
+	sixel := slices.Index(primary, konst.SixelAttribute) > 0
+	if sixel {
+		graphics = max(graphics, GraphicsSixel)
+	}
+	switch {
+	case b.tty.conhost():
+		caps.Identity = IdentityConhost
+	case slices.Equal(primary, []int{konst.ConhostClass, konst.ConhostOption}) && !slices.Contains(reports, konst.CellReport):
+		caps.Identity = IdentityInboxConPTY
+	case o.zed && slices.Contains(reports, konst.WindowReport) && !sixel:
+		caps.Identity = IdentityZed
 	}
 	if columns, _, err := b.tty.size(); err == nil && len(cursors) > int(text.Classes) {
 		origin := cursors[0]

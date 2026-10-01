@@ -14,6 +14,8 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
 )
 
@@ -24,7 +26,10 @@ type fakeConsole struct {
 	refuse  windows.Handle
 	records []inputRecord
 	rows    int16
+	class   string
 }
+
+func (f *fakeConsole) windowClass() string { return f.class }
 
 func (f *fakeConsole) getMode(h windows.Handle, mode *uint32) error {
 	*mode = f.modes[h]
@@ -251,4 +256,61 @@ func TestEnableVirtualTerminal(t *testing.T) {
 		t.Errorf("console size %dx%d, %v", width, height, err)
 	}
 	t.Logf("console mode %#x, VT enabled %#x, restored %#x, size %dx%d", original, enabled, restored, width, height)
+}
+
+func TestProfileAsksTheConsole(t *testing.T) {
+	c := &fakeConsole{modes: conhostModes(), refuse: fakeOut}
+	if got := consoleProfile(c, fakeOut); got != color.None {
+		t.Errorf("VT output refused: promise %d, want none", got)
+	}
+	c.refuse = 0
+	if got := consoleProfile(c, fakeOut); got != color.TrueColor {
+		t.Errorf("VT output accepted: promise %d, want truecolor", got)
+	}
+	if !maps.Equal(c.modes, conhostModes()) {
+		t.Errorf("modes after asking %#x, before %#x", c.modes, conhostModes())
+	}
+
+	r, pipe, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()    //nolint:errcheck
+	defer pipe.Close() //nolint:errcheck
+	if got := promised(pipe.Fd()); got != color.None {
+		t.Errorf("a pipe promises %d, want none", got)
+	}
+
+	console, err := os.OpenFile("CONOUT$", os.O_RDWR, 0)
+	if err != nil {
+		t.Skipf("no console attached: %v", err)
+	}
+	defer console.Close() //nolint:errcheck
+	handle := windows.Handle(console.Fd())
+	var original, after uint32
+	if err := windows.GetConsoleMode(handle, &original); err != nil {
+		t.Fatal(err)
+	}
+	got := Profile(console, func(string) string { return "" })
+	if err := windows.GetConsoleMode(handle, &after); err != nil {
+		t.Fatal(err)
+	}
+	if got != color.TrueColor || after != original {
+		t.Errorf("console: profile %d mode %#x after, want truecolor and %#x", got, after, original)
+	}
+}
+
+func TestIdentityConsoleWindow(t *testing.T) {
+	for class, want := range map[string]bool{konst.ConhostWindowClass: true, "PseudoConsoleWindow": false, "": false} {
+		con, err := openConsole(&fakeConsole{modes: conhostModes(), class: class}, fakeIn, fakeOut, Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := con.conhost(); got != want {
+			t.Errorf("window class %q: conhost %v, want %v", class, got, want)
+		}
+		if err := con.restore(); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

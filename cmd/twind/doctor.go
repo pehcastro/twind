@@ -20,6 +20,7 @@ import (
 const doctorHelp = `Asks the terminal on stdin and stdout what it supports and prints the answers and how long they took.
 TWIND_GRAPHICS set to none, sixel, iterm2 or kitty overrides the graphics answer, as it does for every Twind program.
 truecolor says whether the terminal echoed a 24-bit colour back through DECRQSS; colour is what Twind will use.
+identity names the terminal when a rule recognises it, and the call or reply that decided it.
 grid is the size the terminal itself reports; Twind lays out to it when it differs from size, the pty's.
 kitty is the terminal's answer to a raw and a zlib kitty image; Twind uses kitty only when zlib is OK.
 glyphs lists the width the terminal gives each glyph Twind draws, ? where it gave none.`
@@ -88,9 +89,9 @@ func doctor(args []string, stdout io.Writer) error {
 		keyboard = "kitty"
 	}
 	var report strings.Builder
-	fmt.Fprintf(&report, "size       %dx%d cells\nenv        TERM=%s COLORTERM=%s TERM_PROGRAM=%s WT_SESSION=%t\ncolour     %s\nsync       %t\ngraphemes  %t\nfocus      %t\nmargins    %t\nemoji      %s\nkeyboard   %s\ngraphics   %s\ncell       %s\n",
+	fmt.Fprintf(&report, "size       %dx%d cells\nenv        TERM=%s COLORTERM=%s TERM_PROGRAM=%s WT_SESSION=%t\ncolour     %s\nidentity   %s\nsync       %t\ngraphemes  %t\nfocus      %t\nmargins    %t\nemoji      %s\nkeyboard   %s\ngraphics   %s\ncell       %s\n",
 		width, height, text.Sanitize(os.Getenv("TERM"), text.ShowBidi), text.Sanitize(os.Getenv("COLORTERM"), text.ShowBidi), text.Sanitize(os.Getenv("TERM_PROGRAM"), text.ShowBidi), os.Getenv("WT_SESSION") != "",
-		profileName(terminal.Profile(os.Stdout, os.Getenv)), caps.Sync, caps.Graphemes, caps.Focus, caps.Margins, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell)
+		profileName(terminal.Profile(os.Stdout, os.Getenv)), identityName(caps.Identity), caps.Sync, caps.Graphemes, caps.Focus, caps.Margins, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell)
 	fmt.Fprintf(&report, "%sdetected   in %s, first answer after %s\n", answerLines(a, glyphs), took.Round(time.Millisecond), answered.Round(time.Millisecond))
 	if skipped {
 		report.WriteString("skipped    truecolor, clipboard and kitty: no DA1, or conhost's 1;0, which prints DCS and APC as text\n")
@@ -242,6 +243,20 @@ func profileName(p color.Profile) string {
 		return "truecolor"
 	}
 	panic("twind: unknown colour profile " + strconv.Itoa(int(p)))
+}
+
+func identityName(i terminal.Identity) string {
+	switch i {
+	case terminal.IdentityConhost:
+		return "conhost, from the console window: visible, class " + konst.ConhostWindowClass
+	case terminal.IdentityInboxConPTY:
+		return "InboxConPTY, from DA1: exactly 1;0, no 16t reply, no visible conhost window"
+	case terminal.IdentityZed:
+		return "Zed, from TERM_PROGRAM=zed confirmed by a 14t reply and no sixel in DA1"
+	case terminal.IdentityOther:
+		return "Other, no rule matched: not a visible conhost window, DA1 not exactly 1;0, not Zed"
+	}
+	panic("twind: unknown terminal identity " + strconv.Itoa(int(i)))
 }
 
 func graphicsName(g terminal.Graphics) string {

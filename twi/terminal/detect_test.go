@@ -33,7 +33,7 @@ func TestProfile(t *testing.T) {
 	}
 	for _, tc := range cases {
 		env := func(key string) string { return tc.env[key] }
-		if got := profileFor(tc.terminal, env); got != tc.want {
+		if got := profileFor(tc.terminal, color.None, env); got != tc.want {
 			t.Errorf("%s: profile %d, want %d", tc.name, got, tc.want)
 		}
 		if tc.terminal {
@@ -41,6 +41,27 @@ func TestProfile(t *testing.T) {
 		}
 		if got := Profile(&bytes.Buffer{}, env); got != tc.want {
 			t.Errorf("%s: Profile(bytes.Buffer) %d, want %d", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestProfileOfAConsoleThatPromisesTruecolor(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		want color.Profile
+	}{
+		{"no env", nil, color.TrueColor},
+		{"mintty through the inbox conpty", map[string]string{"TERM": "xterm", "TERM_PROGRAM": "mintty"}, color.TrueColor},
+		{"term 256color", map[string]string{"TERM": "xterm-256color"}, color.TrueColor},
+		{"no color", map[string]string{"NO_COLOR": "1"}, color.Attributes},
+		{"force color zero", map[string]string{"FORCE_COLOR": "0"}, color.None},
+		{"force color one is a floor", map[string]string{"FORCE_COLOR": "1"}, color.TrueColor},
+		{"dumb term", map[string]string{"TERM": "dumb"}, color.None},
+	}
+	for _, tc := range cases {
+		if got := profileFor(true, color.TrueColor, func(key string) string { return tc.env[key] }); got != tc.want {
+			t.Errorf("%s: profile %d, want %d", tc.name, got, tc.want)
 		}
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
 )
 
@@ -28,6 +29,18 @@ func consoleSize(c console, h windows.Handle) (width, height int, err error) {
 		return 0, 0, err
 	}
 	return int(info.Window.Right-info.Window.Left) + 1, int(info.Window.Bottom-info.Window.Top) + 1, nil
+}
+
+func promised(fd uintptr) color.Profile {
+	return consoleProfile(kernel32{}, windows.Handle(fd))
+}
+
+func consoleProfile(c console, h windows.Handle) color.Profile {
+	var original uint32
+	if c.getMode(h, &original) != nil || c.setMode(h, original|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING) != nil || c.setMode(h, original) != nil {
+		return color.None
+	}
+	return color.TrueColor
 }
 
 func EnableVirtualTerminal(f *os.File) (restore func() error, err error) {
@@ -67,9 +80,20 @@ type console interface {
 	setMode(h windows.Handle, mode uint32) error
 	bufferInfo(h windows.Handle, info *windows.ConsoleScreenBufferInfo) error
 	readInput(in, cancel windows.Handle, records []inputRecord, timeout uint32) (int, error)
+	windowClass() string
 }
 
-type kernel32 struct{ readConsoleInput *windows.LazyProc }
+type kernel32 struct{ readConsoleInput, consoleWindow *windows.LazyProc }
+
+func (k kernel32) windowClass() string {
+	window, _, _ := k.consoleWindow.Call()
+	if window == 0 || !windows.IsWindowVisible(windows.HWND(window)) {
+		return ""
+	}
+	class := make([]uint16, konst.WindowClassLength)
+	n, _ := windows.GetClassName(windows.HWND(window), &class[0], int32(len(class)))
+	return windows.UTF16ToString(class[:n])
+}
 
 func (kernel32) getMode(h windows.Handle, mode *uint32) error {
 	return windows.GetConsoleMode(h, mode)
@@ -113,7 +137,8 @@ type consoleTTY struct {
 }
 
 func openTTY(in, out *os.File, opt Options) (tty, error) {
-	k := kernel32{windows.NewLazySystemDLL("kernel32.dll").NewProc("ReadConsoleInputW")}
+	dll := windows.NewLazySystemDLL("kernel32.dll")
+	k := kernel32{dll.NewProc("ReadConsoleInputW"), dll.NewProc("GetConsoleWindow")}
 	return openConsole(k, windows.Handle(in.Fd()), windows.Handle(out.Fd()), opt)
 }
 
@@ -242,6 +267,10 @@ func buttonReport(buttons uint16) int {
 
 func (t *consoleTTY) size() (width, height int, err error) {
 	return consoleSize(t.console, t.out)
+}
+
+func (t *consoleTTY) conhost() bool {
+	return t.console.windowClass() == konst.ConhostWindowClass
 }
 
 func (t *consoleTTY) cancel() {

@@ -19,11 +19,15 @@ func Size(w io.Writer) (width, height int, err error) {
 }
 
 func Profile(w io.Writer, env func(string) string) color.Profile {
-	_, _, err := Size(w)
-	return profileFor(err == nil, env)
+	f, ok := w.(interface{ Fd() uintptr })
+	if !ok {
+		return profileFor(false, color.None, env)
+	}
+	_, _, err := size(f.Fd())
+	return profileFor(err == nil, promised(f.Fd()), env)
 }
 
-func profileFor(terminal bool, env func(string) string) color.Profile {
+func profileFor(terminal bool, console color.Profile, env func(string) string) color.Profile {
 	forced := color.None
 	switch env("FORCE_COLOR") {
 	case "":
@@ -45,7 +49,7 @@ func profileFor(terminal bool, env func(string) string) color.Profile {
 	case env("COLORTERM") == "truecolor", env("COLORTERM") == "24bit", env("WT_SESSION") != "":
 		return color.TrueColor
 	case strings.Contains(term, "256color"):
-		return max(forced, color.ANSI256)
+		return max(forced, console, color.ANSI256)
 	}
-	return max(forced, color.ANSI16)
+	return max(forced, console, color.ANSI16)
 }

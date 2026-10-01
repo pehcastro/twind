@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/twind-dev/twind/twi/color"
 )
 
 func size(fd uintptr) (width, height int, err error) {
@@ -18,6 +20,10 @@ func size(fd uintptr) (width, height int, err error) {
 		return 0, 0, err
 	}
 	return int(ws.Col), int(ws.Row), nil
+}
+
+func promised(uintptr) color.Profile {
+	return color.None
 }
 
 func EnableVirtualTerminal(*os.File) (restore func() error, err error) {
@@ -108,6 +114,10 @@ func (t *unixTTY) read(p []byte, wait time.Duration) (int, bool, error) {
 
 func (t *unixTTY) size() (width, height int, err error) {
 	return size(t.out)
+}
+
+func (t *unixTTY) conhost() bool {
+	return false
 }
 
 func (t *unixTTY) cancel() {

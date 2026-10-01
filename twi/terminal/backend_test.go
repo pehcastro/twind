@@ -24,6 +24,7 @@ type fakeTTY struct {
 	mu        sync.Mutex
 	cells     image.Point
 	reads     int
+	window    bool
 }
 
 func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
@@ -54,6 +55,7 @@ func (f *fakeTTY) size() (width, height int, err error) {
 	defer f.mu.Unlock()
 	return f.cells.X, f.cells.Y, nil
 }
+func (f *fakeTTY) conhost() bool  { return f.window }
 func (f *fakeTTY) cancel()        { close(f.cancelled) }
 func (f *fakeTTY) restore() error { f.restored++; return nil }
 
@@ -184,7 +186,54 @@ var (
 	windowsTerminal = []string{"\x1b[6;20;10t", "\x1b[4;480;800t\x1b[?2026;2$y\x1b[?61;4;6;7;14;21;22;23;24;28;32;42;52c"}
 	kitty           = []string{"\x1b_Gi=31;OK\x1b\\", "\x1b[?2026;2$y\x1b[?0u\x1b[6;36;17t\x1b[4;864;1360t", "\x1b[?62;c"}
 	conPTY          = []string{"\x1b[?1;0c"}
+	zed             = []string{"\x1b[4;544;1400t\x1b[8;34;200t", "\x1b[?6c"}
 )
+
+func TestIdentity(t *testing.T) {
+	cases := []struct {
+		name     string
+		answers  []string
+		conhost  bool
+		zed      bool
+		identity Identity
+	}{
+		{"conhost", conPTY, true, false, IdentityConhost},
+		{"mintty through the inbox conpty", conPTY, false, false, IdentityInboxConPTY},
+		{"conpty da1 with a 16t reply", []string{"\x1b[6;20;10t\x1b[?1;0c"}, false, false, IdentityOther},
+		{"conpty da1 plus sixel", []string{"\x1b[?1;0;4c"}, false, false, IdentityOther},
+		{"windows terminal", windowsTerminal, false, false, IdentityOther},
+		{"windows terminal with a leaked zed hint", windowsTerminal, false, true, IdentityOther},
+		{"zed", zed, false, true, IdentityZed},
+		{"zed replies without the hint", zed, false, false, IdentityOther},
+		{"zed hint with sixel", []string{"\x1b[4;544;1400t\x1b[?62;4c"}, false, true, IdentityOther},
+		{"zed hint without 14t", []string{"\x1b[?6c"}, false, true, IdentityOther},
+		{"silent", nil, false, false, IdentityOther},
+	}
+	for _, tc := range cases {
+		term := newFake(tc.answers...)
+		term.tty.window = tc.conhost
+		b, err := enter(term, term.tty, Options{}, offer{zed: tc.zed})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Capabilities.Identity != tc.identity {
+			t.Errorf("%s: enter identity %d, want %d", tc.name, b.Capabilities.Identity, tc.identity)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+
+		term = newFake(append([]string{"\x1b[3;1R"}, tc.answers...)...)
+		term.tty.window = tc.conhost
+		caps, _, err := query(term, term.tty, offer{zed: tc.zed})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if caps.Identity != tc.identity {
+			t.Errorf("%s: query identity %d, want %d", tc.name, caps.Identity, tc.identity)
+		}
+	}
+}
 
 func TestGraphics(t *testing.T) {
 	cases := []struct {
@@ -210,9 +259,9 @@ func TestGraphics(t *testing.T) {
 		{"4 as the class is not sixel", []string{"\x1b[6;20;10t\x1b[?4c"}, offer{}, GraphicsNone, image.Pt(10, 20), true},
 		{"iterm2 offered outranks sixel", windowsTerminal, offer{graphics: GraphicsITerm2}, GraphicsITerm2, image.Pt(10, 20), true},
 		{"kitty outranks iterm2 offered", kitty, offer{graphics: GraphicsITerm2}, GraphicsKitty, image.Pt(17, 36), true},
-		{"forced none", windowsTerminal, offer{GraphicsNone, true}, GraphicsNone, image.Pt(10, 20), true},
-		{"forced kitty", windowsTerminal, offer{GraphicsKitty, true}, GraphicsKitty, image.Pt(10, 20), true},
-		{"forced sixel, silent", nil, offer{GraphicsSixel, true}, GraphicsNone, image.Point{}, false},
+		{"forced none", windowsTerminal, offer{graphics: GraphicsNone, forced: true}, GraphicsNone, image.Pt(10, 20), true},
+		{"forced kitty", windowsTerminal, offer{graphics: GraphicsKitty, forced: true}, GraphicsKitty, image.Pt(10, 20), true},
+		{"forced sixel, silent", nil, offer{graphics: GraphicsSixel, forced: true}, GraphicsNone, image.Point{}, false},
 	}
 	for _, tc := range cases {
 		term := newFake(tc.answers...)
@@ -250,14 +299,16 @@ func TestOffered(t *testing.T) {
 		err   bool
 	}{
 		{map[string]string{}, offer{}, false},
-		{map[string]string{"TERM_PROGRAM": "zed", "WT_SESSION": "x"}, offer{}, false},
+		{map[string]string{"TERM_PROGRAM": "zed", "WT_SESSION": "x"}, offer{zed: true}, false},
+		{map[string]string{"TERM_PROGRAM": "zed", "TWIND_GRAPHICS": "sixel"}, offer{graphics: GraphicsSixel, forced: true, zed: true}, false},
+		{map[string]string{"ZED_TERM": "true"}, offer{}, false},
 		{map[string]string{"TERM_PROGRAM": "iTerm.app"}, offer{graphics: GraphicsITerm2}, false},
 		{map[string]string{"TERM_PROGRAM": "WezTerm"}, offer{graphics: GraphicsITerm2}, false},
 		{map[string]string{"LC_TERMINAL": "iTerm2"}, offer{graphics: GraphicsITerm2}, false},
-		{map[string]string{"TWIND_GRAPHICS": "none", "TERM_PROGRAM": "iTerm.app"}, offer{GraphicsNone, true}, false},
-		{map[string]string{"TWIND_GRAPHICS": "sixel"}, offer{GraphicsSixel, true}, false},
-		{map[string]string{"TWIND_GRAPHICS": "kitty"}, offer{GraphicsKitty, true}, false},
-		{map[string]string{"TWIND_GRAPHICS": "iterm2"}, offer{GraphicsITerm2, true}, false},
+		{map[string]string{"TWIND_GRAPHICS": "none", "TERM_PROGRAM": "iTerm.app"}, offer{graphics: GraphicsNone, forced: true}, false},
+		{map[string]string{"TWIND_GRAPHICS": "sixel"}, offer{graphics: GraphicsSixel, forced: true}, false},
+		{map[string]string{"TWIND_GRAPHICS": "kitty"}, offer{graphics: GraphicsKitty, forced: true}, false},
+		{map[string]string{"TWIND_GRAPHICS": "iterm2"}, offer{graphics: GraphicsITerm2, forced: true}, false},
 		{map[string]string{"TWIND_GRAPHICS": "Sixel"}, offer{}, true},
 		{map[string]string{"TWIND_GRAPHICS": "regis"}, offer{}, true},
 	}
@@ -576,7 +627,7 @@ func TestInlineQuery(t *testing.T) {
 	}{
 		{"windows terminal 1.24", cursorAfterWT, offer{}, Capabilities{Sync: true, Graphics: GraphicsSixel, CellPixels: image.Pt(10, 20)}, image.Pt(2, 6), true},
 		{"windows terminal probes after text", []string{"\x1b[1;23R\x1b[1;25R\x1b[1;25R\x1b[1;25R\x1b[1;25R\x1b[1;25R\x1b[?61;4;6;7;14;21;22;23;24;28;32;42;52c"}, offer{}, Capabilities{Widths: text.Widths{2, 2, 2, 2, 2}}, image.Pt(22, 0), true},
-		{"forced kitty", cursorAfterWT, offer{GraphicsKitty, true}, Capabilities{Sync: true, Graphics: GraphicsKitty, CellPixels: image.Pt(10, 20)}, image.Pt(2, 6), true},
+		{"forced kitty", cursorAfterWT, offer{graphics: GraphicsKitty, forced: true}, Capabilities{Sync: true, Graphics: GraphicsKitty, CellPixels: image.Pt(10, 20)}, image.Pt(2, 6), true},
 		{"no cursor report", windowsTerminal, offer{}, Capabilities{}, image.Point{}, true},
 		{"cursor split over reads", []string{"\x1b[6;20;10t\x1b[1", "2;1R\x1b[?61;4c"}, offer{}, Capabilities{Graphics: GraphicsSixel, CellPixels: image.Pt(10, 20)}, image.Pt(0, 11), true},
 		{"silent", nil, offer{}, Capabilities{}, image.Point{}, false},
@@ -994,7 +1045,7 @@ func TestStartupLeaksNothingToConhost(t *testing.T) {
 		{"wezterm", answer("\x1b[?65;4;6;18;22;52c", "\x1b[6;22;10t"), offer{}, true, GraphicsKitty, konst.QueryTimeout},
 		{"kitty", answer("\x1b[?62;c", "\x1b[6;36;17t"), offer{}, true, GraphicsKitty, konst.QueryTimeout},
 		{"no cell size", answer("\x1b[?65;4c", ""), offer{}, false, GraphicsNone, konst.QueryTimeout},
-		{"forced sixel", answer("\x1b[?65;4c", "\x1b[6;22;10t"), offer{GraphicsSixel, true}, false, GraphicsSixel, konst.QueryTimeout},
+		{"forced sixel", answer("\x1b[?65;4c", "\x1b[6;22;10t"), offer{graphics: GraphicsSixel, forced: true}, false, GraphicsSixel, konst.QueryTimeout},
 		{"silent", func([]byte) []string { return nil }, offer{}, false, GraphicsNone, konst.StartupTimeout + konst.QueryTimeout},
 	} {
 		for _, inline := range []bool{false, true} {
