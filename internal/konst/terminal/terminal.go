@@ -42,8 +42,11 @@ const (
 	ModeQueries   = CSI + "?2026$p" + CSI + "?2027$p" + CSI + "?1004$p" + MarginsQuery + CSI + "?2048$p"
 	InBandOn      = CSI + "?2048h"
 	InBandOff     = CSI + "?2048l"
-	Queries       = KittyQuery + ModeQueries + CSI + "?u" + CellQuery
-	InlineQueries = KittyQuery + ModeQueries + CellQuery
+	KittyFenced   = KittyQuery + Fence
+	ConhostClass  = 1
+	ConhostOption = 0
+	Queries       = ModeQueries + CSI + "?u" + CellQuery
+	InlineQueries = ModeQueries + CellQuery
 	CursorHome    = CSI + "H"
 	CursorQuery   = CSI + "6n"
 	GraphemesOn   = CSI + "?2027h"

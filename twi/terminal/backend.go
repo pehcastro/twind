@@ -109,21 +109,24 @@ func Probe(in, out *os.File, queries string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, raw, _, err := probe(out, t, queries+konst.Fence, konst.StartupTimeout)
-	return raw, err
+	b, raw, _, err := probe(out, t, queries+konst.Fence, konst.StartupTimeout)
+	return raw, errors.Join(err, b.Exit())
 }
 
 func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
 	b, raw, replies, err := probe(out, t, konst.Probes+konst.InlineQueries, konst.QueryTimeout)
-	if b == nil {
+	if err == nil {
+		raw, err = b.askKitty(raw, replies, o)
+	}
+	if err = errors.Join(err, b.Exit()); err != nil {
 		return Capabilities{}, image.Point{}, err
 	}
 	for _, r := range replies {
 		if r.Kind == input.ReplyCursorPosition && len(r.Params) == 2 {
-			return b.detect(raw, replies, o), image.Pt(r.Params[1]-1, r.Params[0]-1), err
+			return b.detect(raw, replies, o), image.Pt(r.Params[1]-1, r.Params[0]-1), nil
 		}
 	}
-	return Capabilities{}, image.Point{}, err
+	return Capabilities{}, image.Point{}, nil
 }
 
 func probe(out io.Writer, t tty, queries string, wait time.Duration) (*Backend, []byte, []input.ReplyEvent, error) {
@@ -131,10 +134,7 @@ func probe(out io.Writer, t tty, queries string, wait time.Duration) (*Backend, 
 	b := &Backend{Events: events, out: out, tty: t, opt: Options{NoMouse: true}, answers: make(chan answer, konst.ReplyBuffer)}
 	go b.read(events)
 	raw, replies, err := b.ask(queries, wait)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return b, raw, replies, b.Exit()
+	return b, raw, replies, err
 }
 
 func offered(env func(string) string) (offer, error) {
@@ -174,6 +174,9 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		seq += konst.MouseOn
 	}
 	raw, replies, err := b.ask(seq+konst.CursorHome+konst.GraphemesOn+konst.Probes+konst.Queries, konst.StartupTimeout)
+	if err == nil {
+		raw, err = b.askKitty(raw, replies, o)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +225,16 @@ func (b *Backend) ask(seq string, wait time.Duration) ([]byte, []input.ReplyEven
 			}
 		}
 	}
+}
+
+func (b *Backend) askKitty(raw []byte, replies []input.ReplyEvent, o offer) ([]byte, error) {
+	cell, _ := b.window(replies)
+	primary := slices.IndexFunc(replies, func(r input.ReplyEvent) bool { return r.Kind == input.ReplyPrimaryAttributes })
+	if o.forced || cell == (image.Point{}) || primary < 0 || slices.Equal(replies[primary].Params, []int{konst.ConhostClass, konst.ConhostOption}) {
+		return raw, nil
+	}
+	kitty, _, err := b.ask(konst.KittyFenced, konst.StartupTimeout)
+	return append(raw, kitty...), err
 }
 
 func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabilities {

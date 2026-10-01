@@ -598,7 +598,7 @@ func TestInlineQuery(t *testing.T) {
 		case !tc.fenced && (took < konst.QueryTimeout || took > 2*konst.QueryTimeout):
 			t.Errorf("%s: took %v, want the %v timeout", tc.name, took, konst.QueryTimeout)
 		}
-		if out := term.written.String(); out != konst.Probes+konst.InlineQueries || !strings.HasSuffix(out, "\x1b[c") {
+		if out := strings.TrimSuffix(term.written.String(), konst.KittyFenced); out != konst.Probes+konst.InlineQueries {
 			t.Errorf("%s: wrote %q, want the probes and the inline queries alone, the fence last", tc.name, out)
 		}
 		if term.tty.restored != 1 {
@@ -695,9 +695,9 @@ func TestProbeReturnsEveryAnswer(t *testing.T) {
 	for _, tc := range cases {
 		term := newFake(tc.answers...)
 		start := time.Now()
-		_, raw, _, err := probe(term, term.tty, konst.DoctorQueries+konst.Fence, konst.StartupTimeout)
+		b, raw, _, err := probe(term, term.tty, konst.DoctorQueries+konst.Fence, konst.StartupTimeout)
 		took := time.Since(start)
-		if err != nil {
+		if err := errors.Join(err, b.Exit()); err != nil {
 			t.Fatal(err)
 		}
 		if want := strings.Join(tc.answers, ""); string(raw) != want {
@@ -813,8 +813,8 @@ func TestSixelFromATerminalStillStarting(t *testing.T) {
 	if b.Capabilities.Graphics != GraphicsSixel || b.Capabilities.CellPixels != image.Pt(10, 20) || !b.Capabilities.Sync {
 		t.Errorf("answers %v after the start: %+v, want sixel, 10x20 cells and sync", term.delay, b.Capabilities)
 	}
-	if took > term.delay+konst.QueryTimeout {
-		t.Errorf("took %v, want the fence at %v", took, term.delay)
+	if took > 2*term.delay+konst.QueryTimeout {
+		t.Errorf("took %v, want the second fence at %v", took, 2*term.delay)
 	}
 	if err := b.Exit(); err != nil {
 		t.Fatal(err)
@@ -832,16 +832,20 @@ func TestSixelWhenKittyRefusesCompression(t *testing.T) {
 	} {
 		term := newFake()
 		term.reply = func(p []byte) []string {
+			const da1 = "\x1b[?65;1;3;4;7;9;18;21;22;29;52;314c"
 			start := bytes.Index(p, []byte("\x1b_G"))
-			if start < 0 || !bytes.HasSuffix(p, []byte(konst.Fence)) {
+			switch {
+			case !bytes.HasSuffix(p, []byte(konst.Fence)):
 				return nil
+			case start < 0:
+				return []string{"\x1b[6;19;9t" + da1}
 			}
 			control, _, _ := bytes.Cut(p[start:], []byte(";"))
 			status := "OK"
 			if bytes.Contains(control, []byte("o=z")) && !tc.zlib {
 				status = "ENOTSUP:compressed payloads are not supported"
 			}
-			return []string{"\x1b_Gi=31;" + status + "\x1b\\\x1b[6;19;9t\x1b[?65;1;3;4;7;9;18;21;22;29;52;314c"}
+			return []string{"\x1b_Gi=31;" + status + "\x1b\\" + da1}
 		}
 		b, err := enter(term, term.tty, Options{}, offer{})
 		if err != nil {
@@ -962,5 +966,68 @@ func TestSizeWhileAQueryIsOut(t *testing.T) {
 	}
 	if err := b.Exit(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestStartupLeaksNothingToConhost(t *testing.T) {
+	answer := func(da1, cell string) func(p []byte) []string {
+		return func(p []byte) []string {
+			if !bytes.HasSuffix(p, []byte(konst.Fence)) {
+				return nil
+			}
+			if bytes.Contains(p, []byte("\x1b_G")) {
+				return []string{konst.KittyOK + da1}
+			}
+			return []string{cell + da1}
+		}
+	}
+	for _, tc := range []struct {
+		name     string
+		reply    func(p []byte) []string
+		offer    offer
+		asked    bool
+		graphics Graphics
+		took     time.Duration
+	}{
+		{"conhost", answer("\x1b[?1;0c", ""), offer{}, false, GraphicsNone, konst.QueryTimeout},
+		{"conhost with a cell size", answer("\x1b[?1;0c", "\x1b[6;16;8t"), offer{}, false, GraphicsNone, konst.QueryTimeout},
+		{"wezterm", answer("\x1b[?65;4;6;18;22;52c", "\x1b[6;22;10t"), offer{}, true, GraphicsKitty, konst.QueryTimeout},
+		{"kitty", answer("\x1b[?62;c", "\x1b[6;36;17t"), offer{}, true, GraphicsKitty, konst.QueryTimeout},
+		{"no cell size", answer("\x1b[?65;4c", ""), offer{}, false, GraphicsNone, konst.QueryTimeout},
+		{"forced sixel", answer("\x1b[?65;4c", "\x1b[6;22;10t"), offer{GraphicsSixel, true}, false, GraphicsSixel, konst.QueryTimeout},
+		{"silent", func([]byte) []string { return nil }, offer{}, false, GraphicsNone, konst.StartupTimeout + konst.QueryTimeout},
+	} {
+		for _, inline := range []bool{false, true} {
+			term := newFake()
+			term.reply = tc.reply
+			start := time.Now()
+			var caps Capabilities
+			if inline {
+				var err error
+				if caps, _, err = query(term, term.tty, tc.offer); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				b, err := enter(term, term.tty, Options{}, tc.offer)
+				if err != nil {
+					t.Fatal(err)
+				}
+				caps = b.Capabilities
+				term.tty.input <- []byte("x")
+				events(t, b, tc.name, input.KeyEvent{Rune: 'x'})
+				if err := b.Exit(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if took := time.Since(start); took > tc.took+konst.QueryTimeout/2 {
+				t.Errorf("%s inline %v: took %v, want under %v", tc.name, inline, took, tc.took)
+			}
+			if asked := strings.Contains(term.out(), "\x1b_"); asked != tc.asked {
+				t.Errorf("%s inline %v: APC written %v, want %v in %q", tc.name, inline, asked, tc.asked, term.out())
+			}
+			if !inline && caps.Graphics != tc.graphics {
+				t.Errorf("%s: graphics %d, want %d", tc.name, caps.Graphics, tc.graphics)
+			}
+		}
 	}
 }
