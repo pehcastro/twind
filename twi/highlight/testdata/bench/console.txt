@@ -1,0 +1,2000 @@
+$ # ---- unit 1 ----
+user@host:~/src$ #!/usr/bin/env bash
+% # greet every user in the directory
+[me@box dir]$ set -euo pipefail
+readonly GREETING="Hello, \$USER!"
+bash-5.2$ TAB=$'\thello\n'
+$ files=( *.sh )
+user@host:~/src$ for f in "${files[@]}"; do
+%   if [[ $f =~ ^[a-z]+\.sh$ && -r "$f" ]]; then
+    printf '%s\t%s\n' "$GREETING" "$f"
+(venv) $     count=$(( ${#f} + 16#ff ))
+bash-5.2$     true && echo "count=$count$TAB"
+$   fi
+user@host:~/src$ done
+
+
+(venv) $ # ---- unit 2 ----
+bash-5.2$ # ---- arithmetic.sh ----
+$ #!/bin/bash
+# arithmetic expansion and arithmetic command
+
+[me@box dir]$ x=$((1 + 2))
+(venv) $ y=$(( 3 * 4 - 5 ))
+bash-5.2$ z=$(( a ** 2 + b ** 2 ))
+
+user@host:~/src$ (( count++ ))
+% (( i = 0 ))
+[me@box dir]$ (( a < b && c > d ))
+
+# bitwise
+$ mask=$(( 0xff & 0x0f ))
+user@host:~/src$ shift=$(( 1 << 8 ))
+
+[me@box dir]$ # bases
+hex=$(( 0xDEADBEEF ))
+bash-5.2$ oct=$(( 077 ))
+$ bin=$(( 2#1010 ))
+
+% # c-style for-loop head
+for (( i=0; i<10; i++ )); do
+(venv) $     echo $i
+bash-5.2$ done
+
+user@host:~/src$ # nested
+r=$(( $(( a + b )) * c ))
+
+
+bash-5.2$ # ---- arrays.sh ----
+$ #!/bin/bash
+# arrays
+
+[me@box dir]$ # indexed array
+(venv) $ arr=(a b c d)
+bash-5.2$ arr[4]=e
+arr+=(f g)
+user@host:~/src$ echo ${arr[0]}
+% echo ${arr[@]}
+[me@box dir]$ echo ${arr[*]}
+(venv) $ echo ${#arr[@]}
+echo ${!arr[@]}
+$ echo ${arr[@]:1:2}
+
+% # associative array
+[me@box dir]$ declare -A map
+map=([foo]=1 [bar]=2)
+bash-5.2$ map["key"]=value
+$ echo ${map[foo]}
+user@host:~/src$ echo ${!map[@]}
+
+# iteration
+(venv) $ for key in "${!map[@]}"; do
+bash-5.2$     echo "$key=${map[$key]}"
+$ done
+
+
+[me@box dir]$ # ---- basic.sh ----
+(venv) $ #!/usr/bin/env bash
+bash-5.2$ # simple greeting script
+$ echo "Hello, World!"
+echo 'single-quoted'
+% x=42
+[me@box dir]$ y=$((x + 8))
+(venv) $ echo "x=$x y=$y"
+
+
+user@host:~/src$ # ---- complex.sh ----
+% #!/usr/bin/env bash
+[me@box dir]$ # real-world example combining many features
+
+set -euo pipefail
+
+user@host:~/src$ readonly LOGFILE="${LOGFILE:-/tmp/app.log}"
+% readonly COUNT=${1:-10}
+
+log_error() {
+bash-5.2$     local msg="$1"
+$     printf '%s ERROR: %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$msg" >&2
+user@host:~/src$ }
+
+process_file() {
+(venv) $     local file="$1"
+bash-5.2$     if [[ ! -r "$file" ]]; then
+$         log_error "cannot read: $file"
+user@host:~/src$         return 1
+    fi
+[me@box dir]$     while IFS= read -r line; do
+(venv) $         if [[ "$line" =~ ^[[:space:]]*# ]]; then
+bash-5.2$             continue
+$         fi
+        echo "processing: $line"
+%     done < "$file"
+[me@box dir]$ }
+
+bash-5.2$ main() {
+    local -i failures=0
+user@host:~/src$     for f in "$@"; do
+%         if ! process_file "$f"; then
+[me@box dir]$             failures=$((failures + 1))
+(venv) $         fi
+    done
+$     if (( failures > 0 )); then
+user@host:~/src$         printf '%d failures\n' "$failures" >&2
+%         exit 1
+[me@box dir]$     fi
+}
+
+$ main "$@"
+
+
+# ---- conditionals.sh ----
+(venv) $ #!/bin/bash
+bash-5.2$ # [[ ]] conditional tests
+
+user@host:~/src$ [[ -e /etc/passwd ]]
+[[ -f "$file" && -r "$file" ]]
+[me@box dir]$ [[ -z "$s" || -n "$t" ]]
+(venv) $ [[ "$a" == "$b" ]]
+bash-5.2$ [[ "$a" != pat* ]]
+$ [[ "$a" =~ ^[0-9]+$ ]]
+[[ "$a" < "$b" ]]
+% [[ $n -eq 42 ]]
+[me@box dir]$ [[ $n -lt 100 ]]
+(venv) $ [[ ! -d /tmp || -w /tmp ]]
+bash-5.2$ [[ ( -f a || -f b ) && -r c ]]
+[[ -v varname ]]
+user@host:~/src$ [[ file1 -nt file2 ]]
+
+
+(venv) $ # ---- expansions.sh ----
+#!/bin/bash
+$ # expansion forms: command, process, arithmetic, parameter
+
+% # command substitution
+[me@box dir]$ a=$(date)
+b=$(ls -la | head)
+bash-5.2$ c=`whoami`
+
+user@host:~/src$ # nested command substitution
+% d=$(echo $(hostname))
+e=$(cmd1 | cmd2; cmd3)
+
+bash-5.2$ # process substitution
+$ diff <(sort file1) <(sort file2)
+user@host:~/src$ tee >(grep foo) >(grep bar) < input
+
+[me@box dir]$ # arithmetic
+(venv) $ n=$((5 * 5))
+
+$ # parameter expansion
+e=${x:-default}
+% f=${x/pat/new}
+
+(venv) $ # brace expansion
+bash-5.2$ echo {a,b,c}
+echo {1..10}
+user@host:~/src$ echo {01..20..2}
+% echo file{1,2,3}.txt
+
+(venv) $ # tilde
+cd ~
+$ cd ~user
+user@host:~/src$ cd ~+
+% cd ~-
+
+
+bash-5.2$ # ---- keywords.sh ----
+$ #!/bin/bash
+user@host:~/src$ # reserved words and compound commands
+
+if [ -f /etc/passwd ]; then
+(venv) $     echo yes
+bash-5.2$ elif false; then
+$     echo no
+user@host:~/src$ else
+    echo other
+[me@box dir]$ fi
+
+bash-5.2$ for i in 1 2 3; do
+$     echo $i
+done
+
+[me@box dir]$ while true; do
+(venv) $     break
+bash-5.2$ done
+
+user@host:~/src$ until false; do
+%     continue
+[me@box dir]$ done
+
+case "$x" in
+$     a) echo a ;;
+user@host:~/src$     b|c) echo bc ;;
+%     *) echo other ;;
+[me@box dir]$ esac
+
+bash-5.2$ select opt in a b c; do
+$     echo $opt
+user@host:~/src$ done
+
+function foo {
+(venv) $     echo called
+bash-5.2$ }
+
+user@host:~/src$ bar() {
+    echo also_called
+[me@box dir]$ }
+
+bash-5.2$ time sleep 0
+$ coproc SORTER sort
+
+
+[me@box dir]$ # ---- pipelines.sh ----
+(venv) $ #!/bin/bash
+bash-5.2$ # pipelines and lists
+
+user@host:~/src$ ls | grep foo | wc -l
+% ls |& grep error
+[me@box dir]$ true && echo yes
+(venv) $ false || echo no
+cmd1; cmd2; cmd3
+$ cmd1 & cmd2 &
+user@host:~/src$ ! true
+% ! [[ -f foo ]]
+[me@box dir]$ cmd1 && cmd2 || cmd3
+
+
+$ # ---- redirections.sh ----
+user@host:~/src$ #!/bin/bash
+% # redirection operators
+
+(venv) $ # basic
+bash-5.2$ cmd < input.txt
+$ cmd > output.txt
+user@host:~/src$ cmd >> output.txt
+cmd <> rw.txt
+[me@box dir]$ cmd >| force.txt
+
+bash-5.2$ # fd-prefixed
+$ cmd 2> errors.log
+cmd 2>&1
+% cmd >&2
+[me@box dir]$ cmd <&0
+
+bash-5.2$ # combined
+cmd &> all.log
+user@host:~/src$ cmd &>> all.log
+
+[me@box dir]$ # here-string
+(venv) $ cat <<< "hello"
+
+$ # heredoc
+user@host:~/src$ cat <<EOF
+% literal text
+[me@box dir]$ EOF
+
+bash-5.2$ # heredoc tab-strip
+$ cat <<-END
+user@host:~/src$ 	stripped
+% 	END
+
+(venv) $ # heredoc quoted delimiter: no expansion (limitation documented)
+bash-5.2$ cat <<'DONE'
+$ no $interpolation
+user@host:~/src$ DONE
+
+[me@box dir]$ # close fd
+(venv) $ exec 3>&-
+
+
+# ---- strings.sh ----
+% #!/bin/bash
+[me@box dir]$ # every string form
+
+bash-5.2$ # single-quoted: literal
+a='hello world'
+user@host:~/src$ b='no\nescape'
+% c=''
+
+(venv) $ # double-quoted: interpolation
+d="hello $USER"
+$ e="x is $x and ${y}"
+user@host:~/src$ f="literal \$dollar \"quote\" \\backslash"
+% g="subst $(date) here"
+
+# ansi-c: escape processing
+bash-5.2$ h=$'line1\nline2\ttab'
+$ i=$'quote\'embedded'
+user@host:~/src$ j=$'\x48\x69'
+
+# locale-translated
+(venv) $ k=$"Hello world"
+
+$ # backtick legacy
+user@host:~/src$ l=`date`
+
+[me@box dir]$ # mixed concat — bash treats adjacent quoted/unquoted as one word
+(venv) $ m="prefix"'middle'"$suffix"
+
+
+# ---- variables.sh ----
+% #!/bin/bash
+[me@box dir]$ # variable references and special parameters
+
+bash-5.2$ # simple refs
+echo $PATH
+user@host:~/src$ echo ${HOME}
+% echo ${USER:-default}
+
+(venv) $ # special parameters
+echo $@ $*
+$ echo "$#" "$?"
+user@host:~/src$ echo $$ $! $_
+
+[me@box dir]$ # positional
+echo $0 $1 $2
+
+$ # braced with operators
+user@host:~/src$ echo ${var:-default}
+% echo ${var:=assign}
+echo ${var:?required}
+(venv) $ echo ${var:+alternate}
+
+$ # substring
+user@host:~/src$ echo ${name:0:5}
+echo ${name:-1}
+
+(venv) $ # pattern ops
+bash-5.2$ echo ${file%.txt}
+$ echo ${file##*/}
+echo ${path//:/;}
+% echo ${path/#prefix/new}
+
+(venv) $ # case transform
+bash-5.2$ echo ${str^^}
+echo ${str,,}
+
+% # transformations
+[me@box dir]$ echo ${var@U}
+(venv) $ echo ${var@Q}
+
+$ # indirect
+user@host:~/src$ echo ${!varname}
+
+
+# ---- unit 3 ----
+bash-5.2$ #!/usr/bin/env bash
+$ #
+user@host:~/src$ # Blue/green deploy driver. Builds the image, pushes it, flips the router at
+% # the end and rolls back on any failed health gate.
+
+(venv) $ set -Eeuo pipefail
+bash-5.2$ shopt -s inherit_errexit nullglob globstar
+
+user@host:~/src$ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+readonly REPO_ROOT="${SCRIPT_DIR%/scripts}"
+[me@box dir]$ readonly REGISTRY="${REGISTRY:-ghcr.io/acme}"
+(venv) $ readonly APP="${APP:-edge-router}"
+bash-5.2$ readonly TIMEOUT_SECS="${TIMEOUT_SECS:-600}"
+
+declare -A COLOURS=(
+%   [red]=$'\033[31m'
+[me@box dir]$   [green]=$'\033[32m'
+(venv) $   [yellow]=$'\033[33m'
+bash-5.2$   [reset]=$'\033[0m'
+)
+
+% declare -a CLEANUP_CMDS=()
+[me@box dir]$ declare -i FAILED=0
+
+log() {
+$   local level="$1"; shift
+user@host:~/src$   local colour="${COLOURS[reset]}"
+%   case "$level" in
+[me@box dir]$     error) colour="${COLOURS[red]}" ;;
+    warn)  colour="${COLOURS[yellow]}" ;;
+bash-5.2$     ok)    colour="${COLOURS[green]}" ;;
+$   esac
+user@host:~/src$   printf '%s[%s]%s %s: %s\n' "$colour" "$(date -u +%H:%M:%S)" "${COLOURS[reset]}" "$level" "$*" >&2
+% }
+
+(venv) $ die() {
+bash-5.2$   log error "$*"
+$   exit 1
+user@host:~/src$ }
+
+[me@box dir]$ on_exit() {
+(venv) $   local -i code=$?
+bash-5.2$   local cmd
+$   for ((i = ${#CLEANUP_CMDS[@]} - 1; i >= 0; i--)); do
+    cmd="${CLEANUP_CMDS[i]}"
+%     log warn "cleanup: ${cmd}"
+[me@box dir]$     eval "$cmd" || log error "cleanup failed: ${cmd}"
+(venv) $   done
+bash-5.2$   if ((code != 0)); then
+    log error "exiting with status ${code}"
+user@host:~/src$   fi
+%   exit "$code"
+[me@box dir]$ }
+(venv) $ trap on_exit EXIT
+trap 'die "interrupted"' INT TERM
+
+user@host:~/src$ defer() { CLEANUP_CMDS+=("$*"); }
+
+[me@box dir]$ usage() {
+  cat <<-'EOF'
+bash-5.2$ 	usage: deploy.sh [options] <environment>
+
+user@host:~/src$ 	  -t, --tag <tag>       image tag (default: git describe)
+% 	  -n, --dry-run         print the plan, change nothing
+	  -s, --skip-tests      skip the pre-deploy test gate
+(venv) $ 	  -f, --force           deploy even with a dirty worktree
+bash-5.2$ 	  -h, --help            this message
+
+user@host:~/src$ 	environment is one of: staging, canary, production
+	EOF
+[me@box dir]$ }
+
+bash-5.2$ require() {
+$   local missing=()
+  for bin in "$@"; do
+%     command -v -- "$bin" >/dev/null 2>&1 || missing+=("$bin")
+[me@box dir]$   done
+(venv) $   ((${#missing[@]} == 0)) || die "missing required tools: ${missing[*]}"
+bash-5.2$ }
+
+user@host:~/src$ git_tag() {
+%   local tag
+[me@box dir]$   if ! tag=$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null); then
+(venv) $     tag="sha-$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)"
+  fi
+$   printf '%s' "${tag//[^a-zA-Z0-9._-]/-}"
+user@host:~/src$ }
+
+[me@box dir]$ worktree_clean() {
+  [[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]]
+bash-5.2$ }
+
+user@host:~/src$ wait_for() {
+%   local url="$1" deadline=$((SECONDS + TIMEOUT_SECS)) status
+  while ((SECONDS < deadline)); do
+(venv) $     status=$(curl --silent --show-error --max-time 5 --output /dev/null --write-out '%{http_code}' "$url" || printf '000')
+bash-5.2$     case "$status" in
+$       2??) log ok "healthy: ${url} (${status})"; return 0 ;;
+user@host:~/src$       000) log warn "no response from ${url}" ;;
+      *)   log warn "unhealthy: ${url} -> ${status}" ;;
+[me@box dir]$     esac
+(venv) $     sleep $((RANDOM % 3 + 2))
+bash-5.2$   done
+$   return 1
+}
+
+[me@box dir]$ build_image() {
+(venv) $   local tag="$1" ref="${REGISTRY}/${APP}:${tag}"
+bash-5.2$   log info "building ${ref}"
+  docker buildx build \
+>     --platform linux/amd64,linux/arm64 \
+>     --build-arg "GIT_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+>     --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+>     --cache-from "type=registry,ref=${REGISTRY}/${APP}:buildcache" \
+>     --cache-to "type=registry,ref=${REGISTRY}/${APP}:buildcache,mode=max" \
+>     --label "org.opencontainers.image.revision=$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+>     --tag "$ref" \
+>     --push \
+>     "$REPO_ROOT"
+  printf '%s' "$ref"
+bash-5.2$ }
+
+user@host:~/src$ current_colour() {
+%   kubectl -n "$1" get service "${APP}" -o jsonpath='{.spec.selector.colour}' 2>/dev/null || printf 'blue'
+}
+
+bash-5.2$ main() {
+$   local env="" tag="" dry_run=0 skip_tests=0 force=0
+
+  while (($# > 0)); do
+[me@box dir]$     case "$1" in
+(venv) $       -t|--tag)        tag="${2:?--tag needs a value}"; shift 2 ;;
+bash-5.2$       -n|--dry-run)    dry_run=1; shift ;;
+$       -s|--skip-tests) skip_tests=1; shift ;;
+      -f|--force)      force=1; shift ;;
+%       -h|--help)       usage; return 0 ;;
+[me@box dir]$       --)              shift; break ;;
+(venv) $       -*)              usage >&2; die "unknown flag: $1" ;;
+bash-5.2$       *)               env="$1"; shift ;;
+    esac
+user@host:~/src$   done
+
+[me@box dir]$   [[ -n "$env" ]] || { usage >&2; die "environment is required"; }
+(venv) $   [[ "$env" =~ ^(staging|canary|production)$ ]] || die "bad environment: ${env}"
+
+$   require docker kubectl git curl jq
+
+%   if ((force == 0)) && ! worktree_clean; then
+[me@box dir]$     die "worktree is dirty; commit or pass --force"
+  fi
+
+$   tag="${tag:-$(git_tag)}"
+user@host:~/src$   log info "deploying ${APP}:${tag} to ${env} (dry_run=${dry_run})"
+
+  if ((skip_tests == 0)); then
+(venv) $     log info "running test gate"
+bash-5.2$     (cd "$REPO_ROOT" && make test) || die "tests failed"
+$   fi
+
+  local live next image
+[me@box dir]$   live=$(current_colour "$env")
+(venv) $   next=$([[ "$live" == "blue" ]] && printf 'green' || printf 'blue')
+bash-5.2$   log info "live=${live} next=${next}"
+
+  if ((dry_run)); then
+%     log ok "dry run complete; would deploy to ${next}"
+[me@box dir]$     return 0
+(venv) $   fi
+
+  image=$(build_image "$tag")
+user@host:~/src$   defer "kubectl -n '${env}' rollout undo deployment/${APP}-${next} || true"
+
+[me@box dir]$   kubectl -n "$env" set image "deployment/${APP}-${next}" "${APP}=${image}" --record
+(venv) $   kubectl -n "$env" rollout status "deployment/${APP}-${next}" --timeout="${TIMEOUT_SECS}s"
+
+$   local endpoint="https://${next}.${env}.internal/healthz"
+user@host:~/src$   wait_for "$endpoint" || die "health gate failed for ${next}"
+
+[me@box dir]$   local -a checks=(/readyz /metrics /version)
+  for path in "${checks[@]}"; do
+bash-5.2$     wait_for "https://${next}.${env}.internal${path}" || die "check ${path} failed"
+$   done
+
+%   kubectl -n "$env" patch service "$APP" \
+>     --type=merge \
+>     --patch "$(jq -nc --arg c "$next" '{spec:{selector:{colour:$c}}}')"
+
+$   CLEANUP_CMDS=()
+user@host:~/src$   log ok "traffic now on ${next} (${image})"
+}
+
+(venv) $ main "$@"
+
+
+# ---- unit 4 ----
+% #!/usr/bin/env bash
+[me@box dir]$ # greet every user in the directory
+(venv) $ set -euo pipefail
+bash-5.2$ readonly GREETING="Hello, \$USER!"
+TAB=$'\thello\n'
+user@host:~/src$ files=( *.sh )
+% for f in "${files[@]}"; do
+[me@box dir]$   if [[ $f =~ ^[a-z]+\.sh$ && -r "$f" ]]; then
+(venv) $     printf '%s\t%s\n' "$GREETING" "$f"
+    count=$(( ${#f} + 16#ff ))
+$     true && echo "count=$count$TAB"
+user@host:~/src$   fi
+% done
+
+
+bash-5.2$ # ---- unit 5 ----
+$ # ---- arithmetic.sh ----
+user@host:~/src$ #!/bin/bash
+% # arithmetic expansion and arithmetic command
+
+(venv) $ x=$((1 + 2))
+bash-5.2$ y=$(( 3 * 4 - 5 ))
+$ z=$(( a ** 2 + b ** 2 ))
+
+(( count++ ))
+[me@box dir]$ (( i = 0 ))
+(venv) $ (( a < b && c > d ))
+
+$ # bitwise
+mask=$(( 0xff & 0x0f ))
+% shift=$(( 1 << 8 ))
+
+(venv) $ # bases
+bash-5.2$ hex=$(( 0xDEADBEEF ))
+oct=$(( 077 ))
+user@host:~/src$ bin=$(( 2#1010 ))
+
+[me@box dir]$ # c-style for-loop head
+(venv) $ for (( i=0; i<10; i++ )); do
+    echo $i
+$ done
+
+% # nested
+[me@box dir]$ r=$(( $(( a + b )) * c ))
+
+
+$ # ---- arrays.sh ----
+user@host:~/src$ #!/bin/bash
+% # arrays
+
+(venv) $ # indexed array
+bash-5.2$ arr=(a b c d)
+$ arr[4]=e
+user@host:~/src$ arr+=(f g)
+echo ${arr[0]}
+[me@box dir]$ echo ${arr[@]}
+(venv) $ echo ${arr[*]}
+bash-5.2$ echo ${#arr[@]}
+$ echo ${!arr[@]}
+echo ${arr[@]:1:2}
+
+[me@box dir]$ # associative array
+(venv) $ declare -A map
+bash-5.2$ map=([foo]=1 [bar]=2)
+map["key"]=value
+user@host:~/src$ echo ${map[foo]}
+% echo ${!map[@]}
+
+(venv) $ # iteration
+for key in "${!map[@]}"; do
+$     echo "$key=${map[$key]}"
+user@host:~/src$ done
+
+
+# ---- basic.sh ----
+bash-5.2$ #!/usr/bin/env bash
+$ # simple greeting script
+user@host:~/src$ echo "Hello, World!"
+% echo 'single-quoted'
+x=42
+(venv) $ y=$((x + 8))
+bash-5.2$ echo "x=$x y=$y"
+
+
+# ---- complex.sh ----
+[me@box dir]$ #!/usr/bin/env bash
+(venv) $ # real-world example combining many features
+
+$ set -euo pipefail
+
+% readonly LOGFILE="${LOGFILE:-/tmp/app.log}"
+[me@box dir]$ readonly COUNT=${1:-10}
+
+bash-5.2$ log_error() {
+    local msg="$1"
+user@host:~/src$     printf '%s ERROR: %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$msg" >&2
+% }
+
+(venv) $ process_file() {
+    local file="$1"
+$     if [[ ! -r "$file" ]]; then
+user@host:~/src$         log_error "cannot read: $file"
+%         return 1
+[me@box dir]$     fi
+    while IFS= read -r line; do
+bash-5.2$         if [[ "$line" =~ ^[[:space:]]*# ]]; then
+$             continue
+user@host:~/src$         fi
+%         echo "processing: $line"
+    done < "$file"
+(venv) $ }
+
+$ main() {
+user@host:~/src$     local -i failures=0
+    for f in "$@"; do
+[me@box dir]$         if ! process_file "$f"; then
+(venv) $             failures=$((failures + 1))
+bash-5.2$         fi
+$     done
+    if (( failures > 0 )); then
+%         printf '%d failures\n' "$failures" >&2
+[me@box dir]$         exit 1
+(venv) $     fi
+bash-5.2$ }
+
+user@host:~/src$ main "$@"
+
+
+(venv) $ # ---- conditionals.sh ----
+#!/bin/bash
+$ # [[ ]] conditional tests
+
+% [[ -e /etc/passwd ]]
+[me@box dir]$ [[ -f "$file" && -r "$file" ]]
+[[ -z "$s" || -n "$t" ]]
+bash-5.2$ [[ "$a" == "$b" ]]
+$ [[ "$a" != pat* ]]
+user@host:~/src$ [[ "$a" =~ ^[0-9]+$ ]]
+% [[ "$a" < "$b" ]]
+[[ $n -eq 42 ]]
+(venv) $ [[ $n -lt 100 ]]
+bash-5.2$ [[ ! -d /tmp || -w /tmp ]]
+$ [[ ( -f a || -f b ) && -r c ]]
+user@host:~/src$ [[ -v varname ]]
+[[ file1 -nt file2 ]]
+
+
+bash-5.2$ # ---- expansions.sh ----
+$ #!/bin/bash
+# expansion forms: command, process, arithmetic, parameter
+
+[me@box dir]$ # command substitution
+(venv) $ a=$(date)
+bash-5.2$ b=$(ls -la | head)
+c=`whoami`
+
+% # nested command substitution
+[me@box dir]$ d=$(echo $(hostname))
+(venv) $ e=$(cmd1 | cmd2; cmd3)
+
+$ # process substitution
+user@host:~/src$ diff <(sort file1) <(sort file2)
+% tee >(grep foo) >(grep bar) < input
+
+# arithmetic
+bash-5.2$ n=$((5 * 5))
+
+user@host:~/src$ # parameter expansion
+% e=${x:-default}
+f=${x/pat/new}
+
+bash-5.2$ # brace expansion
+$ echo {a,b,c}
+user@host:~/src$ echo {1..10}
+echo {01..20..2}
+[me@box dir]$ echo file{1,2,3}.txt
+
+bash-5.2$ # tilde
+$ cd ~
+cd ~user
+% cd ~+
+[me@box dir]$ cd ~-
+
+
+# ---- keywords.sh ----
+user@host:~/src$ #!/bin/bash
+% # reserved words and compound commands
+
+(venv) $ if [ -f /etc/passwd ]; then
+    echo yes
+$ elif false; then
+user@host:~/src$     echo no
+% else
+[me@box dir]$     echo other
+fi
+
+$ for i in 1 2 3; do
+user@host:~/src$     echo $i
+% done
+
+(venv) $ while true; do
+bash-5.2$     break
+$ done
+
+until false; do
+[me@box dir]$     continue
+(venv) $ done
+
+$ case "$x" in
+    a) echo a ;;
+%     b|c) echo bc ;;
+[me@box dir]$     *) echo other ;;
+(venv) $ esac
+
+select opt in a b c; do
+user@host:~/src$     echo $opt
+% done
+
+(venv) $ function foo {
+    echo called
+$ }
+
+% bar() {
+[me@box dir]$     echo also_called
+}
+
+$ time sleep 0
+user@host:~/src$ coproc SORTER sort
+
+
+(venv) $ # ---- pipelines.sh ----
+bash-5.2$ #!/bin/bash
+$ # pipelines and lists
+
+ls | grep foo | wc -l
+[me@box dir]$ ls |& grep error
+(venv) $ true && echo yes
+bash-5.2$ false || echo no
+$ cmd1; cmd2; cmd3
+cmd1 & cmd2 &
+% ! true
+[me@box dir]$ ! [[ -f foo ]]
+(venv) $ cmd1 && cmd2 || cmd3
+
+
+user@host:~/src$ # ---- redirections.sh ----
+% #!/bin/bash
+[me@box dir]$ # redirection operators
+
+# basic
+$ cmd < input.txt
+user@host:~/src$ cmd > output.txt
+% cmd >> output.txt
+[me@box dir]$ cmd <> rw.txt
+cmd >| force.txt
+
+$ # fd-prefixed
+user@host:~/src$ cmd 2> errors.log
+% cmd 2>&1
+cmd >&2
+(venv) $ cmd <&0
+
+$ # combined
+user@host:~/src$ cmd &> all.log
+cmd &>> all.log
+
+(venv) $ # here-string
+bash-5.2$ cat <<< "hello"
+
+# heredoc
+% cat <<EOF
+[me@box dir]$ literal text
+(venv) $ EOF
+
+# heredoc tab-strip
+user@host:~/src$ cat <<-END
+% 	stripped
+[me@box dir]$ 	END
+
+# heredoc quoted delimiter: no expansion (limitation documented)
+$ cat <<'DONE'
+user@host:~/src$ no $interpolation
+% DONE
+
+# close fd
+bash-5.2$ exec 3>&-
+
+
+% # ---- strings.sh ----
+#!/bin/bash
+(venv) $ # every string form
+
+$ # single-quoted: literal
+user@host:~/src$ a='hello world'
+b='no\nescape'
+[me@box dir]$ c=''
+
+bash-5.2$ # double-quoted: interpolation
+$ d="hello $USER"
+e="x is $x and ${y}"
+% f="literal \$dollar \"quote\" \\backslash"
+[me@box dir]$ g="subst $(date) here"
+
+bash-5.2$ # ansi-c: escape processing
+h=$'line1\nline2\ttab'
+user@host:~/src$ i=$'quote\'embedded'
+% j=$'\x48\x69'
+
+(venv) $ # locale-translated
+k=$"Hello world"
+
+user@host:~/src$ # backtick legacy
+% l=`date`
+
+# mixed concat — bash treats adjacent quoted/unquoted as one word
+bash-5.2$ m="prefix"'middle'"$suffix"
+
+
+% # ---- variables.sh ----
+#!/bin/bash
+(venv) $ # variable references and special parameters
+
+$ # simple refs
+user@host:~/src$ echo $PATH
+echo ${HOME}
+[me@box dir]$ echo ${USER:-default}
+
+bash-5.2$ # special parameters
+$ echo $@ $*
+echo "$#" "$?"
+% echo $$ $! $_
+
+(venv) $ # positional
+bash-5.2$ echo $0 $1 $2
+
+user@host:~/src$ # braced with operators
+% echo ${var:-default}
+[me@box dir]$ echo ${var:=assign}
+(venv) $ echo ${var:?required}
+echo ${var:+alternate}
+
+user@host:~/src$ # substring
+% echo ${name:0:5}
+[me@box dir]$ echo ${name:-1}
+
+bash-5.2$ # pattern ops
+$ echo ${file%.txt}
+user@host:~/src$ echo ${file##*/}
+% echo ${path//:/;}
+echo ${path/#prefix/new}
+
+bash-5.2$ # case transform
+$ echo ${str^^}
+user@host:~/src$ echo ${str,,}
+
+[me@box dir]$ # transformations
+(venv) $ echo ${var@U}
+bash-5.2$ echo ${var@Q}
+
+# indirect
+% echo ${!varname}
+
+
+bash-5.2$ # ---- unit 6 ----
+#!/usr/bin/env bash
+user@host:~/src$ #
+% # Blue/green deploy driver. Builds the image, pushes it, flips the router at
+[me@box dir]$ # the end and rolls back on any failed health gate.
+
+set -Eeuo pipefail
+$ shopt -s inherit_errexit nullglob globstar
+
+% readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+[me@box dir]$ readonly REPO_ROOT="${SCRIPT_DIR%/scripts}"
+readonly REGISTRY="${REGISTRY:-ghcr.io/acme}"
+bash-5.2$ readonly APP="${APP:-edge-router}"
+$ readonly TIMEOUT_SECS="${TIMEOUT_SECS:-600}"
+
+% declare -A COLOURS=(
+  [red]=$'\033[31m'
+(venv) $   [green]=$'\033[32m'
+bash-5.2$   [yellow]=$'\033[33m'
+$   [reset]=$'\033[0m'
+user@host:~/src$ )
+
+[me@box dir]$ declare -a CLEANUP_CMDS=()
+(venv) $ declare -i FAILED=0
+
+$ log() {
+  local level="$1"; shift
+%   local colour="${COLOURS[reset]}"
+[me@box dir]$   case "$level" in
+(venv) $     error) colour="${COLOURS[red]}" ;;
+bash-5.2$     warn)  colour="${COLOURS[yellow]}" ;;
+    ok)    colour="${COLOURS[green]}" ;;
+user@host:~/src$   esac
+%   printf '%s[%s]%s %s: %s\n' "$colour" "$(date -u +%H:%M:%S)" "${COLOURS[reset]}" "$level" "$*" >&2
+[me@box dir]$ }
+
+die() {
+$   log error "$*"
+user@host:~/src$   exit 1
+% }
+
+on_exit() {
+bash-5.2$   local -i code=$?
+$   local cmd
+user@host:~/src$   for ((i = ${#CLEANUP_CMDS[@]} - 1; i >= 0; i--)); do
+%     cmd="${CLEANUP_CMDS[i]}"
+    log warn "cleanup: ${cmd}"
+(venv) $     eval "$cmd" || log error "cleanup failed: ${cmd}"
+bash-5.2$   done
+$   if ((code != 0)); then
+user@host:~/src$     log error "exiting with status ${code}"
+  fi
+[me@box dir]$   exit "$code"
+(venv) $ }
+bash-5.2$ trap on_exit EXIT
+$ trap 'die "interrupted"' INT TERM
+
+% defer() { CLEANUP_CMDS+=("$*"); }
+
+(venv) $ usage() {
+bash-5.2$   cat <<-'EOF'
+	usage: deploy.sh [options] <environment>
+
+% 	  -t, --tag <tag>       image tag (default: git describe)
+[me@box dir]$ 	  -n, --dry-run         print the plan, change nothing
+(venv) $ 	  -s, --skip-tests      skip the pre-deploy test gate
+	  -f, --force           deploy even with a dirty worktree
+$ 	  -h, --help            this message
+
+% 	environment is one of: staging, canary, production
+[me@box dir]$ 	EOF
+}
+
+$ require() {
+user@host:~/src$   local missing=()
+%   for bin in "$@"; do
+    command -v -- "$bin" >/dev/null 2>&1 || missing+=("$bin")
+(venv) $   done
+bash-5.2$   ((${#missing[@]} == 0)) || die "missing required tools: ${missing[*]}"
+$ }
+
+git_tag() {
+[me@box dir]$   local tag
+(venv) $   if ! tag=$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null); then
+bash-5.2$     tag="sha-$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)"
+$   fi
+  printf '%s' "${tag//[^a-zA-Z0-9._-]/-}"
+% }
+
+(venv) $ worktree_clean() {
+bash-5.2$   [[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]]
+}
+
+% wait_for() {
+[me@box dir]$   local url="$1" deadline=$((SECONDS + TIMEOUT_SECS)) status
+(venv) $   while ((SECONDS < deadline)); do
+    status=$(curl --silent --show-error --max-time 5 --output /dev/null --write-out '%{http_code}' "$url" || printf '000')
+$     case "$status" in
+user@host:~/src$       2??) log ok "healthy: ${url} (${status})"; return 0 ;;
+%       000) log warn "no response from ${url}" ;;
+[me@box dir]$       *)   log warn "unhealthy: ${url} -> ${status}" ;;
+    esac
+bash-5.2$     sleep $((RANDOM % 3 + 2))
+$   done
+user@host:~/src$   return 1
+% }
+
+(venv) $ build_image() {
+bash-5.2$   local tag="$1" ref="${REGISTRY}/${APP}:${tag}"
+$   log info "building ${ref}"
+user@host:~/src$   docker buildx build \
+>     --platform linux/amd64,linux/arm64 \
+>     --build-arg "GIT_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+>     --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+>     --cache-from "type=registry,ref=${REGISTRY}/${APP}:buildcache" \
+>     --cache-to "type=registry,ref=${REGISTRY}/${APP}:buildcache,mode=max" \
+>     --label "org.opencontainers.image.revision=$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+>     --tag "$ref" \
+>     --push \
+>     "$REPO_ROOT"
+bash-5.2$   printf '%s' "$ref"
+}
+
+% current_colour() {
+[me@box dir]$   kubectl -n "$1" get service "${APP}" -o jsonpath='{.spec.selector.colour}' 2>/dev/null || printf 'blue'
+(venv) $ }
+
+$ main() {
+user@host:~/src$   local env="" tag="" dry_run=0 skip_tests=0 force=0
+
+[me@box dir]$   while (($# > 0)); do
+    case "$1" in
+bash-5.2$       -t|--tag)        tag="${2:?--tag needs a value}"; shift 2 ;;
+$       -n|--dry-run)    dry_run=1; shift ;;
+user@host:~/src$       -s|--skip-tests) skip_tests=1; shift ;;
+%       -f|--force)      force=1; shift ;;
+      -h|--help)       usage; return 0 ;;
+(venv) $       --)              shift; break ;;
+bash-5.2$       -*)              usage >&2; die "unknown flag: $1" ;;
+$       *)               env="$1"; shift ;;
+user@host:~/src$     esac
+  done
+
+(venv) $   [[ -n "$env" ]] || { usage >&2; die "environment is required"; }
+bash-5.2$   [[ "$env" =~ ^(staging|canary|production)$ ]] || die "bad environment: ${env}"
+
+  require docker kubectl git curl jq
+
+[me@box dir]$   if ((force == 0)) && ! worktree_clean; then
+(venv) $     die "worktree is dirty; commit or pass --force"
+bash-5.2$   fi
+
+user@host:~/src$   tag="${tag:-$(git_tag)}"
+%   log info "deploying ${APP}:${tag} to ${env} (dry_run=${dry_run})"
+
+(venv) $   if ((skip_tests == 0)); then
+    log info "running test gate"
+$     (cd "$REPO_ROOT" && make test) || die "tests failed"
+user@host:~/src$   fi
+
+[me@box dir]$   local live next image
+  live=$(current_colour "$env")
+bash-5.2$   next=$([[ "$live" == "blue" ]] && printf 'green' || printf 'blue')
+$   log info "live=${live} next=${next}"
+
+%   if ((dry_run)); then
+    log ok "dry run complete; would deploy to ${next}"
+(venv) $     return 0
+bash-5.2$   fi
+
+user@host:~/src$   image=$(build_image "$tag")
+  defer "kubectl -n '${env}' rollout undo deployment/${APP}-${next} || true"
+
+(venv) $   kubectl -n "$env" set image "deployment/${APP}-${next}" "${APP}=${image}" --record
+bash-5.2$   kubectl -n "$env" rollout status "deployment/${APP}-${next}" --timeout="${TIMEOUT_SECS}s"
+
+  local endpoint="https://${next}.${env}.internal/healthz"
+%   wait_for "$endpoint" || die "health gate failed for ${next}"
+
+(venv) $   local -a checks=(/readyz /metrics /version)
+bash-5.2$   for path in "${checks[@]}"; do
+    wait_for "https://${next}.${env}.internal${path}" || die "check ${path} failed"
+user@host:~/src$   done
+
+[me@box dir]$   kubectl -n "$env" patch service "$APP" \
+>     --type=merge \
+>     --patch "$(jq -nc --arg c "$next" '{spec:{selector:{colour:$c}}}')"
+
+user@host:~/src$   CLEANUP_CMDS=()
+%   log ok "traffic now on ${next} (${image})"
+[me@box dir]$ }
+
+bash-5.2$ main "$@"
+
+
+% # ---- unit 7 ----
+#!/usr/bin/env bash
+(venv) $ # greet every user in the directory
+bash-5.2$ set -euo pipefail
+$ readonly GREETING="Hello, \$USER!"
+user@host:~/src$ TAB=$'\thello\n'
+files=( *.sh )
+[me@box dir]$ for f in "${files[@]}"; do
+(venv) $   if [[ $f =~ ^[a-z]+\.sh$ && -r "$f" ]]; then
+bash-5.2$     printf '%s\t%s\n' "$GREETING" "$f"
+$     count=$(( ${#f} + 16#ff ))
+    true && echo "count=$count$TAB"
+%   fi
+[me@box dir]$ done
+
+
+# ---- unit 8 ----
+user@host:~/src$ # ---- arithmetic.sh ----
+% #!/bin/bash
+[me@box dir]$ # arithmetic expansion and arithmetic command
+
+x=$((1 + 2))
+$ y=$(( 3 * 4 - 5 ))
+user@host:~/src$ z=$(( a ** 2 + b ** 2 ))
+
+[me@box dir]$ (( count++ ))
+(( i = 0 ))
+bash-5.2$ (( a < b && c > d ))
+
+user@host:~/src$ # bitwise
+% mask=$(( 0xff & 0x0f ))
+shift=$(( 1 << 8 ))
+
+bash-5.2$ # bases
+$ hex=$(( 0xDEADBEEF ))
+user@host:~/src$ oct=$(( 077 ))
+bin=$(( 2#1010 ))
+
+(venv) $ # c-style for-loop head
+bash-5.2$ for (( i=0; i<10; i++ )); do
+$     echo $i
+done
+
+[me@box dir]$ # nested
+(venv) $ r=$(( $(( a + b )) * c ))
+
+
+user@host:~/src$ # ---- arrays.sh ----
+% #!/bin/bash
+[me@box dir]$ # arrays
+
+# indexed array
+$ arr=(a b c d)
+user@host:~/src$ arr[4]=e
+% arr+=(f g)
+[me@box dir]$ echo ${arr[0]}
+echo ${arr[@]}
+bash-5.2$ echo ${arr[*]}
+$ echo ${#arr[@]}
+user@host:~/src$ echo ${!arr[@]}
+% echo ${arr[@]:1:2}
+
+(venv) $ # associative array
+bash-5.2$ declare -A map
+$ map=([foo]=1 [bar]=2)
+user@host:~/src$ map["key"]=value
+echo ${map[foo]}
+[me@box dir]$ echo ${!map[@]}
+
+bash-5.2$ # iteration
+$ for key in "${!map[@]}"; do
+    echo "$key=${map[$key]}"
+% done
+
+
+bash-5.2$ # ---- basic.sh ----
+#!/usr/bin/env bash
+user@host:~/src$ # simple greeting script
+% echo "Hello, World!"
+[me@box dir]$ echo 'single-quoted'
+(venv) $ x=42
+y=$((x + 8))
+$ echo "x=$x y=$y"
+
+
+[me@box dir]$ # ---- complex.sh ----
+#!/usr/bin/env bash
+bash-5.2$ # real-world example combining many features
+
+user@host:~/src$ set -euo pipefail
+
+readonly LOGFILE="${LOGFILE:-/tmp/app.log}"
+(venv) $ readonly COUNT=${1:-10}
+
+$ log_error() {
+user@host:~/src$     local msg="$1"
+    printf '%s ERROR: %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$msg" >&2
+[me@box dir]$ }
+
+bash-5.2$ process_file() {
+$     local file="$1"
+    if [[ ! -r "$file" ]]; then
+%         log_error "cannot read: $file"
+[me@box dir]$         return 1
+(venv) $     fi
+bash-5.2$     while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*# ]]; then
+user@host:~/src$             continue
+%         fi
+[me@box dir]$         echo "processing: $line"
+(venv) $     done < "$file"
+}
+
+user@host:~/src$ main() {
+%     local -i failures=0
+[me@box dir]$     for f in "$@"; do
+        if ! process_file "$f"; then
+bash-5.2$             failures=$((failures + 1))
+$         fi
+user@host:~/src$     done
+%     if (( failures > 0 )); then
+        printf '%d failures\n' "$failures" >&2
+(venv) $         exit 1
+bash-5.2$     fi
+$ }
+
+main "$@"
+
+
+bash-5.2$ # ---- conditionals.sh ----
+$ #!/bin/bash
+# [[ ]] conditional tests
+
+[me@box dir]$ [[ -e /etc/passwd ]]
+(venv) $ [[ -f "$file" && -r "$file" ]]
+bash-5.2$ [[ -z "$s" || -n "$t" ]]
+[[ "$a" == "$b" ]]
+user@host:~/src$ [[ "$a" != pat* ]]
+% [[ "$a" =~ ^[0-9]+$ ]]
+[me@box dir]$ [[ "$a" < "$b" ]]
+(venv) $ [[ $n -eq 42 ]]
+[[ $n -lt 100 ]]
+$ [[ ! -d /tmp || -w /tmp ]]
+user@host:~/src$ [[ ( -f a || -f b ) && -r c ]]
+% [[ -v varname ]]
+[me@box dir]$ [[ file1 -nt file2 ]]
+
+
+$ # ---- expansions.sh ----
+user@host:~/src$ #!/bin/bash
+% # expansion forms: command, process, arithmetic, parameter
+
+(venv) $ # command substitution
+bash-5.2$ a=$(date)
+$ b=$(ls -la | head)
+user@host:~/src$ c=`whoami`
+
+[me@box dir]$ # nested command substitution
+(venv) $ d=$(echo $(hostname))
+bash-5.2$ e=$(cmd1 | cmd2; cmd3)
+
+# process substitution
+% diff <(sort file1) <(sort file2)
+[me@box dir]$ tee >(grep foo) >(grep bar) < input
+
+bash-5.2$ # arithmetic
+n=$((5 * 5))
+
+% # parameter expansion
+[me@box dir]$ e=${x:-default}
+(venv) $ f=${x/pat/new}
+
+$ # brace expansion
+user@host:~/src$ echo {a,b,c}
+% echo {1..10}
+[me@box dir]$ echo {01..20..2}
+echo file{1,2,3}.txt
+
+$ # tilde
+user@host:~/src$ cd ~
+% cd ~user
+cd ~+
+(venv) $ cd ~-
+
+
+user@host:~/src$ # ---- keywords.sh ----
+#!/bin/bash
+[me@box dir]$ # reserved words and compound commands
+
+bash-5.2$ if [ -f /etc/passwd ]; then
+$     echo yes
+elif false; then
+%     echo no
+[me@box dir]$ else
+(venv) $     echo other
+bash-5.2$ fi
+
+user@host:~/src$ for i in 1 2 3; do
+%     echo $i
+[me@box dir]$ done
+
+while true; do
+$     break
+user@host:~/src$ done
+
+[me@box dir]$ until false; do
+    continue
+bash-5.2$ done
+
+user@host:~/src$ case "$x" in
+%     a) echo a ;;
+    b|c) echo bc ;;
+(venv) $     *) echo other ;;
+bash-5.2$ esac
+
+user@host:~/src$ select opt in a b c; do
+    echo $opt
+[me@box dir]$ done
+
+bash-5.2$ function foo {
+$     echo called
+}
+
+[me@box dir]$ bar() {
+(venv) $     echo also_called
+bash-5.2$ }
+
+user@host:~/src$ time sleep 0
+% coproc SORTER sort
+
+
+# ---- pipelines.sh ----
+$ #!/bin/bash
+user@host:~/src$ # pipelines and lists
+
+[me@box dir]$ ls | grep foo | wc -l
+ls |& grep error
+bash-5.2$ true && echo yes
+$ false || echo no
+user@host:~/src$ cmd1; cmd2; cmd3
+% cmd1 & cmd2 &
+! true
+(venv) $ ! [[ -f foo ]]
+bash-5.2$ cmd1 && cmd2 || cmd3
+
+
+# ---- redirections.sh ----
+[me@box dir]$ #!/bin/bash
+(venv) $ # redirection operators
+
+$ # basic
+cmd < input.txt
+% cmd > output.txt
+[me@box dir]$ cmd >> output.txt
+(venv) $ cmd <> rw.txt
+bash-5.2$ cmd >| force.txt
+
+user@host:~/src$ # fd-prefixed
+% cmd 2> errors.log
+[me@box dir]$ cmd 2>&1
+(venv) $ cmd >&2
+cmd <&0
+
+user@host:~/src$ # combined
+% cmd &> all.log
+[me@box dir]$ cmd &>> all.log
+
+bash-5.2$ # here-string
+$ cat <<< "hello"
+
+% # heredoc
+cat <<EOF
+(venv) $ literal text
+bash-5.2$ EOF
+
+user@host:~/src$ # heredoc tab-strip
+cat <<-END
+[me@box dir]$ 	stripped
+(venv) $ 	END
+
+$ # heredoc quoted delimiter: no expansion (limitation documented)
+cat <<'DONE'
+% no $interpolation
+[me@box dir]$ DONE
+
+bash-5.2$ # close fd
+exec 3>&-
+
+
+[me@box dir]$ # ---- strings.sh ----
+(venv) $ #!/bin/bash
+# every string form
+
+user@host:~/src$ # single-quoted: literal
+% a='hello world'
+[me@box dir]$ b='no\nescape'
+c=''
+
+$ # double-quoted: interpolation
+user@host:~/src$ d="hello $USER"
+% e="x is $x and ${y}"
+f="literal \$dollar \"quote\" \\backslash"
+(venv) $ g="subst $(date) here"
+
+$ # ansi-c: escape processing
+user@host:~/src$ h=$'line1\nline2\ttab'
+i=$'quote\'embedded'
+[me@box dir]$ j=$'\x48\x69'
+
+bash-5.2$ # locale-translated
+$ k=$"Hello world"
+
+% # backtick legacy
+[me@box dir]$ l=`date`
+
+bash-5.2$ # mixed concat — bash treats adjacent quoted/unquoted as one word
+m="prefix"'middle'"$suffix"
+
+
+[me@box dir]$ # ---- variables.sh ----
+(venv) $ #!/bin/bash
+# variable references and special parameters
+
+user@host:~/src$ # simple refs
+% echo $PATH
+[me@box dir]$ echo ${HOME}
+echo ${USER:-default}
+
+$ # special parameters
+user@host:~/src$ echo $@ $*
+% echo "$#" "$?"
+echo $$ $! $_
+
+bash-5.2$ # positional
+$ echo $0 $1 $2
+
+# braced with operators
+[me@box dir]$ echo ${var:-default}
+(venv) $ echo ${var:=assign}
+bash-5.2$ echo ${var:?required}
+$ echo ${var:+alternate}
+
+% # substring
+[me@box dir]$ echo ${name:0:5}
+(venv) $ echo ${name:-1}
+
+# pattern ops
+user@host:~/src$ echo ${file%.txt}
+% echo ${file##*/}
+[me@box dir]$ echo ${path//:/;}
+(venv) $ echo ${path/#prefix/new}
+
+$ # case transform
+user@host:~/src$ echo ${str^^}
+% echo ${str,,}
+
+# transformations
+bash-5.2$ echo ${var@U}
+$ echo ${var@Q}
+
+% # indirect
+echo ${!varname}
+
+
+$ # ---- unit 9 ----
+user@host:~/src$ #!/usr/bin/env bash
+#
+[me@box dir]$ # Blue/green deploy driver. Builds the image, pushes it, flips the router at
+(venv) $ # the end and rolls back on any failed health gate.
+
+$ set -Eeuo pipefail
+shopt -s inherit_errexit nullglob globstar
+
+[me@box dir]$ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+(venv) $ readonly REPO_ROOT="${SCRIPT_DIR%/scripts}"
+bash-5.2$ readonly REGISTRY="${REGISTRY:-ghcr.io/acme}"
+readonly APP="${APP:-edge-router}"
+user@host:~/src$ readonly TIMEOUT_SECS="${TIMEOUT_SECS:-600}"
+
+[me@box dir]$ declare -A COLOURS=(
+(venv) $   [red]=$'\033[31m'
+  [green]=$'\033[32m'
+$   [yellow]=$'\033[33m'
+user@host:~/src$   [reset]=$'\033[0m'
+% )
+
+declare -a CLEANUP_CMDS=()
+bash-5.2$ declare -i FAILED=0
+
+user@host:~/src$ log() {
+%   local level="$1"; shift
+  local colour="${COLOURS[reset]}"
+(venv) $   case "$level" in
+bash-5.2$     error) colour="${COLOURS[red]}" ;;
+$     warn)  colour="${COLOURS[yellow]}" ;;
+user@host:~/src$     ok)    colour="${COLOURS[green]}" ;;
+  esac
+[me@box dir]$   printf '%s[%s]%s %s: %s\n' "$colour" "$(date -u +%H:%M:%S)" "${COLOURS[reset]}" "$level" "$*" >&2
+(venv) $ }
+
+$ die() {
+  log error "$*"
+%   exit 1
+[me@box dir]$ }
+
+bash-5.2$ on_exit() {
+  local -i code=$?
+user@host:~/src$   local cmd
+%   for ((i = ${#CLEANUP_CMDS[@]} - 1; i >= 0; i--)); do
+[me@box dir]$     cmd="${CLEANUP_CMDS[i]}"
+(venv) $     log warn "cleanup: ${cmd}"
+    eval "$cmd" || log error "cleanup failed: ${cmd}"
+$   done
+user@host:~/src$   if ((code != 0)); then
+%     log error "exiting with status ${code}"
+[me@box dir]$   fi
+  exit "$code"
+bash-5.2$ }
+$ trap on_exit EXIT
+user@host:~/src$ trap 'die "interrupted"' INT TERM
+
+defer() { CLEANUP_CMDS+=("$*"); }
+
+bash-5.2$ usage() {
+$   cat <<-'EOF'
+user@host:~/src$ 	usage: deploy.sh [options] <environment>
+
+[me@box dir]$ 	  -t, --tag <tag>       image tag (default: git describe)
+(venv) $ 	  -n, --dry-run         print the plan, change nothing
+bash-5.2$ 	  -s, --skip-tests      skip the pre-deploy test gate
+$ 	  -f, --force           deploy even with a dirty worktree
+	  -h, --help            this message
+
+[me@box dir]$ 	environment is one of: staging, canary, production
+(venv) $ 	EOF
+bash-5.2$ }
+
+user@host:~/src$ require() {
+%   local missing=()
+[me@box dir]$   for bin in "$@"; do
+(venv) $     command -v -- "$bin" >/dev/null 2>&1 || missing+=("$bin")
+  done
+$   ((${#missing[@]} == 0)) || die "missing required tools: ${missing[*]}"
+user@host:~/src$ }
+
+[me@box dir]$ git_tag() {
+  local tag
+bash-5.2$   if ! tag=$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null); then
+$     tag="sha-$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)"
+user@host:~/src$   fi
+%   printf '%s' "${tag//[^a-zA-Z0-9._-]/-}"
+}
+
+bash-5.2$ worktree_clean() {
+$   [[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]]
+user@host:~/src$ }
+
+[me@box dir]$ wait_for() {
+(venv) $   local url="$1" deadline=$((SECONDS + TIMEOUT_SECS)) status
+bash-5.2$   while ((SECONDS < deadline)); do
+$     status=$(curl --silent --show-error --max-time 5 --output /dev/null --write-out '%{http_code}' "$url" || printf '000')
+    case "$status" in
+%       2??) log ok "healthy: ${url} (${status})"; return 0 ;;
+[me@box dir]$       000) log warn "no response from ${url}" ;;
+(venv) $       *)   log warn "unhealthy: ${url} -> ${status}" ;;
+bash-5.2$     esac
+    sleep $((RANDOM % 3 + 2))
+user@host:~/src$   done
+%   return 1
+[me@box dir]$ }
+
+build_image() {
+$   local tag="$1" ref="${REGISTRY}/${APP}:${tag}"
+user@host:~/src$   log info "building ${ref}"
+%   docker buildx build \
+>     --platform linux/amd64,linux/arm64 \
+>     --build-arg "GIT_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+>     --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+>     --cache-from "type=registry,ref=${REGISTRY}/${APP}:buildcache" \
+>     --cache-to "type=registry,ref=${REGISTRY}/${APP}:buildcache,mode=max" \
+>     --label "org.opencontainers.image.revision=$(git -C "$REPO_ROOT" rev-parse HEAD)" \
+>     --tag "$ref" \
+>     --push \
+>     "$REPO_ROOT"
+$   printf '%s' "$ref"
+user@host:~/src$ }
+
+[me@box dir]$ current_colour() {
+(venv) $   kubectl -n "$1" get service "${APP}" -o jsonpath='{.spec.selector.colour}' 2>/dev/null || printf 'blue'
+bash-5.2$ }
+
+main() {
+%   local env="" tag="" dry_run=0 skip_tests=0 force=0
+
+(venv) $   while (($# > 0)); do
+bash-5.2$     case "$1" in
+      -t|--tag)        tag="${2:?--tag needs a value}"; shift 2 ;;
+user@host:~/src$       -n|--dry-run)    dry_run=1; shift ;;
+%       -s|--skip-tests) skip_tests=1; shift ;;
+[me@box dir]$       -f|--force)      force=1; shift ;;
+(venv) $       -h|--help)       usage; return 0 ;;
+      --)              shift; break ;;
+$       -*)              usage >&2; die "unknown flag: $1" ;;
+user@host:~/src$       *)               env="$1"; shift ;;
+%     esac
+[me@box dir]$   done
+
+bash-5.2$   [[ -n "$env" ]] || { usage >&2; die "environment is required"; }
+$   [[ "$env" =~ ^(staging|canary|production)$ ]] || die "bad environment: ${env}"
+
+%   require docker kubectl git curl jq
+
+(venv) $   if ((force == 0)) && ! worktree_clean; then
+bash-5.2$     die "worktree is dirty; commit or pass --force"
+$   fi
+
+  tag="${tag:-$(git_tag)}"
+[me@box dir]$   log info "deploying ${APP}:${tag} to ${env} (dry_run=${dry_run})"
+
+bash-5.2$   if ((skip_tests == 0)); then
+$     log info "running test gate"
+    (cd "$REPO_ROOT" && make test) || die "tests failed"
+%   fi
+
+(venv) $   local live next image
+bash-5.2$   live=$(current_colour "$env")
+  next=$([[ "$live" == "blue" ]] && printf 'green' || printf 'blue')
+user@host:~/src$   log info "live=${live} next=${next}"
+
+[me@box dir]$   if ((dry_run)); then
+(venv) $     log ok "dry run complete; would deploy to ${next}"
+    return 0
+$   fi
+
+%   image=$(build_image "$tag")
+[me@box dir]$   defer "kubectl -n '${env}' rollout undo deployment/${APP}-${next} || true"
+
+bash-5.2$   kubectl -n "$env" set image "deployment/${APP}-${next}" "${APP}=${image}" --record
+$   kubectl -n "$env" rollout status "deployment/${APP}-${next}" --timeout="${TIMEOUT_SECS}s"
+
+%   local endpoint="https://${next}.${env}.internal/healthz"
+  wait_for "$endpoint" || die "health gate failed for ${next}"
+
+bash-5.2$   local -a checks=(/readyz /metrics /version)
+$   for path in "${checks[@]}"; do
+user@host:~/src$     wait_for "https://${next}.${env}.internal${path}" || die "check ${path} failed"
+  done
+
+(venv) $   kubectl -n "$env" patch service "$APP" \
+>     --type=merge \
+>     --patch "$(jq -nc --arg c "$next" '{spec:{selector:{colour:$c}}}')"
+
+%   CLEANUP_CMDS=()
+[me@box dir]$   log ok "traffic now on ${next} (${image})"
+(venv) $ }
+
+main "$@"
+
+
+[me@box dir]$ # ---- unit 10 ----
+(venv) $ #!/usr/bin/env bash
+# greet every user in the directory
+$ set -euo pipefail
+user@host:~/src$ readonly GREETING="Hello, \$USER!"
+% TAB=$'\thello\n'
+[me@box dir]$ files=( *.sh )
+for f in "${files[@]}"; do
+bash-5.2$   if [[ $f =~ ^[a-z]+\.sh$ && -r "$f" ]]; then
+$     printf '%s\t%s\n' "$GREETING" "$f"
+user@host:~/src$     count=$(( ${#f} + 16#ff ))
+%     true && echo "count=$count$TAB"
+  fi
+(venv) $ done
+
+
+user@host:~/src$ # ---- unit 11 ----
+# ---- arithmetic.sh ----
+[me@box dir]$ #!/bin/bash
+(venv) $ # arithmetic expansion and arithmetic command
+
+$ x=$((1 + 2))
+y=$(( 3 * 4 - 5 ))
+% z=$(( a ** 2 + b ** 2 ))
+
+(venv) $ (( count++ ))
+bash-5.2$ (( i = 0 ))
+(( a < b && c > d ))
+
+% # bitwise
+[me@box dir]$ mask=$(( 0xff & 0x0f ))
+(venv) $ shift=$(( 1 << 8 ))
+
+$ # bases
+user@host:~/src$ hex=$(( 0xDEADBEEF ))
+% oct=$(( 077 ))
+[me@box dir]$ bin=$(( 2#1010 ))
+
+bash-5.2$ # c-style for-loop head
+$ for (( i=0; i<10; i++ )); do
+user@host:~/src$     echo $i
+% done
+
+(venv) $ # nested
+bash-5.2$ r=$(( $(( a + b )) * c ))
+
+
+# ---- arrays.sh ----
+[me@box dir]$ #!/bin/bash
+(venv) $ # arrays
+
+$ # indexed array
+arr=(a b c d)
+% arr[4]=e
+[me@box dir]$ arr+=(f g)
+(venv) $ echo ${arr[0]}
+bash-5.2$ echo ${arr[@]}
+echo ${arr[*]}
+user@host:~/src$ echo ${#arr[@]}
+% echo ${!arr[@]}
+[me@box dir]$ echo ${arr[@]:1:2}
+
+# associative array
+$ declare -A map
+user@host:~/src$ map=([foo]=1 [bar]=2)
+% map["key"]=value
+[me@box dir]$ echo ${map[foo]}
+echo ${!map[@]}
+
+$ # iteration
+user@host:~/src$ for key in "${!map[@]}"; do
+%     echo "$key=${map[$key]}"
+done
+
+
+$ # ---- basic.sh ----
+user@host:~/src$ #!/usr/bin/env bash
+# simple greeting script
+[me@box dir]$ echo "Hello, World!"
+(venv) $ echo 'single-quoted'
+bash-5.2$ x=42
+$ y=$((x + 8))
+echo "x=$x y=$y"
+
+
+(venv) $ # ---- complex.sh ----
+bash-5.2$ #!/usr/bin/env bash
+# real-world example combining many features
+
+% set -euo pipefail
+
+(venv) $ readonly LOGFILE="${LOGFILE:-/tmp/app.log}"
+readonly COUNT=${1:-10}
+
+user@host:~/src$ log_error() {
+%     local msg="$1"
+[me@box dir]$     printf '%s ERROR: %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$msg" >&2
+}
+
+$ process_file() {
+user@host:~/src$     local file="$1"
+%     if [[ ! -r "$file" ]]; then
+        log_error "cannot read: $file"
+(venv) $         return 1
+bash-5.2$     fi
+$     while IFS= read -r line; do
+user@host:~/src$         if [[ "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+[me@box dir]$         fi
+(venv) $         echo "processing: $line"
+bash-5.2$     done < "$file"
+$ }
+
+% main() {
+[me@box dir]$     local -i failures=0
+(venv) $     for f in "$@"; do
+bash-5.2$         if ! process_file "$f"; then
+            failures=$((failures + 1))
+user@host:~/src$         fi
+%     done
+[me@box dir]$     if (( failures > 0 )); then
+(venv) $         printf '%d failures\n' "$failures" >&2
+        exit 1
+$     fi
+user@host:~/src$ }
+
+[me@box dir]$ main "$@"
+
+
+$ # ---- conditionals.sh ----
+user@host:~/src$ #!/bin/bash
+% # [[ ]] conditional tests
+
+(venv) $ [[ -e /etc/passwd ]]
+bash-5.2$ [[ -f "$file" && -r "$file" ]]
+$ [[ -z "$s" || -n "$t" ]]
+user@host:~/src$ [[ "$a" == "$b" ]]
+[[ "$a" != pat* ]]
+[me@box dir]$ [[ "$a" =~ ^[0-9]+$ ]]
+(venv) $ [[ "$a" < "$b" ]]
+bash-5.2$ [[ $n -eq 42 ]]
+$ [[ $n -lt 100 ]]
+[[ ! -d /tmp || -w /tmp ]]
+% [[ ( -f a || -f b ) && -r c ]]
+[me@box dir]$ [[ -v varname ]]
+(venv) $ [[ file1 -nt file2 ]]
+
+
+user@host:~/src$ # ---- expansions.sh ----
+% #!/bin/bash
+[me@box dir]$ # expansion forms: command, process, arithmetic, parameter
+
+# command substitution
+$ a=$(date)
+user@host:~/src$ b=$(ls -la | head)
+% c=`whoami`
+
+# nested command substitution
+bash-5.2$ d=$(echo $(hostname))
+$ e=$(cmd1 | cmd2; cmd3)
+
+% # process substitution
+diff <(sort file1) <(sort file2)
+(venv) $ tee >(grep foo) >(grep bar) < input
+
+$ # arithmetic
+user@host:~/src$ n=$((5 * 5))
+
+[me@box dir]$ # parameter expansion
+(venv) $ e=${x:-default}
+bash-5.2$ f=${x/pat/new}
+
+# brace expansion
+% echo {a,b,c}
+[me@box dir]$ echo {1..10}
+(venv) $ echo {01..20..2}
+bash-5.2$ echo file{1,2,3}.txt
+
+user@host:~/src$ # tilde
+% cd ~
+[me@box dir]$ cd ~user
+(venv) $ cd ~+
+cd ~-
+
+
+% # ---- keywords.sh ----
+[me@box dir]$ #!/bin/bash
+# reserved words and compound commands
+
+$ if [ -f /etc/passwd ]; then
+user@host:~/src$     echo yes
+% elif false; then
+    echo no
+(venv) $ else
+bash-5.2$     echo other
+$ fi
+
+for i in 1 2 3; do
+[me@box dir]$     echo $i
+(venv) $ done
+
+$ while true; do
+    break
+% done
+
+(venv) $ until false; do
+bash-5.2$     continue
+done
+
+% case "$x" in
+[me@box dir]$     a) echo a ;;
+(venv) $     b|c) echo bc ;;
+    *) echo other ;;
+$ esac
+
+% select opt in a b c; do
+[me@box dir]$     echo $opt
+done
+
+$ function foo {
+user@host:~/src$     echo called
+% }
+
+(venv) $ bar() {
+bash-5.2$     echo also_called
+$ }
+
+time sleep 0
+[me@box dir]$ coproc SORTER sort
+
+
+$ # ---- pipelines.sh ----
+#!/bin/bash
+% # pipelines and lists
+
+(venv) $ ls | grep foo | wc -l
+bash-5.2$ ls |& grep error
+true && echo yes
+user@host:~/src$ false || echo no
+% cmd1; cmd2; cmd3
+[me@box dir]$ cmd1 & cmd2 &
+(venv) $ ! true
+! [[ -f foo ]]
+$ cmd1 && cmd2 || cmd3
+
+
+[me@box dir]$ # ---- redirections.sh ----
+#!/bin/bash
+bash-5.2$ # redirection operators
+
+user@host:~/src$ # basic
+% cmd < input.txt
+cmd > output.txt
+(venv) $ cmd >> output.txt
+bash-5.2$ cmd <> rw.txt
+$ cmd >| force.txt
+
+# fd-prefixed
+[me@box dir]$ cmd 2> errors.log
+(venv) $ cmd 2>&1
+bash-5.2$ cmd >&2
+$ cmd <&0
+
+% # combined
+[me@box dir]$ cmd &> all.log
+(venv) $ cmd &>> all.log
+
+# here-string
+user@host:~/src$ cat <<< "hello"
+
+[me@box dir]$ # heredoc
+(venv) $ cat <<EOF
+literal text
+$ EOF
+
+% # heredoc tab-strip
+[me@box dir]$ cat <<-END
+	stripped
+bash-5.2$ 	END
+
+user@host:~/src$ # heredoc quoted delimiter: no expansion (limitation documented)
+% cat <<'DONE'
+no $interpolation
+(venv) $ DONE
+
+$ # close fd
+user@host:~/src$ exec 3>&-
+
+
+(venv) $ # ---- strings.sh ----
+bash-5.2$ #!/bin/bash
+$ # every string form
+
+% # single-quoted: literal
+[me@box dir]$ a='hello world'
+(venv) $ b='no\nescape'
+bash-5.2$ c=''
+
+user@host:~/src$ # double-quoted: interpolation
+% d="hello $USER"
+[me@box dir]$ e="x is $x and ${y}"
+(venv) $ f="literal \$dollar \"quote\" \\backslash"
+g="subst $(date) here"
+
+user@host:~/src$ # ansi-c: escape processing
+% h=$'line1\nline2\ttab'
+[me@box dir]$ i=$'quote\'embedded'
+j=$'\x48\x69'
+
+$ # locale-translated
+user@host:~/src$ k=$"Hello world"
+
+# backtick legacy
+(venv) $ l=`date`
+
+$ # mixed concat — bash treats adjacent quoted/unquoted as one word
+user@host:~/src$ m="prefix"'middle'"$suffix"
+
+
+(venv) $ # ---- variables.sh ----
+bash-5.2$ #!/bin/bash
+$ # variable references and special parameters
+

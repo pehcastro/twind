@@ -1,0 +1,7 @@
+---
+title: Button
+description: A button that does something.
+---
+# Button
+
+Use a **button** for actions.

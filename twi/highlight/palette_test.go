@@ -35,7 +35,7 @@ func TestPaletteSyntaxTokens(t *testing.T) {
 			t.Errorf("%s: %s, want %s", k, p[k], want)
 		}
 	}
-	for k := highlight.Text; k <= highlight.Constant; k++ {
+	for k := highlight.Text; k <= highlight.Doctype; k++ {
 		if name := p[k].String(); name != "foreground" && !strings.HasPrefix(name, "syntax-") {
 			t.Errorf("%s: %q is not a syntax token", k, name)
 		}
@@ -48,7 +48,7 @@ func TestPaletteReadableOnEveryTheme(t *testing.T) {
 	for _, th := range theme.Builtin() {
 		scheme := [...]string{theme.Light: "light", theme.Dark: "dark"}[th.Scheme]
 		fmt.Fprintf(&table, "%s-%s", th.Name, scheme)
-		for k := highlight.Text; k <= highlight.Constant; k++ {
+		for k := highlight.Text; k <= highlight.Doctype; k++ {
 			fg := wcagLuminance(th.Tokens[p[k]].RGBA)
 			lowest := math.Inf(1)
 			for _, surface := range []theme.Token{theme.Muted, theme.Background} {

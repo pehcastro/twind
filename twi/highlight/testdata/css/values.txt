@@ -1,0 +1,26 @@
+.v {
+  width: 10px;
+  height: 1.5rem;
+  top: .5em;
+  left: -2px;
+  right: -.25em;
+  margin: -webkit-calc(100% - 4px);
+  opacity: 50%;
+  z-index: -1;
+  color: #ff00aa;
+  background: #FFF url(data:image/png;base64,iVBOR) no-repeat;
+  font: italic bold 12px/30px Georgia, serif;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  content: "a\"b" 'c\'d' "\41 B" "\0000411x" "\e9";
+  --brand: #123;
+  --empty:;
+  color: var(--brand, var(--fallback, red)) !important;
+  width: calc((100% - 2 * var(--gap)) / 3);
+  transform: translate(-50%, -50%) rotate(45deg);
+  font-family: system-ui /* comment */ , sans-serif;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, .5), transparent);
+  aspect-ratio: 16 / 9;
+}
+/* unterminated comment at the end
+.x { color: red }

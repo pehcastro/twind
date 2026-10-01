@@ -1,0 +1,3 @@
+a: "never \u12
+b: 'also open
+c: !<verbatim

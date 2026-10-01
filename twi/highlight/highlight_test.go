@@ -3,6 +3,7 @@ package highlight_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -10,12 +11,32 @@ import (
 	"github.com/twind-dev/twind/twi/highlight"
 )
 
-func TestGo(t *testing.T)   { matchTwinkleplop(t, "go", highlight.Go()) }
-func TestBash(t *testing.T) { matchTwinkleplop(t, "bash", highlight.Bash()) }
-func TestJSON(t *testing.T) { matchTwinkleplop(t, "json", highlight.JSON()) }
-func TestTOML(t *testing.T) { matchTwinkleplop(t, "toml", highlight.TOML()) }
+func TestGo(t *testing.T)            { matchTwinkleplop(t, "go", highlight.Go()) }
+func TestBash(t *testing.T)          { matchTwinkleplop(t, "bash", highlight.Bash()) }
+func TestJSON(t *testing.T)          { matchTwinkleplop(t, "json", highlight.JSON()) }
+func TestTOML(t *testing.T)          { matchTwinkleplop(t, "toml", highlight.TOML()) }
+func TestCSS(t *testing.T)           { matchTwinkleplop(t, "css", highlight.CSS()) }
+func TestYAML(t *testing.T)          { matchTwinkleplop(t, "yaml", highlight.YAML()) }
+func TestMarkdown(t *testing.T)      { matchTwinkleplop(t, "markdown", highlight.Markdown()) }
+func TestConsole(t *testing.T)       { matchTwinkleplop(t, "console", highlight.Console()) }
+func TestTypeScript(t *testing.T)    { matchTwinkleplop(t, "typescript", highlight.TypeScript()) }
+func TestTypeScriptJSX(t *testing.T) { matchTwinkleplop(t, "tsx", highlight.TSX()) }
 
 type named struct{ kind, text string }
+
+func classes(s highlight.Span) string {
+	if s.Style == 0 {
+		return s.Kind.String()
+	}
+	set := []string{s.Kind.String()}
+	for i, name := range []string{"bold", "italic", "strike", "code", "link_text", "autolink"} {
+		if s.Style&(1<<i) != 0 && !slices.Contains(set, name) {
+			set = append(set, name)
+		}
+	}
+	slices.Sort(set)
+	return strings.Join(set, "+")
+}
 
 func matchTwinkleplop(t *testing.T, lang string, g *highlight.Grammar) {
 	snippets, _ := filepath.Glob(filepath.Join("testdata", lang, "*.txt"))
@@ -47,7 +68,7 @@ func matchTwinkleplop(t *testing.T, lang string, g *highlight.Grammar) {
 				t.Fatalf("%s: span %s %d-%d after byte %d", snippet, s.Kind, s.Start, s.End, covered)
 			}
 			covered = s.End
-			got = append(got, named{s.Kind.String(), string(src[s.Start:s.End])})
+			got = append(got, named{classes(s), string(src[s.Start:s.End])})
 		}
 		if covered != len(src) {
 			t.Errorf("%s: spans end at byte %d of %d", snippet, covered, len(src))

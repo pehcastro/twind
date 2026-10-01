@@ -1,0 +1,8 @@
+selector_class ".a"
+text " "
+punctuation "{"
+text " "
+property "content"
+punctuation ":"
+text " "
+string "\"never closed\n  color\n"

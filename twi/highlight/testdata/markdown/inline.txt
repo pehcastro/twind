@@ -1,0 +1,20 @@
+Plain text with **bold**, *italic*, __under bold__, _under italic_ and ~~strike~~.
+**bold *both* bold** and *italic **both** italic* and ***all three***.
+**bold with `code` inside** and `code **not bold**`.
+A [link](https://example.com "title") and an ![image](img.png 'alt title') here.
+A [reference][ref] and a [shortcut] and [nested *em* text](url).
+Autolink <https://twind.dev> and <div class="x"> raw.
+Entities &amp; &#123; &copy and escapes \* \_ \` \\ \[.
+Hard break at the end\
+next line *open italic
+continues** here.
+**open bold with hard break\
+after.
+*a **b* c** reopened style.
+**a _b **c** d_ e** f*.
+~~strike **bold ~~ rest**.
+[unclosed link text
+[text](unclosed destination
+<unclosed autolink
+`unclosed code
+Trailing **bold**

@@ -1,0 +1,29 @@
+a / b / c;
+x = /[/\]]+/g.test(s) ? 1 : 2;
+if (x) /re/.exec(y);
+f(1) / 2;
+arr[0] / 2;
+({}) / 1;
+return /x/;
+n = 0xFF_FF + 1_000n + 1e-3 + 0b1010 + 0o17 + .5 + 2.;
+s = "a\u{1F600}\x41\n\"" + 'bA\'';
+obj.default + obj?.delete() + this.class + x.
+  y;
+foo (1); foo(2); new Foo(); obj.method();
+label: for (;;) break label;
+switch (k) { case "a": { break; } default: {} }
+const o = { default: 1, true: 2, if: 3, class: 4, async run() {}, get v() { return 1; }, *gen() {} };
+class C { default() {} static *gen() {} }
+function* g() { yield* other(); }
+x = cond ? (a) => a : (b) => b;
+const t = `a ${ {a: 1} } b ${ `c ${d}` }`;
+class K {
+  a() {}
+  b(x: number) { return x; }
+  get c() { return 1 }
+  static d(y) {}
+}
+#private;
+@decorator.chain() class D {}
+let unclosed = "end of line
+const z = `unterminated ${x

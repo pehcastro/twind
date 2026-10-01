@@ -1,0 +1,72 @@
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer theme, base, components, utilities;
+@layer theme {
+  :root, :host {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --color-zinc-950: oklch(14.1% 0.005 285.823);
+    --spacing: 1px;
+    --radius-lg: 0.5rem;
+    --default-font-family: var(--font-sans);
+  }
+}
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    box-sizing: border-box;
+    border: 0 solid;
+  }
+  html, :host {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  abbr:where([title]) {
+    text-decoration: underline dotted;
+  }
+  @supports (not (-webkit-appearance: -apple-pay-button))  or (contain-intrinsic-size: 1px) {
+    ::placeholder {
+      color: currentcolor;
+      @supports (color: color-mix(in lab, red, red)) {
+        color: color-mix(in oklab, currentcolor 50%, transparent);
+      }
+    }
+  }
+  button, input:where([type='button'], [type='reset']) {
+    appearance: button;
+  }
+}
+@layer utilities {
+  .bg-zinc-950\/90 {
+    background-color: color-mix(in srgb, oklch(14.1% 0.005 285.823) 90%, transparent);
+  }
+  .px-2 {
+    padding-inline: calc(var(--spacing) * 2);
+  }
+  .rounded-full {
+    border-radius: calc(infinity * 1px);
+  }
+  .shadow-md {
+    --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+    box-shadow: var(--tw-inset-shadow), var(--tw-shadow);
+  }
+  .blur-sm {
+    filter: var(--tw-blur,) var(--tw-brightness,);
+  }
+  @media (hover: hover) {
+    .hover\:bg-zinc-800:hover {
+      background-color: var(--color-zinc-800);
+    }
+  }
+  .data-\[selected\=true\]\:bg-zinc-800[data-selected="true"] {
+    background-color: var(--color-zinc-800);
+  }
+  @media (width >= 48rem) {
+    .md\:flex-row {
+      flex-direction: row;
+    }
+  }
+}
+@property --tw-translate-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}

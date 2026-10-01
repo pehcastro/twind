@@ -1,0 +1,7 @@
+$ echo one
+one
+user@host:~$ ls -la
+total 0
+$ echo a \
+> b
+a b

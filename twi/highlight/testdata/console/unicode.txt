@@ -1,0 +1,10 @@
+❯ ls -la
+➜  project git:(main) echo hi
+~/src ❯ cargo build
+λ ghci
+$ echo nbsp
+user@host:~$ ls
+café — output with accents and a dash
+é$ ls
+$ echo été
+→ arrow output

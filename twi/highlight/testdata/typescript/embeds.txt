@@ -1,0 +1,16 @@
+const styles = css`
+  .card { color: red; padding: ${space}px; }
+  /** not a doc */
+`;
+const page = html`<p class="${cls}">hi ${name}</p>
+<style>.x { color: blue }</style>
+<script>const a = 1; function f(b) { return b / 2; }</script>
+<!-- comment -->
+<!DOCTYPE html>`;
+const inner = html`<div>${css`a { b: c }`}</div>`;
+const notTagged = `plain ${x}`;
+const other = sql`select 1`;
+/** @param {Map<string, Foo[]>} [opts] options */
+function f(opts) {}
+/**/
+/** */

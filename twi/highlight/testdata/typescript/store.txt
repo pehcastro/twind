@@ -1,0 +1,88 @@
+import { readFile } from "node:fs/promises";
+import type { Config, Options as Opts } from "./config";
+import * as path from "node:path";
+import Default, * as NS from "./ns";
+export type * as Types from "./types";
+export * from "./all";
+
+/**
+ * A user of the store.
+ * @param {string} name the display name
+ * @returns {Promise<User[]>} every user
+ * @typedef {object} Point
+ * @see {@link Store}
+ */
+export interface User {
+  id: number;
+  name?: string;
+  readonly tags: string[];
+  cb: () => void;
+  new (x: number): User;
+  [key: string]: unknown;
+}
+
+export class Store<T extends User> implements Iterable<T>, Disposable {
+  private items = new Map<number, T>();
+  static readonly MAX_ITEMS = 100;
+  constructor(private readonly config: Config, public name?: string) {}
+
+  add(item: T): void {
+    this.items.set(item.id, item);
+  }
+
+  async load(path: string): Promise<T[]> {
+    const raw = await readFile(path, "utf8");
+    return JSON.parse(raw) as T[];
+  }
+
+  get size(): number {
+    return this.items.size;
+  }
+
+  *[Symbol.iterator](): Iterator<T> {
+    yield* this.items.values();
+  }
+
+  default() {
+    return this.items;
+  }
+
+  make<K extends keyof T>(base: T, key: K): T[K] {
+    return base[key];
+  }
+}
+
+namespace Util {
+  export const VERSION = "1.0";
+}
+
+declare module "x" {
+  export function f(a: number): string;
+}
+
+type Pair = [start: number, end?: number, ...rest: string[]];
+type Maybe<T> = T | null | undefined;
+type Handler = (event: Event, ...args: unknown[]) => boolean;
+type Keys = keyof typeof config;
+type Cond<T> = T extends string ? "s" : T extends number ? "n" : never;
+let total: number = 0, count = 2;
+const ratio = total / count / 2;
+const re = /ab+c/gi;
+const msg = `hello ${user.name}! ${fn({ a: 1 })} ${`nested ${x}`}`;
+enum Color { Red = 1, Green }
+function greet(name: string, ...rest: unknown[]): string {
+  return `hi ${name}`;
+}
+const MAX_SIZE = () => 1;
+const handler = async (e: Event) => e.preventDefault();
+const one = x => x + 1;
+const { a, b: renamed, c = 5, ...others } = source;
+const [first, , third] = list;
+for (const item of items) console.log(item);
+const value = cond ? a : b;
+const casted = input as unknown as Record<string, number>;
+const checked = { a: 1 } satisfies Partial<User>;
+const y = maybe!.value / 2;
+identity<string>("x");
+const ok = a < b && c > d;
+const nested: Map<string, Set<number>> = new Map();

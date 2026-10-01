@@ -1,0 +1,6 @@
+property "a"
+punctuation ":"
+text " "
+string "\"never "
+string_escape "\\u12"
+string "\nb: 'also open\nc: !<verbatim\n"

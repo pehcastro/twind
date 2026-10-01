@@ -1,0 +1,60 @@
+%YAML 1.2
+%TAG ! tag:example.com,2000:
+---
+# site configuration
+name: "twind\tdocs \x41☺\U0001F600 \xZ \\ \" end"
+version: 1.0.0
+published: true
+draft: no
+archived: Off
+answer: y
+owners: null
+nothing: ~
+also_null: Null
+count: 42
+negative: -17
+positive: +12
+hex: 0x1F
+octal: 0o17
+float: 3.14
+lead: .5
+exp: 1e3
+big: 6.02E+23
+inf: -.inf
+nan: .NaN
+notnan: +.nan
+version_like: 1.2.3
+not_hex: 0x
+neg_hex: -0x1
+url: https://example.com:8080/path
+time: 12:30:45
+key:value
+plain with spaces: a b c
+quoted 'key': 'it''s single'
+"double key": value
+true: is a boolean key
+? complex key
+: complex value
+?not_complex
+list:
+  - one
+  - -1
+  - - nested
+  -no_space
+anchors:
+  base: &base
+    retries: 3
+  derived:
+    <<: *base
+    tag: !!str 42
+    local: !custom value
+    verbatim: !<tag:yaml.org,2002:str> text
+flow: [a, b, {c: 1, d: [true, ~]}, -2, ?q]
+map: {name: x, list: [1, 2], "q": 'v'}
+key # comment
+  : value
+hash#inside: a#b # real comment
+reserved: @at `tick`
+...
+---
+second: document

@@ -13,15 +13,32 @@ type work struct {
 	claims  []Kind
 	chunk   []int
 	pending []int
+	out     []Span
+	regions []region
+	virtual []byte
+	ranks   []int8
+	caps    [][2]int
+	frames  []frame
+	frameOf []int
+	atStart []bool
+	signals []uint8
+	saves   []frameSave
+	angles  []int
+	objects []bool
+	nested  *work
 }
 
 func (w *work) text(i int) string { return w.src[w.spans[i].Start:w.spans[i].End] }
 
 func (w *work) next(i int) int {
-	for i < len(w.spans) && (w.spans[i].Kind == Text || w.spans[i].Kind == Comment) {
+	for i < len(w.spans) && w.spans[i].Kind == Comment {
 		i++
 	}
 	return i
+}
+
+func (w *work) is(i int, k Kind, text string) bool {
+	return i < len(w.spans) && w.spans[i].Kind == k && w.text(i) == text
 }
 
 func (w *work) opens(i int, c byte) bool {
@@ -137,9 +154,6 @@ func (w *work) params(start int) int {
 	}
 	bracket, brace := 0, 0
 	for budget := konst.ParamScanTokens; k < len(sp) && budget > 0; k++ {
-		if sp[k].Kind == Text {
-			continue
-		}
 		budget--
 		if sp[k].Kind != Punctuation {
 			continue
@@ -180,7 +194,7 @@ func (w *work) walk(k, from int) int {
 	w.pending = w.pending[:0]
 	for ; k < len(sp) && paren > 0; k++ {
 		switch sp[k].Kind {
-		case Text, Comment:
+		case Comment:
 			continue
 		case Punctuation:
 		default:
@@ -320,7 +334,7 @@ func bashPasses(words map[string]Kind) func(*work) {
 			}
 			if k, ok := words[w.text(i)]; ok {
 				w.spans[i].Kind = k
-			} else if w.balanced(i + 1) {
+			} else if w.balanced(i+1) >= 0 {
 				w.spans[i].Kind = Function
 			}
 		}
@@ -335,7 +349,7 @@ func (w *work) extendVariables() {
 	sp, out := w.spans, w.spans[:0]
 	for i := 0; i < len(sp); i++ {
 		s := sp[i]
-		if s.Kind != Variable || i+1 == len(sp) || sp[i+1].Kind == Text {
+		if s.Kind != Variable || i+1 == len(sp) || sp[i+1].Start != s.End {
 			out = append(out, s)
 			continue
 		}
@@ -360,7 +374,9 @@ func (w *work) extendVariables() {
 
 func (w *work) mergeNumbers() {
 	sp, out := w.spans, w.spans[:0]
-	joins := func(i int) bool { return i < len(sp) && (sp[i].Kind == Number || sp[i].Kind == Identifier) }
+	joins := func(i int) bool {
+		return i < len(sp) && sp[i].Start == sp[i-1].End && (sp[i].Kind == Number || sp[i].Kind == Identifier)
+	}
 	for i := 0; i < len(sp); i++ {
 		s := sp[i]
 		switch t := w.src[s.Start:s.End]; {
@@ -370,42 +386,11 @@ func (w *work) mergeNumbers() {
 				i++
 			}
 			s.End = sp[i].End
-		case w.opens(i+1, '#') && sp[i+1].End-sp[i+1].Start == 1 && joins(i+2):
+		case w.opens(i+1, '#') && sp[i+1].Start == s.End && sp[i+1].End-sp[i+1].Start == 1 && joins(i+2):
 			i += 2
 			s.End = sp[i].End
 		}
 		out = append(out, s)
 	}
 	w.spans = out
-}
-
-func (w *work) balanced(j int) bool {
-	sp := w.spans
-	if j < len(sp) && sp[j].Kind == Text {
-		j++
-	}
-	if !w.opens(j, '(') {
-		return false
-	}
-	depth := 0
-	for budget := 1 + konst.CallScanTokens; j < len(sp) && budget > 0; j++ {
-		if sp[j].Kind == Text {
-			continue
-		}
-		budget--
-		if sp[j].Kind != Punctuation {
-			continue
-		}
-		for p := sp[j].Start; p < sp[j].End; p++ {
-			switch w.src[p] {
-			case '(':
-				depth++
-			case ')':
-				if depth--; depth == 0 {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }

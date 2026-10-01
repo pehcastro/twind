@@ -1,0 +1,26 @@
+import React, { useState } from "react";
+
+type Props = { title: string; items?: string[] };
+
+export function App({ title, items = [] }: Props) {
+  const [count, setCount] = useState<number>(0);
+  const id = <T,>(x: T) => x;
+  const constrained = <T extends object>(x: T): T => x;
+  const less = count < 10 && count > 0;
+  return (
+    <div className="app" data-count={count} {...rest}>
+      <h1>{title} &amp; more &#x1F;</h1>
+      <Foo.Bar enabled value='single &lt;' />
+      <svg:path d="M0 0" />
+      <>
+        {items.map((item, i) => <li key={i}>{item}</li>)}
+      </>
+      <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+      {/* comment */}
+    </div>
+  );
+}
+
+const el = <span>{`template ${count}`}</span>;
+let n: number = 1;
+let s: string = "x";

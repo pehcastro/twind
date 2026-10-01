@@ -1,0 +1,22 @@
+literal: |
+  line one
+    indented line
+
+  after blank
+folded: >-
+  folded text
+  continues here
+keep: |+
+  kept
+
+strip: |2- # indentation indicator
+    two
+plain: after
+nested:
+  script: |
+    echo "hi"
+    exit 0
+  next: value
+last: >
+  runs to the end
+  of the file

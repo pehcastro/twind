@@ -31,6 +31,63 @@ const (
 	Namespace
 	Parameter
 	Constant
+	Selector
+	SelectorClass
+	SelectorID
+	SelectorPseudo
+	Attribute
+	CSSVariable
+	Unit
+	Null
+	CharEscape
+	HardBreak
+	Heading
+	HeadingMarker
+	Bold
+	Italic
+	Strike
+	Code
+	LinkText
+	Autolink
+	URL
+	URLLink
+	URLTitle
+	Entity
+	CodeBlock
+	CodeFence
+	CodeLanguage
+	RawCodeBlock
+	FrontMatterMarker
+	RawFrontMatter
+	BlockquoteMarker
+	ListMarker
+	TaskMarker
+	ThematicBreak
+	Prompt
+	PromptPrefix
+	Output
+	Template
+	Decorator
+	Type
+	ClassName
+	TagName
+	AttrName
+	Doctype
+	boldOpen
+	boldClose
+	italicOpen
+	italicClose
+	strikeOpen
+	strikeClose
+	codeOpen
+	codeClose
+	linkTextOpen
+	linkTextClose
+	autolinkOpen
+	autolinkClose
+	rawShell
+	rawScript
+	rawStyle
 	kindEnd
 )
 
@@ -41,12 +98,38 @@ func (k Kind) String() string {
 		Identifier: "identifier", Property: "property", Boolean: "boolean", Variable: "variable",
 		Builtin: "builtin", Regex: "regex", Datetime: "datetime", TableHeader: "array_table_header",
 		Namespace: "namespace", Parameter: "parameter", Constant: "constant",
+		Selector: "selector", SelectorClass: "selector_class", SelectorID: "selector_id", SelectorPseudo: "selector_pseudo",
+		Attribute: "attribute", CSSVariable: "css_variable", Unit: "unit", Null: "null",
+		CharEscape: "escape", HardBreak: "hard_break", Heading: "heading", HeadingMarker: "heading_marker",
+		Bold: "bold", Italic: "italic", Strike: "strike", Code: "code", LinkText: "link_text", Autolink: "autolink",
+		URL: "url", URLLink: "url_link", URLTitle: "url_title", Entity: "entity", CodeBlock: "code_block",
+		CodeFence: "code_fence", CodeLanguage: "code_language", RawCodeBlock: "raw_code_block",
+		FrontMatterMarker: "front_matter_marker", RawFrontMatter: "raw_front_matter", BlockquoteMarker: "blockquote_marker",
+		ListMarker: "list_marker", TaskMarker: "task_marker", ThematicBreak: "hr",
+		Prompt: "prompt", PromptPrefix: "prompt_prefix", Output: "output", Template: "template", Decorator: "decorator",
+		Type: "type", ClassName: "class_name", TagName: "tag_name", AttrName: "attr_name", Doctype: "doctype",
+		boldOpen: "bold_open", boldClose: "bold_close", italicOpen: "italic_open", italicClose: "italic_close",
+		strikeOpen: "strike_open", strikeClose: "strike_close", codeOpen: "code_open", codeClose: "code_close",
+		linkTextOpen: "link_text_open", linkTextClose: "link_text_close", autolinkOpen: "autolink_open",
+		autolinkClose: "autolink_close", rawShell: "raw_shell", rawScript: "raw_script", rawStyle: "raw_style",
 	}[k]
 }
+
+type Style uint8
+
+const (
+	StyleBold Style = 1 << iota
+	StyleItalic
+	StyleStrike
+	StyleCode
+	StyleLinkText
+	StyleAutolink
+)
 
 type Span struct {
 	Kind       Kind
 	Start, End int
+	Style      Style
 }
 
 type probeKey struct {
@@ -60,65 +143,67 @@ type probe struct {
 }
 
 type spans struct {
-	yield func(Span) bool
-	last  Span
+	tokens *[]Span
+	last   Span
 }
 
-func (o *spans) emit(k Kind, start, end int, sealed bool) bool {
+func (o *spans) emit(k Kind, start, end int, sealed bool) {
 	if !sealed && o.last.Kind == k && o.last.End == start {
 		o.last.End = end
-		return true
+		return
 	}
-	if !o.flush(start) {
-		return false
-	}
-	o.last = Span{k, start, end}
-	return true
+	o.flush()
+	o.last = Span{Kind: k, Start: start, End: end}
 }
 
-func (o *spans) flush(upTo int) bool {
-	if s := o.last; s.End > s.Start && !o.yield(s) {
-		return false
+func (o *spans) flush() {
+	if o.last.End > o.last.Start {
+		*o.tokens = append(*o.tokens, o.last)
 	}
-	return upTo <= o.last.End || o.yield(Span{Text, o.last.End, upTo})
 }
 
 func Tokens(src string, g *Grammar) iter.Seq[Span] {
 	return func(yield func(Span) bool) {
-		if g.reclassify == nil {
-			out := spans{yield: yield}
-			if g.run(src, &out) {
-				out.flush(len(src))
+		w := g.borrow()
+		g.fill(w, src)
+		at := 0
+		for _, s := range w.spans {
+			if s.Start > at && !yield(Span{Kind: Text, Start: at, End: s.Start}) || !yield(s) {
+				at = len(src)
+				break
 			}
-			return
+			at = s.End
 		}
-		g.reclassified(src, yield)
+		if at < len(src) {
+			yield(Span{Kind: Text, Start: at, End: len(src)})
+		}
+		g.giveBack(w)
 	}
 }
 
-func (g *Grammar) reclassified(src string, yield func(Span) bool) {
-	w, _ := g.works.Get().(*work)
-	if w == nil {
-		w = &work{}
+func (g *Grammar) borrow() *work {
+	if w, ok := g.works.Get().(*work); ok {
+		return w
 	}
-	w.src, w.spans = src, w.spans[:0]
-	out := spans{yield: func(s Span) bool {
-		w.spans = append(w.spans, s)
-		return true
-	}}
-	g.run(src, &out)
-	out.flush(len(src))
-	g.reclassify(w)
-	for _, s := range w.spans {
-		if !yield(s) {
-			break
-		}
-	}
+	return &work{}
+}
+
+func (g *Grammar) giveBack(w *work) {
 	w.src = ""
 	g.works.Put(w)
 }
 
-func (g *Grammar) run(src string, out *spans) bool {
+func (g *Grammar) fill(w *work, src string) {
+	w.src, w.spans = src, w.spans[:0]
+	out := spans{tokens: &w.spans}
+	g.run(src, &out)
+	out.flush()
+	if g.reclassify != nil {
+		g.reclassify(w)
+	}
+}
+
+func (g *Grammar) run(src string, out *spans) {
 	var stack [konst.StackDepth]uint16
 	depth, cur, pos := 0, uint16(0), 0
 	enter := func(s uint16) {
@@ -136,7 +221,7 @@ func (g *Grammar) run(src string, out *spans) bool {
 		st := &g.states[cur]
 		if pos >= len(src) {
 			if !st.probe {
-				return true
+				return
 			}
 			if st.atEnd != noState {
 				depth = open.depth
@@ -195,8 +280,8 @@ func (g *Grammar) run(src string, out *spans) bool {
 			for end < len(src) && src[end] < utf8.RuneSelf && st.byByte[src[end]] == r && st.first[src[end]] == st.first[src[end]+1] {
 				end++
 			}
-			if ru.kind != Text && !out.emit(ru.kind, pos, end, false) {
-				return false
+			if ru.kind != Text {
+				out.emit(ru.kind, pos, end, false)
 			}
 			pos = end
 			continue
@@ -218,9 +303,7 @@ func (g *Grammar) run(src string, out *spans) bool {
 		}
 		switch {
 		case !st.probe && ru.kind != Text:
-			if !out.emit(ru.kind, pos, pos+width, n > 0 || ru.boundary) {
-				return false
-			}
+			out.emit(ru.kind, pos, pos+width, n > 0 || ru.boundary)
 			pos += width
 		case ru.step == stay || ru.step == push:
 			pos += width

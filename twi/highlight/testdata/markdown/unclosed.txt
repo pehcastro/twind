@@ -1,0 +1,3 @@
+---
+title: never closed
+body: yes
