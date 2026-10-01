@@ -120,6 +120,14 @@ func (t *unixTTY) conhost() bool {
 	return false
 }
 
+func (t *unixTTY) font() Font {
+	return Font{}
+}
+
+func (t *unixTTY) lacks(string, string) bool {
+	return false
+}
+
 func (t *unixTTY) cancel() {
 	signal.Stop(t.winch)
 	close(t.winch)

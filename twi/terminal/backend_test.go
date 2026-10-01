@@ -25,6 +25,9 @@ type fakeTTY struct {
 	cells     image.Point
 	reads     int
 	window    bool
+	face      Font
+	lacking   string
+	asked     []string
 }
 
 func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
@@ -55,8 +58,13 @@ func (f *fakeTTY) size() (width, height int, err error) {
 	defer f.mu.Unlock()
 	return f.cells.X, f.cells.Y, nil
 }
-func (f *fakeTTY) conhost() bool  { return f.window }
-func (f *fakeTTY) cancel()        { close(f.cancelled) }
+func (f *fakeTTY) conhost() bool { return f.window }
+func (f *fakeTTY) cancel()       { close(f.cancelled) }
+func (f *fakeTTY) font() Font    { return f.face }
+func (f *fakeTTY) lacks(face, cluster string) bool {
+	f.asked = append(f.asked, face+" "+cluster)
+	return strings.Contains(f.lacking, cluster)
+}
 func (f *fakeTTY) restore() error { f.restored++; return nil }
 
 type fakeTerminal struct {

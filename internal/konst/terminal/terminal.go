@@ -92,6 +92,14 @@ const (
 )
 
 const (
+	FaceLength        = 32
+	DefaultCharset    = 1
+	MarkMissingGlyphs = 1
+	MissingGlyph      = 0xFFFF
+	GDIError          = 0xFFFFFFFF
+)
+
+const (
 	QueryTimeout    = 100 * time.Millisecond
 	StartupTimeout  = time.Second
 	EscapeTimeout   = 50 * time.Millisecond

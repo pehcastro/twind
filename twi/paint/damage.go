@@ -18,6 +18,7 @@ import (
 type Painter struct {
 	Widths                 text.Widths
 	Profile                color.Profile
+	Covers                 func(cluster string) bool
 	buf                    *buffer.Buffer
 	width, height, columns int
 	seed                   maphash.Seed

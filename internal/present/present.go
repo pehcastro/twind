@@ -35,10 +35,13 @@ type Screen struct {
 	Sync     bool
 	Margins  bool
 	Widths   text.Widths
+	Font     terminal.Font
+	Covers   func(cluster string) bool
 	Workers  int
 
 	cols, rows        int
 	cell              image.Point
+	font              terminal.Font
 	painter           paint.Painter
 	fresh             bool
 	text, shown, want *buffer.Buffer
@@ -163,7 +166,7 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 		s.out.WriteString(termkonst.SyncBegin)
 	}
 	start := s.out.Len()
-	if cols != s.cols || rows != s.rows || s.Cell != s.cell || s.text == nil {
+	if cols != s.cols || rows != s.rows || s.Cell != s.cell || s.Font != s.font || s.text == nil {
 		s.reset(cols, rows)
 	}
 	look := paint.Glyphs
@@ -173,7 +176,7 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	case s.Graphics == terminal.GraphicsNone:
 		look = paint.Composited
 	}
-	s.painter.Widths, s.painter.Profile, s.imageBytes = s.Widths, s.Profile, 0
+	s.painter.Widths, s.painter.Profile, s.painter.Covers, s.imageBytes = s.Widths, s.Profile, s.Covers, 0
 	s.pageBg, s.page = color.Color{}, 0
 	if bg := root.Background; s.Graphics == terminal.GraphicsSixel && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
 		s.pageBg, s.page = bg, uint32(bg.RGBA.R)|uint32(bg.RGBA.G)<<8|uint32(bg.RGBA.B)<<16|math.MaxUint8<<24
@@ -225,7 +228,7 @@ func (s *Screen) reset(cols, rows int) {
 	if s.Cell != s.cell || s.cache == nil {
 		s.cache, s.shapes, s.splices, s.seed = map[uint64]*cached{}, map[string]*cached{}, map[[2]int32]int32{}, maphash.MakeSeed()
 	}
-	s.cols, s.rows, s.cell, s.fresh = cols, rows, s.Cell, true
+	s.cols, s.rows, s.cell, s.font, s.fresh = cols, rows, s.Cell, s.Font, true
 	s.text, s.shown, s.want = nil, nil, nil
 	s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
 	if s.Graphics == terminal.GraphicsNone {

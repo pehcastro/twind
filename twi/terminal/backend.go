@@ -37,8 +37,14 @@ const (
 	IdentityZed
 )
 
+type Font struct {
+	Face string
+	Size image.Point
+}
+
 type Capabilities struct {
 	Identity      Identity
+	Font          Font
 	Sync          bool
 	KittyKeyboard bool
 	Graphics      Graphics
@@ -59,6 +65,7 @@ type Backend struct {
 	opt     Options
 	decoder input.Decoder
 	answers chan answer
+	covered map[string]bool
 	leave   string
 	asking  atomic.Bool
 	cell    atomic.Pointer[image.Point]
@@ -86,6 +93,8 @@ type tty interface {
 	read(p []byte, wait time.Duration) (n int, recheck bool, err error)
 	size() (width, height int, err error)
 	conhost() bool
+	font() Font
+	lacks(face, cluster string) bool
 	cancel()
 	restore() error
 }
@@ -290,7 +299,7 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 	}
 	switch {
 	case b.tty.conhost():
-		caps.Identity = IdentityConhost
+		caps.Identity, caps.Font = IdentityConhost, b.tty.font()
 	case slices.Equal(primary, []int{konst.ConhostClass, konst.ConhostOption}) && !slices.Contains(reports, konst.CellReport):
 		caps.Identity = IdentityInboxConPTY
 	case o.zed && slices.Contains(reports, konst.WindowReport) && !sixel:
@@ -484,9 +493,29 @@ func (b *Backend) Size() (width, height int, err error) {
 	return b.tty.size()
 }
 
+func (b *Backend) Covers(cluster string) bool {
+	face := b.Capabilities.Font.Face
+	if face == "" {
+		return true
+	}
+	if covered, asked := b.covered[cluster]; asked {
+		return covered
+	}
+	if b.covered == nil {
+		b.covered = map[string]bool{}
+	}
+	b.covered[cluster] = !b.tty.lacks(face, cluster)
+	return b.covered[cluster]
+}
+
 func (b *Backend) Write(frame []byte) (int, error) {
 	if cell := b.cell.Load(); cell != nil {
 		b.Capabilities.CellPixels = *cell
+	}
+	if b.Capabilities.Identity == IdentityConhost {
+		if font := b.tty.font(); font != b.Capabilities.Font {
+			b.Capabilities.Font, b.covered = font, nil
+		}
 	}
 	b.mu.Lock()
 	n, err := b.out.Write(frame)

@@ -398,8 +398,11 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	clear(r.texts)
 	if r.screen == nil {
 		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Graphics: graphics, Sync: b.Sync(), Margins: r.caps.Margins}
+		if c, ok := b.(interface{ Covers(cluster string) bool }); ok {
+			r.screen.Covers = c.Covers
+		}
 	}
-	r.screen.Cell, r.screen.Widths, r.screen.Workers = cell, r.caps.Widths, 0
+	r.screen.Cell, r.screen.Widths, r.screen.Font, r.screen.Workers = cell, r.caps.Widths, r.caps.Font, 0
 	if r.moving {
 		r.screen.Workers = 1
 	}

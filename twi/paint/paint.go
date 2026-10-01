@@ -90,7 +90,7 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 	if !sides {
 		border(buf, n, look, clip)
 	}
-	lines(buf, n, clip, p.Widths, p.Profile == color.ANSI16)
+	lines(buf, n, clip, p.Widths, p.Profile == color.ANSI16, p.Covers)
 }
 
 func split(set string) (glyphs [4]string) {
@@ -354,7 +354,7 @@ func border(buf *buffer.Buffer, n *scene.Node, look Look, clip layout.Rect) {
 	}
 }
 
-func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widths, console bool) {
+func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widths, console bool, covers func(string) bool) {
 	var attr buffer.Attr
 	if n.Bold {
 		attr |= buffer.Bold
@@ -378,8 +378,17 @@ func lines(buf *buffer.Buffer, n *scene.Node, clip layout.Rect, widths text.Widt
 		}
 		cell := ink
 		cell.Grapheme = g.Cluster
-		if console && len(g.Cluster) > 1 {
+		switch {
+		case console && len(g.Cluster) > 1:
 			cell.Grapheme = standIn(g.Cluster)
+		case covers != nil && len(g.Cluster) > 1 && !covers(g.Cluster):
+			for x := g.X + 1; x < g.X+g.Width; x++ {
+				put(buf, clip, x, g.Y, ink)
+			}
+			cell.Grapheme, g.Width = standIn(g.Cluster), 1
+			if cell.Grapheme == g.Cluster || !covers(cell.Grapheme) {
+				cell.Grapheme = " "
+			}
 		}
 		if g.Width > 1 {
 			cell.Width = buffer.Wide

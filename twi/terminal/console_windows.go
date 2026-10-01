@@ -5,8 +5,10 @@ package terminal
 import (
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"os"
+	"slices"
 	"time"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -20,7 +22,7 @@ import (
 )
 
 func size(fd uintptr) (width, height int, err error) {
-	return consoleSize(kernel32{}, windows.Handle(fd))
+	return consoleSize(win32{}, windows.Handle(fd))
 }
 
 func consoleSize(c console, h windows.Handle) (width, height int, err error) {
@@ -32,7 +34,7 @@ func consoleSize(c console, h windows.Handle) (width, height int, err error) {
 }
 
 func promised(fd uintptr) color.Profile {
-	return consoleProfile(kernel32{}, windows.Handle(fd))
+	return consoleProfile(win32{}, windows.Handle(fd))
 }
 
 func consoleProfile(c console, h windows.Handle) color.Profile {
@@ -81,11 +83,68 @@ type console interface {
 	bufferInfo(h windows.Handle, info *windows.ConsoleScreenBufferInfo) error
 	readInput(in, cancel windows.Handle, records []inputRecord, timeout uint32) (int, error)
 	windowClass() string
+	font(h windows.Handle) Font
+	lacks(face, cluster string) bool
 }
 
-type kernel32 struct{ readConsoleInput, consoleWindow *windows.LazyProc }
+type win32 struct {
+	readConsoleInput, consoleWindow, currentFont                             *windows.LazyProc
+	createFont, createDC, selectObject, glyphIndices, deleteDC, deleteObject *windows.LazyProc
+}
 
-func (k kernel32) windowClass() string {
+func loadWin32() win32 {
+	kernel, gdi := windows.NewLazySystemDLL("kernel32.dll"), windows.NewLazySystemDLL("gdi32.dll")
+	return win32{
+		readConsoleInput: kernel.NewProc("ReadConsoleInputW"),
+		consoleWindow:    kernel.NewProc("GetConsoleWindow"),
+		currentFont:      kernel.NewProc("GetCurrentConsoleFontEx"),
+		createFont:       gdi.NewProc("CreateFontW"),
+		createDC:         gdi.NewProc("CreateCompatibleDC"),
+		selectObject:     gdi.NewProc("SelectObject"),
+		glyphIndices:     gdi.NewProc("GetGlyphIndicesW"),
+		deleteDC:         gdi.NewProc("DeleteDC"),
+		deleteObject:     gdi.NewProc("DeleteObject"),
+	}
+}
+
+type consoleFontInfo struct {
+	size   uint32
+	index  uint32
+	cell   windows.Coord
+	family uint32
+	weight uint32
+	face   [konst.FaceLength]uint16
+}
+
+func (k win32) font(h windows.Handle) Font {
+	info := consoleFontInfo{size: uint32(unsafe.Sizeof(consoleFontInfo{}))}
+	if ok, _, _ := k.currentFont.Call(uintptr(h), 0, uintptr(unsafe.Pointer(&info))); ok == 0 {
+		return Font{}
+	}
+	return Font{Face: windows.UTF16ToString(info.face[:]), Size: image.Pt(int(info.cell.X), int(info.cell.Y))}
+}
+
+func (k win32) lacks(face, cluster string) bool {
+	name, err := windows.UTF16PtrFromString(face)
+	if err != nil {
+		return false
+	}
+	font, _, _ := k.createFont.Call(0, 0, 0, 0, 0, 0, 0, 0, konst.DefaultCharset, 0, 0, 0, 0, uintptr(unsafe.Pointer(name)))
+	if font == 0 {
+		return false
+	}
+	units := utf16.Encode([]rune(cluster))
+	glyphs := make([]uint16, len(units))
+	dc, _, _ := k.createDC.Call(0)
+	old, _, _ := k.selectObject.Call(dc, font)
+	n, _, _ := k.glyphIndices.Call(dc, uintptr(unsafe.Pointer(&units[0])), uintptr(len(units)), uintptr(unsafe.Pointer(&glyphs[0])), konst.MarkMissingGlyphs)
+	_, _, _ = k.selectObject.Call(dc, old)
+	_, _, _ = k.deleteDC.Call(dc)
+	_, _, _ = k.deleteObject.Call(font)
+	return uint32(n) != konst.GDIError && slices.Contains(glyphs, konst.MissingGlyph)
+}
+
+func (k win32) windowClass() string {
 	window, _, _ := k.consoleWindow.Call()
 	if window == 0 || !windows.IsWindowVisible(windows.HWND(window)) {
 		return ""
@@ -95,19 +154,19 @@ func (k kernel32) windowClass() string {
 	return windows.UTF16ToString(class[:n])
 }
 
-func (kernel32) getMode(h windows.Handle, mode *uint32) error {
+func (win32) getMode(h windows.Handle, mode *uint32) error {
 	return windows.GetConsoleMode(h, mode)
 }
 
-func (kernel32) setMode(h windows.Handle, mode uint32) error {
+func (win32) setMode(h windows.Handle, mode uint32) error {
 	return windows.SetConsoleMode(h, mode)
 }
 
-func (kernel32) bufferInfo(h windows.Handle, info *windows.ConsoleScreenBufferInfo) error {
+func (win32) bufferInfo(h windows.Handle, info *windows.ConsoleScreenBufferInfo) error {
 	return windows.GetConsoleScreenBufferInfo(h, info)
 }
 
-func (k kernel32) readInput(in, cancel windows.Handle, records []inputRecord, timeout uint32) (int, error) {
+func (k win32) readInput(in, cancel windows.Handle, records []inputRecord, timeout uint32) (int, error) {
 	event, err := windows.WaitForMultipleObjects([]windows.Handle{cancel, in}, false, timeout)
 	switch {
 	case err != nil:
@@ -137,9 +196,7 @@ type consoleTTY struct {
 }
 
 func openTTY(in, out *os.File, opt Options) (tty, error) {
-	dll := windows.NewLazySystemDLL("kernel32.dll")
-	k := kernel32{dll.NewProc("ReadConsoleInputW"), dll.NewProc("GetConsoleWindow")}
-	return openConsole(k, windows.Handle(in.Fd()), windows.Handle(out.Fd()), opt)
+	return openConsole(loadWin32(), windows.Handle(in.Fd()), windows.Handle(out.Fd()), opt)
 }
 
 func openConsole(c console, in, out windows.Handle, opt Options) (tty, error) {
@@ -271,6 +328,14 @@ func (t *consoleTTY) size() (width, height int, err error) {
 
 func (t *consoleTTY) conhost() bool {
 	return t.console.windowClass() == konst.ConhostWindowClass
+}
+
+func (t *consoleTTY) font() Font {
+	return t.console.font(t.out)
+}
+
+func (t *consoleTTY) lacks(face, cluster string) bool {
+	return t.console.lacks(face, cluster)
 }
 
 func (t *consoleTTY) cancel() {

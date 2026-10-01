@@ -65,8 +65,7 @@ func TestRecordConsoleInput(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	dll := windows.NewLazySystemDLL("kernel32.dll")
-	k := kernel32{dll.NewProc("ReadConsoleInputW"), dll.NewProc("GetConsoleWindow")}
+	k := loadWin32()
 	var info windows.ConsoleScreenBufferInfo
 	if err := k.bufferInfo(windows.Handle(out.Fd()), &info); err != nil {
 		t.Fatal(err)
