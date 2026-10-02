@@ -139,6 +139,7 @@ func (r *Runtime) scrolled() {
 			continue
 		}
 		for _, handle := range e.node.Scroll {
+			r.rebuild = true
 			handle(at)
 		}
 	}

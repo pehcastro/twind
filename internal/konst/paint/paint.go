@@ -51,6 +51,7 @@ const (
 
 const (
 	TileColumns     = 8
+	BridgedTiles    = 6
 	KittyFirstImage = 0x74770000
 	EraseCells      = "X"
 	DefaultBg       = "\x1b[49m"

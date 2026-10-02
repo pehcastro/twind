@@ -43,6 +43,32 @@ func TestScrollIsALayerScroll(t *testing.T) {
 	}
 }
 
+func TestDamageNamesEachRectsLayer(t *testing.T) {
+	next := scroller(4)
+	next.Children[0].Children[10].Background = paint(200, 0, 0, 255)
+	d := damage(scroller(3), next)
+	if len(d.Layers) != len(d.Rects) || len(d.Scrolls) != 1 {
+		t.Fatalf("%d layers for %d rects and %d scrolls, want one layer per rect and one scroll", len(d.Layers), len(d.Rects), len(d.Scrolls))
+	}
+	row := image.Rect(50, 20*(1+10-4), 250, 20*(2+10-4))
+	layers := record(next).Layers
+	var thumb, recoloured bool
+	for i, r := range d.Rects {
+		switch {
+		case r == row:
+			recoloured = d.Layers[i] == d.Scrolls[0].Layer
+		case r.Min.X >= 250-cell.X:
+			thumb = d.Layers[i] != d.Scrolls[0].Layer && layers[d.Layers[i]].Parent != d.Scrolls[0].Layer
+			if !thumb {
+				t.Errorf("thumb rect %v in layer %d, want a layer that does not scroll", r, d.Layers[i])
+			}
+		}
+	}
+	if !thumb || !recoloured {
+		t.Errorf("rects %v in layers %v: thumb in the page %v, recoloured row %v in the scroll layer %v", d.Rects, d.Layers, thumb, row, recoloured)
+	}
+}
+
 func TestScrollThumb(t *testing.T) {
 	n := Node{Scroll: true, Padding: layout.Rect{Y: 2, H: 20}}
 	for _, c := range []struct {

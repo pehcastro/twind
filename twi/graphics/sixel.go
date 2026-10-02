@@ -130,6 +130,8 @@ func (s *Sixel) Encode(dst []byte, rows [][]Run, at Placement) []byte {
 	return append(dst, "\x1b\\"...)
 }
 
+func (s *Sixel) Quantised() bool { return len(s.colours) > graphics.SixelRegisters }
+
 func percentKey(pixel uint32) uint32 {
 	p := func(v uint32) uint32 { return (v&0xff*graphics.SixelPercent + 127) / 255 }
 	return p(pixel)<<16 | p(pixel>>8)<<8 | p(pixel>>16)

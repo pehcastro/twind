@@ -9,6 +9,13 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func cycles() uint64 {
+	var n uint64
+	proc := windows.NewLazySystemDLL("kernel32.dll").NewProc("QueryProcessCycleTime")
+	_, _, _ = proc.Call(uintptr(windows.CurrentProcess()), uintptr(unsafe.Pointer(&n)))
+	return n
+}
+
 func clock(b *testing.B) func() time.Duration {
 	kernel := windows.NewLazySystemDLL("kernel32.dll")
 	counter := kernel.NewProc("QueryPerformanceCounter").Addr()

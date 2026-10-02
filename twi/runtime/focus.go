@@ -53,18 +53,25 @@ type document struct {
 	refs    []*Elem
 	scrolls []*Elem
 	focused *Elem
+	expect  events.Type
+	exact   bool
+	heard   bool
 }
 
 type entered struct{ scope, previous *Elem }
 
-func (d *document) Root() *Elem                                { return d.root }
-func (d *document) Parent(e *Elem) (*Elem, bool)               { return e.parent, e.parent != nil }
-func (d *document) Children(e *Elem) []*Elem                   { return e.children }
-func (d *document) Focusable(e *Elem) bool                     { return e.frame == d.frame && e.node.Focusable }
-func (d *document) TabIndex(*Elem) int                         { return 0 }
-func (d *document) Disabled(e *Elem) bool                      { return e.node.Disabled }
-func (d *document) gone(e *Elem) bool                          { return e.frame != d.frame }
-func (d *document) Listeners(e *Elem) []events.Listener[*Elem] { return e.node.Listeners }
+func (d *document) Root() *Elem                  { return d.root }
+func (d *document) Parent(e *Elem) (*Elem, bool) { return e.parent, e.parent != nil }
+func (d *document) Children(e *Elem) []*Elem     { return e.children }
+func (d *document) Focusable(e *Elem) bool       { return e.frame == d.frame && e.node.Focusable }
+func (d *document) TabIndex(*Elem) int           { return 0 }
+func (d *document) Disabled(e *Elem) bool        { return e.node.Disabled }
+func (d *document) gone(e *Elem) bool            { return e.frame != d.frame }
+
+func (d *document) Listeners(e *Elem) []events.Listener[*Elem] {
+	d.heard = d.heard || slices.ContainsFunc(e.node.Listeners, func(l events.Listener[*Elem]) bool { return !d.exact || l.Type == d.expect })
+	return e.node.Listeners
+}
 
 func (d *document) Origin(e *Elem) image.Point {
 	at := d.sceneOf(e).Bounds

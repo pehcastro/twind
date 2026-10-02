@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+func cycles() uint64 { return 0 }
+
 func clock(*testing.B) func() time.Duration {
 	start := time.Now()
 	return func() time.Duration { return time.Since(start) }

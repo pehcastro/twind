@@ -14,6 +14,7 @@ import (
 type Move struct {
 	Layer    int
 	From, To image.Point
+	Was      image.Rectangle
 }
 
 type Scroll struct {
@@ -23,6 +24,7 @@ type Scroll struct {
 
 type Damage struct {
 	Rects   []image.Rectangle
+	Layers  []int
 	Moves   []Move
 	Scrolls []Scroll
 }
@@ -38,7 +40,7 @@ func Diff(prev, next *Frame) Damage {
 	if s.layers == nil {
 		s.layers, s.boxes = map[uint64]int{}, map[uint64]int{}
 	}
-	d, index := Damage{Rects: s.damage.Rects[:0], Moves: s.damage.Moves[:0], Scrolls: s.damage.Scrolls[:0]}, s.layers
+	d, index := Damage{Rects: s.damage.Rects[:0], Layers: s.damage.Layers[:0], Moves: s.damage.Moves[:0], Scrolls: s.damage.Scrolls[:0]}, s.layers
 	clear(index)
 	for i, l := range prev.Layers {
 		index[l.key] = i
@@ -57,15 +59,15 @@ func Diff(prev, next *Frame) Damage {
 		l := &next.Layers[i]
 		j, ok := index[l.key]
 		if !ok {
-			d.add(l.Visual)
+			d.add(l.Visual, i)
 			continue
 		}
 		delete(index, l.key)
 		p := &prev.Layers[j]
 		if j < latest || p.Opacity != l.Opacity || p.Clip != l.Clip || parent(prev, p) != parent(next, l) || l.Parent >= 0 && whole[l.Parent] {
 			whole[i] = true
-			d.add(p.Visual)
-			d.add(l.Visual)
+			d.add(p.Visual, i)
+			d.add(l.Visual, i)
 			continue
 		}
 		latest = j
@@ -74,27 +76,27 @@ func Diff(prev, next *Frame) Damage {
 		case l.scroller:
 			d.Scrolls = append(d.Scrolls, Scroll{Layer: i, By: l.Origin.Sub(p.Origin)})
 		default:
-			d.Moves = append(d.Moves, Move{Layer: i, From: p.Origin, To: l.Origin})
+			d.Moves = append(d.Moves, Move{Layer: i, From: p.Origin, To: l.Origin, Was: p.Visual})
 		}
 		if p.hash != l.hash {
-			d.boxes(p, l, s.boxes)
+			d.boxes(p, l, i, s.boxes)
 		}
 	}
 	for _, p := range prev.Layers {
 		if _, gone := index[p.key]; gone {
-			d.add(p.Visual)
+			d.add(p.Visual, -1)
 		}
 	}
 	s.damage = d
 	return d
 }
 
-func (d *Damage) boxes(p, l *Layer, index map[uint64]int) {
+func (d *Damage) boxes(p, l *Layer, at int, index map[uint64]int) {
 	same := 0
 	for ; same < min(len(p.Boxes), len(l.Boxes)) && p.Boxes[same].key == l.Boxes[same].key; same++ {
 		if p.Boxes[same].hash != l.Boxes[same].hash {
-			d.add(p.Boxes[same].Visual.Add(l.Origin))
-			d.add(l.Boxes[same].Visual.Add(l.Origin))
+			d.add(p.Boxes[same].Visual.Add(l.Origin), at)
+			d.add(l.Boxes[same].Visual.Add(l.Origin), at)
 		}
 	}
 	olds, news := p.Boxes[same:], l.Boxes[same:]
@@ -106,28 +108,28 @@ func (d *Damage) boxes(p, l *Layer, index map[uint64]int) {
 	for _, b := range news {
 		j, ok := index[b.key]
 		if !ok {
-			d.add(b.Visual.Add(l.Origin))
+			d.add(b.Visual.Add(l.Origin), at)
 			continue
 		}
 		delete(index, b.key)
 		if j < latest || olds[j].hash != b.hash {
-			d.add(olds[j].Visual.Add(l.Origin))
-			d.add(b.Visual.Add(l.Origin))
+			d.add(olds[j].Visual.Add(l.Origin), at)
+			d.add(b.Visual.Add(l.Origin), at)
 		}
 		latest = max(latest, j)
 	}
 	for _, b := range olds {
 		if _, gone := index[b.key]; gone {
-			d.add(b.Visual.Add(l.Origin))
+			d.add(b.Visual.Add(l.Origin), at)
 		}
 	}
 }
 
-func (d *Damage) add(r image.Rectangle) {
-	if r.Empty() || len(d.Rects) > 0 && d.Rects[len(d.Rects)-1] == r {
+func (d *Damage) add(r image.Rectangle, layer int) {
+	if n := len(d.Rects); r.Empty() || n > 0 && d.Rects[n-1] == r && d.Layers[n-1] == layer {
 		return
 	}
-	d.Rects = append(d.Rects, r)
+	d.Rects, d.Layers = append(d.Rects, r), append(d.Layers, layer)
 }
 
 type looks struct {

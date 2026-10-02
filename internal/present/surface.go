@@ -35,6 +35,8 @@ type worker struct {
 	links  []link
 	lazy   bool
 	lines  [][]run
+	joined []run
+	cuts   []int
 	bands  []band
 	sums   [][4]int
 	pix    []uint8

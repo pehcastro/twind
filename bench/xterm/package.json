@@ -1,0 +1,9 @@
+{
+  "name": "twind-bench-xterm",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@xterm/addon-image": "0.10.0-beta.301",
+    "@xterm/headless": "6.1.0-beta.303"
+  }
+}

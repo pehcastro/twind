@@ -29,7 +29,8 @@ type hostPlace struct {
 type host interface {
 	place() (hostPlace, error)
 	capture(screen image.Rectangle) []byte
-	draw(at, size image.Point, pix []byte, dirty image.Rectangle) bool
+	pixels(size image.Point) []byte
+	draw(at, size image.Point, dirty image.Rectangle) bool
 	move(at image.Point)
 	show()
 	hide()
@@ -156,13 +157,22 @@ func remap(edges []int, cell int) []int32 {
 }
 
 func within(m []int32, lo, hi int) (from, to int) {
-	from = len(m)
-	for i, v := range m {
-		if int(v) >= lo && int(v) < hi {
-			from, to = min(from, i), i+1
-		}
-	}
+	from, _ = slices.BinarySearch(m, int32(lo))
+	to, _ = slices.BinarySearch(m, int32(hi))
 	return from, to
+}
+
+type span struct{ at, from, n int }
+
+func spans(dst []span, m []int32, from, to int) []span {
+	for x := from; x < to; x++ {
+		if n := len(dst); n > 0 && dst[n-1].at+dst[n-1].n == x && dst[n-1].from+dst[n-1].n == int(m[x]) {
+			dst[n-1].n++
+			continue
+		}
+		dst = append(dst, span{at: x, from: int(m[x]), n: 1})
+	}
+	return dst
 }
 
 type overlay struct {
@@ -188,7 +198,7 @@ type overlay struct {
 	cell           image.Point
 	base, size     image.Point
 	columns, lines []int32
-	src, dst       []byte
+	runs           []span
 }
 
 func (o *overlay) layout(page color.RGBA) []Mark {
@@ -308,8 +318,6 @@ func (o *overlay) measure(at hostPlace) {
 	o.base = image.Pt(cols[0], rows[0])
 	o.size = image.Pt(cols[n], rows[m]).Sub(o.base)
 	o.columns, o.lines = remap(cols, o.cell.X), remap(rows, o.cell.Y)
-	o.src = make([]byte, n*o.cell.X*m*o.cell.Y*graphicskonst.GDIBytes)
-	o.dst = make([]byte, o.size.X*o.size.Y*graphicskonst.GDIBytes)
 	o.fresh, o.marking = true, false
 	o.trace.log("calibrated: cell %dx%d from %.3fx%.3f, panel %v in Zed's client", o.cell.X, o.cell.Y, float64(o.size.X)/float64(n), float64(o.size.Y)/float64(m), image.Rectangle{Min: o.base, Max: o.base.Add(o.size)})
 }
@@ -344,43 +352,53 @@ func (o *overlay) paint(p Pixels) bool {
 		return false
 	}
 	o.fresh = false
-	stride := o.grid.X * o.cell.X * graphicskonst.GDIBytes
+	dib := o.win.pixels(o.size)
+	if dib == nil {
+		return o.broke("the layered window has no surface")
+	}
 	var dirty image.Rectangle
 	if p.Clear {
-		clear(o.src)
-		dirty = image.Rectangle{Max: o.grid}
+		clear(dib)
+		dirty = image.Rectangle{Max: o.size}
 	}
+	stride, px := o.size.X*graphicskonst.GDIBytes, graphicskonst.GDIBytes
 	for _, tile := range p.Tiles {
 		r := image.Rect(tile.Cells.Min.X*o.cell.X, tile.Cells.Min.Y*o.cell.Y, tile.Cells.Max.X*o.cell.X, tile.Cells.Max.Y*o.cell.Y)
-		for y := r.Min.Y; y < r.Max.Y; y++ {
-			row := o.src[y*stride+r.Min.X*graphicskonst.GDIBytes : y*stride+r.Max.X*graphicskonst.GDIBytes]
+		var at image.Rectangle
+		at.Min.X, at.Max.X = within(o.columns, r.Min.X, r.Max.X)
+		at.Min.Y, at.Max.Y = within(o.lines, r.Min.Y, r.Max.Y)
+		if at.Empty() {
+			continue
+		}
+		o.runs = spans(o.runs[:0], o.columns, at.Min.X, at.Max.X)
+		for y := at.Min.Y; y < at.Max.Y; y++ {
+			row := dib[y*stride : (y+1)*stride]
 			if tile.Pix == nil {
-				clear(row)
+				clear(row[at.Min.X*px : at.Max.X*px])
 				continue
 			}
-			copy(row, tile.Pix[(y-r.Min.Y)*r.Dx()*graphicskonst.GDIBytes:])
+			src := tile.Pix[(int(o.lines[y])-r.Min.Y)*r.Dx()*px:]
+			for _, s := range o.runs {
+				copy(row[s.at*px:(s.at+s.n)*px], src[(s.from-r.Min.X)*px:])
+			}
 		}
-		dirty = dirty.Union(tile.Cells)
+		dirty = dirty.Union(at)
 	}
-	var area image.Rectangle
-	area.Min.X, area.Max.X = within(o.columns, dirty.Min.X*o.cell.X, dirty.Max.X*o.cell.X)
-	area.Min.Y, area.Max.Y = within(o.lines, dirty.Min.Y*o.cell.Y, dirty.Max.Y*o.cell.Y)
-	if area.Empty() {
+	if dirty.Empty() {
 		return true
 	}
-	for y := area.Min.Y; y < area.Max.Y; y++ {
-		for x := area.Min.X; x < area.Max.X; x++ {
-			at := (y*o.size.X + x) * graphicskonst.GDIBytes
-			copy(o.dst[at:at+graphicskonst.GDIBytes], o.src[int(o.lines[y])*stride+int(o.columns[x])*graphicskonst.GDIBytes:])
-		}
-	}
-	drawn := o.win.draw(o.origin.Add(o.base), o.size, o.dst, area)
-	o.trace.log("draw at %v size %v dirty %v, ok %t", o.origin.Add(o.base), o.size, area, drawn)
+	drawn := o.win.draw(o.origin.Add(o.base), o.size, dirty)
+	o.trace.log("draw at %v size %v dirty %v, ok %t", o.origin.Add(o.base), o.size, dirty, drawn)
 	if !drawn {
-		o.drop("the layered window refused to draw, cells path for good")
-		o.broken, o.refused = true, true
+		return o.broke("the layered window refused to draw")
 	}
-	return drawn
+	return true
+}
+
+func (o *overlay) broke(why string) bool {
+	o.drop(why + ", cells path for good")
+	o.broken, o.refused = true, true
+	return false
 }
 
 func (o *overlay) close() {

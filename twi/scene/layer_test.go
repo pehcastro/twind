@@ -87,9 +87,19 @@ func TestDamageCardBackground(t *testing.T) {
 	}
 }
 
+func TestDamageMovedLayerNamesItsOldArea(t *testing.T) {
+	short := popover(8, 9)
+	short.Bounds.H, short.Padding.H, short.Content.H = 1, 1, 1
+	prev, next := record(page(popover(8, 6))), record(page(short))
+	d := Diff(prev, next)
+	if len(d.Moves) != 1 || d.Moves[0].Was != prev.Layers[d.Moves[0].Layer].Visual {
+		t.Errorf("a fixed layer that moved down and shrank gave moves %+v, want one move that names its old area %v", d.Moves, prev.Layers[1].Visual)
+	}
+}
+
 func TestDamageFixedMove(t *testing.T) {
 	d := damage(page(card(paint(24, 24, 27, 255)), popover(5, 5)), page(card(paint(24, 24, 27, 255)), popover(8, 6)))
-	if want := []Move{{Layer: 1, From: image.Pt(50, 100), To: image.Pt(80, 120)}}; !slices.Equal(d.Moves, want) || len(d.Rects) != 0 {
+	if want := []Move{{Layer: 1, From: image.Pt(50, 100), To: image.Pt(80, 120), Was: image.Rect(20, 90, 180, 210)}}; !slices.Equal(d.Moves, want) || len(d.Rects) != 0 {
 		t.Errorf("moving a fixed popover gave %+v, want moves %v and no rects", d, want)
 	}
 }

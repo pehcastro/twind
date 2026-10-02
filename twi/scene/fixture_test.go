@@ -2,6 +2,7 @@ package scene
 
 import (
 	"fmt"
+	"image"
 	"os"
 	"strings"
 	"testing"
@@ -86,6 +87,25 @@ func dump(out *strings.Builder, f *Frame) {
 	}
 }
 
+type recordedMove struct {
+	Layer    int
+	From, To image.Point
+}
+
+type recordedDamage struct {
+	Rects   []image.Rectangle
+	Moves   []recordedMove
+	Scrolls []Scroll
+}
+
+func unlayered(d Damage) recordedDamage {
+	moves := []recordedMove{}
+	for _, m := range d.Moves {
+		moves = append(moves, recordedMove{m.Layer, m.From, m.To})
+	}
+	return recordedDamage{d.Rects, moves, d.Scrolls}
+}
+
 func displayList(frames *[2]Frame, round int) string {
 	var out strings.Builder
 	for i, pair := range fixturePairs() {
@@ -95,7 +115,7 @@ func displayList(frames *[2]Frame, round int) string {
 		fmt.Fprintf(&out, "pair %d\n", i)
 		dump(&out, prev)
 		dump(&out, next)
-		fmt.Fprintf(&out, "damage %+v\nback %+v\n", Diff(prev, next), Diff(next, prev))
+		fmt.Fprintf(&out, "damage %+v\nback %+v\n", unlayered(Diff(prev, next)), unlayered(Diff(next, prev)))
 	}
 	return out.String()
 }

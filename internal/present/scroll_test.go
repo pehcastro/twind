@@ -44,7 +44,7 @@ func scrolled(t testing.TB, offsets ...int) []scene.Node {
 func view(root scene.Node) layout.Rect { return root.Children[0].Children[1].Padding }
 
 func TestScrollMatchesAFreshFrame(t *testing.T) {
-	offsets := []int{0, 1, 2, 3, 10, 9, 30, 29, 180, 179, 178, 0}
+	offsets := []int{0, 1, 2, 3, 2, 1, 0, 10, 9, 30, 29, 180, 179, 178, 0}
 	trees := scrolled(t, offsets...)
 	for _, margins := range []bool{true, false} {
 		s, out := screen(terminal.GraphicsSixel)
@@ -179,7 +179,6 @@ func TestScrollWithoutRegion(t *testing.T) {
 		{"a jump past the view", terminal.GraphicsSixel, terminal.IdentityOther, 0, 1},
 		{"kitty", terminal.GraphicsKitty, terminal.IdentityOther, 1, 2},
 		{"cells", terminal.GraphicsNone, terminal.IdentityOther, 1, 2},
-		{"vscode sixel, one row", terminal.GraphicsSixel, terminal.IdentityVSCode, 1, 2},
 	} {
 		s, out := screen(c.graphics)
 		s.Margins, s.Identity = true, c.identity

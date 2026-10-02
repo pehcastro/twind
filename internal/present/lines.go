@@ -133,7 +133,95 @@ func expand(pix []uint8, rows [][]byte, lines [][]run) ([]uint8, [][]byte) {
 
 func (s *Screen) placement(t int) graphics.Placement {
 	cells := s.tiles[t]
+	if c := s.covers[t]; c.X*c.Y > 1 {
+		cells = cells.Union(s.tiles[t-(c.Y-1)*len(s.columns)+c.X-1])
+	}
 	return graphics.Placement{Col: cells.Min.X, Row: cells.Min.Y, Cols: cells.Dx(), Rows: cells.Dy()}
+}
+
+func (s *Screen) join() {
+	across := len(s.columns)
+	for t := range s.twins {
+		s.twins[t], s.leads[t] = t, -1
+	}
+	for band := len(s.tiles)/across - 1; band >= 0; band-- {
+		row, sent := s.send[band*across:(band+1)*across], -1
+		for i, send := range row {
+			if !send {
+				continue
+			}
+			if sent >= 0 && i-sent-1 <= konst.BridgedTiles {
+				for k := sent + 1; k < i; k++ {
+					row[k] = true
+				}
+			}
+			sent = i
+		}
+		for col := 0; col < across; {
+			t, n := band*across+col, 1
+			if !s.send[t] {
+				col++
+				continue
+			}
+			for col+n < across && s.send[t+n] {
+				n++
+			}
+			lead := t
+			if up := t + across; up < len(s.tiles) && s.leads[up] >= 0 {
+				if f := s.leads[up]; f%across == col && s.covers[f].X == n && f/across-s.covers[f].Y == band {
+					lead = f
+					s.covers[f].Y++
+				}
+			}
+			for i := t; i < t+n; i++ {
+				s.leads[i], s.covers[i] = lead, image.Point{}
+			}
+			if lead == t {
+				s.covers[t] = image.Pt(n, 1)
+			}
+			col += n
+		}
+	}
+}
+
+func (w *worker) joinedLines(s *Screen, t int) [][]run {
+	cover := s.covers[t]
+	top, _ := s.lines(t)
+	bottom, _ := s.lines(t - (cover.Y-1)*len(s.columns))
+	w.joined, w.cuts, w.lines = w.joined[:0], w.cuts[:0], w.lines[:0]
+	for y := top.Min.Y; y < bottom.Max.Y; y++ {
+		repeated := y > top.Min.Y
+		for i := t; i < t+cover.X && repeated; i++ {
+			_, c := s.lines(i)
+			repeated = c.lineOf[y] == c.lineOf[y-1]
+		}
+		if repeated {
+			w.cuts = append(w.cuts, -1)
+			continue
+		}
+		start, shift := len(w.joined), int32(0)
+		for i := t; i < t+cover.X; i++ {
+			_, c := s.lines(i)
+			for _, part := range c.line(y) {
+				if n := len(w.joined); n > start && w.joined[n-1].Pixel == part.Pixel {
+					w.joined[n-1].End = part.End + shift
+					continue
+				}
+				w.joined = append(w.joined, run{End: part.End + shift, Pixel: part.Pixel})
+			}
+			shift += int32(c.width)
+		}
+		w.cuts = append(w.cuts, len(w.joined))
+	}
+	from := 0
+	for _, cut := range w.cuts {
+		if cut < 0 {
+			w.lines = append(w.lines, w.lines[len(w.lines)-1])
+			continue
+		}
+		w.lines, from = append(w.lines, w.joined[from:cut:cut]), cut
+	}
+	return w.lines
 }
 
 func (w *worker) encode(s *Screen, t int) {
@@ -143,11 +231,30 @@ func (w *worker) encode(s *Screen, t int) {
 		if w.sixel == nil {
 			w.sixel = &graphics.Sixel{}
 		}
-		w.out = w.sixel.Encode(w.out, w.lines, s.placement(t))
+		if c := s.covers[t]; c.X*c.Y > 1 {
+			if w.out = w.sixel.Encode(w.out, w.joinedLines(s, t), s.placement(t)); !w.sixel.Quantised() {
+				s.pieces[t] = piece{w, lo, len(w.out)}
+				return
+			}
+			w.out = w.out[:lo]
+			split := image.Pt(c.X, 1)
+			if c.Y == 1 {
+				split = image.Pt(1, 1)
+			}
+			for k := range c.Y {
+				for i := 0; i < c.X; i += split.X {
+					s.covers[t-k*len(s.columns)+i] = split
+					w.encode(s, t-k*len(s.columns)+i)
+				}
+			}
+			return
+		}
+		w.out = w.sixel.Encode(w.out, s.tileLines(t, w.lines[:0]), s.placement(t))
 	case terminal.GraphicsITerm2:
 		if w.iterm == nil {
 			w.iterm = &graphics.ITerm{}
 		}
+		w.lines = s.tileLines(t, w.lines[:0])
 		w.pix, w.rows = expand(w.pix, w.rows, w.lines)
 		w.out = w.iterm.Encode(w.out, w.rows, s.placement(t))
 	case terminal.GraphicsKitty, terminal.GraphicsNone, terminal.GraphicsGDI:
@@ -195,7 +302,7 @@ func (w *worker) measure(s *Screen, t, twin int) {
 	if twin >= 0 {
 		shift = (s.tiles[twin].Min.Y-cells.Min.Y)*s.cols + s.tiles[twin].Min.X - cells.Min.X
 	}
-	painted, grounded := s.underText() && s.painted.Load(), s.underText() && !s.plain[t] && s.hashes[t] != s.sent[t]
+	painted, grounded := s.underText() && s.painted.Load(), s.underText() && !s.plain[t] && s.hashes[t] != s.sent[t] || s.Graphics == terminal.GraphicsGDI
 	bands, sums := w.bands, w.sums
 	for y := cells.Min.Y; y < cells.Max.Y; y++ {
 		clear(s.sampled[y*s.cols+cells.Min.X : y*s.cols+cells.Max.X])

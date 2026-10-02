@@ -47,14 +47,20 @@ func TestOverlayWindowIsAHiddenClickThroughToolWindow(t *testing.T) {
 	if got, _, _ := k.relative.Call(h.hwnd, konst.OwnerWindow); got != owner {
 		t.Errorf("owner %#x, want the host %#x", got, owner)
 	}
-	pix := make([]byte, 4*4*4)
+	pix := h.pixels(image.Pt(4, 4))
+	if len(pix) != 4*4*4 {
+		t.Fatalf("a 4x4 overlay surface has %d bytes, want 64", len(pix))
+	}
 	for i := range pix {
 		pix[i] = 255
 	}
-	if !h.draw(image.Pt(-4000, -4000), image.Pt(4, 4), pix, image.Rect(1, 1, 3, 3)) {
+	if !h.draw(image.Pt(-4000, -4000), image.Pt(4, 4), image.Rect(0, 0, 4, 4)) {
 		t.Errorf("UpdateLayeredWindowIndirect refused the first draw")
 	}
-	if !h.draw(image.Pt(-4000, -4000), image.Pt(4, 4), pix, image.Rect(1, 1, 3, 3)) {
+	if h.draw(image.Pt(-4000, -4000), image.Pt(5, 4), image.Rect(0, 0, 5, 4)) {
+		t.Errorf("a draw for a size the surface does not have was accepted")
+	}
+	if !h.draw(image.Pt(-4000, -4000), image.Pt(4, 4), image.Rect(1, 1, 3, 3)) {
 		t.Errorf("UpdateLayeredWindowIndirect refused a partial draw")
 	}
 	if windows.IsWindowVisible(windows.HWND(h.hwnd)) {

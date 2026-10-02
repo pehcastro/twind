@@ -72,6 +72,8 @@ type Runtime struct {
 	awake   bool
 
 	app           func() Tree
+	built         Tree
+	rebuild       bool
 	dirty         bool
 	width, height int
 	keys          []func(input.KeyEvent)
@@ -175,7 +177,7 @@ func (r *Runtime) loop(b Backend) error {
 	if r.width, r.height, err = b.Size(); err != nil {
 		return err
 	}
-	r.dirty, r.out, r.start = true, b, r.cfg.Clock.Now()
+	r.dirty, r.rebuild, r.out, r.start = true, true, b, r.cfg.Clock.Now()
 	events := b.Events()
 	var ev input.Event
 	var alarm <-chan time.Time
@@ -198,6 +200,7 @@ func (r *Runtime) loop(b Backend) error {
 			return nil
 		}
 		changed, due := r.changed.Swap(false), !r.motionAt.IsZero() && !r.motionDue().After(now)
+		r.rebuild = r.rebuild || changed
 		r.moving = due && !changed && !r.dirty && !r.pointer.moved
 		if changed || due {
 			r.dirty = true
@@ -254,6 +257,7 @@ func (r *Runtime) drain() {
 	r.mu.Lock()
 	r.queue, r.running = r.running[:0], r.queue
 	r.mu.Unlock()
+	r.rebuild = r.rebuild || len(r.running) > 0
 	for _, f := range r.running {
 		f()
 	}
@@ -263,6 +267,7 @@ func (r *Runtime) drain() {
 func (r *Runtime) handle(ev input.Event) error {
 	switch ev := ev.(type) {
 	case input.KeyEvent:
+		r.rebuild = true
 		c := ev.Key == input.KeyRune && ev.Rune == 'c' && !ev.Release
 		switch {
 		case c && r.sel.shown && (ev.Modifiers == input.ModCtrl || ev.Modifiers == input.ModMeta):
@@ -286,10 +291,11 @@ func (r *Runtime) handle(ev input.Event) error {
 		r.activate(ev)
 		r.scrollKey(ev)
 	case input.MouseEvent:
+		r.rebuild = r.rebuild || ev.Action == input.MousePress || ev.Action == input.MouseRelease
 		r.point(ev)
 		r.refocused()
 	case input.ResizeEvent:
-		r.width, r.height, r.dirty = ev.Width, ev.Height, true
+		r.width, r.height, r.dirty, r.rebuild = ev.Width, ev.Height, true, true
 		if ev.Cell != (image.Point{}) {
 			r.zoomed = ev.Cell
 		}
@@ -318,7 +324,9 @@ func (r *Runtime) refocused() {
 func (r *Runtime) draw(b Backend, now time.Time) error {
 	if r.pointer.moved {
 		r.move()
-		r.dirty = r.changed.Swap(false) || r.dirty
+		if r.changed.Swap(false) {
+			r.dirty, r.rebuild = true, true
+		}
 	}
 	if !r.dirty {
 		return nil
@@ -339,10 +347,11 @@ func (r *Runtime) Widths() text.Widths { return r.caps.Widths }
 
 func (r *Runtime) frame(b Backend, now time.Time) error {
 	r.caps, r.dirty = r.capabilities(b), false
-	tree := r.app()
+	tree := r.view()
 	r.doc.update(tree.Events, &r.focus)
 	if r.changed.Swap(false) {
-		tree = r.app()
+		r.rebuild = true
+		tree = r.view()
 		r.doc.update(tree.Events, &r.focus)
 	}
 	graphics, cell := r.surface(r.caps)
@@ -384,7 +393,8 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		if pass == konst.MeasurePasses || !r.changed.Swap(false) && !moved {
 			break
 		}
-		tree = r.app()
+		r.rebuild = true
+		tree = r.view()
 		r.doc.update(tree.Events, &r.focus)
 		if r.scene, err = r.tree.Scene(r.marked(tree), frame); err != nil {
 			return err
@@ -423,6 +433,13 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		r.Invalidate()
 	}
 	return nil
+}
+
+func (r *Runtime) view() Tree {
+	if r.rebuild || r.doc.heard {
+		r.built, r.rebuild, r.doc.heard = r.app(), false, false
+	}
+	return r.built
 }
 
 func (r *Runtime) marked(tree Tree) render.Node {

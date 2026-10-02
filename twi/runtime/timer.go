@@ -44,6 +44,7 @@ func (r *Runtime) expire(now time.Time) {
 		t := r.timers[0]
 		r.timers = slices.Delete(r.timers, 0, 1)
 		r.mu.Unlock()
+		r.rebuild = true
 		t.fn()
 	}
 }

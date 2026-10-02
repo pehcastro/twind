@@ -21,7 +21,7 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 		area.Min.X, area.Max.X = 0, s.cols
 	}
 	lines := by.Y / s.Cell.Y
-	if s.Graphics != terminal.GraphicsSixel || s.Identity == terminal.IdentityVSCode || by.X != 0 || max(lines, -lines) >= area.Dy() {
+	if s.Graphics != terminal.GraphicsSixel || by.X != 0 || max(lines, -lines) >= area.Dy() {
 		s.damage(clip)
 		return
 	}
@@ -50,12 +50,19 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 		at, _ := cells(dst)
 		copy(s.samples[at:], s.samples[from:to])
 		copy(s.sampled[at:], s.sampled[from:to])
+		if s.owners != nil {
+			copy(s.owners[at:], s.owners[from:to])
+		}
 	}, func(dst int) {
 		s.shown.Fill(buffer.Rect{X: area.Min.X, Y: dst, W: area.Dx(), H: 1}, buffer.Cell{Grapheme: "\x00"})
 		from, to := cells(dst)
 		clear(s.sampled[from:to])
+		s.disown(area.Min.X, dst, area.Dx())
 		s.damage(s.pixels(image.Rect(area.Min.X, dst, area.Max.X, dst+1)))
 	})
+	if s.owners != nil {
+		s.lose(area, lines)
+	}
 	px := s.pixels(area)
 	span := paintkonst.TileColumns * s.Cell.X
 	for left := px.Min.X / span * span; left < px.Max.X; left += span {
@@ -81,6 +88,46 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 			s.unshifted(l, &l.Boxes[j], by.Y, px)
 		}
 	}
+	for i, r := range s.changed {
+		if l := s.changedIn[i]; l < 0 || !moving[l] {
+			s.damage(r.Intersect(px).Add(image.Pt(0, by.Y)).Intersect(px))
+		}
+	}
+}
+
+func (s *Screen) lose(area image.Rectangle, lines int) {
+	top, bottom := int32(area.Min.Y), int32(area.Max.Y-1)
+	by := int32(lines)
+	for id, row := range s.markers {
+		switch {
+		case row < top || row > bottom:
+		case by < 0 && row < top-by, by > 0 && row > bottom-by:
+			s.markers[id] = -1
+		default:
+			s.markers[id] = row + by
+		}
+	}
+	for i, id := range s.owners {
+		if id != 0 && s.markers[id] < 0 {
+			s.owners[i] = 0
+			s.shown.Row(i / s.cols)[i%s.cols] = buffer.Cell{Grapheme: "\x00"}
+		}
+	}
+}
+
+func (s *Screen) compact() {
+	renumbered, markers := map[int32]int32{}, []int32{-1}
+	for i, id := range s.owners {
+		if id == 0 {
+			continue
+		}
+		n, seen := renumbered[id]
+		if !seen {
+			n, renumbered[id], markers = int32(len(markers)), int32(len(markers)), append(markers, s.markers[id])
+		}
+		s.owners[i] = n
+	}
+	s.markers = markers
 }
 
 func (s *Screen) unshifted(l *scene.Layer, b *scene.Box, dy int, area image.Rectangle) {

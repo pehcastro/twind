@@ -11,7 +11,6 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
 )
 
@@ -214,18 +213,18 @@ func (h *layered) capture(r image.Rectangle) []byte {
 	return seen
 }
 
-func (h *layered) draw(at, size image.Point, pix []byte, dirty image.Rectangle) bool {
+func (h *layered) pixels(size image.Point) []byte {
+	if !h.dib.sized(size) {
+		return nil
+	}
+	return h.dib.bits
+}
+
+func (h *layered) draw(at, size image.Point, dirty image.Rectangle) bool {
 	var drawn uintptr
 	h.k.aware(func() {
 		if size != h.dib.size {
-			dirty = image.Rectangle{Max: size}
-		}
-		if !h.dib.sized(size) {
 			return
-		}
-		stride := size.X * graphicskonst.GDIBytes
-		for y := dirty.Min.Y; y < dirty.Max.Y; y++ {
-			copy(h.dib.bits[y*stride+dirty.Min.X*graphicskonst.GDIBytes:y*stride+dirty.Max.X*graphicskonst.GDIBytes], pix[y*stride+dirty.Min.X*graphicskonst.GDIBytes:])
 		}
 		dst, extent, from, blend := point{int32(at.X), int32(at.Y)}, point{int32(size.X), int32(size.Y)}, point{}, uint32(konst.BlendPremultiplied)
 		rect := windows.Rect{Left: int32(dirty.Min.X), Top: int32(dirty.Min.Y), Right: int32(dirty.Max.X), Bottom: int32(dirty.Max.Y)}

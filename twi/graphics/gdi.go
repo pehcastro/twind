@@ -10,20 +10,30 @@ import (
 
 func GDIPixels(dst []byte, lines [][]Run, cell image.Point, text uint64) []byte {
 	width := int(lines[0][len(lines[0])-1].End)
-	dst = slices.Grow(dst, width*len(lines)*graphics.GDIBytes)
+	stride, cols, at := width*graphics.GDIBytes, width/cell.X, len(dst)
+	dst = slices.Grow(dst, stride*len(lines))[:at+stride*len(lines)]
 	for y, line := range lines {
-		first, x := y/cell.Y*(width/cell.X), 0
+		row := dst[at+y*stride : at+(y+1)*stride]
+		if y%cell.Y != 0 && &line[0] == &lines[y-1][0] {
+			copy(row, dst[at+(y-1)*stride:])
+			continue
+		}
+		x := 0
 		for _, r := range line {
 			var px [graphics.GDIBytes]byte
 			if a := r.Pixel >> 24; a >= graphics.GDIOpaque {
 				px = [graphics.GDIBytes]byte{opaque(r.Pixel>>16, a), opaque(r.Pixel>>8, a), opaque(r.Pixel, a), math.MaxUint8}
 			}
-			for ; x < int(r.End); x++ {
-				if text>>(first+x/cell.X)&1 != 0 {
-					dst = append(dst, 0, 0, 0, 0)
-					continue
-				}
-				dst = append(dst, px[:]...)
+			seg := row[x*graphics.GDIBytes : int(r.End)*graphics.GDIBytes]
+			copy(seg, px[:])
+			for n := graphics.GDIBytes; n < len(seg); n *= 2 {
+				copy(seg[n:], seg[:n])
+			}
+			x = int(r.End)
+		}
+		for c, first := 0, y/cell.Y*cols; c < cols; c++ {
+			if text>>(first+c)&1 != 0 {
+				clear(row[c*cell.X*graphics.GDIBytes : (c+1)*cell.X*graphics.GDIBytes])
 			}
 		}
 	}

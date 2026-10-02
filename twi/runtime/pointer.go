@@ -143,7 +143,9 @@ func (r *Runtime) release(ev input.MouseEvent) {
 
 func (r *Runtime) send(target *Elem, t events.Type) *events.Event[*Elem] {
 	e := &events.Event[*Elem]{Type: t, Mouse: r.pointer.at}
+	r.doc.expect, r.doc.exact = t, true
 	events.Dispatch(&r.doc, target, e)
+	r.doc.exact = false
 	return e
 }
 

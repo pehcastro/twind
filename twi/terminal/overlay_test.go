@@ -29,6 +29,9 @@ type fakeHost struct {
 	drawnAt  image.Point
 	size     image.Point
 	pix      []byte
+	made     int
+	bare     bool
+	resized  bool
 	released bool
 	refused  bool
 	term     *fakeTerminal
@@ -54,10 +57,26 @@ func (h *fakeHost) capture(r image.Rectangle) []byte {
 	return slices.Clone(h.screen)
 }
 
-func (h *fakeHost) draw(at, size image.Point, pix []byte, dirty image.Rectangle) bool {
+func (h *fakeHost) pixels(size image.Point) []byte {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.drawnAt, h.size, h.pix = at, size, append(h.pix[:0], pix...)
+	if h.bare {
+		return nil
+	}
+	if size != h.size {
+		h.size, h.pix = size, make([]byte, size.X*size.Y*4)
+		h.made++
+	}
+	return h.pix
+}
+
+func (h *fakeHost) draw(at, size image.Point, dirty image.Rectangle) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if size != h.size {
+		h.resized = true
+	}
+	h.drawnAt = at
 	h.draws = append(h.draws, dirty)
 	return !h.refused
 }
@@ -486,24 +505,104 @@ func placed(t *testing.T, h *fakeHost, ring image.Rectangle, text int) {
 	}
 }
 
-func TestOverlayRefusedDrawFallsBackToCells(t *testing.T) {
+func TestOverlayPaintsTilesInPlace(t *testing.T) {
 	h := zedHost()
-	h.refused = true
 	o := &overlay{win: h, cells: zedCells}
-	now, _ := calibrate(t, o, h, time.Now())
-	ring := image.Rect(10, 2, 18, 3)
-	if o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true, Tiles: []Tile{{Cells: ring, Pix: opaque(ring, zedCell)}}}) {
-		t.Errorf("a paint the window refused was reported drawn")
+	calibrate(t, o, h, time.Now())
+	width := zedGrid.X * zedCell.X
+	surface := make([]byte, width*zedGrid.Y*zedCell.Y*4)
+	tile := func(cells image.Rectangle, seed byte) Tile {
+		pix := make([]byte, cells.Dx()*zedCell.X*cells.Dy()*zedCell.Y*4)
+		for i := range pix {
+			pix[i] = seed + byte(i*7+i/1031)
+		}
+		return Tile{Cells: cells, Pix: pix}
 	}
-	if ev, ok := o.tick(zedGrid, now); !ok || ev.Cell != zedCells {
-		t.Errorf("after a refused draw: event %+v %v, want a resize back to %v", ev, ok, zedCells)
+	hole := func(cells image.Rectangle) Tile { return Tile{Cells: cells} }
+	area := func(cells image.Rectangle) image.Rectangle {
+		var r image.Rectangle
+		r.Min.X, r.Max.X = within(o.columns, cells.Min.X*zedCell.X, cells.Max.X*zedCell.X)
+		r.Min.Y, r.Max.Y = within(o.lines, cells.Min.Y*zedCell.Y, cells.Max.Y*zedCell.Y)
+		return r
 	}
-	calibrate(t, o, h, now)
-	if g, cell := o.surface(); g != GraphicsNone || cell != zedCells || o.marks(zedPage, now) != nil {
-		t.Errorf("graphics %d cell %v marking %v, want none, %v and no marks for good", g, cell, o.marks(zedPage, now) != nil, zedCells)
+	for _, step := range []struct {
+		name  string
+		clear bool
+		tiles []Tile
+	}{
+		{"clear with two tiles", true, []Tile{tile(image.Rect(10, 2, 18, 8), 1), tile(image.Rect(150, 30, 158, 34), 2)}},
+		{"a tile and a hole over the first", false, []Tile{tile(image.Rect(40, 10, 48, 16), 3), hole(image.Rect(12, 4, 16, 6))}},
+		{"two far tiles around the first", false, []Tile{tile(image.Rect(0, 0, 8, 6), 4), tile(image.Rect(192, 28, 200, 34), 5)}},
+		{"a narrow tile on uneven columns", false, []Tile{tile(image.Rect(97, 17, 99, 18), 6)}},
+		{"clear again with one tile", true, []Tile{tile(image.Rect(60, 20, 68, 26), 7)}},
+	} {
+		if step.clear {
+			clear(surface)
+		}
+		want := image.Rectangle{}
+		if step.clear {
+			want = image.Rectangle{Max: o.size}
+		}
+		for _, tl := range step.tiles {
+			r := image.Rect(tl.Cells.Min.X*zedCell.X, tl.Cells.Min.Y*zedCell.Y, tl.Cells.Max.X*zedCell.X, tl.Cells.Max.Y*zedCell.Y)
+			for y := r.Min.Y; y < r.Max.Y; y++ {
+				row := surface[(y*width+r.Min.X)*4 : (y*width+r.Max.X)*4]
+				if tl.Pix == nil {
+					clear(row)
+					continue
+				}
+				copy(row, tl.Pix[(y-r.Min.Y)*r.Dx()*4:])
+			}
+			want = want.Union(area(tl.Cells))
+		}
+		if !o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: step.clear, Tiles: step.tiles}) {
+			t.Fatalf("%s: refused", step.name)
+		}
+		h.mu.Lock()
+		if got := h.draws[len(h.draws)-1]; got != want {
+			t.Errorf("%s: dirty %v, want the tiles' overlay area %v", step.name, got, want)
+		}
+		wrong := 0
+		for y := range o.size.Y {
+			for x := range o.size.X {
+				at, from := (y*o.size.X+x)*4, (int(o.lines[y])*width+int(o.columns[x]))*4
+				if !slices.Equal(h.pix[at:at+4], surface[from:from+4]) {
+					if wrong++; wrong == 1 {
+						t.Errorf("%s: overlay pixel (%d,%d) is %v, want Twind pixel (%d,%d) %v", step.name, x, y, h.pix[at:at+4], o.columns[x], o.lines[y], surface[from:from+4])
+					}
+				}
+			}
+		}
+		if wrong > 0 {
+			t.Errorf("%s: %d overlay pixels wrong", step.name, wrong)
+		}
+		if h.made != 1 || h.resized {
+			t.Errorf("%s: the overlay surface was made %d times, a draw for another size %v", step.name, h.made, h.resized)
+		}
+		h.mu.Unlock()
 	}
-	if shown, _, _ := h.state(); shown {
-		t.Errorf("a window that refused to draw is shown")
+}
+
+func TestOverlayRefusedDrawFallsBackToCells(t *testing.T) {
+	for _, why := range []string{"refused draw", "no surface"} {
+		h := zedHost()
+		o := &overlay{win: h, cells: zedCells}
+		now, _ := calibrate(t, o, h, time.Now())
+		h.set(func(h *fakeHost) { h.refused, h.bare = why == "refused draw", why == "no surface" })
+		ring := image.Rect(10, 2, 18, 3)
+		if o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true, Tiles: []Tile{{Cells: ring, Pix: opaque(ring, zedCell)}}}) {
+			t.Errorf("%s: the paint was reported drawn", why)
+		}
+		if ev, ok := o.tick(zedGrid, now); !ok || ev.Cell != zedCells {
+			t.Errorf("%s: event %+v %v, want a resize back to %v", why, ev, ok, zedCells)
+		}
+		calibrate(t, o, h, now)
+		if g, cell := o.surface(); g != GraphicsNone || cell != zedCells || o.marks(zedPage, now) != nil {
+			t.Errorf("%s: graphics %d cell %v marking %v, want none, %v and no marks for good", why, g, cell, o.marks(zedPage, now) != nil, zedCells)
+		}
+		if shown, _, _ := h.state(); shown {
+			t.Errorf("%s: the window is shown", why)
+		}
 	}
 }
 

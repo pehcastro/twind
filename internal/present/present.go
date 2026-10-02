@@ -73,6 +73,8 @@ type Screen struct {
 	sampling     []run
 	sending      []int
 	pieces       []piece
+	covers       []image.Point
+	leads        []int
 	twins        []int
 	bases        [][]part
 	based        []bool
@@ -91,6 +93,8 @@ type Screen struct {
 	blank        []run
 	splices      map[[2]int32]int32
 	tiles        []image.Rectangle
+	changed      []image.Rectangle
+	changedIn    []int
 	band         int
 	hashes, sent []uint64
 	dirty, send  []bool
@@ -112,6 +116,9 @@ type Screen struct {
 	pageBg       color.Color
 	page         uint32
 	masks        []uint64
+	owners       []int32
+	markers      []int32
+	written      []buffer.Run
 	painting     terminal.Pixels
 	gdiPix       []byte
 }
@@ -212,11 +219,20 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 			s.want.Set(m.Cell.X, m.Cell.Y, buffer.Cell{Grapheme: " ", Bg: color.Color{Kind: color.Literal, RGBA: m.Color}})
 		}
 	}
+	if s.owners != nil {
+		s.written = buffer.Diff(s.written[:0], s.shown, s.want)
+		for _, r := range s.written {
+			s.disown(r.X, r.Y, r.Len)
+		}
+	}
 	if err := s.writer.Diff(s.shown, s.want); err != nil {
 		return err
 	}
 	s.shown, s.want = s.want, s.shown
 	s.fresh = false
+	if len(s.markers) > len(s.owners) {
+		s.compact()
+	}
 	if s.out.Len() > start {
 		if s.Sync {
 			s.out.WriteString(termkonst.SyncEnd)
@@ -287,10 +303,14 @@ func (s *Screen) reset(cols, rows int) {
 	}
 	n := len(s.tiles)
 	s.hashes, s.sent, s.dirty, s.send, s.moved, s.plain = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n), make([]bool, n), make([]bool, n)
-	s.pieces, s.twins, s.claims, s.bases, s.based = make([]piece, n), make([]int, n), map[twin]int{}, make([][]part, n), make([]bool, n)
+	s.pieces, s.covers, s.leads, s.twins, s.claims, s.bases, s.based = make([]piece, n), make([]image.Point, n), make([]int, n), make([]int, n), map[twin]int{}, make([][]part, n), make([]bool, n)
 	s.samples, s.sampled, s.needs = make([]color.Color, cols*rows), make([]bool, cols*rows), make([]need, cols)
 	if s.Graphics == terminal.GraphicsGDI {
 		s.masks, s.painting.Clear = make([]uint64, n), true
+	}
+	s.owners, s.markers = nil, nil
+	if s.cellBound() {
+		s.owners, s.markers = make([]int32, cols*rows), []int32{-1}
 	}
 	if s.Graphics == terminal.GraphicsKitty {
 		s.images, s.uses = map[uint64]uint32{}, make([]int, n)
@@ -324,6 +344,27 @@ func (s *Screen) unplace(t int) {
 	}
 	delete(s.images, hash)
 	s.out.Write(graphics.KittyDelete(s.out.AvailableBuffer(), konst.KittyFirstImage+slot))
+}
+
+func (s *Screen) cellBound() bool {
+	return s.Identity == terminal.IdentityVSCode && s.Graphics == terminal.GraphicsSixel
+}
+
+func (s *Screen) own(at graphics.Placement) {
+	id := int32(len(s.markers))
+	s.markers = append(s.markers, int32(at.Row+at.Rows-1))
+	for y := at.Row; y < at.Row+at.Rows; y++ {
+		row := s.owners[y*s.cols : (y+1)*s.cols]
+		for x := at.Col; x < at.Col+at.Cols; x++ {
+			row[x] = id
+		}
+	}
+}
+
+func (s *Screen) disown(x, y, n int) {
+	if s.owners != nil {
+		clear(s.owners[y*s.cols+x : y*s.cols+x+n])
+	}
 }
 
 func (s *Screen) underText() bool {
@@ -378,13 +419,13 @@ func (s *Screen) damaged(root *scene.Node) (*scene.Frame, bool) {
 		}
 	} else {
 		d := scene.Diff(prev, next)
-		for _, r := range d.Rects {
-			s.damage(r)
-		}
+		s.changed, s.changedIn = append(s.changed[:0], d.Rects...), append(s.changedIn[:0], d.Layers...)
 		for _, m := range d.Moves {
 			l := &next.Layers[m.Layer]
-			s.damage(l.Visual)
-			s.damage(l.Visual.Sub(m.To).Add(m.From).Intersect(l.Clip))
+			s.changed, s.changedIn = append(s.changed, l.Visual, m.Was), append(s.changedIn, m.Layer, m.Layer)
+		}
+		for _, r := range s.changed {
+			s.damage(r)
 		}
 		for _, sc := range d.Scrolls {
 			s.scroll(next, sc)
@@ -480,19 +521,24 @@ func (s *Screen) transmit() {
 			}
 		}
 	}
+	for t := range s.covers {
+		s.covers[t] = image.Pt(1, 1)
+	}
+	if s.cellBound() {
+		s.join()
+	}
 	s.sending = s.sending[:0]
 	for t, send := range s.send {
-		if send && s.Graphics != terminal.GraphicsKitty && s.twins[t] == t && s.pieces[t].w == nil {
+		if send && s.Graphics != terminal.GraphicsKitty && s.twins[t] == t && s.covers[t] != (image.Point{}) && s.pieces[t].w == nil {
 			s.sending = append(s.sending, t)
 		}
 	}
 	s.parallel(len(s.sending), 0, len(s.sending), nil, func(w *worker, i int) {
-		w.lines = s.tileLines(s.sending[i], w.lines[:0])
 		w.encode(s, s.sending[i])
 	})
 	size := 0
 	for t, send := range s.send {
-		if send {
+		if send && s.covers[t] != (image.Point{}) {
 			size += s.pieces[s.twins[t]].hi - s.pieces[s.twins[t]].lo
 		}
 	}
@@ -519,6 +565,9 @@ func (s *Screen) put(t int) {
 	}
 	switch s.Graphics {
 	case terminal.GraphicsSixel, terminal.GraphicsITerm2:
+		if s.covers[t] == (image.Point{}) {
+			break
+		}
 		p := s.pieces[s.twins[t]]
 		encoded := p.w.out[p.lo:p.hi]
 		if s.twins[t] != t && len(encoded) > 0 {
@@ -527,6 +576,9 @@ func (s *Screen) put(t int) {
 			encoded = encoded[bytes.IndexByte(encoded, 'H')+1:]
 		}
 		s.out.Write(encoded)
+		if s.owners != nil && len(encoded) > 0 {
+			s.own(s.placement(t))
+		}
 	case terminal.GraphicsKitty:
 		dst := s.out.AvailableBuffer()
 		slot, placed := s.images[s.hashes[t]]
@@ -591,6 +643,7 @@ func (s *Screen) ground() {
 				}
 			}
 			dst = eraser.Erase(dst, x, y, n, cmp.Or(shown[x].Bg, s.pageBg))
+			s.disown(x, y, n)
 			x += n - 1
 		}
 	}
