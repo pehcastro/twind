@@ -37,7 +37,10 @@ func overlayDriver(t *testing.T, width, height int, app drive.App) *drive.Driver
 	return d
 }
 
-const settleTime = time.Second
+const (
+	settleTime = time.Second
+	frameStep  = 20 * time.Millisecond
+)
 
 func settledPress(d *drive.Driver, key string) {
 	d.Press(key)
@@ -216,6 +219,55 @@ func TestDialogKinds(t *testing.T) {
 			t.Errorf("%s: escape did not close it:\n%s", c.name, d.Frame().Text())
 		}
 	}
+}
+
+func TestDrawerHandleDragsItClosed(t *testing.T) {
+	var dlg *Dialog
+	d := overlayDriver(t, 80, 24, func(rt *twi.Runtime) func() twi.Node {
+		dlg = NewDrawer(rt, Bottom)
+		dlg.Open = true
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
+				dlg.Trigger(Ghost, SizeDefault, twi.Text("open")),
+				dlg.Content(dlg.Header(dlg.Title(twi.Text("Title")), dlg.Description(twi.Text("Words"))), dlg.Footer(dlg.Close(Ghost, SizeDefault, twi.Text("Done")))),
+			)
+		}
+	})
+	expect := expecter(t, d)
+	muted := zinc(t, theme.Light).Tokens[theme.Muted]
+	_, top, _ := at(d.Frame(), "Title")
+	hx, hy := 40, top
+	for hy > 0 && d.Frame().Cells().At(hx, hy).Bg != muted {
+		hy--
+	}
+	expect("the handle sits above the title", hy > 0 && hy < top)
+	title := func() int {
+		_, y, _ := at(d.Frame(), "Title")
+		return y
+	}
+	wx, wy, _ := at(d.Frame(), "Words")
+	d.Down(wx, wy)
+	d.Move(wx, wy+3)
+	d.Advance(frameStep)
+	expect("a drag that does not start on the handle moves nothing", title() == top)
+	d.Up(wx, wy+3)
+	d.Advance(settleTime)
+	d.Down(hx, hy)
+	d.Move(hx, hy+1)
+	d.Advance(frameStep)
+	expect("the panel follows the handle down one row while held", dlg.Open && title() == top+1)
+	t.Logf("drawer dragged one row down, 80x24:\n%s", d.Frame().Text())
+	d.Up(hx, hy+1)
+	d.Advance(settleTime)
+	expect("a release under a quarter of its height puts it back", dlg.Open && title() == top)
+	d.Down(hx, hy)
+	d.Move(hx, hy+2)
+	d.Move(hx, hy+4)
+	d.Advance(frameStep)
+	expect("the panel follows the handle four rows down", dlg.Open && title() == top+4)
+	d.Up(hx, hy+4)
+	d.Advance(settleTime)
+	expect("a release past a quarter of its height closes it", !dlg.Open && !has(d, "Title"))
 }
 
 func TestMenuKeys(t *testing.T) {
@@ -456,9 +508,9 @@ func TestOverlayStates(t *testing.T) {
 		{"dialog centring wrapper: no colour, not animated", light, dialog(NewDialog, true), []int{0, 1}, func(s style.ComputedStyle) bool {
 			return s.Position == style.PositionAbsolute && s.Background.Kind == color.Unset && s.Animation.Keyframes == style.KeyframesNone
 		}},
-		{"dialog content: bg-background rounded-lg border shadow-lg, 64 cells at most, fades and zooms in over 200 ms", light, dialog(NewDialog, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
+		{"dialog content: bg-background rounded-lg border shadow-lg, 64 cells at most, zooms in over 100 ms and stays opaque", light, dialog(NewDialog, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Background] && s.Radius == style.RadiusLg && s.BorderWidth.Top == cells(1) && shadowed(s) && s.MaxWidth == cells(64) &&
-				s.Animation.Keyframes == style.KeyframesEnter && s.Animation.Enter.Opacity == 0 && s.Animation.Enter.Scale == 0.95 && s.Animation.Duration == 200*time.Millisecond
+				s.Animation.Keyframes == style.KeyframesEnter && s.Animation.Enter.Opacity == 1 && s.Animation.Enter.Scale == 0.95 && s.Animation.Duration == 100*time.Millisecond
 		}},
 		{"sheet from the right: full height, three quarters wide, border on the left only", light, dialog(sheet, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
 			return s.Height == percent(100) && s.Width == percent(75) && s.BorderWidth.Left == cells(1) && s.BorderWidth.Right == cells(0) && shadowed(s)

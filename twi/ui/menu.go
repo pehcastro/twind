@@ -110,6 +110,7 @@ func (m *DropdownMenu) deepest() (*menuLevel, *DropdownMenuSub) {
 type ContextMenu struct {
 	DropdownMenu
 	pointer *image.Point
+	reopens int
 }
 
 func NewContextMenu(rt *twi.Runtime) *ContextMenu {
@@ -131,14 +132,21 @@ func (c *ContextMenu) Trigger(children ...twi.NodeOption) twi.Node {
 		}
 		return opens
 	})
-	right := twi.OnPointerDown(func(e *twi.Event) {
-		if e.Mouse.Button == input.MouseRight && !c.Disabled {
+	down := twi.OnPointerDown(func(e *twi.Event) {
+		switch {
+		case c.Disabled:
+		case e.Mouse.Button == input.MouseRight:
+			if c.Open {
+				c.reopens++
+			}
 			c.pointer = &image.Point{X: e.Mouse.X, Y: e.Mouse.Y}
 			c.show(0)
-			c.rt.Invalidate()
+		case c.Open:
+			c.dismiss()
 		}
+		c.rt.Invalidate()
 	})
-	return part("flex flex-col "+focusRing, slices.Concat(keys, []twi.NodeOption{right}, children))
+	return part("flex flex-col "+focusRing, slices.Concat(keys, []twi.NodeOption{down}, children))
 }
 
 func (c *ContextMenu) Content(children ...twi.NodeOption) twi.Node {
@@ -146,7 +154,11 @@ func (c *ContextMenu) Content(children ...twi.NodeOption) twi.Node {
 	if c.pointer != nil {
 		point = *c.pointer
 	}
-	return c.menu(image.Rectangle{Min: point, Max: point}, menuContent, children)
+	menu := c.menu(image.Rectangle{Min: point, Max: point}, menuContent, children)
+	if c.reopens%2 == 1 {
+		return part("absolute", []twi.NodeOption{part("hidden", nil), menu})
+	}
+	return part("absolute", []twi.NodeOption{menu})
 }
 
 type DropdownMenuSub struct {

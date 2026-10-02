@@ -59,13 +59,13 @@ func TestTour(t *testing.T) {
 	hover := []string{"hover-017ms", "hover-100ms", "hover-200ms"}
 	moving("hover", hover...)
 	expect("hover: only colours move", text("motion") == text(hover[2]), "motion", hover[2])
-	open := []string{"hover-200ms", "open-017ms", "open-075ms", "open-150ms", "open-250ms"}
+	open := []string{"hover-200ms", "open-017ms", "open-040ms", "open-075ms", "open-150ms"}
 	dialog := "plays it back out"
 	moving("open", open...)
-	expect("open: zoom-in-95 draws the panel smaller than it settles, and it has settled at 250 ms", text(open[2]) != text(open[4]) && strings.Contains(text(open[4]), dialog), open[2], open[4])
-	closing := []string{"open-250ms", "close-017ms", "close-075ms", "close-150ms", "close-250ms"}
+	expect("open: zoom-in-95 draws the panel smaller than it settles, and it has settled at 150 ms", text(open[2]) != text(open[4]) && strings.Contains(text(open[4]), dialog), open[2], open[4])
+	closing := []string{"open-150ms", "close-017ms", "close-040ms", "close-075ms", "close-150ms"}
 	moving("close", closing...)
-	expect("close: gone after the 200 ms exit", !strings.Contains(text(closing[4]), dialog), closing[4])
+	expect("close: gone after the 100 ms exit", !strings.Contains(text(closing[4]), dialog), closing[4])
 	toast := "Saved to the playground"
 	expect("toast: shown until 4 s, gone after", strings.Contains(text("toast-017ms"), toast) && strings.Contains(text("toast-3917ms"), toast) && !strings.Contains(text("toast-4017ms"), toast), "toast-017ms", "toast-3917ms", "toast-4017ms")
 	loaded := "three rows fetched"

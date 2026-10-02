@@ -20,10 +20,19 @@ type Dialog struct {
 	kind          dialogKind
 	side          Side
 	closes, focus int
+	box           *twi.Ref
+	drag          drag
 }
 
+type drag struct {
+	held             bool
+	grab, top, moved int
+}
+
+const closeDivisor = 4
+
 func newDialog(rt *twi.Runtime, kind dialogKind, side Side) *Dialog {
-	return &Dialog{overlay: overlay{control: control{rt: rt}}, kind: kind, side: side}
+	return &Dialog{overlay: overlay{control: control{rt: rt}}, kind: kind, side: side, box: twi.NewRef(rt)}
 }
 
 func NewDialog(rt *twi.Runtime) *Dialog { return newDialog(rt, modal, Bottom) }
@@ -47,10 +56,14 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 		children = append(children, twi.OnPointerDownOutside(func() { d.set(false) }))
 	}
 	if d.kind == drawer && d.side == Bottom {
-		children = append([]twi.NodeOption{part("self-center mt-1 h-1 w-12 shrink-0 rounded-full bg-muted", nil)}, children...)
+		children = append([]twi.NodeOption{d.handle(), twi.Measure(d.box)}, children...)
+		if d.drag.moved > 0 {
+			children = append(children, twi.At(0, d.drag.top+d.drag.moved))
+		}
 	}
 	d.closes = 0
 	if at == gone {
+		d.drag = drag{}
 		return part("absolute", nil)
 	}
 	edge := pick("sheet", d.side, map[Side]string{
@@ -68,7 +81,7 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 			Bottom: "flex-col justify-end",
 		})
 	}
-	boxed := "w-full max-w-64 gap-1 rounded-lg border px-3 py-1 shadow-lg duration-200 " + popMotion
+	boxed := "w-full max-w-64 rounded-lg border shadow-lg duration-100 " + zoomMotion
 	slide := "transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500 " + pick("sheet", d.side, map[Side]string{
 		Right:  "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
 		Left:   "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
@@ -76,18 +89,44 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 		Bottom: "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
 	})
 	panel := pick("dialog", d.kind, map[dialogKind]string{
-		modal:   boxed,
-		alert:   boxed,
-		palette: "w-full max-w-64 overflow-hidden rounded-lg border shadow-lg duration-200 " + popMotion,
+		modal:   "gap-1 px-3 py-1 " + boxed,
+		alert:   "gap-1 px-3 py-1 " + boxed,
+		palette: "overflow-hidden " + boxed,
 		sheet:   "gap-1 shadow-lg " + edge + " " + slide,
 		drawer:  edge + " " + slide + pick("drawer", d.side, map[Side]string{Bottom: " max-h-[80%]", Top: " max-h-[80%]", Right: "", Left: ""}),
 	})
 	return part("absolute", []twi.NodeOption{part("fixed inset-0 z-50", []twi.NodeOption{
-		part("absolute inset-0 bg-black/50 "+fadeMotion, []twi.NodeOption{at.state()}),
+		part("absolute inset-0 bg-black/50 duration-100 "+fadeMotion, []twi.NodeOption{at.state()}),
 		part("absolute inset-0 flex "+centre, []twi.NodeOption{
 			d.dismissable("relative flex flex-col bg-background text-foreground "+panel, at, children),
 		}),
 	})})
+}
+
+func (d *Dialog) handle() twi.Node {
+	return part("self-center mt-1 h-1 w-12 shrink-0 rounded-full bg-muted", []twi.NodeOption{
+		twi.OnPointerDown(func(e *twi.Event) {
+			d.drag = drag{held: true, grab: e.Mouse.Y, top: d.box.Bounds().Min.Y}
+		}),
+		twi.OnPointerMove(func(e *twi.Event) {
+			if d.drag.held {
+				d.drag.moved = max(e.Mouse.Y-d.drag.grab, 0)
+				d.rt.Invalidate()
+			}
+		}),
+		twi.OnPointerUp(func(*twi.Event) {
+			if !d.drag.held {
+				return
+			}
+			d.drag.held = false
+			if d.drag.moved > d.box.Bounds().Dy()/closeDivisor {
+				d.set(false)
+				return
+			}
+			d.drag.moved = 0
+			d.rt.Invalidate()
+		}),
+	})
 }
 
 func (d *Dialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node {

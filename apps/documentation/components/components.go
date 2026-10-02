@@ -46,7 +46,6 @@ func All() Catalog {
 		"dialog-demo":           DialogDemo,
 		"drawer-demo":           DrawerDemo,
 		"dropdown-menu-demo":    DropdownMenuDemo,
-		"empty-demo":            EmptyDemo,
 		"field-demo":            FieldDemo,
 		"hover-card-demo":       HoverCardDemo,
 		"input-demo":            InputDemo,

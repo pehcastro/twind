@@ -140,7 +140,7 @@ func props() map[string][]prop {
 			{"Content(children...)", "twi.Node", "the menu; takes the same items as a dropdown menu"},
 		},
 		"Dialog": dialog,
-		"Drawer": append(dialog, prop{"ui.NewDrawer(rt, side)", "*ui.Dialog", "a panel that slides in from one edge, with a handle at the bottom"}),
+		"Drawer": append(dialog, prop{"ui.NewDrawer(rt, side)", "*ui.Dialog", "a panel that slides in from one edge; from the bottom, drag its handle down to close it"}),
 		"DropdownMenu": append(anchored[:4:4],
 			prop{"OnSelect", "func(string)", "called with the chosen item's text"},
 			prop{"Node, Trigger, Content", "twi.Node", "the wrapper, the button and the menu"},
@@ -149,11 +149,6 @@ func props() map[string][]prop {
 			prop{"Sub()", "*ui.DropdownMenuSub", "a submenu with its own Node, Trigger(text) and Content"},
 			prop{"DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut", "twi.Node", "a heading, a line, and keys on the right"},
 		),
-		"Empty": {
-			{"EmptyHeader, EmptyTitle, EmptyDescription", "twi.Node", "what is missing and why"},
-			{"EmptyMedia(v, children...)", "twi.Node", "an icon; v is Default or Icon"},
-			{"EmptyContent(children...)", "twi.Node", "the actions"},
-		},
 		"Field": {
 			{"o", "ui.Orientation", "Vertical puts the label above, Horizontal beside"},
 			{"FieldSet, FieldLegend, FieldGroup", "twi.Node", "a titled set of fields"},

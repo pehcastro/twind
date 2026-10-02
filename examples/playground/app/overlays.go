@@ -43,7 +43,7 @@ func contextMenuPage(c controls) twi.Node {
 }
 
 func dialogPage(c controls) twi.Node {
-	return show("Dialog", "the motion page's dialog: fades and zooms in, Escape or a click outside closes",
+	return show("Dialog", "the motion page's dialog: zooms in over a fading backdrop, Escape or a click outside closes",
 		c.kit.dialog.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open dialog")),
 	)
 }
@@ -54,13 +54,13 @@ func drawerPage(c controls) twi.Node {
 	step := func(label string, by int) twi.Node {
 		return ui.Button(ui.Outline, ui.SizeIcon, c.clicked(func() { k.goal = min(max(k.goal+by, 200), 500) }), twi.Text(label))
 	}
-	return show("Drawer", "slides up from the bottom edge with a handle",
+	return show("Drawer", "slides up from the bottom edge; drag its handle down to close it",
 		d.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open drawer")),
-		d.Content(
+		d.Content(el("flex flex-col w-full max-w-48 self-center",
 			d.Header(d.Title(twi.Text("Move goal")), d.Description(twi.Text("Set your daily activity goal."))),
 			el("flex flex-row items-center justify-center gap-4", step("-", -10), el("flex flex-col items-center", txt("font-bold", strconv.Itoa(k.goal)), txt("text-muted-foreground", "calories a day")), step("+", 10)),
-			d.Footer(d.Close(ui.Default, ui.SizeDefault, twi.Text("Submit")), d.Close(ui.Outline, ui.SizeDefault, twi.Text("Cancel"))),
-		),
+			d.Footer(d.Close(ui.Default, ui.SizeDefault, twi.Class("py-1"), twi.Text("Submit")), d.Close(ui.Outline, ui.SizeDefault, twi.Class("border shadow-none"), twi.Text("Cancel"))),
+		)),
 	)
 }
 

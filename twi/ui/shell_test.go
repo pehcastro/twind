@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"slices"
 	"strings"
 	"testing"
@@ -142,6 +143,39 @@ func TestContextMenuRightClick(t *testing.T) {
 	rx, ly, _ := at(d.Frame(), "┄╮")
 	lx := rx - 38
 	expect("shift+f10 after a right click opens at the area's corner again", menu.Open && x == lx+2 && y == ly+1)
+}
+
+func TestContextMenuReopensWhereRightClicked(t *testing.T) {
+	var menu *ContextMenu
+	d := overlayDriver(t, 80, 24, func(rt *twi.Runtime) func() twi.Node {
+		menu = NewContextMenu(rt)
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col p-1 h-full bg-background text-foreground"),
+				menu.Node(twi.Class("w-70 h-20"),
+					menu.Trigger(twi.Class("flex-1 items-center justify-center rounded-md border border-dashed"), twi.Text("Right click here")),
+					menu.Content(menu.Item("Back"), menu.Item("Forward"), menu.Item("Reload")),
+				),
+			)
+		}
+	})
+	expect := expecter(t, d)
+	d.ClickWith(input.MouseRight, 5, 3)
+	d.Advance(settleTime)
+	x, y, _ := at(d.Frame(), "Forward")
+	settled := d.Frame().Cells().At(x, y).Fg
+	for _, p := range []image.Point{{40, 10}, {20, 14}, {50, 4}} {
+		d.ClickWith(input.MouseRight, p.X, p.Y)
+		d.Advance(frameStep)
+		nx, ny, _ := at(d.Frame(), "Forward")
+		expect("a right click elsewhere in the area puts the menu at the new point", menu.Open && nx == p.X+2 && ny == p.Y+2)
+		expect("nothing of the menu stays at the last point", !strings.Contains(strings.Split(d.Frame().Text(), "\n")[y], "Forward"))
+		expect("the menu at the new point opens again: its text is not yet at the settled colour", d.Frame().Cells().At(nx, ny).Fg != settled)
+		d.Advance(settleTime)
+		expect("and settles at the settled colour", d.Frame().Cells().At(nx, ny).Fg == settled)
+		y = ny
+	}
+	settledClick(d, 10, 15)
+	expect("a left click in the area outside the menu closes it", !menu.Open && !has(d, "Forward"))
 }
 
 func TestMenubarKeysAndPointer(t *testing.T) {
