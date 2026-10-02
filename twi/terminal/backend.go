@@ -8,10 +8,12 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	devkonst "github.com/twind-dev/twind/internal/dev/konst"
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
@@ -70,6 +72,7 @@ type Backend struct {
 	answers     chan answer
 	covered     map[string]bool
 	leave       string
+	dev         bool
 	asking      atomic.Bool
 	cell        atomic.Pointer[image.Point]
 	grid        atomic.Pointer[image.Point]
@@ -96,6 +99,7 @@ type offer struct {
 	forced   bool
 	zed      bool
 	vscode   bool
+	dev      bool
 	trace    string
 }
 
@@ -172,7 +176,7 @@ func probe(out io.Writer, t tty, queries string, wait time.Duration) (*Backend, 
 
 func offered(env func(string) string) (offer, error) {
 	program := env("TERM_PROGRAM")
-	o := offer{forced: true, zed: program == konst.ZedProgram, vscode: program == konst.VSCodeProgram, trace: env(konst.TraceEnv)}
+	o := offer{forced: true, zed: program == konst.ZedProgram, vscode: program == konst.VSCodeProgram, dev: env(devkonst.DevEnv) != "", trace: env(konst.TraceEnv)}
 	switch v := env("TWIND_GRAPHICS"); v {
 	case "":
 		o.forced = false
@@ -208,10 +212,14 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		opt:     opt,
 		answers: make(chan answer, konst.ReplyBuffer),
 		leave:   konst.LeaveScreen,
+		dev:     o.dev,
 		settled: make(chan struct{}),
 	}
 	go b.read(events)
 	seq := konst.EnterScreen
+	if o.dev {
+		seq = strings.TrimPrefix(seq, devkonst.AltScreen)
+	}
 	if !opt.NoMouse {
 		seq += konst.MouseOn
 	}
@@ -663,6 +671,9 @@ func (b *Backend) Exit() error {
 	}
 	if b.Capabilities.Graphemes {
 		seq = konst.GraphemesOff + seq
+	}
+	if b.dev {
+		seq = ""
 	}
 	_, err := io.WriteString(b.out, seq)
 	b.tty.cancel()

@@ -11,6 +11,13 @@ func build(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if err := generate(patterns, stdout); err != nil {
+		return err
+	}
+	return check(patterns, stdout)
+}
+
+func generate(patterns []string, stdout io.Writer) error {
 	dirs, irs, err := survey(patterns)
 	if err != nil {
 		return err
@@ -30,12 +37,13 @@ func build(args []string, stdout io.Writer) error {
 			stale = append(stale, dir)
 		}
 	}
-	if len(stale) > 0 {
-		generate := exec.Command("go", append([]string{"generate", "-run", "twirgen"}, stale...)...)
-		generate.Stdout, generate.Stderr = stdout, stdout
-		if err := generate.Run(); err != nil {
-			return fmt.Errorf("go generate: %w", err)
-		}
+	if len(stale) == 0 {
+		return nil
 	}
-	return check(patterns, stdout)
+	run := exec.Command("go", append([]string{"generate", "-run", "twirgen"}, stale...)...)
+	run.Stdout, run.Stderr = stdout, stdout
+	if err := run.Run(); err != nil {
+		return fmt.Errorf("go generate: %w", err)
+	}
+	return nil
 }

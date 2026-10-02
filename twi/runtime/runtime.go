@@ -49,6 +49,7 @@ type Config struct {
 	Profile     color.Profile
 	Graphics    *terminal.Graphics
 	NoClipboard bool
+	DevState    string
 }
 
 type PanicError struct {
@@ -104,6 +105,7 @@ type Runtime struct {
 	moving        bool
 	lastMoved     bool
 	zoomed        image.Point
+	dev           devState
 }
 
 type layer struct {
@@ -176,7 +178,11 @@ func (r *Runtime) Run(b Backend, app func() Tree) (err error) {
 		}
 	}()
 	r.app = app
-	return errors.Join(r.loop(b), b.Exit())
+	if r.cfg.DevState == "" {
+		return errors.Join(r.loop(b), b.Exit())
+	}
+	defer r.listenDev()()
+	return errors.Join(r.loop(b), r.saveDev(), b.Exit())
 }
 
 func (r *Runtime) loop(b Backend) error {
@@ -373,6 +379,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 		Now:      now.Sub(r.start),
 		Graphics: graphics != terminal.GraphicsNone,
 	}
+	r.restoreFocus()
 	current, _ := r.focus.Current()
 	if current != r.revealed {
 		r.ringless = r.pointed
@@ -384,6 +391,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	}
 	moved := current != r.revealed && current != nil && r.tree.ScrollIntoView(current.path())
 	r.revealed = current
+	moved = r.restoreScroll() || moved
 	if r.intoView != "" {
 		moved = r.scrollIntoView() || moved
 	}

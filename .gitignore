@@ -17,3 +17,5 @@ rtk/
 node_modules/
 .twind/head/
 .twind/tools/
+.twind/rec/
+.twind/zed/

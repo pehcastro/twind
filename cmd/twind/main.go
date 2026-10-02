@@ -18,6 +18,7 @@ usage: twind <verb> [arguments]
   build  [packages]                    regenerate each package's Style IR through its twirgen go:generate line
   check  [packages]                    report every stale Style IR, without Tailwind
   drive  [-out dir] script [package]   run a driver script headless and write its frames
+  dev    [-log file] [package] [args]  run a package, rebuild and swap it on every save
   doctor                               print what this terminal supports
   docs   [-page name] [-theme name]    open the documentation
 
@@ -28,7 +29,7 @@ Exit status: 0 done, 1 a stale IR or a failed build, run or query, 2 a usage err
 `
 
 func main() {
-	verbs := map[string]func([]string, io.Writer) error{"new": newApp, "build": build, "check": check, "drive": drive, "doctor": doctor, "docs": docs}
+	verbs := map[string]func([]string, io.Writer) error{"new": newApp, "build": build, "check": check, "drive": drive, "dev": devRun, "doctor": doctor, "docs": docs}
 	if len(os.Args) < 2 || verbs[os.Args[1]] == nil {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
