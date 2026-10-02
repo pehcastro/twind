@@ -436,6 +436,8 @@ func (s *Screen) compose() {
 				if c.Bg.RGBA.A != math.MaxUint8 {
 					c.Bg = s.pageBg
 				}
+			case blank(*c) && s.Graphics == terminal.GraphicsSixel && (x > 0 && symbol(text[x-1]) || x+1 < len(text) && symbol(text[x+1])) && s.flat(x, y):
+				c.Fg, c.Bg, c.Attr, c.Width = color.Color{}, s.sample(x, y), 0, buffer.Narrow
 			case blank(*c) && shown[x].Grapheme == "":
 				c.Grapheme, c.Fg, c.Bg, c.Attr, c.Width = "", shown[x].Fg, shown[x].Bg, shown[x].Attr, shown[x].Width
 			case blank(*c):
@@ -446,6 +448,8 @@ func (s *Screen) compose() {
 		}
 	}
 }
+
+func symbol(c buffer.Cell) bool { return len(c.Grapheme) > 1 && c.Width == buffer.Narrow }
 
 func blank(c buffer.Cell) bool {
 	return c.Grapheme == " " && c.Attr&(buffer.Underline|buffer.Strikethrough|buffer.Inverse) == 0

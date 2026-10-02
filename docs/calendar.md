@@ -1,6 +1,6 @@
 # Calendar
 
-A month of days to pick a date from.
+A month of days to pick a date from, always six weeks tall so it keeps its size as the month turns.
 
 <Preview name="calendar-demo" />
 

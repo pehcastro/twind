@@ -38,9 +38,13 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 	filled := bg.Kind == color.Literal && bg.RGBA.A > 0
 	shape := filled && (look != Composited || body.H != 1 || !ground(buf, clip, body, bg))
 	var line color.Color
-	halo := false
+	halo, fill := false, body
 	for i := len(shadows) - 1; i >= 0; i-- {
 		s, cast := shadows[i], p.cast(body, shadows[i])
+		if across := int(math.Round(float64(s.Spread) / stylekonst.NominalCellX)); filled && body.H == 1 && across > 0 && s.X == 0 && s.Y == 0 && s.Blur == 0 && s.Color == bg {
+			fill = layout.Rect{X: body.X - across, Y: body.Y, W: body.W + 2*across, H: 1}
+			continue
+		}
 		if p.soft(s) {
 			shade(buf, clip, cast, body, s)
 			continue
@@ -56,7 +60,6 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 	if sides && !shape {
 		line = b.Color
 	}
-	fill := body
 	if look == Composited && filled && b.Style == style.BorderSingle && b.Top && b.Right && b.Bottom && b.Left {
 		fill = n.Padding
 	}
@@ -261,7 +264,8 @@ func tint(buf *buffer.Buffer, clip, row layout.Rect, c color.Color) {
 
 func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, inset bool) (hairline bool) {
 	var weight [4]ink
-	if s.X == 0 && s.Y == 0 && s.Blur == 0 {
+	drop := s.X != 0 || s.Y != 0 || s.Blur != 0
+	if !drop {
 		ring := func(cell float64) ink {
 			switch {
 			case math.Round(float64(s.Spread)*konst.CellEighths/cell) > 1:
@@ -326,7 +330,7 @@ func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, i
 			if !visible(buf, clip, x, y) {
 				continue
 			}
-			if cell, ok := edge(buf.At(x, y), side, weight[side], s.Color); ok {
+			if cell, ok := edge(buf.At(x, y), side, weight[side], s.Color, drop && !inset); ok {
 				buf.Set(x, y, cell)
 			}
 		}
@@ -334,7 +338,7 @@ func shadow(buf *buffer.Buffer, clip, shaded, lit layout.Rect, s style.Shadow, i
 	return weight[1] == mergeInk
 }
 
-func edge(dst buffer.Cell, side int, weight ink, c color.Color) (buffer.Cell, bool) {
+func edge(dst buffer.Cell, side int, weight ink, c color.Color, covers bool) (buffer.Cell, bool) {
 	thin, half := split(konst.SingleLines), split(konst.HalfEdges)
 	glyph, fg := thin[side], over(c, dst.Fg)
 	if weight == halfInk || dst.Grapheme == half[side] {
@@ -345,12 +349,17 @@ func edge(dst buffer.Cell, side int, weight ink, c color.Color) (buffer.Cell, bo
 	case weight == mergeInk:
 		return dst, false
 	case dst.Grapheme == thin[side]:
-	case dst.Grapheme == " " || weight == halfInk && dst.Grapheme == half[(side+2)%4]:
+	case covers && drawn(dst.Grapheme), dst.Grapheme == " " || weight == halfInk && dst.Grapheme == half[(side+2)%4]:
 		fg = over(c, dst.Bg)
 	default:
 		return dst, false
 	}
 	return buffer.Cell{Grapheme: glyph, Fg: fg, Bg: dst.Bg}, true
+}
+
+func drawn(cluster string) bool {
+	r, size := utf8.DecodeRuneInString(cluster)
+	return size == len(cluster) && r >= konst.FirstLineGlyph && r <= konst.LastBlockGlyph
 }
 
 func glyphs(b scene.Border, look Look) (edges string, corners [4]string) {

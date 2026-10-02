@@ -508,9 +508,9 @@ func TestOverlayStates(t *testing.T) {
 		{"dialog centring wrapper: no colour, not animated", light, dialog(NewDialog, true), []int{0, 1}, func(s style.ComputedStyle) bool {
 			return s.Position == style.PositionAbsolute && s.Background.Kind == color.Unset && s.Animation.Keyframes == style.KeyframesNone
 		}},
-		{"dialog content: bg-background rounded-lg border shadow-lg, 64 cells at most, zooms in over 100 ms and stays opaque", light, dialog(NewDialog, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
+		{"dialog content: bg-background rounded-lg border shadow-lg, 64 cells at most, fades and zooms in over 100 ms", light, dialog(NewDialog, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Background] && s.Radius == style.RadiusLg && s.BorderWidth.Top == cells(1) && shadowed(s) && s.MaxWidth == cells(64) &&
-				s.Animation.Keyframes == style.KeyframesEnter && s.Animation.Enter.Opacity == 1 && s.Animation.Enter.Scale == 0.95 && s.Animation.Duration == 100*time.Millisecond
+				s.Animation.Keyframes == style.KeyframesEnter && s.Animation.Enter.Opacity == 0 && s.Animation.Enter.Scale == 0.95 && s.Animation.Duration == 100*time.Millisecond
 		}},
 		{"sheet from the right: full height, three quarters wide, border on the left only", light, dialog(sheet, true), []int{0, 1, 0}, func(s style.ComputedStyle) bool {
 			return s.Height == percent(100) && s.Width == percent(75) && s.BorderWidth.Left == cells(1) && s.BorderWidth.Right == cells(0) && shadowed(s)

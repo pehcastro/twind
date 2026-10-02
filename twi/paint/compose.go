@@ -2,6 +2,8 @@ package paint
 
 import (
 	"math"
+	"strings"
+	"unicode/utf8"
 
 	konst "github.com/twind-dev/twind/internal/konst/paint"
 
@@ -106,8 +108,17 @@ func fade(dst, layer *buffer.Buffer, opacity float64, span layout.Rect) {
 			if c.Width == buffer.Continuation {
 				continue
 			}
+			under := dst.At(x, y)
+			if r, _ := utf8.DecodeRuneInString(c.Grapheme); c.Bg.RGBA.A == 0 && strings.ContainsRune(konst.HalfEdges, r) && under.Grapheme != " " && !drawn(under.Grapheme) {
+				continue
+			}
+			solid := c.Bg.Kind == color.Literal && c.Bg.RGBA.A == math.MaxUint8 && c.Grapheme == " " && c.Attr == 0
 			scale(&c.Fg)
 			scale(&c.Bg)
+			if solid && visible(dst, span, x, y) {
+				dst.Set(x, y, buffer.Cell{Grapheme: " ", Bg: over(c.Bg, under.Bg)})
+				continue
+			}
 			put(dst, span, x, y, c)
 		}
 	}

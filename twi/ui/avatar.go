@@ -4,7 +4,7 @@ import "github.com/twind-dev/twind/twi"
 
 func Avatar(s Size, children ...twi.NodeOption) twi.Node {
 	return part("relative flex shrink-0 overflow-hidden rounded-full select-none "+pick("avatar", s, map[Size]string{
-		SizeSM:      "h-1 w-4",
+		SizeSM:      "h-1 w-2 mx-1 bg-muted shadow-[0_0_0_4px_var(--color-muted)]",
 		SizeDefault: "h-3 w-6",
 		SizeLG:      "h-5 w-10",
 	}), children)

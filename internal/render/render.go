@@ -23,6 +23,7 @@ import (
 )
 
 type Node struct {
+	Key      string
 	Text     string
 	Element  style.Element
 	Classes  []string
@@ -76,6 +77,7 @@ type styledBox struct {
 	exiting  []*styledBox
 	reclip   reclip
 	key      motion.Key
+	id       string
 	born     time.Duration
 	enter    *motion.Presence
 	exit     *motion.Presence
@@ -424,17 +426,28 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		s.box.Invalidate()
 	}
 	old := s.children
-	if len(old) != len(n.Children) {
-		for _, gone := range old[min(len(old), len(n.Children)):] {
-			gone.born = t.now
-			s.exiting = append(s.exiting, gone)
-		}
+	kept := len(old) == len(n.Children)
+	for i := 0; kept && i < len(old); i++ {
+		kept = old[i].id == n.Children[i].Key
+	}
+	if !kept {
 		s.children, s.box.Children = make([]*styledBox, len(n.Children)), make([]*layout.Box, len(n.Children))
-		copy(s.children, old)
-		if len(old) < len(n.Children) {
-			born := make([]styledBox, len(n.Children)-len(old))
-			for i := range born {
-				s.children[len(old)+i] = &born[i]
+		taken := make([]bool, len(old))
+		for i, c := range n.Children {
+			at := i
+			if c.Key != "" {
+				at = slices.IndexFunc(old, func(o *styledBox) bool { return o.id == c.Key })
+			}
+			if at >= 0 && at < len(old) && !taken[at] && old[at].id == c.Key {
+				s.children[i], taken[at] = old[at], true
+			} else {
+				s.children[i] = &styledBox{id: c.Key}
+			}
+		}
+		for i, gone := range old {
+			if !taken[i] {
+				gone.born = t.now
+				s.exiting = append(s.exiting, gone)
 			}
 		}
 		s.painted = false
@@ -451,7 +464,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 			place, index = placeOf(index, i == last), index+1
 		}
 		child := s.children[i]
-		if err := t.build(f, child, i >= len(old), s.computed, changed, c, place, s.children[:i]); err != nil {
+		if err := t.build(f, child, child.computed == nil, s.computed, changed, c, place, s.children[:i]); err != nil {
 			return err
 		}
 		at := i

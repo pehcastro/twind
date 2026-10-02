@@ -21,4 +21,7 @@ const (
 	PercentWhole  = 100
 	PanelMin      = 10
 	PanelStep     = 5
+	WeeksShown    = 6
+
+	DrawerCloseDivisor = 4
 )

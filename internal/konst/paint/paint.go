@@ -25,6 +25,8 @@ const (
 	DoubleLines    = "═║═║"
 	HalfEdges      = "▄▌▀▐"
 	UpperHalf      = "▀"
+	FirstLineGlyph = '─'
+	LastBlockGlyph = '▟'
 	CellEighths    = 8
 	CoverAlpha     = 0.6
 	ShadowHalfCell = 0.25

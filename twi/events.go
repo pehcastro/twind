@@ -132,7 +132,14 @@ func NonModalFocusScope() NodeOption {
 	return behaviour(func(n *runtime.Node) { n.Scope = runtime.NonModalScope })
 }
 
-func Key(key string) NodeOption { return behaviour(func(n *runtime.Node) { n.Key = key }) }
+type keyed string
+
+func (k keyed) apply(n *node) {
+	n.tree.Key = string(k)
+	n.behave().Key = string(k)
+}
+
+func Key(key string) NodeOption { return keyed(key) }
 
 type Ref = runtime.Ref
 

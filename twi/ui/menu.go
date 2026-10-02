@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 	"slices"
+	"strconv"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
@@ -155,10 +156,7 @@ func (c *ContextMenu) Content(children ...twi.NodeOption) twi.Node {
 		point = *c.pointer
 	}
 	menu := c.menu(image.Rectangle{Min: point, Max: point}, menuContent, children)
-	if c.reopens%2 == 1 {
-		return part("absolute", []twi.NodeOption{part("hidden", nil), menu})
-	}
-	return part("absolute", []twi.NodeOption{menu})
+	return part("absolute", []twi.NodeOption{twi.Key(strconv.Itoa(c.reopens)), menu})
 }
 
 type DropdownMenuSub struct {

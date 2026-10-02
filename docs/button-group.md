@@ -9,12 +9,11 @@ A container that joins related buttons.
 ```go
 ui.ButtonGroup(ui.Horizontal,
 	ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Archive")),
-	ui.ButtonGroupSeparator(ui.Vertical),
 	ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Report")),
 )
 ```
 
-`ui.Vertical` stacks the buttons. A separator runs across the group, so a horizontal group takes vertical separators.
+`ui.Vertical` stacks the buttons. Outline buttons join without a separator. `ui.ButtonGroupSeparator` is a line between two filled buttons; it runs across the group, so a horizontal group takes vertical separators.
 
 ## API reference
 

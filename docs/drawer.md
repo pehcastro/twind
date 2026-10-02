@@ -1,6 +1,6 @@
 # Drawer
 
-A panel that slides up from the bottom edge, with a handle.
+A panel that slides up from the bottom edge, with a handle that drags it closed.
 
 <Preview name="drawer-demo" />
 
@@ -18,7 +18,7 @@ drawer.Content(
 ),
 ```
 
-It is a [Dialog](dialog.md) that slides in from an edge and takes at most 80% of the height. `ui.Top`, `ui.Right` and `ui.Left` slide it from the other edges.
+It is a [Dialog](dialog.md) that slides in from an edge and takes at most 80% of the height. Dragging the handle down moves the panel with the pointer; a release past a quarter of its height closes it, anything less puts it back. `ui.Top`, `ui.Right` and `ui.Left` slide it from the other edges.
 
 ## API reference
 

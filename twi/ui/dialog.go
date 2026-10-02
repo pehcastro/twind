@@ -1,6 +1,7 @@
 package ui
 
 import (
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
 )
@@ -28,8 +29,6 @@ type drag struct {
 	held             bool
 	grab, top, moved int
 }
-
-const closeDivisor = 4
 
 func newDialog(rt *twi.Runtime, kind dialogKind, side Side) *Dialog {
 	return &Dialog{overlay: overlay{control: control{rt: rt}}, kind: kind, side: side, box: twi.NewRef(rt)}
@@ -81,7 +80,7 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 			Bottom: "flex-col justify-end",
 		})
 	}
-	boxed := "w-full max-w-64 rounded-lg border shadow-lg duration-100 " + zoomMotion
+	boxed := "w-full max-w-64 rounded-lg border shadow-lg duration-100 " + popMotion
 	slide := "transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500 " + pick("sheet", d.side, map[Side]string{
 		Right:  "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
 		Left:   "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
@@ -119,7 +118,7 @@ func (d *Dialog) handle() twi.Node {
 				return
 			}
 			d.drag.held = false
-			if d.drag.moved > d.box.Bounds().Dy()/closeDivisor {
+			if d.drag.moved > d.box.Bounds().Dy()/konst.DrawerCloseDivisor {
 				d.set(false)
 				return
 			}

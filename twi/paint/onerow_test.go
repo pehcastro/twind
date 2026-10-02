@@ -122,6 +122,25 @@ func TestOneRowOutlineBadge(t *testing.T) {
 	}
 }
 
+func TestRingOfTheFillColourGrowsTheFillByWholeCells(t *testing.T) {
+	s := filled(zinc800)
+	s.Color, s.Radius, s.Shadows = literal(white), style.RadiusFull, []style.Shadow{ring(zinc800, 4)}
+	chip := scene.New(place(3, 1, 2, 1, layout.Edges{}), s, scene.Sanitize("CN"))
+	buf := painted(8, 3, page(8, 3, "", chip), Composited)
+	expect(t, buf, "        ", "   CN   ", "        ")
+	for y := range 3 {
+		for x := range 8 {
+			want := literal(zinc100)
+			if y == 1 && x >= 2 && x < 6 {
+				want = literal(zinc800)
+			}
+			if c := buf.At(x, y); c.Bg != want {
+				t.Errorf("cell %d,%d bg %+v, want %+v: a 4px ring of the fill colour is half a cell wide and a quarter row tall", x, y, c.Bg.RGBA, want.RGBA)
+			}
+		}
+	}
+}
+
 func TestOneRowRuleKeepsItsLine(t *testing.T) {
 	buf := painted(6, 3, page(6, 3, "", card(place(1, 1, 4, 1, layout.Edges{Bottom: 1}), style.RadiusNone)), Composited)
 	expect(t, buf, "      ", " ──── ", "      ")

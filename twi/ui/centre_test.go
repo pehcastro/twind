@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"reflect"
 	"slices"
 	"strings"
@@ -11,9 +12,14 @@ import (
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/buffer"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/layout"
+	"github.com/twind-dev/twind/twi/paint"
+	"github.com/twind-dev/twind/twi/raster"
+	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
+	"github.com/twind-dev/twind/twi/text"
 	"github.com/twind-dev/twind/twi/theme"
 )
 
@@ -161,6 +167,47 @@ func TestButtonGroupJoinsItsButtons(t *testing.T) {
 			if c.o == Vertical && (b.Y != a.Y+a.H || b.W != a.W) || c.o == Horizontal && b.X != a.X+a.W {
 				t.Errorf("%s child %d at %+v does not meet child %d at %+v", c.name, i, b, i-1, a)
 			}
+		}
+	}
+}
+
+func TestSmallAvatarIsRoundInPixels(t *testing.T) {
+	sheet, err := styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	light, cell := zinc(t, theme.Light), image.Pt(8, 17)
+	tree := rendered(twi.Element(twi.Class("flex flex-row items-center p-2 bg-background"), Avatar(SizeSM, AvatarFallback(twi.Text("CN")))))
+	built := reflect.NewAt(tree.Type(), unsafe.Pointer(tree.UnsafeAddr())).Elem().Interface().(render.Node)
+	root, err := render.Scene(built, render.Frame{Sheet: sheet.WithTheme(&light), Width: 12, Height: layout.Length{Unit: layout.Cells, Value: 5}, Graphics: true, Cell: cell})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f scene.Frame
+	f.Record(&root, cell)
+	pixels := image.NewRGBA(image.Rect(0, 0, 12*cell.X, 5*cell.Y))
+	for _, l := range f.Layers {
+		new(raster.Raster).Draw(pixels, l.Ops, pixels.Rect)
+	}
+	var letters image.Rectangle
+	for g := range paint.Placed(&root.Children[0].Children[0].Children[0], text.Widths{}, root.Bounds) {
+		letters = letters.Union(image.Rect(g.X*cell.X, g.Y*cell.Y, (g.X+g.Width)*cell.X, (g.Y+1)*cell.Y))
+	}
+	muted, page := root.Children[0].Children[0].Background.RGBA, root.Background.RGBA
+	middle := (letters.Min.X + letters.Max.X) / 2
+	for _, p := range []struct {
+		at   image.Point
+		want color.RGBA
+		what string
+	}{
+		{letters.Min.Add(image.Pt(1, 1)), muted, "the letters' top left corner"},
+		{image.Pt(letters.Max.X-2, letters.Max.Y-2), muted, "the letters' bottom right corner"},
+		{image.Pt(middle, letters.Min.Y-2), muted, "two pixels above the row, mid avatar"},
+		{image.Pt(middle, letters.Max.Y+1), muted, "two pixels below the row, mid avatar"},
+		{image.Pt(letters.Min.X-cell.X+2, (letters.Min.Y+letters.Max.Y)/2), page, "two pixels into the cell left of the letters"},
+	} {
+		if got := raster.Mean(pixels, image.Rectangle{Min: p.at, Max: p.at.Add(image.Pt(1, 1))}); got != p.want {
+			t.Errorf("%s at %v: %v, want %v; a circle round CN, not a pill", p.what, p.at, got, p.want)
 		}
 	}
 }

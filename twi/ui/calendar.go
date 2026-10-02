@@ -9,8 +9,6 @@ import (
 	"github.com/twind-dev/twind/twi/input"
 )
 
-const weeksShown = 6
-
 type Calendar struct {
 	control
 	Month, Selected, Today time.Time
@@ -60,7 +58,7 @@ func (c *Calendar) Node(options ...twi.NodeOption) twi.Node {
 	}
 	start := c.Month.AddDate(0, 0, -int(c.Month.Weekday()))
 	weeks := []twi.NodeOption{part("flex flex-row gap-1", weekdays)}
-	for w := range weeksShown {
+	for w := range konst.WeeksShown {
 		week := make([]twi.NodeOption, konst.DaysInWeek)
 		for i := range week {
 			week[i] = c.day(start.AddDate(0, 0, w*konst.DaysInWeek+i))
