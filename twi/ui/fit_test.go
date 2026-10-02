@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/theme"
 )
 
 func TestToastCloseSitsOnTheTitleRow(t *testing.T) {
@@ -24,6 +26,69 @@ func TestToastCloseSitsOnTheTitleRow(t *testing.T) {
 	settledClick(d, x, y)
 	if len(toaster.toasts) != 0 {
 		t.Errorf("the close on the title row did not dismiss the toast:\n%s", d.Frame().Text())
+	}
+}
+
+func TestToastCloseInsideTheToast(t *testing.T) {
+	for _, width := range []int{100, 50, 30} {
+		var toaster *Toaster
+		d := overlayDriver(t, width, 20, func(rt *twi.Runtime) func() twi.Node {
+			toaster = NewToaster(rt)
+			return func() twi.Node {
+				return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"), twi.Text("page"), toaster.Node())
+			}
+		})
+		toaster.Show("Your event has been created and shared with everyone", "Sunday, December 03, 2023 at 9:00 AM in the main hall", ToastAction{Label: "Undo"})
+		d.Advance(settleTime)
+		lines := strings.Split(d.Frame().Text(), "\n")
+		_, top, _ := at(d.Frame(), "╭")
+		_, y, _ := at(d.Frame(), "✕")
+		row := []rune(lines[y])
+		left, right, undo := slices.Index(row, '│'), -1, -1
+		for i, r := range row {
+			if r == '│' {
+				right = i
+			}
+			if strings.HasPrefix(string(row[i:]), "Undo") {
+				undo = i
+			}
+		}
+		if close := slices.Index(row, '✕'); left < 0 || right <= close || undo <= left || close <= undo || y != top+2 {
+			t.Errorf("%d columns: want the action then the close between the borders on the first body row (row %d), got row %d:\n%s", width, top+2, y, d.Frame().Text())
+		}
+		t.Logf("%d columns:\n%s", width, strings.Join(lines[top:], "\n"))
+	}
+}
+
+func TestSidebarHoverIsLighterThanActive(t *testing.T) {
+	d := overlayDriver(t, 60, 12, func(rt *twi.Runtime) func() twi.Node {
+		rt.SetTheme(zinc(t, theme.Dark))
+		s := NewSidebar(rt)
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"), s.Provider(s.Node(SidebarContent(SidebarGroup(SidebarMenu(
+				SidebarMenuItem(SidebarMenuButton(SizeDefault, false, twi.Text("Home"))),
+				SidebarMenuItem(SidebarMenuButton(SizeDefault, true, twi.Text("Inbox"))),
+				SidebarMenuItem(SidebarMenuButton(SizeDefault, false, twi.Text("Drafts"))),
+			))))))
+		}
+	})
+	look := func(word string) (color.Color, color.Color) {
+		x, y, _ := at(d.Frame(), word)
+		c := d.Frame().Cells().At(x, y)
+		return c.Bg, c.Fg
+	}
+	x, y, _ := at(d.Frame(), "Home")
+	idle, _ := look("Home")
+	activeBg, activeFg := look("Inbox")
+	settledMove(d, x, y)
+	hoverBg, hoverFg := look("Home")
+	if hoverBg == idle || hoverBg == activeBg || hoverFg == activeFg {
+		t.Errorf("hover bg %v fg %v, active bg %v fg %v, idle bg %v: want hover visible and lighter than active, not a second active row", hoverBg.RGBA, hoverFg.RGBA, activeBg.RGBA, activeFg.RGBA, idle.RGBA)
+	}
+	x, y, _ = at(d.Frame(), "Inbox")
+	settledMove(d, x, y)
+	if bg, fg := look("Inbox"); bg != activeBg || fg != activeFg {
+		t.Errorf("hover on the active item changed its look to bg %v fg %v, want the active bg %v fg %v", bg.RGBA, fg.RGBA, activeBg.RGBA, activeFg.RGBA)
 	}
 }
 

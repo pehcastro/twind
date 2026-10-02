@@ -105,8 +105,13 @@ func (s *Screen) rasterise(n int, first func(), then func(w *worker, i int)) {
 		size, ops, rows, pieces := l.box.Visual.Size(), len(s.lookOps), len(s.lookRows), len(s.lookPieces)
 		s.lookOps = append(s.lookOps, l.box.Ops...)
 		for k := ops; k < len(s.lookOps); k++ {
-			s.lookOps[k].Box.X -= float64(l.box.Visual.Min.X)
-			s.lookOps[k].Box.Y -= float64(l.box.Visual.Min.Y)
+			op := &s.lookOps[k]
+			b := &op.Box
+			b.X -= float64(l.box.Visual.Min.X)
+			b.Y -= float64(l.box.Visual.Min.Y)
+			if b.H == float64(s.Cell.Y) && op.Turn == 0 && !slices.Contains(b.Radii[:], 0) {
+				b.Y, b.H = b.Y+float64(s.inset()), b.H-float64(2*s.inset())
+			}
 		}
 		s.turned = append(s.turned[:0], s.lookOps[ops:]...)
 		for k := range s.turned {

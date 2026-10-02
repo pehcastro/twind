@@ -126,7 +126,7 @@ func (t *Toaster) Node() twi.Node {
 	if t.hovered {
 		gap = "gap-1"
 	}
-	return part("fixed bottom-1 right-2 z-50 flex flex-col w-52 "+gap, children)
+	return part("fixed bottom-1 inset-x-2 z-50 flex flex-row justify-end pointer-events-none", []twi.NodeOption{part("flex flex-col w-52 min-w-0 pointer-events-auto "+gap, children)})
 }
 
 func (t *Toaster) toast(s *toast) twi.Node {
@@ -154,7 +154,7 @@ func (t *Toaster) toast(s *toast) twi.Node {
 		}), twi.Text(s.action.Label))}
 	}
 	closeButton := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{twi.OnClick(func(*twi.Event) { t.dismiss(s) }), icon("✕", "")})
-	return part("flex flex-row items-center gap-1 shrink-0 rounded-lg border bg-popover pl-2 pr-1 py-1 text-popover-foreground shadow-lg", slices.Concat(
+	return part("flex flex-row items-start gap-1 shrink-0 rounded-lg border bg-popover pl-2 pr-1 py-1 text-popover-foreground shadow-lg", slices.Concat(
 		[]twi.NodeOption{twi.Key(strconv.Itoa(s.id))},
 		mark,
 		[]twi.NodeOption{part("flex flex-col grow min-w-0", body)},

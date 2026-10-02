@@ -34,6 +34,8 @@ const (
 	OneRowTint     = 0.35
 	OneRowLine     = 0.6
 	OneRowLiftLuma = 20 * 1000
+
+	OneRowInsetCell = 1.0 / 16
 )
 
 const (

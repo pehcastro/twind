@@ -212,8 +212,9 @@ func TestGDIRoundedCornerCellsShowThePage(t *testing.T) {
 			t.Errorf("cell %d under a rounded end has bg %+v, want the page so no square shows around the curve", x, bg.RGBA)
 		}
 	}
-	if bg := s.shown.At(4, 2).Bg; bg.RGBA != (color.RGBA{A: 255}) {
-		t.Errorf("cell inside the pill has bg %+v, want its fill", bg.RGBA)
+	in := s.inset() * wt.X
+	if a, bg := cellAlpha(tile, wt, 4), s.shown.At(4, 2).Bg; bg.RGBA != white || !all(a[in:len(a)-in], 255) || !all(a[:in], 0) || !all(a[len(a)-in:], 0) {
+		t.Errorf("cell inside the one-row pill has bg %+v and alphas top %v middle %v, want the page under the inset rows and the fill painted between them", bg.RGBA, a[:wt.X], a[len(a)/2:len(a)/2+wt.X])
 	}
 }
 

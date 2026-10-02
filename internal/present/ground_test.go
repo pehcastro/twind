@@ -138,7 +138,7 @@ func grounded(t *testing.T, s *Screen, m *term, name string) {
 			case !blank(want):
 			case c.image && c.bg != ground:
 				t.Fatalf("%s: blank cell %d,%d under the image has the background %v, want %v: the colour sampled from the image where it is opaque, the default elsewhere", name, x, y, c.bg, ground)
-			case !c.image && sample.A != 0 && (c.bg != sample || !s.flat(x, y)):
+			case !c.image && sample.A != 0 && (c.bg != sample || !s.flat(x, y, 0)):
 				t.Fatalf("%s: blank cell %d,%d shows %+v and no image, want the image over a %v background", name, x, y, c, sample)
 			}
 		}

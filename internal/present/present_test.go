@@ -217,7 +217,7 @@ func TestSixelTextTakesTheRegisterColour(t *testing.T) {
 			if m.A == 0 {
 				want = s.pageBg.RGBA
 			}
-			if c.Bg.RGBA != want && s.flat(x, y) {
+			if c.Bg.RGBA != want && s.flat(x, y, 0) {
 				t.Fatalf("text %q at %d,%d has bg %+v, want the register colour %+v of the flat surface under it", c.Grapheme, x, y, c.Bg.RGBA, want)
 			}
 		}
@@ -247,7 +247,7 @@ func TestANSI256SurfaceTakesThePaletteColour(t *testing.T) {
 	}
 	for y := range rows {
 		for x, c := range s.shown.Row(y) {
-			if c == (buffer.Cell{}) || c.Width == buffer.Continuation || !s.flat(x, y) {
+			if c == (buffer.Cell{}) || c.Width == buffer.Continuation || !s.flat(x, y, 0) {
 				continue
 			}
 			m := img.RGBAAt(x*wt.X, y*wt.Y)

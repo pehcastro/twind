@@ -88,7 +88,7 @@ func SidebarMenuItem(children ...twi.NodeOption) twi.Node {
 }
 
 func SidebarMenuButton(s Size, active bool, children ...twi.NodeOption) twi.Node {
-	return part("peer/menu-button flex flex-row w-full items-center gap-1 overflow-hidden rounded-md px-1 text-left whitespace-nowrap select-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:w-3! [&_svg]:shrink-0 "+
+	return part("peer/menu-button flex flex-row w-full items-center gap-1 overflow-hidden rounded-md px-1 text-left whitespace-nowrap select-none hover:bg-sidebar-accent/50 focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:w-3! [&_svg]:shrink-0 "+
 		pick("sidebar menu button", s, map[Size]string{
 			SizeDefault: "h-1 group-data-[collapsible=icon]:px-1!",
 			SizeSM:      "h-1 group-data-[collapsible=icon]:px-1!",
@@ -98,7 +98,7 @@ func SidebarMenuButton(s Size, active bool, children ...twi.NodeOption) twi.Node
 }
 
 func SidebarMenuBadge(children ...twi.NodeOption) twi.Node {
-	return part("absolute top-0 right-1 flex h-1 min-w-2 items-center justify-center rounded-md px-1 font-medium text-sidebar-foreground select-none pointer-events-none peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[active=true]/menu-button:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden", children)
+	return part("absolute top-0 right-1 flex h-1 min-w-2 items-center justify-center rounded-md px-1 font-medium text-sidebar-foreground select-none pointer-events-none peer-data-[active=true]/menu-button:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden", children)
 }
 
 func SidebarMenuSub(children ...twi.NodeOption) twi.Node {
@@ -110,7 +110,7 @@ func SidebarMenuSubItem(children ...twi.NodeOption) twi.Node {
 }
 
 func SidebarMenuSubButton(active bool, children ...twi.NodeOption) twi.Node {
-	return part("flex flex-row h-1 min-w-0 items-center gap-1 overflow-hidden rounded-md px-1 whitespace-nowrap text-sidebar-foreground select-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden",
+	return part("flex flex-row h-1 min-w-0 items-center gap-1 overflow-hidden rounded-md px-1 whitespace-nowrap text-sidebar-foreground select-none hover:bg-sidebar-accent/50 focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden",
 		append([]twi.NodeOption{twi.Focusable(), twi.Data("active", strconv.FormatBool(active))}, children...))
 }
 

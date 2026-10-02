@@ -306,10 +306,24 @@ func (s *Screen) area(x, y int) (r image.Rectangle, c *column, at int) {
 
 func (s *Screen) sample(x, y int) color.Color {
 	i := y*s.cols + x
-	if s.sampled[i] {
-		return s.samples[i]
+	if !s.sampled[i] {
+		s.sampled[i], s.samples[i] = true, s.mean(x, y, 0)
 	}
+	return s.samples[i]
+}
+
+func (s *Screen) behind(x, y int) color.Color {
+	r, c, _ := s.area(x, y)
+	middle := c.lineOf[(r.Min.Y+r.Max.Y)/2]
+	if c.lineOf[r.Min.Y] == middle && c.lineOf[r.Max.Y-1] == middle {
+		return s.sample(x, y)
+	}
+	return s.mean(x, y, s.inset())
+}
+
+func (s *Screen) mean(x, y, margin int) color.Color {
 	r, c, at := s.area(x, y)
+	r.Min.Y, r.Max.Y = r.Min.Y+margin, r.Max.Y-margin
 	s.bands, s.sampling = s.bands[:0], s.sampling[:0]
 	for py := r.Min.Y; py < r.Max.Y; py++ {
 		if py == r.Min.Y || c.lineOf[py] != c.lineOf[py-1] {
@@ -318,8 +332,7 @@ func (s *Screen) sample(x, y int) color.Color {
 		s.bands = banded(s.bands, [2]int32{int32(len(s.sampling) - len(c.line(py))), int32(len(s.sampling))})
 	}
 	s.sums = cellSums(s.sums, s.bands, s.sampling, c.width/s.Cell.X, s.Cell.X)
-	s.sampled[i], s.samples[i] = true, s.average(pixel(s.sampling[:s.bands[0].span[1]], at), s.sums[at/s.Cell.X], s.plain[s.tileAt(x, y)])
-	return s.samples[i]
+	return s.average(pixel(s.sampling[:s.bands[0].span[1]], at), s.sums[at/s.Cell.X], s.plain[s.tileAt(x, y)], r.Dy())
 }
 
 func (w *worker) measure(s *Screen, t, twin int) {
@@ -336,7 +349,7 @@ func (w *worker) measure(s *Screen, t, twin int) {
 		}
 		spans := w.spans[(y-cells.Min.Y)*s.Cell.Y:][:s.Cell.Y]
 		var last [4]int
-		colour, summed := s.average(0, last, false), false
+		colour, summed := s.average(0, last, false, s.Cell.Y), false
 		for x := cells.Min.X; x < cells.Max.X; x++ {
 			i := y*s.cols + x
 			switch {
@@ -350,7 +363,7 @@ func (w *worker) measure(s *Screen, t, twin int) {
 			}
 			switch {
 			case s.plain[t]:
-				s.sampled[i], s.samples[i] = true, s.average(pixel(w.store[spans[0][0]:spans[0][1]], (x-cells.Min.X)*s.Cell.X), last, true)
+				s.sampled[i], s.samples[i] = true, s.average(pixel(w.store[spans[0][0]:spans[0][1]], (x-cells.Min.X)*s.Cell.X), last, true, s.Cell.Y)
 				continue
 			case !summed:
 				bands = bands[:0]
@@ -360,7 +373,7 @@ func (w *worker) measure(s *Screen, t, twin int) {
 				sums, summed = cellSums(sums, bands, w.store, cells.Dx(), s.Cell.X), true
 			}
 			if sum := sums[x-cells.Min.X]; sum != last {
-				last, colour = sum, s.average(0, sum, false)
+				last, colour = sum, s.average(0, sum, false, s.Cell.Y)
 			}
 			s.sampled[i], s.samples[i] = true, colour
 		}
@@ -424,8 +437,8 @@ func banded(bands []band, span [2]int32) []band {
 
 func pixel(runs []run, x int) uint32 { return runs[find(runs, x)].Pixel }
 
-func (s *Screen) average(first uint32, sum [4]int, plain bool) color.Color {
-	n := s.Cell.X * s.Cell.Y
+func (s *Screen) average(first uint32, sum [4]int, plain bool, rows int) color.Color {
+	n := s.Cell.X * rows
 	switch {
 	case plain && first>>24 > 0:
 		return color.Color{Kind: color.Literal, RGBA: color.RGBA{R: uint8(first), G: uint8(first >> 8), B: uint8(first >> 16), A: math.MaxUint8}}
@@ -447,10 +460,14 @@ func (s *Screen) average(first uint32, sum [4]int, plain bool) color.Color {
 	return color.Color{Kind: color.Literal, RGBA: m}
 }
 
-func (s *Screen) flat(x, y int) bool {
+func (s *Screen) inset() int {
+	return int(math.Round(konst.OneRowInsetCell * float64(s.Cell.Y)))
+}
+
+func (s *Screen) flat(x, y, margin int) bool {
 	r, c, at := s.area(x, y)
-	first := pixel(c.line(r.Min.Y), at)
-	for py := r.Min.Y; py < r.Max.Y; py++ {
+	first := pixel(c.line(r.Min.Y+margin), at)
+	for py := r.Min.Y + margin; py < r.Max.Y-margin; py++ {
 		runs := c.line(py)
 		if i := find(runs, at); runs[i].Pixel != first || int(runs[i].End) < at+s.Cell.X {
 			return false
