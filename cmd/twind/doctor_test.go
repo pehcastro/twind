@@ -115,6 +115,7 @@ func TestDoctorNamesEachIdentity(t *testing.T) {
 		terminal.IdentityInboxConPTY: "InboxConPTY, from DA1: exactly 1;0, no 16t reply, no visible conhost window",
 		terminal.IdentityZed:         "Zed, from TERM_PROGRAM=zed confirmed by a 14t reply and no sixel in DA1",
 		terminal.IdentityOther:       "Other, no rule matched: not a visible conhost window, DA1 not exactly 1;0, not Zed",
+		terminal.IdentityVSCode:      "VS Code, from TERM_PROGRAM=vscode confirmed by an XTVERSION reply from xterm.js; images only when the kitty query is answered, drawn as sixel, since kitty images sit behind its background",
 	} {
 		if got := identityName(identity); got != want {
 			t.Errorf("identity %d: %q, want %q", identity, got, want)
@@ -125,7 +126,7 @@ func TestDoctorNamesEachIdentity(t *testing.T) {
 			t.Error("an unknown identity did not panic")
 		}
 	}()
-	identityName(terminal.IdentityZed + 1)
+	identityName(terminal.IdentityVSCode + 1)
 }
 
 func TestDoctorNamesTheOverlayHostOnlyInZed(t *testing.T) {
@@ -140,13 +141,27 @@ func TestDoctorNamesTheOverlayHostOnlyInZed(t *testing.T) {
 	}
 }
 
+func TestDoctorFixesVSCodeKeysAndImages(t *testing.T) {
+	keys := "fix        VS Code keeps Ctrl+K, the first key of its chords: set terminal.integrated.allowChords to false to send it here.\n" +
+		"           terminal.integrated.sendKeybindingsToShell true sends most other keys it keeps, such as Ctrl+P and Ctrl+J.\n"
+	images := "           Set terminal.integrated.enableImages to true for rounded borders, pills and shadows.\n"
+	if got := identityFix(terminal.IdentityVSCode, terminal.GraphicsSixel); got != keys {
+		t.Errorf("images on: %q, want %q", got, keys)
+	}
+	if got := identityFix(terminal.IdentityVSCode, terminal.GraphicsNone); got != keys+images {
+		t.Errorf("images off: %q, want %q", got, keys+images)
+	}
+}
+
 func TestDoctorFixesOnlyTheInboxConPTY(t *testing.T) {
 	for _, identity := range []terminal.Identity{terminal.IdentityConhost, terminal.IdentityZed, terminal.IdentityOther} {
-		if got := identityFix(identity); got != "" {
-			t.Errorf("identity %d: fix %q, want none", identity, got)
+		for _, g := range []terminal.Graphics{terminal.GraphicsNone, terminal.GraphicsSixel} {
+			if got := identityFix(identity, g); got != "" {
+				t.Errorf("identity %d graphics %d: fix %q, want none", identity, g, got)
+			}
 		}
 	}
-	fix := identityFix(terminal.IdentityInboxConPTY)
+	fix := identityFix(terminal.IdentityInboxConPTY, terminal.GraphicsNone)
 	for _, want := range []string{"mouse", "images", "colour replies", "conpty.dll", "OpenConsole.exe", "beside the terminal's exe", "Windows Terminal", "WezTerm", "MSYS=disable_pcon"} {
 		if !strings.Contains(fix, want) {
 			t.Errorf("fix %q lacks %q", fix, want)
@@ -160,7 +175,7 @@ func TestDoctorFixesOnlyTheInboxConPTY(t *testing.T) {
 			t.Error("an unknown identity did not panic")
 		}
 	}()
-	identityFix(terminal.IdentityZed + 1)
+	identityFix(terminal.IdentityVSCode+1, terminal.GraphicsNone)
 }
 
 func TestDoctorReportNamesUnknowns(t *testing.T) {

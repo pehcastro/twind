@@ -21,7 +21,7 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 		area.Min.X, area.Max.X = 0, s.cols
 	}
 	lines := by.Y / s.Cell.Y
-	if s.Graphics != terminal.GraphicsSixel || by.X != 0 || max(lines, -lines) >= area.Dy() {
+	if s.Graphics != terminal.GraphicsSixel || s.Identity == terminal.IdentityVSCode || by.X != 0 || max(lines, -lines) >= area.Dy() {
 		s.damage(clip)
 		return
 	}

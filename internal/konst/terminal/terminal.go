@@ -48,6 +48,7 @@ const (
 	Queries       = ModeQueries + CSI + "?u" + CellQuery
 	InlineQueries = ModeQueries + CellQuery
 	CursorHome    = CSI + "H"
+	EraseBelow    = CSI + "J"
 	CursorQuery   = CSI + "6n"
 	GraphemesOn   = CSI + "?2027h"
 	GraphemesOff  = CSI + "?2027l"
@@ -89,6 +90,8 @@ const (
 	ConhostWindowClass = "ConsoleWindowClass"
 	WindowClassLength  = 256
 	ZedProgram         = "zed"
+	VSCodeProgram      = "vscode"
+	XtermJSVersion     = "\x1bP>|xterm.js("
 )
 
 const (

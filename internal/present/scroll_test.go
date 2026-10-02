@@ -173,18 +173,41 @@ func TestScrollWithoutRegion(t *testing.T) {
 	for _, c := range []struct {
 		name     string
 		graphics terminal.Graphics
+		identity terminal.Identity
 		from, to int
 	}{
-		{"a jump past the view", terminal.GraphicsSixel, 0, 1},
-		{"kitty", terminal.GraphicsKitty, 1, 2},
-		{"cells", terminal.GraphicsNone, 1, 2},
+		{"a jump past the view", terminal.GraphicsSixel, terminal.IdentityOther, 0, 1},
+		{"kitty", terminal.GraphicsKitty, terminal.IdentityOther, 1, 2},
+		{"cells", terminal.GraphicsNone, terminal.IdentityOther, 1, 2},
+		{"vscode sixel, one row", terminal.GraphicsSixel, terminal.IdentityVSCode, 1, 2},
 	} {
 		s, out := screen(c.graphics)
-		s.Margins = true
+		s.Margins, s.Identity = true, c.identity
 		frame(t, s, trees[c.from])
 		frame(t, s, trees[c.to])
 		if regexp.MustCompile(`\x1b\[\d+;\d+r`).Match(out.last()) {
 			t.Errorf("%s: wrote a scroll region: %q", c.name, out.last())
+		}
+	}
+}
+
+func TestResizeClear(t *testing.T) {
+	for _, c := range []struct {
+		identity    terminal.Identity
+		want, never string
+	}{
+		{terminal.IdentityOther, "\x1b[0m\x1b[2J", "\x1b[H\x1b[J"},
+		{terminal.IdentityVSCode, "\x1b[0m\x1b[H\x1b[J", "\x1b[2J"},
+	} {
+		s, out := screen(terminal.GraphicsSixel)
+		s.Identity = c.identity
+		page := flatPage(color.RGBA{R: 5, G: 4, B: 6, A: 255}, "a")
+		frame(t, s, page)
+		if err := s.Frame(page, cols, rows-1); err != nil {
+			t.Fatal(err)
+		}
+		if got := out.last(); !bytes.Contains(got, []byte(c.want)) || bytes.Contains(got, []byte(c.never)) {
+			t.Errorf("identity %d: the frame after a resize starts %q, want %q and never %q", c.identity, got[:min(len(got), 40)], c.want, c.never)
 		}
 	}
 }

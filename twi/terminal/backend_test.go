@@ -257,6 +257,78 @@ func TestIdentity(t *testing.T) {
 	}
 }
 
+func TestVSCode(t *testing.T) {
+	version := "\x1bP>|xterm.js(6.1.0-beta.304)\x1b\\"
+	vscode := []string{"\x1b_Gi=31;OK\x1b\\", version + "\x1b[?2026;2$y\x1b[6;17;7t\x1b[4;612;1736t\x1b[8;36;248t", "\x1b[?61;4c"}
+	imagesOff := []string{version + "\x1b[6;17;7t\x1b[4;612;1736t", "\x1b[?61;4c"}
+	addon := []string{"\x1b_Gi=31;OK\x1b\\", version + "\x1b[6;17;7t", "\x1b[?62;4;9;22c"}
+	cases := []struct {
+		name     string
+		answers  []string
+		offer    offer
+		identity Identity
+		graphics Graphics
+	}{
+		{"vscode with images: sixel, not kitty", vscode, offer{vscode: true}, IdentityVSCode, GraphicsSixel},
+		{"vscode, da1 from the image addon", addon, offer{vscode: true}, IdentityVSCode, GraphicsSixel},
+		{"the same replies without the hint", vscode, offer{}, IdentityOther, GraphicsKitty},
+		{"hint leaked into windows terminal", windowsTerminal, offer{vscode: true}, IdentityOther, GraphicsSixel},
+		{"hint leaked into a kitty terminal", kitty, offer{vscode: true}, IdentityOther, GraphicsKitty},
+		{"vscode with images off: da1 4 is not images", imagesOff, offer{vscode: true}, IdentityVSCode, GraphicsNone},
+		{"vscode with kitty forced", vscode, offer{vscode: true, graphics: GraphicsKitty, forced: true}, IdentityVSCode, GraphicsKitty},
+	}
+	for _, tc := range cases {
+		term := newFake(tc.answers...)
+		b, err := enter(term, term.tty, Options{}, tc.offer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := b.Capabilities; got.Identity != tc.identity || got.Graphics != tc.graphics {
+			t.Errorf("%s: enter identity %d graphics %d, want %d %d", tc.name, got.Identity, got.Graphics, tc.identity, tc.graphics)
+		}
+		if asked := strings.Contains(term.out(), konst.VersionQuery); asked != tc.offer.vscode {
+			t.Errorf("%s: XTVERSION asked %v, want it only under the vscode hint", tc.name, asked)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+
+		term = newFake(append([]string{"\x1b[3;1R"}, tc.answers...)...)
+		caps, _, err := query(term, term.tty, tc.offer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if caps.Identity != tc.identity || caps.Graphics != tc.graphics {
+			t.Errorf("%s: query identity %d graphics %d, want %d %d", tc.name, caps.Identity, caps.Graphics, tc.identity, tc.graphics)
+		}
+	}
+}
+
+func TestVSCodeRightClickPastes(t *testing.T) {
+	vscode := []string{"\x1b_Gi=31;OK\x1b\\", "\x1bP>|xterm.js(6.1.0-beta.304)\x1b\\\x1b[6;17;7t", "\x1b[?61;4c"}
+	press := input.MouseEvent{X: 4, Y: 4, Button: input.MouseRight, Action: input.MousePress}
+	release := input.MouseEvent{X: 4, Y: 4, Button: input.MouseRight, Action: input.MouseRelease}
+	for _, tc := range []struct {
+		name  string
+		offer offer
+		want  []input.Event
+	}{
+		{"vscode drops the paste a right click sends", offer{vscode: true}, []input.Event{press, release, input.PasteEvent{Text: "typed"}}},
+		{"elsewhere a paste is a paste", offer{}, []input.Event{press, input.PasteEvent{Text: "clip"}, release, input.PasteEvent{Text: "typed"}}},
+	} {
+		term := newFake(vscode...)
+		b, err := enter(term, term.tty, Options{}, tc.offer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		term.tty.input <- []byte("\x1b[<2;5;5M\x1b[200~clip\x1b[201~\x1b[<2;5;5m\x1b[200~typed\x1b[201~")
+		events(t, b, tc.name, tc.want...)
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestGraphics(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -324,6 +396,8 @@ func TestOffered(t *testing.T) {
 		{map[string]string{"TERM_PROGRAM": "zed", "WT_SESSION": "x"}, offer{zed: true}, false},
 		{map[string]string{"TERM_PROGRAM": "zed", "TWIND_GRAPHICS": "sixel"}, offer{graphics: GraphicsSixel, forced: true, zed: true}, false},
 		{map[string]string{"ZED_TERM": "true"}, offer{}, false},
+		{map[string]string{"TERM_PROGRAM": "vscode"}, offer{vscode: true}, false},
+		{map[string]string{"TERM_PROGRAM": "vscode", "TWIND_GRAPHICS": "kitty"}, offer{graphics: GraphicsKitty, forced: true, vscode: true}, false},
 		{map[string]string{"TERM_PROGRAM": "iTerm.app"}, offer{graphics: GraphicsITerm2}, false},
 		{map[string]string{"TERM_PROGRAM": "WezTerm"}, offer{graphics: GraphicsITerm2}, false},
 		{map[string]string{"LC_TERMINAL": "iTerm2"}, offer{graphics: GraphicsITerm2}, false},

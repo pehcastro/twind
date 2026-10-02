@@ -92,7 +92,7 @@ func doctor(args []string, stdout io.Writer) error {
 	fmt.Fprintf(&report, "size       %dx%d cells\nenv        TERM=%s COLORTERM=%s TERM_PROGRAM=%s WT_SESSION=%t\ncolour     %s\nidentity   %s\nsync       %t\ngraphemes  %t\nfocus      %t\nmargins    %t\nemoji      %s\nkeyboard   %s\ngraphics   %s\ncell       %s\n",
 		width, height, text.Sanitize(os.Getenv("TERM"), text.ShowBidi), text.Sanitize(os.Getenv("COLORTERM"), text.ShowBidi), text.Sanitize(os.Getenv("TERM_PROGRAM"), text.ShowBidi), os.Getenv("WT_SESSION") != "",
 		profileName(terminal.Profile(os.Stdout, os.Getenv)), identityName(caps.Identity), caps.Sync, caps.Graphemes, caps.Focus, caps.Margins, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell)
-	fmt.Fprintf(&report, "%sdetected   in %s, first answer after %s\n%s", answerLines(a, glyphs), took.Round(time.Millisecond), answered.Round(time.Millisecond), identityFix(caps.Identity)+overlayLine(caps.Identity, terminal.OverlayHost))
+	fmt.Fprintf(&report, "%sdetected   in %s, first answer after %s\n%s", answerLines(a, glyphs), took.Round(time.Millisecond), answered.Round(time.Millisecond), identityFix(caps.Identity, caps.Graphics)+overlayLine(caps.Identity, terminal.OverlayHost))
 	if skipped {
 		report.WriteString("skipped    truecolor, clipboard and kitty: no DA1, or conhost's 1;0, which prints DCS and APC as text\n")
 	}
@@ -255,6 +255,8 @@ func identityName(i terminal.Identity) string {
 		return "Zed, from TERM_PROGRAM=zed confirmed by a 14t reply and no sixel in DA1"
 	case terminal.IdentityOther:
 		return "Other, no rule matched: not a visible conhost window, DA1 not exactly 1;0, not Zed"
+	case terminal.IdentityVSCode:
+		return "VS Code, from TERM_PROGRAM=vscode confirmed by an XTVERSION reply from xterm.js; images only when the kitty query is answered, drawn as sixel, since kitty images sit behind its background"
 	}
 	panic("twind: unknown terminal identity " + strconv.Itoa(int(i)))
 }
@@ -266,8 +268,15 @@ func overlayLine(i terminal.Identity, host func() string) string {
 	return "overlay    " + host() + "\n"
 }
 
-func identityFix(i terminal.Identity) string {
+func identityFix(i terminal.Identity, g terminal.Graphics) string {
 	switch i {
+	case terminal.IdentityVSCode:
+		fix := "fix        VS Code keeps Ctrl+K, the first key of its chords: set terminal.integrated.allowChords to false to send it here.\n" +
+			"           terminal.integrated.sendKeybindingsToShell true sends most other keys it keeps, such as Ctrl+P and Ctrl+J.\n"
+		if g == terminal.GraphicsNone {
+			fix += "           Set terminal.integrated.enableImages to true for rounded borders, pills and shadows.\n"
+		}
+		return fix
 	case terminal.IdentityInboxConPTY:
 		return "fix        the Windows 10 inbox ConPTY drops mouse input, images and colour replies here.\n" +
 			"           Put a newer conpty.dll and OpenConsole.exe beside the terminal's exe.\n" +

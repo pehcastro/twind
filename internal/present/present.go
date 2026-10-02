@@ -241,7 +241,11 @@ func (s *Screen) reset(cols, rows int) {
 			s.out.Write(graphics.KittyDelete(s.out.AvailableBuffer(), konst.KittyFirstImage+uint32(slot)))
 		}
 	}
-	if s.text != nil && s.underText() {
+	switch {
+	case s.text == nil || !s.underText():
+	case s.Identity == terminal.IdentityVSCode:
+		s.out.WriteString(termkonst.Reset + termkonst.CursorHome + termkonst.EraseBelow)
+	default:
 		s.out.WriteString(termkonst.Reset + termkonst.CSI + "2J")
 	}
 	if s.Cell != s.cell || s.cache == nil {

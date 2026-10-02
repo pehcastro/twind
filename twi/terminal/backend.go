@@ -37,6 +37,7 @@ const (
 	IdentityConhost
 	IdentityInboxConPTY
 	IdentityZed
+	IdentityVSCode
 )
 
 type Font struct {
@@ -62,26 +63,27 @@ type Backend struct {
 	Events       <-chan input.Event
 	Capabilities Capabilities
 
-	out     io.Writer
-	tty     tty
-	opt     Options
-	decoder input.Decoder
-	answers chan answer
-	covered map[string]bool
-	leave   string
-	asking  atomic.Bool
-	cell    atomic.Pointer[image.Point]
-	grid    atomic.Pointer[image.Point]
-	polling atomic.Bool
-	settled chan struct{}
-	canvas  atomic.Pointer[canvas]
-	overlay atomic.Pointer[overlay]
-	trace   *trace
-	traced  *os.File
-	mu      sync.Mutex
-	asked   bool
-	again   bool
-	exited  bool
+	out         io.Writer
+	tty         tty
+	opt         Options
+	decoder     input.Decoder
+	answers     chan answer
+	covered     map[string]bool
+	leave       string
+	asking      atomic.Bool
+	cell        atomic.Pointer[image.Point]
+	grid        atomic.Pointer[image.Point]
+	polling     atomic.Bool
+	rightPastes atomic.Bool
+	settled     chan struct{}
+	canvas      atomic.Pointer[canvas]
+	overlay     atomic.Pointer[overlay]
+	trace       *trace
+	traced      *os.File
+	mu          sync.Mutex
+	asked       bool
+	again       bool
+	exited      bool
 }
 
 type answer struct {
@@ -93,6 +95,7 @@ type offer struct {
 	graphics Graphics
 	forced   bool
 	zed      bool
+	vscode   bool
 	trace    string
 }
 
@@ -144,7 +147,7 @@ func Probe(in, out *os.File, queries string) ([]byte, error) {
 }
 
 func query(out io.Writer, t tty, o offer) (Capabilities, image.Point, error) {
-	b, raw, replies, err := probe(out, t, konst.Probes+konst.InlineQueries, konst.QueryTimeout)
+	b, raw, replies, err := probe(out, t, konst.Probes+o.version()+konst.InlineQueries, konst.QueryTimeout)
 	if err == nil {
 		raw, err = b.askKitty(raw, replies, o)
 	}
@@ -169,7 +172,7 @@ func probe(out io.Writer, t tty, queries string, wait time.Duration) (*Backend, 
 
 func offered(env func(string) string) (offer, error) {
 	program := env("TERM_PROGRAM")
-	o := offer{forced: true, zed: program == konst.ZedProgram, trace: env(konst.TraceEnv)}
+	o := offer{forced: true, zed: program == konst.ZedProgram, vscode: program == konst.VSCodeProgram, trace: env(konst.TraceEnv)}
 	switch v := env("TWIND_GRAPHICS"); v {
 	case "":
 		o.forced = false
@@ -189,6 +192,13 @@ func offered(env func(string) string) (offer, error) {
 	return o, nil
 }
 
+func (o offer) version() string {
+	if o.vscode {
+		return konst.VersionQuery
+	}
+	return ""
+}
+
 func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	events := make(chan input.Event, konst.EventBuffer)
 	b := &Backend{
@@ -205,7 +215,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	if !opt.NoMouse {
 		seq += konst.MouseOn
 	}
-	raw, replies, err := b.ask(seq+konst.CursorHome+konst.GraphemesOn+konst.Probes+konst.Queries, konst.StartupTimeout)
+	raw, replies, err := b.ask(seq+konst.CursorHome+konst.GraphemesOn+konst.Probes+o.version()+konst.Queries, konst.StartupTimeout)
 	if err == nil {
 		raw, err = b.askKitty(raw, replies, o)
 	}
@@ -213,6 +223,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		return nil, err
 	}
 	b.Capabilities = b.detect(raw, replies, o)
+	b.rightPastes.Store(b.Capabilities.Identity == IdentityVSCode)
 	if b.Capabilities.Identity == IdentityConhost && !o.forced {
 		if c, err := openCanvas(t); err == nil {
 			b.Capabilities.Graphics, b.Capabilities.CellPixels = GraphicsGDI, c.cell
@@ -338,6 +349,8 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 		caps.Identity = IdentityInboxConPTY
 	case o.zed && slices.Contains(reports, konst.WindowReport) && !sixel:
 		caps.Identity = IdentityZed
+	case o.vscode && bytes.Contains(raw, []byte(konst.XtermJSVersion)):
+		caps.Identity = IdentityVSCode
 	}
 	if columns, _, err := b.tty.size(); err == nil && len(cursors) > int(text.Classes) {
 		origin := cursors[0]
@@ -348,7 +361,13 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 			}
 		}
 	}
-	if bytes.Contains(raw, []byte(konst.KittyOK)) {
+	kitty := bytes.Contains(raw, []byte(konst.KittyOK))
+	switch {
+	case caps.Identity == IdentityVSCode && kitty:
+		graphics = GraphicsSixel
+	case caps.Identity == IdentityVSCode:
+		graphics = GraphicsNone
+	case kitty:
 		graphics = GraphicsKitty
 	}
 	if o.forced {
@@ -395,6 +414,7 @@ func (b *Backend) read(events chan<- input.Event) {
 	width, height, _ := b.tty.size()
 	var polled []input.ReplyEvent
 	lastAsk := time.Now()
+	right := false
 	for {
 		var wait time.Duration
 		switch {
@@ -436,6 +456,14 @@ func (b *Backend) read(events chan<- input.Event) {
 			case input.FocusEvent:
 				if o != nil {
 					o.focus(ev.Focused)
+				}
+			case input.MouseEvent:
+				if ev.Button == input.MouseRight {
+					right = ev.Action == input.MousePress
+				}
+			case input.PasteEvent:
+				if right && b.rightPastes.Load() {
+					continue
 				}
 			case input.ReplyEvent:
 				replies = append(replies, ev)
