@@ -379,8 +379,8 @@ func TestOverlayFollowsZed(t *testing.T) {
 	}
 	now, _ := calibrate(t, o, h, time.Now())
 	base := zedOrigin.Add(zedPanel)
-	if shown, moves, _ := h.state(); !shown || moves == 0 || h.moves[moves-1] != base {
-		t.Fatalf("after calibration shown %v moved to %v, want shown at %v", shown, h.moves, base)
+	if shown, moves, _ := h.state(); shown || moves == 0 || h.moves[moves-1] != base {
+		t.Fatalf("after calibration shown %v moved to %v, want hidden at %v until the first full paint", shown, h.moves, base)
 	}
 	if o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Tiles: []Tile{{Cells: ring, Pix: opaque(ring, zedCell)}}}) {
 		t.Errorf("a paint without Clear after calibration was accepted")
@@ -401,6 +401,9 @@ func TestOverlayFollowsZed(t *testing.T) {
 		t.Fatalf("the first full paint was refused")
 	}
 	placed(t, h, ring, 12)
+	if shown, _, _ := h.state(); !shown {
+		t.Errorf("not shown after the first full paint")
+	}
 
 	_, moves, draws := h.state()
 	h.set(func(h *fakeHost) { h.at.origin = h.at.origin.Add(image.Pt(30, -20)) })
@@ -409,31 +412,6 @@ func TestOverlayFollowsZed(t *testing.T) {
 	if _, m, d := h.state(); m != moves+1 || h.moves[m-1] != base.Add(image.Pt(30, -20)) || d != draws || h.reads != reads {
 		t.Errorf("Zed moved: %d moves to %v, %d draws, %d reads, want one move to %v and nothing else", m-moves, h.moves[m-1], d-draws, h.reads-reads, base.Add(image.Pt(30, -20)))
 	}
-	for _, step := range []struct {
-		name   string
-		change func(h *fakeHost)
-		focus  bool
-	}{
-		{"not foreground", func(h *fakeHost) { h.at.front = false }, true},
-		{"minimised", func(h *fakeHost) { h.at.shown = false }, true},
-		{"focus out", func(*fakeHost) {}, false},
-	} {
-		h.set(step.change)
-		o.focus(step.focus)
-		if _, ok := o.tick(zedGrid, now); ok {
-			t.Errorf("%s: the calibration changed", step.name)
-		}
-		if shown, _, _ := h.state(); shown {
-			t.Errorf("%s: still shown", step.name)
-		}
-		h.set(func(h *fakeHost) { h.at.front, h.at.shown = true, true })
-		o.focus(true)
-		o.tick(zedGrid, now)
-		if shown, _, _ := h.state(); !shown {
-			t.Errorf("%s and back: hidden", step.name)
-		}
-	}
-
 	for _, step := range []struct {
 		name   string
 		grid   image.Point
@@ -669,10 +647,10 @@ func TestOverlayTraceNamesEachStep(t *testing.T) {
 	now, _ = calibrate(t, o, h, now.Add(2*konst.OverlayRetry))
 	ring := image.Rect(10, 2, 18, 3)
 	o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true, Tiles: []Tile{{Cells: ring, Pix: opaque(ring, zedCell)}}})
-	o.focus(false)
+	h.set(func(h *fakeHost) { h.at.shown = false })
 	o.tick(zedGrid, now)
 	o.tick(image.Pt(201, 34), now)
-	for _, want := range []string{"marks: 233 cells", "read 1: no screen", "read 2: no screen", "row marks at (341,834)-(1901,851)", "column marks at (1893,276)-(1901,834)", "read 4: verified", "calibrated: cell 8x17", "draw at", "ok true", "show at", "hide: host <nil>, shown true, foreground true, focus out true", "grid (200,34) to (201,34), was calibrated true"} {
+	for _, want := range []string{"marks: 233 cells", "read 1: no screen", "read 2: no screen", "row marks at (341,834)-(1901,851)", "column marks at (1893,276)-(1901,834)", "read 4: verified", "calibrated: cell 8x17", "draw at", "ok true", "show at", "hide: host <nil>, shown false", "grid (200,34) to (201,34), was calibrated true"} {
 		if !strings.Contains(lines.String(), want) {
 			t.Errorf("trace has no %q:\n%s", want, lines.String())
 		}
@@ -789,5 +767,109 @@ func TestOverlayCalibratesFromScreenMarks(t *testing.T) {
 	b.Paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true, Tiles: []Tile{{Cells: ring, Pix: opaque(ring, zedCell)}}})
 	if _, _, now := h.state(); now != draws {
 		t.Errorf("a paint after Exit drew")
+	}
+}
+
+func TestOverlayStaysShownWithoutFocus(t *testing.T) {
+	h := zedHost()
+	o := &overlay{win: h, cells: zedCells}
+	now, _ := calibrate(t, o, h, time.Now())
+	o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true})
+	reads := h.reads
+	for _, step := range []struct {
+		name  string
+		front bool
+		focus bool
+	}{
+		{"another window in front", false, true},
+		{"focus out with Zed in front", true, false},
+		{"another window in front and focus out", false, false},
+	} {
+		h.set(func(h *fakeHost) { h.at.front = step.front })
+		o.focus(step.focus)
+		if ev, ok := o.tick(zedGrid, now); ok {
+			t.Errorf("%s: asked for a frame %+v", step.name, ev)
+		}
+		if shown, _, _ := h.state(); !shown {
+			t.Errorf("%s: hidden", step.name)
+		}
+		if g, cell := o.surface(); g != GraphicsGDI || cell != zedCell {
+			t.Errorf("%s: graphics %d cell %v, want GDI and %v", step.name, g, cell, zedCell)
+		}
+	}
+	if h.reads != reads || o.marks(zedPage, now) != nil {
+		t.Errorf("read the screen %d times or marked without focus", h.reads-reads)
+	}
+}
+
+func TestOverlayHiddenGivesTheCellsLook(t *testing.T) {
+	h := zedHost()
+	o := &overlay{win: h, cells: zedCells}
+	now, _ := calibrate(t, o, h, time.Now())
+	o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true})
+	reads := h.reads
+	for _, name := range []string{"minimised", "minimised again"} {
+		h.set(func(h *fakeHost) { h.at.shown = false })
+		if ev, ok := o.tick(zedGrid, now); !ok || ev != (input.ResizeEvent{Width: zedGrid.X, Height: zedGrid.Y, Cell: zedCells}) {
+			t.Errorf("%s: event %+v %v, want one frame in the cells look at %v", name, ev, ok, zedCells)
+		}
+		if _, ok := o.tick(zedGrid, now); ok {
+			t.Errorf("%s: a second frame asked", name)
+		}
+		if shown, _, _ := h.state(); shown {
+			t.Errorf("%s: still shown", name)
+		}
+		if g, cell := o.surface(); g != GraphicsNone || cell != zedCells {
+			t.Errorf("%s: graphics %d cell %v, want none and %v like the cells path", name, g, cell, zedCells)
+		}
+		if o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true}) {
+			t.Errorf("%s: a pixel paint was accepted while hidden", name)
+		}
+		h.set(func(h *fakeHost) { h.at.shown = true })
+		if ev, ok := o.tick(zedGrid, now); !ok || ev.Cell != zedCell {
+			t.Errorf("%s and back: event %+v %v, want one frame at %v", name, ev, ok, zedCell)
+		}
+		if shown, _, _ := h.state(); shown {
+			t.Errorf("%s and back: shown with the bitmap from before", name)
+		}
+		if o.paint(Pixels{Cell: zedCell, Grid: zedGrid}) {
+			t.Errorf("%s and back: a paint without Clear was accepted", name)
+		}
+		if _, ok := o.tick(zedGrid, now); !ok {
+			t.Errorf("%s and back: the refused paint asked for no frame", name)
+		}
+		if !o.paint(Pixels{Cell: zedCell, Grid: zedGrid, Clear: true}) {
+			t.Errorf("%s and back: the full paint was refused", name)
+		}
+		if shown, _, _ := h.state(); !shown {
+			t.Errorf("%s and back: not shown after the full paint", name)
+		}
+	}
+	if h.reads != reads || o.marks(zedPage, now) != nil {
+		t.Errorf("recalibrated after a minimise: %d reads", h.reads-reads)
+	}
+}
+
+func TestOverlayHiddenReportsWhatZedWithoutOverlayReports(t *testing.T) {
+	caps := func(host *fakeHost) Capabilities {
+		term := newFake(zed...)
+		if host != nil {
+			term.tty.host = host
+		}
+		b, err := enter(term, term.tty, Options{}, offer{zed: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = b.Exit() }()
+		if o := b.overlay.Load(); o != nil {
+			calibrate(t, o, host, time.Now())
+			host.set(func(h *fakeHost) { h.at.shown = false })
+			o.tick(zedGrid, time.Now())
+		}
+		return b.Current()
+	}
+	with, without := caps(zedHost()), caps(nil)
+	if with.Graphics != without.Graphics || with.CellPixels != without.CellPixels {
+		t.Errorf("a hidden overlay reports graphics %d cell %v, Zed without one %d %v", with.Graphics, with.CellPixels, without.Graphics, without.CellPixels)
 	}
 }

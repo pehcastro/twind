@@ -188,7 +188,7 @@ type overlay struct {
 	reads          int
 	found          []int
 	blurred        bool
-	shown          bool
+	visible, shown bool
 	stopped        bool
 	fresh          bool
 	refused        bool
@@ -248,7 +248,8 @@ func (o *overlay) tick(grid image.Point, now time.Time) (input.ResizeEvent, bool
 		return input.ResizeEvent{}, false
 	}
 	at, err := o.win.place()
-	was, asked := o.cell, o.refused
+	wasGraphics, wasCell := o.reported()
+	asked := o.refused
 	o.refused = false
 	if err != nil || at.client != o.client || grid != o.grid {
 		o.drop(fmt.Sprintf("host %v, client %v to %v, grid %v to %v", err, o.client, at.client, o.grid, grid))
@@ -270,28 +271,30 @@ func (o *overlay) tick(grid image.Point, now time.Time) (input.ResizeEvent, bool
 		o.marking, o.marked, o.painted, asked = want, nil, time.Time{}, true
 		o.trace.log("marks: wanted %t after %d reads, able %t; the page must be one opaque colour and the profile truecolor for them to be painted", want, o.reads, able)
 	}
-	visible := able && o.cell != image.Point{}
+	visible := err == nil && at.shown && o.cell != image.Point{}
 	if visible && at.origin != o.origin {
 		o.origin = at.origin
 		o.win.move(o.origin.Add(o.base))
 	}
-	switch {
-	case visible && !o.shown:
-		o.trace.log("show at %v", o.origin.Add(o.base))
-		o.win.show()
-	case !visible && o.shown:
-		o.trace.log("hide: host %v, shown %t, foreground %t, focus out %t", err, at.shown, at.front, o.blurred)
+	if !visible && o.shown {
+		o.trace.log("hide: host %v, shown %t", err, at.shown)
 		o.win.hide()
+		o.shown = false
 	}
-	o.shown = visible
-	if o.cell == was && !asked {
+	o.fresh = o.fresh || visible && !o.visible
+	o.visible = visible
+	graphics, cell := o.reported()
+	if graphics == wasGraphics && cell == wasCell && !asked {
 		return input.ResizeEvent{}, false
 	}
-	cell := o.cell
-	if cell == (image.Point{}) {
-		cell = o.cells
-	}
 	return input.ResizeEvent{Width: grid.X, Height: grid.Y, Cell: cell}, true
+}
+
+func (o *overlay) reported() (Graphics, image.Point) {
+	if !o.visible {
+		return GraphicsNone, o.cells
+	}
+	return GraphicsGDI, o.cell
 }
 
 func (o *overlay) measure(at hostPlace) {
@@ -328,16 +331,13 @@ func (o *overlay) drop(why string) {
 		o.win.hide()
 		o.shown = false
 	}
-	o.cell, o.origin = image.Point{}, image.Point{}
+	o.cell, o.origin, o.visible = image.Point{}, image.Point{}, false
 }
 
 func (o *overlay) surface() (Graphics, image.Point) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if o.cell == (image.Point{}) {
-		return GraphicsNone, o.cells
-	}
-	return GraphicsGDI, o.cell
+	return o.reported()
 }
 
 func (o *overlay) paint(p Pixels) bool {
@@ -346,8 +346,8 @@ func (o *overlay) paint(p Pixels) bool {
 	if o.stopped {
 		return true
 	}
-	if o.cell == (image.Point{}) || p.Cell != o.cell || p.Grid != o.grid || o.fresh && !p.Clear {
-		o.trace.log("paint refused: cell %v grid %v clear %t, overlay cell %v grid %v waiting for a clear %t", p.Cell, p.Grid, p.Clear, o.cell, o.grid, o.fresh)
+	if !o.visible || p.Cell != o.cell || p.Grid != o.grid || o.fresh && !p.Clear {
+		o.trace.log("paint refused: cell %v grid %v clear %t, overlay cell %v grid %v visible %t waiting for a clear %t", p.Cell, p.Grid, p.Clear, o.cell, o.grid, o.visible, o.fresh)
 		o.refused = o.cell != image.Point{}
 		return false
 	}
@@ -391,6 +391,11 @@ func (o *overlay) paint(p Pixels) bool {
 	o.trace.log("draw at %v size %v dirty %v, ok %t", o.origin.Add(o.base), o.size, dirty, drawn)
 	if !drawn {
 		return o.broke("the layered window refused to draw")
+	}
+	if !o.shown {
+		o.trace.log("show at %v", o.origin.Add(o.base))
+		o.win.show()
+		o.shown = true
 	}
 	return true
 }
