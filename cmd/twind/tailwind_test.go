@@ -16,6 +16,30 @@ import (
 	style "github.com/twind-dev/twind/internal/konst/style"
 )
 
+func TestTwirgenLinesTakeTestFiles(t *testing.T) {
+	dir := t.TempDir()
+	for name, src := range map[string]string{
+		"main.go":      "package app\n\n//go:generate go run " + twirgenPath + "\n",
+		"view_test.go": "package app_test\n\n//go:generate go run " + twirgenPath + " -o twir_gen_test.go -func styles\n",
+		"other.go":     "package app\n\n//go:generate stringer -type X\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines, err := twirgenLines(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, l := range lines {
+		got[l.pkg] = strings.Join(l.args, " ")
+	}
+	if len(lines) != 2 || got["app"] != "" || got["app_test"] != "-o twir_gen_test.go -func styles" {
+		t.Errorf("twirgen lines %+v, want the main one and the test one", lines)
+	}
+}
+
 func TestTailwindAsset(t *testing.T) {
 	for _, c := range []struct{ goos, goarch, want string }{
 		{"windows", "amd64", "tailwindcss-windows-x64.exe"},

@@ -61,7 +61,6 @@ type Plan struct {
 	exports  map[string]string
 	archives map[string]string
 	exes     map[string]string
-	linked   []string
 }
 
 func Capture(ctx context.Context, root, pkg, work string) (*Plan, error) {
@@ -226,12 +225,7 @@ func (p *Plan) Build(ctx context.Context, changed []string, exe string) (string,
 	}
 	p.cache.Lock()
 	defer p.cache.Unlock()
-	p.have, p.commits, p.exes[key], p.linked = next, p.commits+1, exe, append(p.linked, key)
-	if len(p.linked) > konst.KeptBuilds {
-		_ = os.Remove(p.exes[p.linked[0]])
-		delete(p.exes, p.linked[0])
-		p.linked = p.linked[1:]
-	}
+	p.have, p.commits, p.exes[key] = next, p.commits+1, exe
 	return exe, append(steps, Step{Package: "link", Took: time.Since(began)}), nil
 }
 

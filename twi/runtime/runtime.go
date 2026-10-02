@@ -106,6 +106,7 @@ type Runtime struct {
 	lastMoved     bool
 	zoomed        image.Point
 	dev           devState
+	phases        phases
 }
 
 type layer struct {
@@ -178,6 +179,7 @@ func (r *Runtime) Run(b Backend, app func() Tree) (err error) {
 		}
 	}()
 	r.app = app
+	r.phases.begin(b)
 	if r.cfg.DevState == "" {
 		return errors.Join(r.loop(b), b.Exit())
 	}
@@ -278,6 +280,7 @@ func (r *Runtime) drain() {
 }
 
 func (r *Runtime) handle(ev input.Event) error {
+	r.phases.seen(ev)
 	switch ev := ev.(type) {
 	case input.KeyEvent:
 		r.rebuild = true
@@ -363,6 +366,7 @@ func (r *Runtime) draw(b Backend, now time.Time) error {
 	if err := r.frame(b, now); err != nil {
 		return err
 	}
+	r.phases.frame()
 	if r.pointer.seen {
 		r.hover()
 	}

@@ -19,6 +19,16 @@ func askToExit(p *os.Process) error {
 	return windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, uint32(p.Pid))
 }
 
+func Alive(pid int) bool {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return false
+	}
+	defer func() { _ = windows.CloseHandle(h) }()
+	var code uint32
+	return windows.GetExitCodeProcess(h, &code) == nil && code == konst.StillActive
+}
+
 func notify(ctx context.Context, dir string, wake chan<- struct{}) {
 	name, err := windows.UTF16PtrFromString(dir)
 	if err != nil {

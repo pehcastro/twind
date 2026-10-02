@@ -50,34 +50,42 @@ func newStyler(work string, say io.Writer) *styler {
 	}
 }
 
-func (st *styler) regenerate(dir string) error {
+type twirgenLine struct {
+	pkg  string
+	args []string
+}
+
+func twirgenLines(dir string) ([]twirgenLine, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	var args []string
-	pkg := ""
+	var lines []twirgenLine
 	for _, e := range entries {
-		if filepath.Ext(e.Name()) != ".go" || strings.HasSuffix(e.Name(), "_test.go") {
+		if filepath.Ext(e.Name()) != ".go" {
 			continue
 		}
 		src, err := os.ReadFile(filepath.Join(dir, e.Name()))
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for line := range strings.Lines(string(src)) {
 			if _, after, ok := strings.Cut(line, "//go:generate go run "+twirgenPath); ok {
-				args = strings.Fields(after)
 				clause, err := parser.ParseFile(token.NewFileSet(), "", src, parser.PackageClauseOnly)
 				if err != nil {
-					return err
+					return nil, err
 				}
-				pkg = clause.Name.Name
+				lines = append(lines, twirgenLine{clause.Name.Name, strings.Fields(after)})
 			}
 		}
 	}
-	if pkg == "" {
-		return nil
+	return lines, nil
+}
+
+func (st *styler) regenerate(dir string) error {
+	lines, err := twirgenLines(dir)
+	if err != nil || len(lines) == 0 {
+		return err
 	}
 	bin, err := st.tailwind()
 	if err != nil {
@@ -87,19 +95,22 @@ func (st *styler) regenerate(dir string) error {
 	if err != nil {
 		return err
 	}
-	run := exec.Command(twirgen, append([]string{"-tailwind", bin}, args...)...)
-	run.Dir, run.Env = dir, append(os.Environ(), "GOPACKAGE="+pkg)
-	out, err := run.CombinedOutput()
-	if err == nil {
-		return nil
-	}
-	var kept strings.Builder
-	for line := range strings.Lines(string(out)) {
-		if !strings.Contains(line, ": warning: ") {
-			kept.WriteString(line)
+	for _, l := range lines {
+		run := exec.Command(twirgen, append([]string{"-tailwind", bin}, l.args...)...)
+		run.Dir, run.Env = dir, append(os.Environ(), "GOPACKAGE="+l.pkg)
+		out, err := run.CombinedOutput()
+		if err == nil {
+			continue
 		}
+		var kept strings.Builder
+		for line := range strings.Lines(string(out)) {
+			if !strings.Contains(line, ": warning: ") {
+				kept.WriteString(line)
+			}
+		}
+		return fmt.Errorf("%stwirgen: %w", kept.String(), err)
 	}
-	return fmt.Errorf("%stwirgen: %w", kept.String(), err)
+	return nil
 }
 
 func executable(path string) string {

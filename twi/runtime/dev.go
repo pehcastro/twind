@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/twind-dev/twind/internal/dev/snapshot"
 )
@@ -35,7 +36,8 @@ func (r *Runtime) listenDev() (stop func()) {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		select {
-		case <-signals:
+		case got := <-signals:
+			r.phases.log("runtime: %v received", got)
 			r.Quit()
 		case <-done:
 		}
@@ -64,6 +66,8 @@ func (r *Runtime) restoreScroll() bool {
 }
 
 func (r *Runtime) saveDev() error {
+	began := time.Now()
+	defer func() { r.phases.log("runtime: snapshot written in %v", time.Since(began).Round(time.Microsecond)) }()
 	s := snapshot.Snapshot{Focus: r.dev.pending.Focus, Scroll: map[string]snapshot.Offset{}, Values: map[string]string{}}
 	maps.Copy(s.Scroll, r.dev.pending.Scroll)
 	maps.Copy(s.Values, r.dev.pending.Values)

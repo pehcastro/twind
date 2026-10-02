@@ -11,6 +11,8 @@ import (
 
 func notify(context.Context, string, chan<- struct{}) {}
 
+func Alive(int) bool { return true }
+
 func ownGroup() *syscall.SysProcAttr {
 	return nil
 }

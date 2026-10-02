@@ -12,6 +12,11 @@ import (
 
 func notify(context.Context, string, chan<- struct{}) {}
 
+func Alive(pid int) bool {
+	err := unix.Kill(pid, 0)
+	return err == nil || err == unix.EPERM
+}
+
 func ownGroup() *syscall.SysProcAttr {
 	return nil
 }

@@ -68,11 +68,19 @@ func devRun(args []string, _ io.Writer) error {
 		defer func() { _ = f.Close() }()
 		s.log = log.New(f, "", log.Ltime|log.Lmicroseconds)
 	}
-	goroot, err := exec.Command("go", "env", "GOROOT").Output()
+	goenv, err := exec.Command("go", "env", "GOROOT", "GOMOD").Output()
 	if err != nil {
 		return fmt.Errorf("go env: %w", err)
 	}
-	if err := os.Setenv("PATH", filepath.Join(strings.TrimSpace(string(goroot)), "bin")+string(os.PathListSeparator)+os.Getenv("PATH")); err != nil {
+	goroot, gomod, _ := strings.Cut(strings.TrimSpace(string(goenv)), "\n")
+	if err := os.Setenv("PATH", filepath.Join(strings.TrimSpace(goroot), "bin")+string(os.PathListSeparator)+os.Getenv("PATH")); err != nil {
+		return err
+	}
+	root, err := os.Getwd()
+	if gomod = strings.TrimSpace(gomod); filepath.IsAbs(gomod) {
+		root = filepath.Dir(gomod)
+	}
+	if err != nil {
 		return err
 	}
 	listing, err := goList([]string{"-deps", s.pkg}, `{{if .Module}}{{if .Module.Main}}{{.Dir}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .EmbedFiles}}{{"\t"}}{{.}}{{end}}{{end}}{{end}}`)
@@ -90,7 +98,7 @@ func devRun(args []string, _ io.Writer) error {
 			files = append(files, filepath.Join(fields[0], name))
 		}
 	}
-	if s.work, err = os.MkdirTemp("", "twind-dev-"); err != nil {
+	if s.work, err = devWorkDir(root); err != nil {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(s.work) }()
@@ -100,6 +108,13 @@ func devRun(args []string, _ io.Writer) error {
 	}
 	state := filepath.Join(s.work, "state.json")
 	env := append(os.Environ(), devkonst.DevEnv+"=1", devkonst.StateEnv+"="+state)
+	if *logPath != "" && os.Getenv(term.TraceEnv) == "" {
+		traced, err := filepath.Abs(*logPath)
+		if err != nil {
+			return err
+		}
+		env = append(env, term.TraceEnv+"="+traced)
+	}
 	var last error
 	start := func(exe string) (dev.Child, error) {
 		stopped := time.Since(s.built).Round(time.Millisecond)
@@ -116,6 +131,9 @@ func devRun(args []string, _ io.Writer) error {
 			return nil, err
 		}
 		s.log.Printf("swap: stop %v, start %v, started %v after the save, %s", stopped, time.Since(s.built).Round(time.Millisecond)-stopped, time.Since(s.saved).Round(time.Millisecond), filepath.Base(exe))
+		now := time.Now()
+		_ = os.Chtimes(exe, now, now)
+		prune(s.work, devkonst.KeptBuilds, exe)
 		return c, nil
 	}
 	report := func(err error) {

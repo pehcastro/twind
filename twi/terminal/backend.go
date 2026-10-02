@@ -87,6 +87,7 @@ type Backend struct {
 	asked       bool
 	again       bool
 	exited      bool
+	wrote       bool
 }
 
 type answer struct {
@@ -214,7 +215,15 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		leave:   konst.LeaveScreen,
 		dev:     o.dev,
 		settled: make(chan struct{}),
+		wrote:   true,
 	}
+	if o.trace != "" {
+		if f, err := os.OpenFile(o.trace, os.O_APPEND|os.O_CREATE|os.O_WRONLY, konst.TraceFileMode); err == nil {
+			b.trace, b.traced = &trace{w: f}, f
+		}
+	}
+	detecting := time.Now()
+	b.trace.log("terminal: detecting")
 	go b.read(events)
 	seq := konst.EnterScreen
 	if o.dev {
@@ -228,6 +237,9 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 		raw, err = b.askKitty(raw, replies, o)
 	}
 	if err != nil {
+		if b.traced != nil {
+			err = errors.Join(err, b.traced.Close())
+		}
 		return nil, err
 	}
 	b.Capabilities = b.detect(raw, replies, o)
@@ -238,11 +250,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 			b.canvas.Store(c)
 		}
 	}
-	if o.trace != "" {
-		if f, err := os.OpenFile(o.trace, os.O_APPEND|os.O_CREATE|os.O_WRONLY, konst.TraceFileMode); err == nil {
-			b.trace, b.traced = &trace{w: f}, f
-		}
-	}
+	b.trace.log("terminal: detected identity %d in %v", b.Capabilities.Identity, time.Since(detecting).Round(time.Microsecond))
 	switch {
 	case b.Capabilities.Identity != IdentityZed:
 		b.trace.log("overlay: none, identity %d is not Zed", b.Capabilities.Identity)
@@ -274,6 +282,9 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 			return nil, err
 		}
 	}
+	b.mu.Lock()
+	b.wrote = false
+	b.mu.Unlock()
 	return b, nil
 }
 
@@ -629,7 +640,12 @@ func (b *Backend) Write(frame []byte) (int, error) {
 	}
 	b.mu.Lock()
 	n, err := b.out.Write(frame)
+	first := !b.wrote
+	b.wrote = true
 	b.mu.Unlock()
+	if first {
+		b.trace.log("terminal: first frame written, %d bytes", n)
+	}
 	if err != nil {
 		return n, errors.Join(err, b.Exit())
 	}
@@ -638,6 +654,8 @@ func (b *Backend) Write(frame []byte) (int, error) {
 	}
 	return n, nil
 }
+
+func (b *Backend) Trace(format string, args ...any) { b.trace.log(format, args...) }
 
 func (b *Backend) Exit() error {
 	b.mu.Lock()
@@ -680,6 +698,7 @@ func (b *Backend) Exit() error {
 	for range b.Events {
 	}
 	err = errors.Join(err, b.tty.restore())
+	b.trace.log("terminal: exit")
 	if b.traced != nil {
 		err = errors.Join(err, b.traced.Close())
 	}

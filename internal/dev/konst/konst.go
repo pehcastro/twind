@@ -17,6 +17,7 @@ const (
 	RestoreCursor   = "\x1b8"
 	EraseRight      = "\x1b[K"
 	KeptBuilds      = 16
+	StillActive     = 259
 	NoInline        = "-l"
 	NoDWARF         = "-w"
 	ArchiveMagic    = "!<arch>\n"

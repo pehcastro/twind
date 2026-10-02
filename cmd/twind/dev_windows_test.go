@@ -447,7 +447,7 @@ func (c *console) firstAfter(t *testing.T, at time.Time, limit time.Duration) ti
 func scratchEnv(root, temp string) []string {
 	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
 		key, _, _ := strings.Cut(strings.ToUpper(kv), "=")
-		return key == "LOCALAPPDATA" || key == "TMP" || key == "TEMP"
+		return key == "LOCALAPPDATA" || key == "TMP" || key == "TEMP" || key == "TWIND_TRACE"
 	})
 	return append(env, "LOCALAPPDATA="+filepath.Join(root, "cache"), "TMP="+temp, "TEMP="+temp)
 }
@@ -485,7 +485,7 @@ func openDocs(t *testing.T, name string) (c *console, input, logPath, scratch st
 		t.Fatal(err)
 	}
 	input, logPath = keep(t, clone), filepath.Join(scratch, "dev.log")
-	env := append(scratchEnv(root, scratch), "TWIND_TRACE="+filepath.Join(scratch, "trace.log"))
+	env := scratchEnv(root, scratch)
 	c = openConsole(t, clone, env, devExe(t, scratch), "dev", "-log", logPath, "./cmd/twind/docsdev", "-page", "input")
 	if _, ok := c.awaitText(t, "m@example.com", 5*time.Minute); !ok {
 		t.Fatalf("the input page never showed m@example.com:\n%s", c.text())
@@ -595,16 +595,21 @@ func TestDevDrivenSession(t *testing.T) {
 		usable(why, saved, shows)
 		shot(strings.ReplaceAll(why, " ", "-"))
 	}
-	step("h-3 to h-2", true, false, `in.field("h-3 "`, `in.field("h-2 "`)
-	step("h-2 back to h-3", true, true, `in.field("h-2 "`, `in.field("h-3 "`)
+	step("h-3 to h-2", true, true, `inputHeight      = "h-3 `, `inputHeight      = "h-2 `)
+	step("h-2 back to h-3", true, true, `inputHeight      = "h-2 `, `inputHeight      = "h-3 `)
 	step("placeholder colour", true, true, `placeholderClass = "text-muted-foreground"`, `placeholderClass = "text-destructive"`)
 	step("a new class", true, true, `placeholderClass = "text-destructive"`, `placeholderClass = "text-lime-700"`)
 	step("a compile error", false, true, `in.edge(fieldEdge)`, `in.edge(fieldEdgeX)`)
 	step("the fix", true, true, `in.edge(fieldEdgeX)`, `in.edge(fieldEdge)`)
+	c.type_("\x03")
+	if !c.exited(30 * time.Second) {
+		t.Error("twind dev still runs 30 s after Ctrl+C")
+	}
+	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(input), "..", "..", ".twind", "cache", "dev", "*")); len(left) > 0 {
+		t.Errorf("twind dev left %v", left)
+	}
 	text, _ := os.ReadFile(logPath)
 	t.Logf("log:\n%s", text)
-	trace, _ := os.ReadFile(filepath.Join(scratch, "trace.log"))
-	t.Logf("child trace:\n%s", trace)
 }
 
 func TestDevOutsideTheRepo(t *testing.T) {
@@ -670,7 +675,7 @@ func TestDevOutsideTheRepo(t *testing.T) {
 	if !c.exited(30 * time.Second) {
 		t.Fatal("twind dev still runs 30 s after q")
 	}
-	left, _ := filepath.Glob(filepath.Join(temp, "twind-dev-*"))
+	left, _ := filepath.Glob(filepath.Join(app, ".twind", "cache", "dev", "*"))
 	if len(left) > 0 {
 		t.Errorf("twind dev left %v", left)
 	}
