@@ -7,6 +7,7 @@ import (
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/text"
 )
 
@@ -35,7 +36,7 @@ func (o *InputOTP) Slot(i int) twi.Node {
 }
 
 func (o *InputOTP) Node(options ...twi.NodeOption) twi.Node {
-	return part(fade+"flex flex-row items-center gap-1", append(o.behave(o.key), options...))
+	return part(fade+"flex flex-row items-center gap-1", slices.Concat(o.behave(o.key), options, []twi.NodeOption{twi.Tag(style.ElementInput)}))
 }
 
 func (o *InputOTP) key(k input.KeyEvent) bool {

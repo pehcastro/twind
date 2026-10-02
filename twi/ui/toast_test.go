@@ -118,8 +118,8 @@ func TestToastStack(t *testing.T) {
 	expect("a fourth toast keeps the oldest hidden", has("Event 2") && !has("has not been created") && len(toaster.toasts) == 4)
 	gone := toaster.toasts[2]
 	_, y, _ = at(d.Frame(), "Event 1")
-	before, _, _ := strings.Cut(strings.Split(d.Frame().Text(), "\n")[y-1], "✕")
-	d.Click(len([]rune(before)), y-1)
+	before, _, _ := strings.Cut(strings.Split(d.Frame().Text(), "\n")[y], "✕")
+	d.Click(len([]rune(before)), y)
 	expect("the close button removes only its toast and stops its timer", !has("Event 1") && has("Event 2") && has("Saved") && gone.tick == nil && len(toaster.toasts) == 3)
 	x, y, _ = at(d.Frame(), "Undo")
 	d.Click(x, y)

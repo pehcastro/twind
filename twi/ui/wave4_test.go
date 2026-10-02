@@ -115,9 +115,8 @@ func TestInputGroupButtonInsideTheBorder(t *testing.T) {
 	expect := expecter(t, d)
 	fx, fy, _ := at(d.Frame(), "twind.dev")
 	bx, by, _ := at(d.Frame(), "Copy")
-	edge := func() string { return d.Frame().Cells().At(0, fy).Grapheme }
-	idle := edge()
-	halo := func() bool { return edge() != idle }
+	halo := func() bool { return d.Frame().Cells().At(1, fy).Fg.RGBA == light.Tokens[theme.Ring].RGBA }
+	expect("the group's border is not ring coloured before any focus", !halo())
 	expect("the button sits on the field's row, inside the group's 30 cells", by == fy && bx > fx && bx+len("Copy") <= 1+30)
 	hit(d, "tab")
 	expect("tab focuses the field", in.focused)
@@ -128,7 +127,7 @@ func TestInputGroupButtonInsideTheBorder(t *testing.T) {
 	settledClick(d, bx, by)
 	hit(d, "type:x")
 	expect("a click presses it and leaves the field alone", copies == 2 && in.Value() == "twind.dev")
-	expect("focus on the button inside keeps the group's focus-within halo left of the group", halo())
+	expect("a key on the button inside rings the group's border", halo())
 	t.Logf("input group with a button, 40x6:\n%s", d.Frame().Text())
 }
 

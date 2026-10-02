@@ -15,6 +15,7 @@ type comboItem struct {
 type Combobox struct {
 	anchored
 	Value, Placeholder, Empty string
+	ShowClear                 bool
 	OnChange                  func(string)
 	field                     *Input
 	typed, filter, filled     string
@@ -36,18 +37,19 @@ func (c *Combobox) Input(options ...twi.NodeOption) twi.Node {
 		}
 	}
 	c.field.Placeholder = c.Placeholder
-	chevron := part("flex rounded-sm px-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground", []twi.NodeOption{
-		c.click(func() {
-			if c.Open {
-				c.set(false)
-				return
-			}
-			c.show()
-		}),
-		icon("⌄", ""),
-	})
-	field := c.field.field("grow", []twi.NodeOption{twi.OnBlur(func() { c.set(false) })})
-	return group(&c.field.control, field, []Addon{InputGroupAddon(InlineEnd, chevron)}, append(options, keyDown(c.rt, c.key))...)
+	glyph, act := "⌄", func() {
+		if c.Open {
+			c.set(false)
+			return
+		}
+		c.show()
+	}
+	if c.ShowClear && c.field.Value() != "" {
+		glyph, act = "✕", func() { c.choose(selectItem{}) }
+	}
+	trigger := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{c.click(act), icon(glyph, "")})
+	field := c.field.field("h-1 grow", []twi.NodeOption{twi.OnBlur(func() { c.set(false) })})
+	return group(&c.field.control, field, []Addon{InputGroupAddon(InlineEnd, trigger)}, append(options, keyDown(c.rt, c.key))...)
 }
 
 func (c *Combobox) Content(children ...twi.NodeOption) twi.Node {

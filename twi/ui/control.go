@@ -14,36 +14,43 @@ const (
 	primaryRing       = "shadow-[0_0_0_1px_var(--color-primary)]"
 	invalidRing       = "shadow-[0_0_0_1px_var(--color-destructive)]"
 	focusRing         = "focus-visible:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
-	withinRing        = "focus-within:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
-	activeRing        = "data-[active=true]:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
+	activeRing        = "in-focus-visible:data-[active=true]:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
 	invalidFocusRing  = "focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
-	invalidWithinRing = "focus-within:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:focus-within:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
-	invalidActiveRing = "data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
+	invalidActiveRing = "in-focus-visible:data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:in-focus-visible:data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
+	fieldEdge         = "border border-input focus-visible:border-ring"
+	groupEdge         = "border border-input has-focus-visible:border-ring"
+	invalidEdge       = "border border-destructive"
 )
 
 type ringAt uint8
 
 const (
 	onSelf ringAt = iota
-	onGroup
 	onItem
 )
 
 type control struct {
 	Disabled, Invalid bool
 	rt                *twi.Runtime
-	focused, pointed  bool
+	focused           bool
 }
 
 func (c *control) ring(idle string, at ringAt) string {
 	if c.Invalid {
-		return invalidRing + " " + pick("ring", at, map[ringAt]string{onSelf: invalidFocusRing, onGroup: invalidWithinRing, onItem: invalidActiveRing})
+		return invalidRing + " " + pick("ring", at, map[ringAt]string{onSelf: invalidFocusRing, onItem: invalidActiveRing})
 	}
-	return idle + " " + pick("ring", at, map[ringAt]string{onSelf: focusRing, onGroup: withinRing, onItem: activeRing})
+	return idle + " " + pick("ring", at, map[ringAt]string{onSelf: focusRing, onItem: activeRing})
+}
+
+func (c *control) edge(valid string) string {
+	if c.Invalid {
+		return invalidEdge
+	}
+	return valid
 }
 
 func (c *control) dataActive(here bool) twi.NodeOption {
-	return twi.Data("active", strconv.FormatBool(c.focused && !c.pointed && here))
+	return twi.Data("active", strconv.FormatBool(c.focused && here))
 }
 
 func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
@@ -52,7 +59,7 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 	}
 	focus := func(on bool) func() {
 		return func() {
-			c.focused, c.pointed = on, false
+			c.focused = on
 			c.rt.Invalidate()
 		}
 	}
@@ -60,10 +67,7 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 	if keys == nil {
 		return options
 	}
-	return append(options, keyDown(c.rt, func(k input.KeyEvent) bool {
-		c.pointed = false
-		return keys(k)
-	}))
+	return append(options, keyDown(c.rt, keys))
 }
 
 func keyDown(rt *twi.Runtime, keys func(input.KeyEvent) bool) twi.NodeOption {
@@ -116,7 +120,6 @@ func arrow(k input.KeyEvent) int {
 func (c *control) click(act func()) twi.NodeOption {
 	return twi.OnClick(func(*twi.Event) {
 		if !c.Disabled {
-			c.pointed = true
 			act()
 			c.rt.Invalidate()
 		}

@@ -109,6 +109,7 @@ func props() map[string][]prop {
 		"Combobox": {
 			{"Value", "string", "the chosen item's value"},
 			{"Placeholder, Empty", "string", "the field's hint, and the text when nothing matches"},
+			{"ShowClear", "bool", "an x in place of the chevron while the field holds text"},
 			{"OnChange", "func(string)", "called when an item is chosen"},
 			{"Node(children...)", "twi.Node", "wraps the field and the list"},
 			{"Input(options...)", "twi.Node", "the field that filters as you type"},

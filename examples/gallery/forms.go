@@ -45,7 +45,7 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 				el("flex flex-col flex-1 min-w-0 gap-1",
 					field("Username", name.Node()),
 					field("Email", email.Node()),
-					field("Bio", bio.Node()),
+					field("Bio", bio.Node(twi.Class("min-h-4"))),
 					field("Plan", plan.Node(twi.Class("w-full"), plan.Trigger(twi.Class("w-full")), plan.Content(
 						plan.Item("free", "Free"), plan.Item("pro", "Pro"), plan.Item("team", "Team"), plan.Item("enterprise", "Enterprise"),
 					))),

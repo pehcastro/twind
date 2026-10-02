@@ -227,9 +227,9 @@ func TestFormPointer(t *testing.T) {
 	expect("a click on the disabled box does nothing", !strings.Contains(line("Disabled"), "✓"))
 	click("Compact", 0)
 	expect("a click on the Compact label picks it", strings.Contains(line("Compact"), "●") && !strings.Contains(line("Comfortable"), "●"))
-	off := cellRow(t, d.Frame(), "Airplane Mode")
+	off := airplaneRow(t, d.Frame())
 	click("Airplane Mode", -5)
-	expect("a click on the switch moves its thumb", !slices.Equal(cellRow(t, d.Frame(), "Airplane Mode"), off))
+	expect("a click on the switch moves its thumb", !slices.Equal(airplaneRow(t, d.Frame()), off))
 	t.Logf("after clicks on terms, Compact and the switch, twind light, 150x45:\n%s", d.Frame().Text())
 	if err := d.Err(); err != nil {
 		t.Fatal(err)

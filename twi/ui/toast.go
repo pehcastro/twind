@@ -153,8 +153,8 @@ func (t *Toaster) toast(s *toast) twi.Node {
 			t.dismiss(s)
 		}), twi.Text(s.action.Label))}
 	}
-	closeButton := part("absolute top-0 right-1 text-muted-foreground hover:text-foreground", []twi.NodeOption{twi.OnClick(func(*twi.Event) { t.dismiss(s) }), icon("✕", "")})
-	return part("relative flex flex-row items-center gap-1 shrink-0 rounded-lg border bg-popover px-2 py-1 text-popover-foreground shadow-lg", slices.Concat(
+	closeButton := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{twi.OnClick(func(*twi.Event) { t.dismiss(s) }), icon("✕", "")})
+	return part("flex flex-row items-center gap-1 shrink-0 rounded-lg border bg-popover pl-2 pr-1 py-1 text-popover-foreground shadow-lg", slices.Concat(
 		[]twi.NodeOption{twi.Key(strconv.Itoa(s.id))},
 		mark,
 		[]twi.NodeOption{part("flex flex-col grow min-w-0", body)},

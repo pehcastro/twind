@@ -88,6 +88,7 @@ type Runtime struct {
 	out           io.Writer
 	pointed       bool
 	ringless      bool
+	ringsHidden   bool
 	revealed      *Elem
 	intoView      string
 	measured      []*Ref
@@ -140,6 +141,11 @@ func (r *Runtime) Dispatch(f func()) {
 func (r *Runtime) Invalidate() {
 	r.changed.Store(true)
 	r.wakeUp()
+}
+
+func (r *Runtime) HideFocusRings() {
+	r.ringsHidden = true
+	r.Invalidate()
 }
 
 func (r *Runtime) Restyle(apply func()) {
@@ -279,7 +285,8 @@ func (r *Runtime) handle(ev input.Event) error {
 			r.sel.clear()
 			r.dirty = true
 		}
-		r.pointed = false
+		r.dirty = r.dirty || r.ringless
+		r.pointed, r.ringless = false, false
 		prevented := r.focus.Key(&r.doc, ev).DefaultPrevented()
 		r.refocused()
 		if prevented {
@@ -448,7 +455,7 @@ func (r *Runtime) marked(tree Tree) render.Node {
 	r.nodes = root
 	if current, ok := r.focus.Current(); ok {
 		at := style.StateFocus | style.StateFocusWithin
-		if !r.ringless {
+		if !r.ringsHidden && (!r.ringless || typing(root, current.path())) {
 			at |= style.StateFocusVisible
 		}
 		root = mark(root, current.path(), at, style.StateFocusWithin)
@@ -460,6 +467,16 @@ func (r *Runtime) marked(tree Tree) render.Node {
 		root = mark(root, r.pointer.pressed, style.StateActive, style.StateActive)
 	}
 	return root
+}
+
+func typing(n render.Node, path []int) bool {
+	for _, i := range path {
+		if i >= len(n.Children) {
+			return false
+		}
+		n = n.Children[i]
+	}
+	return n.Element == style.ElementInput || n.Element == style.ElementTextarea
 }
 
 func (r *Runtime) number(root render.Node) render.Node {

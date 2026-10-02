@@ -38,9 +38,7 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	switch d.kind {
 	case modal, sheet:
 		children = append(children, d.close("absolute top-1 right-2 rounded-xs opacity-70", "", []twi.NodeOption{icon("✕", "")}))
-	case palette:
-		children = append(children, d.close("absolute top-0 right-1 rounded-xs opacity-70", "", []twi.NodeOption{icon("✕", "")}))
-	case alert, drawer:
+	case alert, drawer, palette:
 	default:
 		panic("ui: unknown dialog kind")
 	}

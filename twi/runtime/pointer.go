@@ -86,7 +86,8 @@ func (r *Runtime) hover() {
 }
 
 func (r *Runtime) press(ev input.MouseEvent) {
-	r.pointed = true
+	r.dirty = r.dirty || !r.ringless
+	r.pointed, r.ringless = true, true
 	target := r.pointer.over
 	r.pointer.down = target
 	if ev.Button == input.MouseLeft {

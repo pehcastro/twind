@@ -14,7 +14,7 @@ const (
 
 func Attachment(u Upload, o Orientation, children ...twi.NodeOption) twi.Node {
 	state := pick("attachment", u, map[Upload]string{Done: "done", Idle: "idle", Uploading: "uploading", Processing: "processing", Failed: "error"})
-	return part("group/attachment relative flex w-fit max-w-full min-w-0 shrink-0 gap-1 rounded-xl border bg-card px-1 text-card-foreground focus-within:border-ring data-[state=error]:border-destructive/30 data-[state=idle]:border-dashed "+pick("attachment", o, map[Orientation]string{
+	return part("group/attachment relative flex w-fit max-w-full min-w-0 shrink-0 gap-1 rounded-xl border bg-card px-1 text-card-foreground has-focus-visible:border-ring data-[state=error]:border-destructive/30 data-[state=idle]:border-dashed "+pick("attachment", o, map[Orientation]string{
 		Horizontal: "flex-row min-w-20 items-center",
 		Vertical:   "flex-col w-16",
 	}), append([]twi.NodeOption{twi.Data("slot", "attachment"), twi.Data("state", state), twi.Data("orientation", pick("attachment", o, map[Orientation]string{Horizontal: "horizontal", Vertical: "vertical"}))}, children...))

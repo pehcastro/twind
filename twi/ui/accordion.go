@@ -34,7 +34,6 @@ func (a *Accordion) Node(children ...twi.NodeOption) twi.Node {
 	a.active = min(a.active, max(len(a.items)-1, 0))
 	own := twi.OnKeyDown(func(e *twi.Event) {
 		if e.Target() == e.Current() && !e.Key.Release && a.key(e.Key) {
-			a.pointed = false
 			e.PreventDefault()
 			e.StopPropagation()
 			a.rt.Invalidate()

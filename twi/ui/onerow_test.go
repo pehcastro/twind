@@ -38,7 +38,17 @@ func TestCellLookOneRowControlsDriven(t *testing.T) {
 		t.Logf("scheme %d, 80x24:\n%s", scheme, f.Text())
 		lines, page := strings.Split(f.Text(), "\n"), th.Tokens[theme.Background].RGBA
 		luma := func(c color.RGBA) int { return 299*int(c.R) + 587*int(c.G) + 114*int(c.B) }
-		for _, label := range []string{"Login with Google", "m@example.com", "not an email", "Outline"} {
+		for _, label := range []string{"m@example.com", "not an email"} {
+			y := slices.IndexFunc(lines, func(l string) bool { return strings.Contains(l, label) })
+			if y < 1 || !strings.Contains(lines[y-1], "╭") || strings.Count(lines[y], "│") != 2 || !strings.Contains(lines[y+1], "╰") {
+				t.Fatalf("scheme %d: %q is not boxed by its border, a row above and below the text:\n%s", scheme, label, f.Text())
+			}
+			edge := f.Cells().At(2, y).Fg.RGBA
+			if red := int(edge.R) > int(edge.G)+20; red != (label == "not an email") {
+				t.Errorf("scheme %d %q: border %v, want red only on the invalid input", scheme, label, edge)
+			}
+		}
+		for _, label := range []string{"Login with Google", "Outline"} {
 			y := slices.IndexFunc(lines, func(l string) bool { return strings.Contains(l, label) })
 			if y < 0 {
 				t.Fatalf("scheme %d: no %q in the frame", scheme, label)
@@ -51,22 +61,15 @@ func TestCellLookOneRowControlsDriven(t *testing.T) {
 			}
 			inside := f.Cells().At(2, y).Bg.RGBA
 			t.Logf("scheme %d %q: bg %v, page %v", scheme, label, inside, page)
-			switch label {
-			case "Outline", "Login with Google":
-				apart := 5000
-				if scheme == theme.Dark && label == "Outline" {
-					apart = 15000
-				}
-				if d := luma(inside) - luma(page); max(d, -d) < apart {
-					t.Errorf("scheme %d %q: %v is too close to the page %v, want a visible shape", scheme, label, inside, page)
-				}
-				if secondary, d := th.Tokens[theme.Secondary].RGBA, luma(inside)-luma(page); max(d, -d) > max(luma(secondary)-luma(page), luma(page)-luma(secondary)) {
-					t.Errorf("scheme %d %q: %v stands further from the page than the Secondary badge %v", scheme, label, inside, secondary)
-				}
-			case "not an email":
-				if int(inside.R) < int(inside.G)+20 {
-					t.Errorf("scheme %d: the invalid input %v, want its red ring blended over the fill", scheme, inside)
-				}
+			apart := 5000
+			if scheme == theme.Dark && label == "Outline" {
+				apart = 15000
+			}
+			if d := luma(inside) - luma(page); max(d, -d) < apart {
+				t.Errorf("scheme %d %q: %v is too close to the page %v, want a visible shape", scheme, label, inside, page)
+			}
+			if secondary, d := th.Tokens[theme.Secondary].RGBA, luma(inside)-luma(page); max(d, -d) > max(luma(secondary)-luma(page), luma(page)-luma(secondary)) {
+				t.Errorf("scheme %d %q: %v stands further from the page than the Secondary badge %v", scheme, label, inside, secondary)
 			}
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/edit"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/text"
 )
 
@@ -28,11 +29,11 @@ func NewInput(rt *twi.Runtime) *Input {
 }
 
 func (in *Input) Node(options ...twi.NodeOption) twi.Node {
-	return in.field("w-full rounded-md dark:bg-input/30 "+in.ring(inputRing, onSelf), options)
+	return in.field("h-3 w-full rounded-md dark:bg-input/30 "+in.edge(fieldEdge), options)
 }
 
 func (in *Input) field(classes string, options []twi.NodeOption) twi.Node {
-	return in.Input.Node(append(in.behave(nil), merged(fade+"flex flex-row h-1 min-w-0 px-1 overflow-hidden "+classes, options)...)...)
+	return in.Input.Node(append(in.behave(nil), merged(fade+"flex flex-row min-w-0 px-1 overflow-hidden "+classes, append(options, twi.Tag(style.ElementInput)))...)...)
 }
 
 type Textarea struct {
@@ -46,7 +47,7 @@ func NewTextarea(rt *twi.Runtime) *Textarea {
 }
 
 func (t *Textarea) Node(options ...twi.NodeOption) twi.Node {
-	return t.field("w-full rounded-md dark:bg-input/30 "+t.ring(inputRing, onSelf), options)
+	return t.field("min-h-6 w-full rounded-md dark:bg-input/30 "+t.edge(fieldEdge), options)
 }
 
 func (t *Textarea) field(classes string, options []twi.NodeOption) twi.Node {
@@ -63,7 +64,7 @@ func (t *Textarea) field(classes string, options []twi.NodeOption) twi.Node {
 		rows = append(rows, t.row(line, from))
 		from += len(line) + 1
 	}
-	return part(fade+"flex flex-col min-h-4 px-1 overflow-hidden "+classes, slices.Concat(keys, rows, options))
+	return part(fade+"flex flex-col px-1 overflow-hidden "+classes, slices.Concat(keys, rows, options, []twi.NodeOption{twi.Tag(style.ElementTextarea)}))
 }
 
 func (t *Textarea) row(line string, from int) twi.Node {
@@ -122,11 +123,11 @@ func InputGroupButton(children ...twi.NodeOption) twi.Node {
 }
 
 func (in *Input) Group(addons ...Addon) twi.Node {
-	return group(&in.control, in.field("grow", nil), addons)
+	return group(&in.control, in.field("h-1 grow", nil), addons)
 }
 
 func (t *Textarea) Group(addons ...Addon) twi.Node {
-	return group(&t.control, t.field("grow", nil), addons)
+	return group(&t.control, t.field("min-h-4 grow", nil), addons)
 }
 
 func group(c *control, field twi.Node, addons []Addon, options ...twi.NodeOption) twi.Node {
@@ -135,5 +136,5 @@ func group(c *control, field twi.Node, addons []Addon, options ...twi.NodeOption
 		at[a.align] = append(at[a.align], a.node)
 	}
 	middle := part("flex flex-row items-center w-full", slices.Concat(at[InlineStart], []twi.NodeOption{field}, at[InlineEnd]))
-	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.ring(inputRing, onGroup), slices.Concat(options, at[BlockStart], []twi.NodeOption{middle}, at[BlockEnd]))
+	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.edge(groupEdge), slices.Concat(options, at[BlockStart], []twi.NodeOption{middle}, at[BlockEnd]))
 }

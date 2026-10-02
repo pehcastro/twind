@@ -16,9 +16,9 @@ import (
 
 const settleTime = time.Second
 
-func cellRow(t *testing.T, f drive.Frame, anchor string) []buffer.Cell {
+func airplaneRow(t *testing.T, f drive.Frame) []buffer.Cell {
 	t.Helper()
-	return slices.Clone(f.Cells().Row(find(t, f, anchor).y))
+	return slices.Clone(f.Cells().Row(find(t, f, "Airplane Mode").y))
 }
 
 func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
@@ -142,21 +142,21 @@ func TestFormKeys(t *testing.T) {
 		}
 	}
 
-	focused("Email", 2, 1)
+	focused("Email", 2, 2)
 	d.Type("m@example.com")
 	expect("the email input holds what was typed", regexp.MustCompile(`[│▐] m@example\.com`).MatchString(line("m@example.com")))
 
 	d.Press("tab")
 	expect("the invalid username takes focus with its destructive ring, so no ring-coloured cell is left", len(ringRows(d.Frame(), ring)) == 0)
 
-	focused("Your message", 2, 4)
+	focused("Your message", 2, 5)
 	d.Type("Hello")
 	d.Press("enter")
 	d.Type("world")
 	hello, world := find(t, d.Frame(), "Hello"), find(t, d.Frame(), "world")
 	expect("the textarea breaks the line at Enter", world.y == hello.y+1 && world.x == hello.x)
 
-	focused("Website", 2, 1)
+	focused("Website", 2, 2)
 	d.Type("twind")
 	expect("the group input sits between its addons", strings.Contains(line("https://"), "https:// twind") && strings.Contains(line("https://"), ".com"))
 
@@ -171,9 +171,9 @@ func TestFormKeys(t *testing.T) {
 	focused("Enable notifications", 0, 1)
 
 	focused("Airplane Mode", 0, 1)
-	off := cellRow(t, d.Frame(), "Airplane Mode")
+	off := airplaneRow(t, d.Frame())
 	d.Press("space")
-	expect("space moves the switch thumb", !slices.Equal(cellRow(t, d.Frame(), "Airplane Mode"), off))
+	expect("space moves the switch thumb", !slices.Equal(airplaneRow(t, d.Frame()), off))
 
 	focused("Comfortable", 0, 1)
 	d.Press("down")
@@ -208,7 +208,7 @@ func TestFormKeys(t *testing.T) {
 		return r
 	}, otp), "123-456"))
 
-	focused("Email", 2, 1)
+	focused("Email", 2, 2)
 	t.Logf("after the script, twind light, 150x45:\n%s", d.Frame().Text())
 	if err := d.Err(); err != nil {
 		t.Fatal(err)
