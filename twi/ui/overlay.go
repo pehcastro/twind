@@ -94,11 +94,15 @@ func (p *presence) next(rt *twi.Runtime, open bool) phase {
 type overlay struct {
 	control
 	presence
+	Key          string
 	Open         bool
 	OnOpenChange func(bool)
 }
 
-func (o *overlay) phase() phase { return o.next(o.rt, o.Open) }
+func (o *overlay) phase() phase {
+	o.remember()
+	return o.next(o.rt, o.Open)
+}
 
 func (o *overlay) set(open bool) {
 	if o.Open != open {

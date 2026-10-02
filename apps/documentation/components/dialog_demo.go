@@ -7,6 +7,7 @@ import (
 
 func DialogDemo(rt *twi.Runtime) func() twi.Node {
 	dialog, name, username := ui.NewDialog(rt), ui.NewInput(rt), ui.NewInput(rt)
+	dialog.Key, name.Key, username.Key = "profile", "name", "username"
 	name.Insert("Pedro Duarte")
 	username.Insert("@peduarte")
 	return func() twi.Node {

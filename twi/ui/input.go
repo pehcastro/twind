@@ -25,7 +25,7 @@ const (
 type editor struct {
 	edit.Buffer
 	control
-	Placeholder        string
+	Key, Placeholder   string
 	Submit             func(string)
 	width, scroll, top int
 	dragging           bool
@@ -61,6 +61,7 @@ func (t *Textarea) Group(addons ...Addon) twi.Node {
 }
 
 func (e *editor) field(classes string, options []twi.NodeOption) twi.Node {
+	e.remember()
 	e.Widths = e.rt.Widths()
 	tag, shown := style.ElementInput, 1
 	if e.Mode == edit.MultiLine {
@@ -80,6 +81,9 @@ func (e *editor) field(classes string, options []twi.NodeOption) twi.Node {
 		e.scroll = max(min(e.scroll, widest+1-e.width), 0)
 	}
 	own := e.behave(nil)
+	if e.Key != "" {
+		own = append(own, twi.Key(e.Key))
+	}
 	if !e.Disabled {
 		if e.listeners == nil {
 			e.listeners = []twi.NodeOption{twi.OnKeyDown(e.key), twi.OnPointerDown(e.press), twi.OnPointerMove(e.drag), twi.OnPointerUp(e.release), twi.OnPaste(e.paste), twi.OnWidth(e.resize)}
@@ -132,19 +136,11 @@ func (e *editor) row(line string, from int, caret bool) twi.Node {
 }
 
 func chipped(parts []twi.NodeOption, s string) []twi.NodeOption {
-	for {
-		open := strings.Index(s, edit.ChipHead)
-		shut := strings.IndexByte(s[max(open, 0):], ']')
-		if open < 0 || shut < 0 {
-			return append(parts, twi.Text(s))
-		}
-		shut += open + 1
-		if !strings.HasSuffix(s[:shut], edit.ChipTail) {
-			parts, s = append(parts, twi.Text(s[:shut])), s[shut:]
-			continue
-		}
-		parts, s = append(parts, twi.Text(s[:open]), part(chipClass, []twi.NodeOption{twi.Text(s[open:shut])})), s[shut:]
+	at := 0
+	for start, end := range chipSpans(s) {
+		parts, at = append(parts, twi.Text(s[at:start]), part(chipClass, []twi.NodeOption{twi.Text(s[start:end])})), end
 	}
+	return append(parts, twi.Text(s[at:]))
 }
 
 func (e *editor) key(ev *twi.Event) {

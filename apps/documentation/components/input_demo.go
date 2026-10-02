@@ -7,7 +7,7 @@ import (
 
 func InputDemo(rt *twi.Runtime) func() twi.Node {
 	email, disabled, invalid := ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt)
-	email.Placeholder, disabled.Placeholder = "m@example.com", "Disabled"
+	email.Key, email.Placeholder, disabled.Placeholder = "email", "m@example.com", "Disabled"
 	disabled.Disabled, invalid.Invalid = true, true
 	invalid.Insert("not-an-email")
 	return func() twi.Node {

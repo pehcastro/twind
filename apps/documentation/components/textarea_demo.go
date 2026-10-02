@@ -7,7 +7,7 @@ import (
 
 func TextareaDemo(rt *twi.Runtime) func() twi.Node {
 	message := ui.NewTextarea(rt)
-	message.Placeholder = "Type your message here."
+	message.Key, message.Placeholder = "message", "Type your message here."
 	return func() twi.Node {
 		return ui.Field(ui.Vertical, twi.Class("w-48"),
 			ui.FieldLabel(twi.Text("Your message")),

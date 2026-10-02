@@ -183,19 +183,47 @@ func (s *site) resolve(file string, blocks []markdown.Block) error {
 }
 
 func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
+	s, err := build(rt, start)
+	if err != nil {
+		return nil, err
+	}
+	return s.view, nil
+}
+
+func (s *site) remember() {
+	s.rt.Remember("docs.page", s.pageMemo, s.recallPage)
+	s.rt.Remember("docs.theme", s.themeMemo, s.recallTheme)
+}
+
+func (s *site) pageMemo() string { return s.entries[s.page].slug }
+
+func (s *site) recallPage(slug string) {
+	if i := slices.IndexFunc(s.entries, func(e entry) bool { return e.slug == slug }); i >= 0 {
+		s.open(i)
+	}
+}
+
+func (s *site) themeMemo() string { return themeName(s.themes[s.theme].WithScheme(s.scheme)) }
+
+func (s *site) recallTheme(name string) {
+	for i, t := range s.themes {
+		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
+			if themeName(t.WithScheme(scheme)) == name {
+				s.theme, s.scheme = i, scheme
+				s.show(i)
+			}
+		}
+	}
+}
+
+func build(rt *twi.Runtime, start Start) (*site, error) {
 	s := newSite(rt, components.All(), blocks.All())
 	if err := s.load(docs.Pages); err != nil {
 		return nil, err
 	}
 	s.page = slices.IndexFunc(s.entries, func(e entry) bool { return e.slug == start.Page })
 	s.theme = -1
-	for i, t := range s.themes {
-		for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
-			if themeName(t.WithScheme(scheme)) == start.Theme {
-				s.theme, s.scheme = i, scheme
-			}
-		}
-	}
+	s.recallTheme(start.Theme)
 	if s.page < 0 {
 		return nil, fmt.Errorf("page %q: not a page of the documentation", start.Page)
 	}
@@ -206,7 +234,7 @@ func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
 		return nil, err
 	}
 	s.folds[s.entries[s.page].group].Open = true
-	s.show(s.theme)
+	s.palette.Key = "palette"
 	s.palette.OnSelect = func(value string) {
 		if i := slices.IndexFunc(s.entries, func(e entry) bool { return e.title == value }); i >= 0 {
 			s.open(i)
@@ -217,7 +245,7 @@ func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
 			s.show(i)
 		}
 	}
-	return s.view, nil
+	return s, nil
 }
 
 func (s *site) show(i int) {
@@ -257,6 +285,7 @@ func el(class string, children ...twi.NodeOption) twi.Node {
 func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 
 func (s *site) view() twi.Node {
+	s.remember()
 	e := s.entries[s.page]
 	return el("flex flex-col h-full bg-background text-foreground",
 		twi.OnKeyDown(func(ev *twi.Event) {
