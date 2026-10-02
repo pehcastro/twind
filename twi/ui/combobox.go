@@ -102,8 +102,7 @@ func (c *Combobox) fill() {
 	if i := c.chosen(); i >= 0 {
 		label = c.items[i].label
 	}
-	c.field.Apply(input.KeyEvent{Key: input.KeyRune, Rune: 'a', Modifiers: input.ModCtrl})
-	c.field.Insert(label)
+	c.field.Set(label)
 	c.typed = c.field.Value()
 }
 

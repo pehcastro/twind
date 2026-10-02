@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/twind-dev/twind/twi/events"
+	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/style"
 )
@@ -101,6 +102,18 @@ type onScroll func(image.Point)
 func (h onScroll) apply(n *node) { push(&n.behave().Scroll, (func(image.Point))(h)) }
 
 func OnScroll(handler func(offset image.Point)) NodeOption { return onScroll(handler) }
+
+func OnPaste(handler func(text string)) NodeOption {
+	return behaviour(func(n *runtime.Node) { n.Paste = handler })
+}
+
+func OnHotkey(handler func(input.KeyEvent) bool) NodeOption {
+	return behaviour(func(n *runtime.Node) { n.Hotkey = handler })
+}
+
+func OnWidth(handler func(contentWidth int)) NodeOption {
+	return behaviour(func(n *runtime.Node) { n.Width = handler })
+}
 
 func Focusable() NodeOption { return behaviour(func(n *runtime.Node) { n.Focusable = true }) }
 

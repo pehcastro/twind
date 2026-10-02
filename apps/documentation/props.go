@@ -160,6 +160,7 @@ func props() map[string][]prop {
 			{"Placeholder", "string", "shown while it is empty"},
 			{"Value()", "string", "what it holds"},
 			{"Insert(s)", "func(string)", "types text at the cursor"},
+			{"Submit", "func(string)", "called by Enter with the trimmed text, which then clears and joins the Up history"},
 			{"Invalid", "bool", "draws a destructive ring"},
 			disabled,
 			{"Node(options...)", "twi.Node", "the field"},
@@ -310,6 +311,7 @@ func props() map[string][]prop {
 		"Textarea": {
 			{"Placeholder", "string", "shown while it is empty"},
 			{"Value(), Insert(s)", "string", "what it holds, and typing at the cursor"},
+			{"Submit", "func(string)", "called by Enter with the trimmed text, which then clears and joins the Up history; Shift+Enter breaks the line"},
 			{"Invalid", "bool", "draws a destructive ring"},
 			disabled,
 		},

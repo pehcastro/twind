@@ -22,6 +22,11 @@ const (
 	PanelMin      = 10
 	PanelStep     = 5
 	WeeksShown    = 6
+	TextareaRows  = 8
+
+	PasteChipRunes = 160
+	PasteTabSpaces = 4
+	FieldRowParts  = 5
 
 	DrawerCloseDivisor = 4
 )

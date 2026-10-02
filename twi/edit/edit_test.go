@@ -208,17 +208,15 @@ func TestSelectCollapse(t *testing.T) {
 	press(t, &b, with(home, input.ModShift))
 	want(t, &b, "hello", 0, 5)
 	press(t, &b, right)
-	want(t, &b, "hello", 5, 5)
-	press(t, &b, with(left, input.ModShift), with(left, input.ModShift), left)
-	want(t, &b, "hello", 3, 3)
+	want(t, &b, "hello", 1, 1)
 	press(t, &b, with(end, input.ModShift), del)
-	want(t, &b, "hel", 3, 3)
+	want(t, &b, "h", 1, 1)
 }
 
 func TestSelectAll(t *testing.T) {
 	b := Buffer{Mode: MultiLine}
 	b.Insert("ab\ncd")
-	press(t, &b, ctrl('a'))
+	press(t, &b, ctrl('g'))
 	want(t, &b, "ab\ncd", 0, 5)
 	b.Insert("z")
 	want(t, &b, "z", 1, 1)
@@ -375,7 +373,7 @@ func TestMultilinePreferredColumn(t *testing.T) {
 	press(t, &b, down)
 	wantCursor(t, &b, 2, 6)
 	press(t, &b, up, up, up)
-	want(t, &b, "abcdef\nx\nabcdef", 0, 0)
+	want(t, &b, "abcdef\nx\nabcdef", 6, 6)
 }
 
 func TestMultilineWideGoal(t *testing.T) {

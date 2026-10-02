@@ -106,6 +106,9 @@ func (r *Runtime) Viewport() image.Rectangle { return image.Rect(0, 0, r.width, 
 
 func (r *Runtime) measure() bool {
 	moved := false
+	for _, e := range r.doc.widths {
+		e.node.Width(r.doc.sceneOf(e).Content.W)
+	}
 	for _, e := range r.doc.refs {
 		at, ref := r.doc.sceneOf(e).Bounds, e.node.Measure
 		box := image.Rect(at.X, at.Y, at.X+at.W, at.Y+at.H)

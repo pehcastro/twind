@@ -292,6 +292,9 @@ func (r *Runtime) handle(ev input.Event) error {
 			r.sel.clear()
 			r.dirty = true
 		}
+		if !ev.Release && r.hotkey(ev) {
+			return nil
+		}
 		r.dirty = r.dirty || r.ringless
 		r.pointed, r.ringless = false, false
 		prevented := r.focus.Key(&r.doc, ev).DefaultPrevented()
@@ -313,11 +316,23 @@ func (r *Runtime) handle(ev input.Event) error {
 		if ev.Cell != (image.Point{}) {
 			r.zoomed = ev.Cell
 		}
-	case input.PasteEvent, input.FocusEvent, input.ReplyEvent:
+	case input.PasteEvent:
+		r.rebuild = true
+		for e, _ := r.focus.Current(); e != nil; e = e.parent {
+			if e.node.Paste != nil {
+				e.node.Paste(ev.Text)
+				break
+			}
+		}
+	case input.FocusEvent, input.ReplyEvent:
 	default:
 		panic(fmt.Sprintf("runtime: unknown event %T", ev))
 	}
 	return nil
+}
+
+func (r *Runtime) hotkey(ev input.KeyEvent) bool {
+	return slices.ContainsFunc(r.doc.hotkeys, func(e *Elem) bool { return e.node.Hotkey(ev) })
 }
 
 func (r *Runtime) activate(ev input.KeyEvent) {

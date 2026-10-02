@@ -12,7 +12,10 @@ Tab into the boxes above, press **+** or click one.
 | --- | --- |
 | `twi.OnClick(func(*twi.Event))` | a click, or Enter or Space on the focused element |
 | `twi.OnKeyDown(func(*twi.Event))` | a key while the element or a child has focus; the key is in `e.Key` |
-| `twi.OnKey(func(input.KeyEvent))` | every key, wherever the focus is, for global shortcuts |
+| `twi.OnKey(func(input.KeyEvent))` | every key the focused element did not take, wherever the focus is |
+| `twi.OnHotkey(func(input.KeyEvent) bool)` | every key before the focused element sees it; return true to take it, as the Sidebar's Ctrl+B and the Command palette's Ctrl+K do |
+| `twi.OnPaste(func(string))` | a paste, on the focused element or the nearest parent with a handler |
+| `twi.OnWidth(func(int))` | its content width after each layout, so text can wrap to it |
 | `twi.OnFocus(func())`, `twi.OnBlur(func())` | the element gaining or losing focus |
 | `twi.OnPointerEnter(func())`, `twi.OnPointerLeave(func())` | the pointer moving over it and away |
 | `twi.OnPointerDown(func(*twi.Event))` | a button pressed over it; the button is in `e.Mouse` |

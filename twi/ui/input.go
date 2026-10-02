@@ -3,8 +3,10 @@ package ui
 import (
 	"slices"
 	"strings"
+	"unicode"
 
 	tkonst "github.com/twind-dev/twind/internal/konst/terminal"
+	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/edit"
 	"github.com/twind-dev/twind/twi/input"
@@ -16,16 +18,18 @@ const (
 	cursorClass      = "bg-foreground text-background"
 	selectionClass   = "bg-primary text-primary-foreground"
 	placeholderClass = "text-muted-foreground"
+	chipClass        = "text-amber-700 dark:text-amber-300"
 	fieldBox         = "w-full rounded-md dark:bg-input/30 "
 )
 
 type editor struct {
 	edit.Buffer
 	control
-	Placeholder   string
-	width, scroll int
-	dragging      bool
-	listeners     []twi.NodeOption
+	Placeholder        string
+	Submit             func(string)
+	width, scroll, top int
+	dragging           bool
+	listeners          []twi.NodeOption
 }
 
 type Input struct{ editor }
@@ -58,14 +62,14 @@ func (t *Textarea) Group(addons ...Addon) twi.Node {
 
 func (e *editor) field(classes string, options []twi.NodeOption) twi.Node {
 	e.Widths = e.rt.Widths()
-	tag := style.ElementInput
+	tag, shown := style.ElementInput, 1
 	if e.Mode == edit.MultiLine {
-		tag = style.ElementTextarea
+		tag, shown, e.Wrap = style.ElementTextarea, konst.TextareaRows, e.width
 	}
+	row, caret := e.Cursor()
 	if !e.focused {
 		e.scroll = 0
 	} else if e.width > 0 {
-		_, caret := e.Cursor()
 		e.scroll = max(min(e.scroll, caret), caret+1-e.width)
 	}
 	if e.scroll > 0 {
@@ -78,19 +82,19 @@ func (e *editor) field(classes string, options []twi.NodeOption) twi.Node {
 	own := e.behave(nil)
 	if !e.Disabled {
 		if e.listeners == nil {
-			e.listeners = []twi.NodeOption{twi.OnKeyDown(e.key), twi.OnPointerDown(e.press), twi.OnPointerMove(e.drag), twi.OnPointerUp(e.release)}
+			e.listeners = []twi.NodeOption{twi.OnKeyDown(e.key), twi.OnPointerDown(e.press), twi.OnPointerMove(e.drag), twi.OnPointerUp(e.release), twi.OnPaste(e.paste), twi.OnWidth(e.resize)}
 		}
 		own = append(own, e.listeners...)
 	}
-	from := 0
-	for line := range strings.SplitSeq(e.Value(), "\n") {
-		own = append(own, e.row(line, from))
-		from += len(line) + 1
+	rows := e.Rows()
+	e.top = min(max(min(e.top, row), row+1-shown), max(len(rows)-shown, 0))
+	for i, r := range rows[e.top:min(e.top+shown, len(rows))] {
+		own = append(own, e.row(e.Value()[r.Start:r.End], r.Start, e.top+i == row))
 	}
 	return part(fade+"flex flex-col min-w-0 px-1 overflow-hidden select-none cursor-text "+classes, slices.Concat(own, options, []twi.NodeOption{twi.Tag(tag)}))
 }
 
-func (e *editor) row(line string, from int) twi.Node {
+func (e *editor) row(line string, from int, caret bool) twi.Node {
 	skip, x := 0, 0
 	for g := range text.Graphemes(line) {
 		if x >= e.scroll {
@@ -101,19 +105,22 @@ func (e *editor) row(line string, from int) twi.Node {
 	line, from = line[skip:], from+skip
 	start, end := e.Selection()
 	lo, hi := start-from, end-from
-	parts := []twi.NodeOption{twi.Text(line)}
+	parts := make([]twi.NodeOption, 0, konst.FieldRowParts)
 	switch {
-	case !e.focused:
-	case lo == hi && lo >= 0 && lo <= len(line):
+	case e.focused && lo == hi && caret:
 		cursor := " "
 		for g := range text.Graphemes(line[lo:]) {
 			cursor = g
 			break
 		}
-		parts = []twi.NodeOption{twi.Text(line[:lo]), part(cursorClass, []twi.NodeOption{twi.Text(cursor)}), twi.Text(line[min(lo+len(cursor), len(line)):])}
-	case lo != hi && lo < len(line) && hi > 0:
+		parts = append(chipped(parts, line[:lo]), part(cursorClass, []twi.NodeOption{twi.Text(cursor)}))
+		parts = chipped(parts, line[min(lo+len(cursor), len(line)):])
+	case e.focused && lo != hi && lo < len(line) && hi > 0:
 		lo, hi = max(lo, 0), min(hi, len(line))
-		parts = []twi.NodeOption{twi.Text(line[:lo]), part(selectionClass, []twi.NodeOption{twi.Text(line[lo:hi])}), twi.Text(line[hi:])}
+		parts = append(chipped(parts, line[:lo]), part(selectionClass, []twi.NodeOption{twi.Text(line[lo:hi])}))
+		parts = chipped(parts, line[hi:])
+	default:
+		parts = chipped(parts, line)
 	}
 	if x > e.scroll {
 		parts = slices.Insert(parts, 0, twi.NodeOption(twi.Text(" ")))
@@ -124,15 +131,39 @@ func (e *editor) row(line string, from int) twi.Node {
 	return part("flex flex-row h-1 min-w-0 overflow-hidden whitespace-pre", parts)
 }
 
+func chipped(parts []twi.NodeOption, s string) []twi.NodeOption {
+	for {
+		open := strings.Index(s, edit.ChipHead)
+		shut := strings.IndexByte(s[max(open, 0):], ']')
+		if open < 0 || shut < 0 {
+			return append(parts, twi.Text(s))
+		}
+		shut += open + 1
+		if !strings.HasSuffix(s[:shut], edit.ChipTail) {
+			parts, s = append(parts, twi.Text(s[:shut])), s[shut:]
+			continue
+		}
+		parts, s = append(parts, twi.Text(s[:open]), part(chipClass, []twi.NodeOption{twi.Text(s[open:shut])})), s[shut:]
+	}
+}
+
 func (e *editor) key(ev *twi.Event) {
 	k := ev.Key
 	if k.Release {
 		return
 	}
-	e.width = e.rt.ContentBox(ev.Current()).Dx()
-	if e.Mode == edit.MultiLine && k.Key == input.KeyEnter && k.Modifiers == 0 {
-		e.Insert("\n")
-	} else if !e.Apply(k) {
+	switch {
+	case k.Key == input.KeyEnter && k.Modifiers == 0 && e.Submit != nil:
+		if sent := strings.TrimSpace(e.Value()); sent != "" {
+			whole := e.Expand(sent)
+			e.Remember(sent)
+			e.Set("")
+			e.Submit(whole)
+		}
+	case k.Key == input.KeyRune && k.Modifiers == input.ModCtrl|input.ModShift && unicode.ToLower(k.Rune) == 'c':
+		start, end := e.Selection()
+		_ = e.rt.Copy(e.Value()[start:end])
+	case !e.Apply(k):
 		return
 	}
 	ev.PreventDefault()
@@ -142,8 +173,7 @@ func (e *editor) key(ev *twi.Event) {
 
 func (e *editor) at(ev *twi.Event) int {
 	box := e.rt.ContentBox(ev.Current())
-	e.width = box.Dx()
-	return e.At(ev.Mouse.Y-box.Min.Y, ev.Mouse.X-box.Min.X+e.scroll)
+	return e.At(ev.Mouse.Y-box.Min.Y+e.top, ev.Mouse.X-box.Min.X+e.scroll)
 }
 
 func (e *editor) press(ev *twi.Event) {
@@ -170,6 +200,18 @@ func (e *editor) drag(ev *twi.Event) {
 }
 
 func (e *editor) release(*twi.Event) { e.dragging = false }
+
+func (e *editor) paste(s string) {
+	e.Paste(s)
+	e.rt.Invalidate()
+}
+
+func (e *editor) resize(width int) {
+	if width != e.width {
+		e.width = width
+		e.rt.Invalidate()
+	}
+}
 
 type Align uint8
 

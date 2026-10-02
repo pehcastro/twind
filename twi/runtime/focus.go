@@ -6,6 +6,7 @@ import (
 
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/events"
+	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 )
@@ -28,6 +29,9 @@ type Node struct {
 	Listeners                        []events.Listener[*Elem]
 	PointerDownOutside, FocusOutside []func()
 	Scroll                           []func(image.Point)
+	Paste                            func(string)
+	Hotkey                           func(input.KeyEvent) bool
+	Width                            func(int)
 	Children                         []Node
 }
 
@@ -52,6 +56,8 @@ type document struct {
 	layers  []*Elem
 	refs    []*Elem
 	scrolls []*Elem
+	hotkeys []*Elem
+	widths  []*Elem
 	focused *Elem
 	expect  events.Type
 	exact   bool
@@ -85,6 +91,7 @@ func (e *Elem) clickable() bool {
 func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	d.frame++
 	d.scopes, d.loose, d.autos, d.layers, d.refs, d.scrolls = d.scopes[:0], d.loose[:0], d.autos[:0], d.layers[:0], d.refs[:0], d.scrolls[:0]
+	d.hotkeys, d.widths = d.hotkeys[:0], d.widths[:0]
 	if d.root == nil {
 		d.root = &Elem{}
 	}
@@ -246,6 +253,12 @@ func (d *document) attach(e *Elem, n Node) {
 	}
 	if len(n.Scroll) > 0 {
 		d.scrolls = append(d.scrolls, e)
+	}
+	if n.Hotkey != nil {
+		d.hotkeys = append(d.hotkeys, e)
+	}
+	if n.Width != nil {
+		d.widths = append(d.widths, e)
 	}
 	kept := len(e.children) == len(n.Children)
 	for i := 0; kept && i < len(n.Children); i++ {

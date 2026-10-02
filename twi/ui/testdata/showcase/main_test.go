@@ -151,10 +151,10 @@ func TestFormKeys(t *testing.T) {
 
 	focused("Your message", 2, 5)
 	d.Type("Hello")
-	d.Press("enter")
+	d.Press("shift+enter")
 	d.Type("world")
 	hello, world := find(t, d.Frame(), "Hello"), find(t, d.Frame(), "world")
-	expect("the textarea breaks the line at Enter", world.y == hello.y+1 && world.x == hello.x)
+	expect("the textarea breaks the line at Shift+Enter", world.y == hello.y+1 && world.x == hello.x)
 
 	focused("Website", 2, 2)
 	d.Type("twind")

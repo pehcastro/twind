@@ -42,8 +42,7 @@ func NewCommand(rt *twi.Runtime) *Command {
 }
 
 func (c *Command) Search(s string) {
-	c.input.Apply(input.KeyEvent{Key: input.KeyRune, Rune: 'a', Modifiers: input.ModCtrl})
-	c.input.Insert(s)
+	c.input.Set(s)
 	c.rt.Invalidate()
 }
 
@@ -286,10 +285,12 @@ func (d *CommandDialog) Node(children ...twi.NodeOption) twi.Node {
 		d.Search("")
 	}
 	d.wasOpen = d.Open
-	hotkey := twi.OnKey(func(k input.KeyEvent) {
-		if !k.Release && k.Key == input.KeyRune && k.Rune == d.Hotkey && k.Modifiers == input.ModCtrl {
+	hotkey := twi.OnHotkey(func(k input.KeyEvent) bool {
+		pressed := k.Key == input.KeyRune && k.Rune == d.Hotkey && k.Modifiers == input.ModCtrl
+		if pressed {
 			d.set(!d.Open)
 		}
+		return pressed
 	})
 	return part("absolute", []twi.NodeOption{hotkey, d.Content(d.Command.Node(children...))})
 }

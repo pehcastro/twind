@@ -107,7 +107,7 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 		{func() { d.Press("ctrl+z") }, "hello", "input", 5, nbsp},
 		{func() { d.Type(" 中b"); press(d, "left", "left") }, "hello" + nbsp + "中b", "input", 6, "中"},
 		{func() { d.Press("right") }, "hello" + nbsp + "中b", "input", 8, "b"},
-		{func() { d.Press("ctrl+a") }, "hello" + nbsp + "中b", "input", -1, ""},
+		{func() { d.Press("ctrl+g") }, "hello" + nbsp + "中b", "input", -1, ""},
 		{func() { press(d, "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab") }, "hello" + nbsp + "中b", "theme", -1, ""},
 	}
 	for i, s := range steps {

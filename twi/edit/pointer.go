@@ -1,10 +1,6 @@
 package edit
 
-import (
-	"strings"
-
-	"github.com/twind-dev/twind/twi/text"
-)
+import "github.com/twind-dev/twind/twi/text"
 
 type Unit uint8
 
@@ -15,16 +11,10 @@ const (
 )
 
 func (b *Buffer) At(row, column int) int {
-	at := 0
-	for range row {
-		next := strings.IndexByte(b.value[at:], '\n')
-		if next < 0 {
-			break
-		}
-		at += next + 1
-	}
-	x := 0
-	for g := range text.Graphemes(b.value[at:b.lineEnd(at)]) {
+	rows := b.Rows()
+	r := rows[max(min(row, len(rows)-1), 0)]
+	at, x := r.Start, 0
+	for g := range text.Graphemes(b.value[r.Start:r.End]) {
 		w := b.Widths.Width(g)
 		if column < x+w {
 			if column-x < (w+1)/2 {

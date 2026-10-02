@@ -25,10 +25,12 @@ func (s *Sidebar) Toggle() {
 }
 
 func (s *Sidebar) Provider(children ...twi.NodeOption) twi.Node {
-	hotkey := twi.OnKey(func(k input.KeyEvent) {
-		if !k.Release && k.Key == input.KeyRune && k.Rune == s.Hotkey && k.Modifiers == input.ModCtrl {
+	hotkey := twi.OnHotkey(func(k input.KeyEvent) bool {
+		pressed := k.Key == input.KeyRune && k.Rune == s.Hotkey && k.Modifiers == input.ModCtrl
+		if pressed {
 			s.Toggle()
 		}
+		return pressed
 	})
 	return part("group/sidebar-wrapper flex flex-row w-full h-full", append([]twi.NodeOption{hotkey}, children...))
 }
