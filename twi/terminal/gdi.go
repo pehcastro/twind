@@ -224,6 +224,9 @@ func (c *canvas) close() {
 }
 
 func (b *Backend) Paint(p Pixels) bool {
+	if o := b.overlay.Load(); o != nil {
+		return o.paint(p)
+	}
 	c := b.canvas.Load()
 	if c == nil {
 		return true

@@ -37,6 +37,8 @@ func (f *fakeConsole) lacks(string, string) bool { return false }
 
 func (f *fakeConsole) drawable() (window, error) { return nil, errNoWindow }
 
+func (f *fakeConsole) overlay(*trace) (host, error) { return nil, errNoWindow }
+
 func (f *fakeConsole) getMode(h windows.Handle, mode *uint32) error {
 	*mode = f.modes[h]
 	return nil

@@ -29,6 +29,7 @@ type fakeTTY struct {
 	lacking   string
 	asked     []string
 	win       *fakeWindow
+	host      *fakeHost
 }
 
 func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
@@ -72,6 +73,12 @@ func (f *fakeTTY) drawable() (window, error) {
 		return nil, errNoWindow
 	}
 	return f.win, nil
+}
+func (f *fakeTTY) overlay(*trace) (host, error) {
+	if f.host == nil {
+		return nil, errNoWindow
+	}
+	return f.host, nil
 }
 
 type fakeTerminal struct {

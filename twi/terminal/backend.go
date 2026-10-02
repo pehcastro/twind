@@ -13,6 +13,7 @@ import (
 	"time"
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/text"
 )
@@ -74,6 +75,9 @@ type Backend struct {
 	polling atomic.Bool
 	settled chan struct{}
 	canvas  atomic.Pointer[canvas]
+	overlay atomic.Pointer[overlay]
+	trace   *trace
+	traced  *os.File
 	mu      sync.Mutex
 	asked   bool
 	again   bool
@@ -89,6 +93,7 @@ type offer struct {
 	graphics Graphics
 	forced   bool
 	zed      bool
+	trace    string
 }
 
 type tty interface {
@@ -100,6 +105,7 @@ type tty interface {
 	cancel()
 	restore() error
 	drawable() (window, error)
+	overlay(tr *trace) (host, error)
 }
 
 var errQuiet = errors.New("terminal: no input within the escape timeout")
@@ -163,7 +169,7 @@ func probe(out io.Writer, t tty, queries string, wait time.Duration) (*Backend, 
 
 func offered(env func(string) string) (offer, error) {
 	program := env("TERM_PROGRAM")
-	o := offer{forced: true, zed: program == konst.ZedProgram}
+	o := offer{forced: true, zed: program == konst.ZedProgram, trace: env(konst.TraceEnv)}
 	switch v := env("TWIND_GRAPHICS"); v {
 	case "":
 		o.forced = false
@@ -212,6 +218,25 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 			b.Capabilities.Graphics, b.Capabilities.CellPixels = GraphicsGDI, c.cell
 			b.canvas.Store(c)
 		}
+	}
+	if o.trace != "" {
+		if f, err := os.OpenFile(o.trace, os.O_APPEND|os.O_CREATE|os.O_WRONLY, konst.TraceFileMode); err == nil {
+			b.trace, b.traced = &trace{w: f}, f
+		}
+	}
+	switch {
+	case b.Capabilities.Identity != IdentityZed:
+		b.trace.log("overlay: none, identity %d is not Zed", b.Capabilities.Identity)
+	case o.forced:
+		b.trace.log("overlay: none, TWIND_GRAPHICS forced")
+	default:
+		win, err := t.overlay(b.trace)
+		if err != nil {
+			b.trace.log("overlay: none, %v", err)
+			break
+		}
+		b.trace.log("overlay: opened, cells path until calibrated, cell %v", b.Capabilities.CellPixels)
+		b.overlay.Store(&overlay{win: win, cells: b.Capabilities.CellPixels, trace: b.trace})
 	}
 	if b.Capabilities.Graphics != GraphicsNone {
 		cell := b.Capabilities.CellPixels
@@ -375,6 +400,8 @@ func (b *Backend) read(events chan<- input.Event) {
 		switch {
 		case quiet:
 			wait = konst.EscapeTimeout
+		case b.overlay.Load() != nil:
+			wait = konst.OverlayPoll
 		case b.canvas.Load() != nil:
 			wait = konst.GDIIdlePoll
 		}
@@ -403,8 +430,13 @@ func (b *Backend) read(events chan<- input.Event) {
 			b.askCell()
 		}
 		var replies []input.ReplyEvent
+		o := b.overlay.Load()
 		for _, ev := range evs {
 			switch ev := ev.(type) {
+			case input.FocusEvent:
+				if o != nil {
+					o.focus(ev.Focused)
+				}
 			case input.ReplyEvent:
 				replies = append(replies, ev)
 				switch ev.Kind {
@@ -451,6 +483,11 @@ func (b *Backend) read(events chan<- input.Event) {
 				if b.learn(cell) {
 					resize.Cell = cell
 				}
+				events <- resize
+			}
+		}
+		if o != nil {
+			if resize, changed := o.tick(image.Pt(width, height), time.Now()); changed {
 				events <- resize
 			}
 		}
@@ -531,6 +568,20 @@ func (b *Backend) Covers(cluster string) bool {
 	return b.covered[cluster]
 }
 
+func (b *Backend) Marks(page color.RGBA) []Mark {
+	if o := b.overlay.Load(); o != nil {
+		return o.marks(page, time.Now())
+	}
+	return nil
+}
+
+func (b *Backend) Current() Capabilities {
+	if o := b.overlay.Load(); o != nil {
+		b.Capabilities.Graphics, b.Capabilities.CellPixels = o.surface()
+	}
+	return b.Capabilities
+}
+
 func (b *Backend) Write(frame []byte) (int, error) {
 	if cell := b.cell.Load(); cell != nil {
 		b.Capabilities.CellPixels = *cell
@@ -563,6 +614,9 @@ func (b *Backend) Exit() error {
 	if c := b.canvas.Load(); c != nil {
 		c.close()
 	}
+	if o := b.overlay.Load(); o != nil {
+		o.close()
+	}
 	if asked {
 		select {
 		case <-b.settled:
@@ -586,5 +640,9 @@ func (b *Backend) Exit() error {
 	b.tty.cancel()
 	for range b.Events {
 	}
-	return errors.Join(err, b.tty.restore())
+	err = errors.Join(err, b.tty.restore())
+	if b.traced != nil {
+		err = errors.Join(err, b.traced.Close())
+	}
+	return err
 }

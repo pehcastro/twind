@@ -86,6 +86,7 @@ type console interface {
 	font(h windows.Handle) Font
 	lacks(face, cluster string) bool
 	drawable() (window, error)
+	overlay(tr *trace) (host, error)
 }
 
 type win32 struct {
@@ -93,6 +94,9 @@ type win32 struct {
 	createFont, createDC, selectObject, glyphIndices, deleteDC, deleteObject *windows.LazyProc
 	createDIB, bitBlt, alphaBlend                                            *windows.LazyProc
 	getDC, releaseDC, clientRect, invalidateRect, threadDPI                  *windows.LazyProc
+	clientToScreen, iconic, findWindow, relative                             *windows.LazyProc
+	registerClass, createWindow, destroyWindow, showWindow, setWindowPos     *windows.LazyProc
+	updateLayered, getMessage, dispatchMessage, postThreadMessage, defProc   *windows.LazyProc
 }
 
 func loadWin32() win32 {
@@ -115,6 +119,21 @@ func loadWin32() win32 {
 		clientRect:       user.NewProc("GetClientRect"),
 		invalidateRect:   user.NewProc("InvalidateRect"),
 		threadDPI:        user.NewProc("SetThreadDpiAwarenessContext"),
+
+		clientToScreen:    user.NewProc("ClientToScreen"),
+		iconic:            user.NewProc("IsIconic"),
+		findWindow:        user.NewProc("FindWindowExW"),
+		relative:          user.NewProc("GetWindow"),
+		registerClass:     user.NewProc("RegisterClassExW"),
+		createWindow:      user.NewProc("CreateWindowExW"),
+		destroyWindow:     user.NewProc("DestroyWindow"),
+		showWindow:        user.NewProc("ShowWindow"),
+		setWindowPos:      user.NewProc("SetWindowPos"),
+		updateLayered:     user.NewProc("UpdateLayeredWindowIndirect"),
+		getMessage:        user.NewProc("GetMessageW"),
+		dispatchMessage:   user.NewProc("DispatchMessageW"),
+		postThreadMessage: user.NewProc("PostThreadMessageW"),
+		defProc:           user.NewProc("DefWindowProcW"),
 	}
 }
 
@@ -351,6 +370,10 @@ func (t *consoleTTY) lacks(face, cluster string) bool {
 
 func (t *consoleTTY) drawable() (window, error) {
 	return t.console.drawable()
+}
+
+func (t *consoleTTY) overlay(tr *trace) (host, error) {
+	return t.console.overlay(tr)
 }
 
 func (t *consoleTTY) cancel() {

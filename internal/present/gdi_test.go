@@ -217,6 +217,42 @@ func TestGDIRoundedCornerCellsShowThePage(t *testing.T) {
 	}
 }
 
+func TestZedMarksAreWrittenForOneFrameAndWiped(t *testing.T) {
+	page := color.RGBA{R: 5, G: 4, B: 6, A: 255}
+	mark := color.RGBA{R: 6, G: 4, B: 6, A: 255}
+	var asked []color.RGBA
+	marking := true
+	s, out := screen(terminal.GraphicsNone)
+	s.Marks = func(p color.RGBA) []terminal.Mark {
+		asked = append(asked, p)
+		if !marking {
+			return nil
+		}
+		return []terminal.Mark{{Cell: image.Pt(0, 0), Color: mark}, {Cell: image.Pt(2, 0), Color: mark}}
+	}
+	frame(t, s, flatPage(page, "a中b"))
+	if !bytes.Contains(out.last(), []byte("48;2;6;4;6")) || len(asked) != 1 || asked[0] != page {
+		t.Fatalf("marked frame %q, asked %v, want the mark colour written for page %v", out.last(), asked, page)
+	}
+	for x := range 3 {
+		if c := s.shown.At(x, 0); c.Grapheme != " " || x != 1 && c.Bg.RGBA != mark {
+			t.Errorf("cell %d %+v, want a blank, marked unless it was the cut wide glyph's head", x, c)
+		}
+	}
+	marking = false
+	frame(t, s, flatPage(page, "a中b"))
+	if c := s.shown.At(0, 0); c.Grapheme != "a" || c.Bg.RGBA != page || s.shown.At(1, 0).Grapheme != "中" {
+		t.Errorf("after the marks: %+v and %q, want the text back on the page", c, s.shown.At(1, 0).Grapheme)
+	}
+	asked = nil
+	frame(t, s, flatPage(color.RGBA{R: 5, G: 4, B: 6, A: 128}, "a"))
+	s.Profile = color.ANSI256
+	frame(t, s, flatPage(page, "a"))
+	if len(asked) != 0 {
+		t.Errorf("marks asked for a translucent page or a 256-colour profile: %v", asked)
+	}
+}
+
 func TestNonGDIBytesUnchanged(t *testing.T) {
 	fixture, err := os.ReadFile("testdata/identities.txt")
 	if err != nil {

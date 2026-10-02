@@ -111,6 +111,27 @@ const (
 )
 
 const (
+	OverlayPoll      = 15 * time.Millisecond
+	OverlaySettle    = 50 * time.Millisecond
+	OverlayRetry     = 100 * time.Millisecond
+	OverlayReads     = 20
+	OverlayRestart   = 5 * time.Second
+	OverlayAncestors = 16
+	OverlayClass     = "TwindOverlay"
+	OverlayExStyle   = 0x00080000 | 0x00000020 | 0x08000000 | 0x00000080
+	PopupStyle       = 0x80000000
+	OwnerWindow      = 4
+	ShowNoActivate   = 4
+	HideWindow       = 0
+	MoveOnly         = 0x0001 | 0x0004 | 0x0010
+	LayeredAlpha     = 2
+	QuitMessage      = 0x0012
+	TraceEnv         = "TWIND_TRACE"
+	TraceTime        = "15:04:05.000"
+	TraceFileMode    = 0o600
+)
+
+const (
 	QueryTimeout    = 100 * time.Millisecond
 	StartupTimeout  = time.Second
 	EscapeTimeout   = 50 * time.Millisecond

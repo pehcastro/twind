@@ -92,7 +92,7 @@ func doctor(args []string, stdout io.Writer) error {
 	fmt.Fprintf(&report, "size       %dx%d cells\nenv        TERM=%s COLORTERM=%s TERM_PROGRAM=%s WT_SESSION=%t\ncolour     %s\nidentity   %s\nsync       %t\ngraphemes  %t\nfocus      %t\nmargins    %t\nemoji      %s\nkeyboard   %s\ngraphics   %s\ncell       %s\n",
 		width, height, text.Sanitize(os.Getenv("TERM"), text.ShowBidi), text.Sanitize(os.Getenv("COLORTERM"), text.ShowBidi), text.Sanitize(os.Getenv("TERM_PROGRAM"), text.ShowBidi), os.Getenv("WT_SESSION") != "",
 		profileName(terminal.Profile(os.Stdout, os.Getenv)), identityName(caps.Identity), caps.Sync, caps.Graphemes, caps.Focus, caps.Margins, strings.Join(widths, ", "), keyboard, graphicsName(caps.Graphics), cell)
-	fmt.Fprintf(&report, "%sdetected   in %s, first answer after %s\n%s", answerLines(a, glyphs), took.Round(time.Millisecond), answered.Round(time.Millisecond), identityFix(caps.Identity))
+	fmt.Fprintf(&report, "%sdetected   in %s, first answer after %s\n%s", answerLines(a, glyphs), took.Round(time.Millisecond), answered.Round(time.Millisecond), identityFix(caps.Identity)+overlayLine(caps.Identity, terminal.OverlayHost))
 	if skipped {
 		report.WriteString("skipped    truecolor, clipboard and kitty: no DA1, or conhost's 1;0, which prints DCS and APC as text\n")
 	}
@@ -257,6 +257,13 @@ func identityName(i terminal.Identity) string {
 		return "Other, no rule matched: not a visible conhost window, DA1 not exactly 1;0, not Zed"
 	}
 	panic("twind: unknown terminal identity " + strconv.Itoa(int(i)))
+}
+
+func overlayLine(i terminal.Identity, host func() string) string {
+	if i != terminal.IdentityZed {
+		return ""
+	}
+	return "overlay    " + host() + "\n"
 }
 
 func identityFix(i terminal.Identity) string {

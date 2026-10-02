@@ -40,6 +40,7 @@ type Screen struct {
 	Identity terminal.Identity
 	Workers  int
 	Paint    func(terminal.Pixels) bool
+	Marks    func(page color.RGBA) []terminal.Mark
 
 	cols, rows        int
 	cell              image.Point
@@ -205,6 +206,11 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	s.compose()
 	if s.Graphics == terminal.GraphicsNone {
 		s.scrollbars(&root)
+	}
+	if bg := root.Background; s.Marks != nil && s.Graphics == terminal.GraphicsNone && s.Profile == color.TrueColor && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
+		for _, m := range s.Marks(bg.RGBA) {
+			s.want.Set(m.Cell.X, m.Cell.Y, buffer.Cell{Grapheme: " ", Bg: color.Color{Kind: color.Literal, RGBA: m.Color}})
+		}
 	}
 	if err := s.writer.Diff(s.shown, s.want); err != nil {
 		return err

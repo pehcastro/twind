@@ -132,6 +132,10 @@ func (t *unixTTY) drawable() (window, error) {
 	return nil, errNoWindow
 }
 
+func (t *unixTTY) overlay(*trace) (host, error) {
+	return nil, errNoWindow
+}
+
 func (t *unixTTY) cancel() {
 	signal.Stop(t.winch)
 	close(t.winch)

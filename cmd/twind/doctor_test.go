@@ -128,6 +128,18 @@ func TestDoctorNamesEachIdentity(t *testing.T) {
 	identityName(terminal.IdentityZed + 1)
 }
 
+func TestDoctorNamesTheOverlayHostOnlyInZed(t *testing.T) {
+	host := func() string { return "host hwnd 0x10 class Zed::Window client 1536x951 at 78,61" }
+	for _, identity := range []terminal.Identity{terminal.IdentityConhost, terminal.IdentityInboxConPTY, terminal.IdentityOther} {
+		if got := overlayLine(identity, host); got != "" {
+			t.Errorf("identity %d: %q, want no overlay line", identity, got)
+		}
+	}
+	if got, want := overlayLine(terminal.IdentityZed, host), "overlay    host hwnd 0x10 class Zed::Window client 1536x951 at 78,61\n"; got != want {
+		t.Errorf("Zed: %q, want %q", got, want)
+	}
+}
+
 func TestDoctorFixesOnlyTheInboxConPTY(t *testing.T) {
 	for _, identity := range []terminal.Identity{terminal.IdentityConhost, terminal.IdentityZed, terminal.IdentityOther} {
 		if got := identityFix(identity); got != "" {

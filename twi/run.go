@@ -82,7 +82,7 @@ func (t terminalBackend) Events() <-chan input.Event { return t.Backend.Events }
 
 func (t terminalBackend) Sync() bool { return t.Backend.Capabilities.Sync }
 
-func (t terminalBackend) Capabilities() terminal.Capabilities { return t.Backend.Capabilities }
+func (t terminalBackend) Capabilities() terminal.Capabilities { return t.Current() }
 
 type realClock struct{}
 
