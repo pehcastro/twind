@@ -47,7 +47,7 @@ func TestSpacing(t *testing.T) {
 		{"command", "Suggestions", "Calendar", "Emoji", "Settings", func(rt *twi.Runtime) func() twi.Node {
 			p := NewCommand(rt)
 			return func() twi.Node {
-				return page(p.Node(p.Input("Search"), p.List(
+				return page(p.Node(twi.Class("border"), p.Input("Search"), p.List(
 					p.Group("Suggestions", p.Item("Calendar"), p.Item("Emoji")),
 					p.Group("Settings", p.Item("Profile")),
 				)))
@@ -132,17 +132,20 @@ func TestSpacing(t *testing.T) {
 				return y
 			}
 			first, second := row(c.first), row(c.second)
-			if second-first < 2 {
-				t.Errorf("%s and %s are on rows %d and %d, want a row between them:\n%s", c.first, c.second, first, second, d.Frame().Text())
+			if second-first != 1 {
+				t.Errorf("%s and %s are on rows %d and %d, want adjacent rows:\n%s", c.first, c.second, first, second, d.Frame().Text())
+			}
+			if x, y, _ := at(d.Frame(), c.first); c.name != "sidebar" && !strings.HasSuffix(string([]rune(strings.Split(d.Frame().Text(), "\n")[y])[:x]), "│ ") {
+				t.Errorf("%s at column %d is not one cell right of the panel border:\n%s", c.first, x, d.Frame().Text())
 			}
 			if c.heading == "" {
 				return
 			}
-			if heading := row(c.heading); first-heading < 2 {
-				t.Errorf("heading %s on row %d sits right above %s on row %d:\n%s", c.heading, heading, c.first, first, d.Frame().Text())
+			if heading := row(c.heading); first-heading != 1 {
+				t.Errorf("heading %s on row %d is not right above %s on row %d:\n%s", c.heading, heading, c.first, first, d.Frame().Text())
 			}
-			if after := row(c.after); after-second != 3 {
-				t.Errorf("the next group's %s on row %d is not three rows below %s on row %d, shadcn's group gap:\n%s", c.after, after, c.second, second, d.Frame().Text())
+			if after := row(c.after); after-second != 2 {
+				t.Errorf("the next group's %s on row %d is not two rows below %s on row %d, one separator or blank row between groups:\n%s", c.after, after, c.second, second, d.Frame().Text())
 			}
 		})
 	}

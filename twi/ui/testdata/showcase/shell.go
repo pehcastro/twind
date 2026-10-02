@@ -27,7 +27,7 @@ func shell(rt *twi.Runtime, open string) func() twi.Node {
 		side.Open = false
 	}
 	shortcut := func(s string) twi.Node { return ui.DropdownMenuShortcut(label(s)) }
-	inset := twi.Class("pl-4")
+	inset := twi.Class("pl-3")
 	nav := func(section *ui.Collapsible, glyph, title string, items ...string) twi.Node {
 		chevron := "›"
 		if section.Open {

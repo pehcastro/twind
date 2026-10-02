@@ -39,6 +39,8 @@ From another goroutine, use `rt.Dispatch(func() { ... })` to run the change on t
 
 `twi.Focusable()` puts an element in the Tab order, which follows the tree. Tab and Shift+Tab move through it, and the focused element is scrolled into view. `twi.AutoFocus()` focuses an element when it first appears, and `twi.Disabled()` takes it out of the order and out of every event.
 
+`focus-visible:` styles show only after a key, as in a browser: a click focuses without them, except on a text field (`input` or `textarea` tag), which shows them on any focus. Call `rt.HideFocusRings()` once to turn every focus-visible style off.
+
 `twi.FocusScope()` traps Tab inside an element, as a dialog does, and gives focus back to where it was when the element goes away. `twi.Key("name")` gives an element a stable identity, so its focus and scroll offset survive when the list around it changes.
 
 ## Keys

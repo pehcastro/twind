@@ -121,5 +121,5 @@ func (m *MenubarMenu) Trigger(children ...twi.NodeOption) twi.Node {
 }
 
 func (m *MenubarMenu) Content(children ...twi.NodeOption) twi.Node {
-	return m.menu(m.anchor.Bounds(), "flex flex-col min-w-24 shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95", children)
+	return m.menu(m.anchor.Bounds(), "flex flex-col min-w-24 shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95", children)
 }

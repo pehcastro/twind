@@ -165,14 +165,14 @@ func (c *Command) List(groups ...CommandGroup) twi.Node {
 		window = append(window, c.row(r, previous))
 		previous = r.kind
 	}
-	return part("flex flex-col shrink-0 gap-1 px-1 pt-1", window)
+	return part("flex flex-col shrink-0", window)
 }
 
 func (c *Command) row(r commandRow, previous rowKind) twi.Node {
 	switch r.kind {
 	case itemRow:
 	case headingRow:
-		classes := "px-2 font-medium text-muted-foreground"
+		classes := "px-1 font-medium text-muted-foreground"
 		if previous == itemRow {
 			classes += " mt-1"
 		}
@@ -183,7 +183,7 @@ func (c *Command) row(r commandRow, previous rowKind) twi.Node {
 		panic("ui: unknown command row")
 	}
 	value := r.item.value
-	classes := "relative flex flex-row items-center gap-1 rounded-sm px-2 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none"
+	classes := "relative flex flex-row items-center gap-1 rounded-sm px-1 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none"
 	selected := value == c.selected
 	if selected {
 		classes += " bg-accent text-accent-foreground"

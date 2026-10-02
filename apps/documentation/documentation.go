@@ -293,7 +293,7 @@ func (s *site) nav() twi.Node {
 	var groups []twi.NodeOption
 	for i := 0; i < len(s.entries); {
 		group, fold := s.entries[i].group, s.folds[s.entries[i].group]
-		items := []twi.NodeOption{twi.Class("gap-1")}
+		var items []twi.NodeOption
 		for ; i < len(s.entries) && s.entries[i].group == group; i++ {
 			at, e := i, s.entries[i]
 			if fold.Open {
@@ -307,12 +307,12 @@ func (s *site) nav() twi.Node {
 			}
 		}
 		chevron := map[bool]string{true: "⌄", false: "›"}[fold.Open]
-		groups = append(groups, ui.SidebarGroup(twi.Class("gap-1"),
+		groups = append(groups, ui.SidebarGroup(
 			fold.Trigger(ui.Ghost, ui.SizeSM, twi.Key("group-"+group), twi.Class("justify-between px-1 text-sidebar-foreground/70"), twi.Text(group), twi.Text(chevron)),
 			fold.Content(ui.SidebarMenu(items...)),
 		))
 	}
-	return s.sidebar.Node(ui.SidebarContent(append(groups, twi.Class("gap-2 py-1"))...))
+	return s.sidebar.Node(ui.SidebarContent(append(groups, twi.Class("py-1"))...))
 }
 
 func (s *site) focusRow(at int) {
@@ -415,7 +415,7 @@ func (s *site) outline(e entry) twi.Node {
 			s.rt.Invalidate()
 		})))
 	}
-	return el("hidden md:flex flex-col w-24 shrink-0 gap-1 px-2 py-1", items...)
+	return el("hidden md:flex flex-col w-24 shrink-0 px-2 py-1", items...)
 }
 
 func (s *site) search() twi.Node {
@@ -459,7 +459,7 @@ func (s *site) pickerNode() twi.Node {
 		s.theme = s.trying
 		restore()
 	}
-	list := []twi.NodeOption{twi.Key("themes"), twi.Focusable(), twi.Class("flex flex-col gap-1 rounded-md focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"), twi.OnKeyDown(func(ev *twi.Event) {
+	list := []twi.NodeOption{twi.Key("themes"), twi.Focusable(), twi.Class("flex flex-col"), twi.OnKeyDown(func(ev *twi.Event) {
 		switch ev.Key.Key {
 		case input.KeyArrowDown:
 			show(s.trying + 1)
@@ -487,10 +487,11 @@ func (s *site) pickerNode() twi.Node {
 			}
 			ev.StopPropagation()
 		}),
-		el("flex flex-col w-40 gap-1 rounded-lg border bg-popover px-2 py-1 text-popover-foreground shadow-lg",
+		el("flex flex-col w-40 rounded-lg border bg-popover text-popover-foreground shadow-lg",
 			twi.OnPointerDownOutside(restore),
-			txt("font-semibold", "Theme"),
-			txt("text-muted-foreground", "↑ ↓ preview, Enter keeps, Esc restores"),
+			txt("px-1 font-semibold", "Theme"),
+			txt("px-1 text-muted-foreground", "↑ ↓ preview, Enter keeps, Esc restores"),
+			ui.DropdownMenuSeparator(),
 			twi.Element(list...),
 		),
 	)

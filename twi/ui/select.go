@@ -60,7 +60,7 @@ func (s *Select) Content(children ...twi.NodeOption) twi.Node {
 	}
 	at := s.phase()
 	return s.place(at, func(placed []twi.NodeOption) twi.Node {
-		return part("flex flex-col shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md "+popMotion,
+		return part("flex flex-col shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md "+popMotion,
 			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(s.rt, s.key), placed, children))
 	})
 }
@@ -71,7 +71,7 @@ func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node 
 }
 
 func (c *control) option(label string, at int, active *int, checked bool, choose func(), children []twi.NodeOption) twi.Node {
-	classes := "relative flex flex-row items-center gap-1 rounded-sm pr-4 pl-2 select-none"
+	classes := "relative flex flex-row items-center gap-1 rounded-sm pr-3 pl-1 select-none"
 	if at == *active {
 		classes += " bg-accent text-accent-foreground"
 	}
@@ -89,7 +89,7 @@ func (c *control) option(label string, at int, active *int, checked bool, choose
 }
 
 func SelectLabel(children ...twi.NodeOption) twi.Node {
-	return part("px-2 text-muted-foreground", children)
+	return part("px-1 text-muted-foreground", children)
 }
 
 func SelectSeparator() twi.Node {

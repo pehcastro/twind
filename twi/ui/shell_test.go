@@ -61,7 +61,7 @@ func TestContextMenuKeysAndPointer(t *testing.T) {
 	hit(d, "shift+f10")
 	x, y, _ := at(d.Frame(), "Back")
 	expect("shift+f10 opens it on its first item with focus inside", menu.Open && menu.active == 0 && !menu.focused)
-	expect("the menu hangs from the area's top left corner", y == top+1 && x == left+4)
+	expect("the menu hangs from the area's top left corner", y == top+1 && x == left+2)
 	t.Logf("context menu opened by shift+f10 at the area's corner, 80x24:\n%s", d.Frame().Text())
 	hit(d, "down down right")
 	expect("right on More Tools opens its sub menu", tools.Open && has(d, "Save Page..."))
@@ -121,13 +121,13 @@ func TestContextMenuRightClick(t *testing.T) {
 	expect("a left click on the area does not open it", !menu.Open && !has(d, "Back"))
 	right(20, 6)
 	x, y, _ := at(d.Frame(), "Back")
-	expect("a right click opens it with its corner at the pointer", menu.Open && x == 20+4 && y == 6+1)
+	expect("a right click opens it with its corner at the pointer", menu.Open && x == 20+2 && y == 6+1)
 	t.Logf("right click at 20,6, 80x24:\n%s", d.Frame().Text())
 	_, py, _ := at(d.Frame(), "Print...")
-	expect("the menu is whole past the bottom of its overflow-hidden parent and over the later sibling", py == 6+9 && has(d, "Print..."))
+	expect("the menu is whole past the bottom of its overflow-hidden parent and over the later sibling", py == 6+5 && has(d, "Print..."))
 	right(30, 3)
 	x, y, _ = at(d.Frame(), "Back")
-	expect("a second right click inside the area moves it to the new point", menu.Open && x == 30+4 && y == 3+1)
+	expect("a second right click inside the area moves it to the new point", menu.Open && x == 30+2 && y == 3+1)
 	hit(d, "down enter")
 	expect("keys work in the menu a right click opened", slices.Equal(chosen, []string{"Forward"}) && !menu.Open)
 	right(12, 4)
@@ -141,7 +141,7 @@ func TestContextMenuRightClick(t *testing.T) {
 	x, y, _ = at(d.Frame(), "Back")
 	rx, ly, _ := at(d.Frame(), "┄╮")
 	lx := rx - 38
-	expect("shift+f10 after a right click opens at the area's corner again", menu.Open && x == lx+4 && y == ly+1)
+	expect("shift+f10 after a right click opens at the area's corner again", menu.Open && x == lx+2 && y == ly+1)
 }
 
 func TestMenubarKeysAndPointer(t *testing.T) {

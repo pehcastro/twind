@@ -8,7 +8,7 @@ import (
 	"github.com/twind-dev/twind/twi/input"
 )
 
-const menuContent = "flex flex-col min-w-16 shrink-0 gap-1 rounded-md border bg-popover px-1 text-popover-foreground shadow-md " + popMotion
+const menuContent = "flex flex-col min-w-16 shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md " + popMotion
 
 type menuItem struct {
 	text    string
@@ -176,7 +176,7 @@ func (s *DropdownMenuSub) Content(children ...twi.NodeOption) twi.Node {
 	s.settle()
 	at := s.next(s.root.rt, s.Open)
 	return s.float(s.root.rt, s.anchor.Bounds(), Right, Start, at, func(placed []twi.NodeOption) twi.Node {
-		return s.content("flex flex-col min-w-16 gap-1 rounded-md whitespace-nowrap border bg-popover px-1 text-popover-foreground shadow-lg "+popMotion, at, func(k input.KeyEvent) bool {
+		return s.content("flex flex-col min-w-16 rounded-md whitespace-nowrap border bg-popover text-popover-foreground shadow-lg "+popMotion, at, func(k input.KeyEvent) bool {
 			if k.Key == input.KeyArrowLeft {
 				s.Open = false
 				s.root.close(&s.menuLevel)
@@ -226,7 +226,7 @@ func (l *menuLevel) add(it menuItem, classes string, children []twi.NodeOption) 
 		m.rt.Invalidate()
 	})
 	choose := m.click(func() { l.choose(it) })
-	return part("relative flex flex-row items-center gap-1 rounded-sm px-2 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none "+classes, slotted([]twi.NodeOption{highlight, choose}, children, part("grow", []twi.NodeOption{twi.Text(it.text)})))
+	return part("relative flex flex-row items-center gap-1 rounded-sm px-1 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none "+classes, slotted([]twi.NodeOption{highlight, choose}, children, part("grow", []twi.NodeOption{twi.Text(it.text)})))
 }
 
 func (l *menuLevel) Item(text string, children ...twi.NodeOption) twi.Node {
@@ -234,11 +234,11 @@ func (l *menuLevel) Item(text string, children ...twi.NodeOption) twi.Node {
 }
 
 func (l *menuLevel) CheckboxItem(text string, checked *bool, children ...twi.NodeOption) twi.Node {
-	return l.add(menuItem{text: text, checked: checked}, "pl-4", append(children, indicator(*checked, "✓")))
+	return l.add(menuItem{text: text, checked: checked}, "pl-3", append(children, indicator(*checked, "✓")))
 }
 
 func (l *menuLevel) RadioItem(text string, value *string, children ...twi.NodeOption) twi.Node {
-	return l.add(menuItem{text: text, group: value}, "pl-4", append(children, indicator(*value == text, "•")))
+	return l.add(menuItem{text: text, group: value}, "pl-3", append(children, indicator(*value == text, "•")))
 }
 
 func indicator(on bool, mark string) twi.Node {
@@ -290,10 +290,10 @@ func (l *menuLevel) choose(it menuItem) {
 	notify(m.OnSelect, it.text)
 }
 
-const separator = "-mx-1 -mb-1 shrink-0 border-t"
+const separator = "shrink-0 border-t"
 
 func DropdownMenuLabel(children ...twi.NodeOption) twi.Node {
-	return part("px-2 text-muted-foreground", children)
+	return part("px-1 text-muted-foreground", children)
 }
 
 func DropdownMenuSeparator() twi.Node {

@@ -53,7 +53,7 @@ func TestShellScript(t *testing.T) {
 	d.ClickWith(input.MouseRight, card.x+2, card.y)
 	d.Advance(settleTime)
 	back := find(t, d.Frame(), "Back")
-	expect("a right click on the card opens its menu at the pointer", back.x == card.x+2+4+2 && back.y == card.y+1)
+	expect("a right click on the card opens its menu at the pointer", back.x == card.x+2+4 && back.y == card.y+1)
 	t.Logf("context menu opened by a right click on the card:\n%s", d.Frame().Text())
 	click(find(t, d.Frame(), "Reload"))
 	expect("a click on Reload chooses it and closes the menu", !has("Back") && has("Chosen: Reload"))

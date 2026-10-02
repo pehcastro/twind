@@ -64,11 +64,11 @@ func SidebarSeparator() twi.Node {
 }
 
 func SidebarContent(children ...twi.NodeOption) twi.Node {
-	return part("flex flex-col flex-1 min-h-0 gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden", children)
+	return part("flex flex-col flex-1 min-h-0 gap-1 overflow-auto group-data-[collapsible=icon]:overflow-hidden", children)
 }
 
 func SidebarGroup(children ...twi.NodeOption) twi.Node {
-	return part("relative flex flex-col w-full min-w-0 gap-1 px-1", children)
+	return part("relative flex flex-col w-full min-w-0 px-1", children)
 }
 
 func SidebarGroupLabel(children ...twi.NodeOption) twi.Node {
@@ -80,7 +80,7 @@ func SidebarGroupContent(children ...twi.NodeOption) twi.Node {
 }
 
 func SidebarMenu(children ...twi.NodeOption) twi.Node {
-	return part("flex flex-col w-full min-w-0 gap-1", children)
+	return part("flex flex-col w-full min-w-0", children)
 }
 
 func SidebarMenuItem(children ...twi.NodeOption) twi.Node {
@@ -102,7 +102,7 @@ func SidebarMenuBadge(children ...twi.NodeOption) twi.Node {
 }
 
 func SidebarMenuSub(children ...twi.NodeOption) twi.Node {
-	return part("flex flex-col min-w-0 gap-1 ml-2 border-l border-sidebar-border px-1 group-data-[collapsible=icon]:hidden", children)
+	return part("flex flex-col min-w-0 ml-2 border-l border-sidebar-border px-1 group-data-[collapsible=icon]:hidden", children)
 }
 
 func SidebarMenuSubItem(children ...twi.NodeOption) twi.Node {

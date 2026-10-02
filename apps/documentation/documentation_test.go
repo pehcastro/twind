@@ -214,6 +214,10 @@ func TestTour(t *testing.T) {
 	if got := breadcrumb(t, d); !strings.Contains(got, "Docs › Getting started › Introduction") {
 		t.Fatalf("first page: breadcrumb %q", got)
 	}
+	_, intro := spot(t, d, "  Introduction ")
+	if _, install := spot(t, d, "Installation"); install != intro+1 {
+		t.Errorf("sidebar: Introduction on row %d, Installation on row %d, want adjacent rows:\n%s", intro, install, d.Frame().Text())
+	}
 	t.Logf("introduction:\n%s", d.Frame().Text())
 	for range 6 {
 		d.Press("tab")
@@ -515,6 +519,7 @@ func highlightedSidebarRows(t *testing.T, d *drive.Driver) []string {
 func TestPaletteMovesTheSidebarHighlight(t *testing.T) {
 	d := open(t)
 	d.Click(spot(t, d, "Installation"))
+	d.Move(0, 0)
 	if got := highlightedSidebarRows(t, d); !slices.Equal(got, []string{"Installation"}) {
 		t.Fatalf("after a click on Installation: highlighted sidebar rows %q\n%s", got, d.Frame().Text())
 	}
@@ -566,6 +571,10 @@ func TestThemePicker(t *testing.T) {
 	d.Press("t")
 	if got, want := pickerNames(t, d), []string{"twind", "dream", "mono", "minimal", "dew", "cloud", "sukuna"}; !slices.Equal(got, want) {
 		t.Fatalf("picker lists %v, want the seven %v:\n%s", got, want, d.Frame().Text())
+	}
+	_, first := spot(t, d, "│ ● twind")
+	if _, second := spot(t, d, "dream"); second != first+1 {
+		t.Errorf("picker rows: want ● twind one cell from the border and dream on the next row:\n%s", d.Frame().Text())
 	}
 	d.Press("down")
 	if text := d.Frame().Text(); !strings.Contains(text, "● twind") || !strings.Contains(text, "Theme: twind-dark") {

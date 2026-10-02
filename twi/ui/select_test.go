@@ -53,7 +53,7 @@ func TestSelectKeysAndPointer(t *testing.T) {
 	hit(d, "enter")
 	expect("enter chooses, closes and returns focus to the trigger showing the label", fruit.Value == "blueberry" && !fruit.Open && fruit.focused && has("Blueberry") && has("A later sibling"))
 	hit(d, "down")
-	expect("down opens on the chosen item, marked", fruit.Open && fruit.active == 2 && has("Blueberry  ✓"))
+	expect("down opens on the chosen item, marked", fruit.Open && fruit.active == 2 && has("Blueberry ✓"))
 	hit(d, "end down")
 	expect("end goes to the last item and down stays there", fruit.active == 4)
 	hit(d, "home")
