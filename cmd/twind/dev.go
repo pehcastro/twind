@@ -5,12 +5,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"go/scanner"
-	"go/token"
 	"io"
 	"io/fs"
 	"log"
-	"maps"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -24,18 +21,22 @@ import (
 	"github.com/twind-dev/twind/internal/dev/snapshot"
 	style "github.com/twind-dev/twind/internal/konst/style"
 	term "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/twi/tailwind"
 	"github.com/twind-dev/twind/twi/terminal"
 )
 
 const devHelp = `Builds the package and runs it. On every save of a Go or embedded file the package imports from
 this module, it rebuilds in the background and swaps the running program for the new build. A failed
-build keeps the old program running and shows the first compiler error on the last row. When a saved
-file's strings change, stale Style IRs are regenerated first. Arguments after the package go to the program.`
+build keeps the old program running and shows the first compiler error on the last row. Stale Style
+IRs are regenerated before each build. Arguments after the package go to the program.`
+
+const twirgenPath = "github.com/twind-dev/twind/internal/twirgen"
 
 type devSession struct {
 	pkg, work string
-	irDirs    []string
-	literals  map[string]string
+	irs       map[string]string
+	checker   tailwind.Checker
+	twirgen   string
 	log       *log.Logger
 	builds    int
 	saved     time.Time
@@ -52,7 +53,7 @@ func devRun(args []string, _ io.Writer) error {
 		}
 		return usageError(err.Error())
 	}
-	s := &devSession{pkg: ".", literals: map[string]string{}, log: log.New(io.Discard, "", 0)}
+	s := &devSession{pkg: ".", irs: map[string]string{}, log: log.New(io.Discard, "", 0)}
 	var appArgs []string
 	if set.NArg() > 0 {
 		s.pkg, appArgs = set.Arg(0), set.Args()[1:]
@@ -75,23 +76,19 @@ func devRun(args []string, _ io.Writer) error {
 	if err := os.Setenv("PATH", filepath.Join(strings.TrimSpace(string(goroot)), "bin")+string(os.PathListSeparator)+os.Getenv("PATH")); err != nil {
 		return err
 	}
-	listing, err := goList([]string{"-deps", s.pkg}, `{{if .Module}}{{if .Module.Main}}{{.Dir}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .EmbedFiles}}{{"\t"}}{{.}}{{end}}{{end}}{{end}}`)
+	listing, err := goList([]string{"-deps", s.pkg}, `{{if .Module}}{{if .Module.Main}}{{.Dir}}{{"\t"}}{{.Name}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .EmbedFiles}}{{"\t"}}{{.}}{{end}}{{end}}{{end}}`)
 	if err != nil {
 		return err
 	}
 	var files []string
 	for _, line := range listing {
 		fields := strings.Split(strings.TrimSpace(line), "\t")
-		for _, name := range fields[1:] {
+		for _, name := range fields[min(2, len(fields)):] {
 			if name == style.GeneratedFile {
-				s.irDirs = append(s.irDirs, fields[0])
+				s.irs[fields[0]] = fields[1]
 				continue
 			}
-			path := filepath.Join(fields[0], name)
-			files = append(files, path)
-			if filepath.Ext(name) == ".go" {
-				s.literals[path] = literals(path)
-			}
+			files = append(files, filepath.Join(fields[0], name))
 		}
 	}
 	if s.work, err = os.MkdirTemp("", "twind-dev-"); err != nil {
@@ -142,40 +139,30 @@ func devRun(args []string, _ io.Writer) error {
 func (s *devSession) build(ctx context.Context, changed []string) (string, error) {
 	began := time.Now()
 	s.saved = time.Time{}
-	fresh := map[string]string{}
 	for _, file := range changed {
 		if info, err := os.Stat(file); err == nil && info.ModTime().After(s.saved) {
 			s.saved = info.ModTime()
-		}
-		if old, ok := s.literals[file]; ok {
-			if now := literals(file); now != old {
-				fresh[file] = now
-			}
 		}
 	}
 	if s.saved.IsZero() {
 		s.saved = began
 	}
 	s.log.Printf("build: %d saves, %v after the last", len(changed), began.Sub(s.saved).Round(time.Millisecond))
-	if len(fresh) > 0 && len(s.irDirs) > 0 {
-		var out strings.Builder
-		if err := generate(s.irDirs, &out); err != nil {
-			var kept strings.Builder
-			for line := range strings.Lines(out.String()) {
-				if !strings.Contains(line, ": warning: ") {
-					kept.WriteString(line)
-				}
-			}
-			return "", fmt.Errorf("%s%w", kept.String(), err)
+	for dir, pkg := range s.irs {
+		stale, err := s.checker.Stale(dir, style.GeneratedFile)
+		if err != nil {
+			return "", err
 		}
-		s.log.Printf("styles: %v", time.Since(began).Round(time.Millisecond))
+		s.log.Printf("styles: %s stale %v after %v", filepath.Base(dir), stale, time.Since(began).Round(time.Millisecond))
+		if stale {
+			if err := s.regenerate(dir, pkg); err != nil {
+				return "", err
+			}
+			s.log.Printf("styles: regenerated after %v", time.Since(began).Round(time.Millisecond))
+		}
 	}
-	maps.Copy(s.literals, fresh)
 	s.builds++
-	exe := filepath.Join(s.work, fmt.Sprintf("app-%d", s.builds))
-	if runtime.GOOS == "windows" {
-		exe += ".exe"
-	}
+	exe := executable(filepath.Join(s.work, fmt.Sprintf("app-%d", s.builds)))
 	compiled := time.Now()
 	if out, err := exec.CommandContext(ctx, "go", "build", "-o", exe, s.pkg).CombinedOutput(); err != nil {
 		if ctx.Err() != nil {
@@ -188,21 +175,51 @@ func (s *devSession) build(ctx context.Context, changed []string) (string, error
 	return exe, nil
 }
 
-func literals(path string) string {
-	src, err := os.ReadFile(path)
+func (s *devSession) regenerate(dir, pkg string) error {
+	if s.twirgen == "" {
+		exe := executable(filepath.Join(s.work, "twirgen"))
+		if out, err := exec.Command("go", "build", "-o", exe, twirgenPath).CombinedOutput(); err != nil {
+			return fmt.Errorf("go build twirgen: %w\n%s", err, out)
+		}
+		s.twirgen = exe
+	}
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return ""
+		return err
 	}
-	var scan scanner.Scanner
-	scan.Init(token.NewFileSet().AddFile(path, -1, len(src)), src, nil, 0)
-	var all strings.Builder
-	for {
-		_, tok, lit := scan.Scan()
-		if tok == token.EOF {
-			return all.String()
+	var args []string
+	for _, e := range entries {
+		if filepath.Ext(e.Name()) != ".go" || strings.HasSuffix(e.Name(), "_test.go") {
+			continue
 		}
-		if tok == token.STRING {
-			all.WriteString(lit + "\x00")
+		src, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return err
+		}
+		for line := range strings.Lines(string(src)) {
+			if _, after, ok := strings.Cut(line, "//go:generate go run "+twirgenPath); ok {
+				args = strings.Fields(after)
+			}
 		}
 	}
+	run := exec.Command(s.twirgen, args...)
+	run.Dir, run.Env = dir, append(os.Environ(), "GOPACKAGE="+pkg)
+	out, err := run.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	var kept strings.Builder
+	for line := range strings.Lines(string(out)) {
+		if !strings.Contains(line, ": warning: ") {
+			kept.WriteString(line)
+		}
+	}
+	return fmt.Errorf("%stwirgen: %w", kept.String(), err)
+}
+
+func executable(path string) string {
+	if runtime.GOOS == "windows" {
+		return path + ".exe"
+	}
+	return path
 }

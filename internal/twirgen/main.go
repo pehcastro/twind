@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"go/importer"
 	"go/token"
 	"go/types"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,9 +67,20 @@ func generate(out, pkg, name, bin string) error {
 			return err
 		}
 	}
-	help, _ := exec.Command(bin, "--help").CombinedOutput()
-	if version := regexp.MustCompile(`v(\d+\.\d+\.\d+)`).FindSubmatch(help); version == nil || string(version[1]) != konst.TailwindVersion {
-		return fmt.Errorf("%s is not Tailwind %s", bin, konst.TailwindVersion)
+	type named struct {
+		consts map[string]string
+		err    error
+	}
+	names := make(chan named, 1)
+	go func() {
+		consts, err := constNames()
+		names <- named{consts, err}
+	}()
+	if !pinned(bin) {
+		help, _ := exec.Command(bin, "--help").CombinedOutput()
+		if version := regexp.MustCompile(`v(\d+\.\d+\.\d+)`).FindSubmatch(help); version == nil || string(version[1]) != konst.TailwindVersion {
+			return fmt.Errorf("%s is not Tailwind %s", bin, konst.TailwindVersion)
+		}
 	}
 	candidates, hash, err := tailwind.Inputs(dir, out)
 	if err != nil {
@@ -98,19 +112,11 @@ func generate(out, pkg, name, bin string) error {
 	for _, w := range warnings {
 		fmt.Fprintln(os.Stderr, "twirgen: warning:", w)
 	}
-	consts := map[string]string{}
-	for _, path := range []string{"github.com/twind-dev/twind/twi/style", "github.com/twind-dev/twind/twi/color", "github.com/twind-dev/twind/twi/theme"} {
-		p, err := importer.ForCompiler(token.NewFileSet(), "source", nil).Import(path)
-		if err != nil {
-			return err
-		}
-		for _, n := range p.Scope().Names() {
-			if c, ok := p.Scope().Lookup(n).(*types.Const); ok && c.Exported() {
-				consts[c.Type().String()+"="+c.Val().ExactString()] = p.Name() + "." + n
-			}
-		}
+	n := <-names
+	if n.err != nil {
+		return n.err
 	}
-	body := literal(reflect.ValueOf(rules), consts)
+	body := literal(reflect.ValueOf(rules), n.consts)
 	var src bytes.Buffer
 	src.WriteString(tailwind.Header(hash) + "package " + pkg + "\n\nimport (\n")
 	for _, dep := range []string{"color", "theme"} {
@@ -124,6 +130,56 @@ func generate(out, pkg, name, bin string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, out), formatted, 0o644)
+}
+
+func constNames() (map[string]string, error) {
+	paths := []string{"github.com/twind-dev/twind/twi/style", "github.com/twind-dev/twind/twi/color", "github.com/twind-dev/twind/twi/theme"}
+	out, err := exec.Command("go", append([]string{"list", "-export", "-deps", "-f", "{{.ImportPath}}\t{{.Export}}"}, paths...)...).Output()
+	if err != nil {
+		return nil, fmt.Errorf("go list -export: %w", err)
+	}
+	exports := map[string]string{}
+	for line := range strings.Lines(string(out)) {
+		path, export, _ := strings.Cut(strings.TrimRight(line, "\r\n"), "\t")
+		exports[path] = export
+	}
+	imports := importer.ForCompiler(token.NewFileSet(), "gc", func(path string) (io.ReadCloser, error) { return os.Open(exports[path]) })
+	consts := map[string]string{}
+	for _, path := range paths {
+		p, err := imports.Import(path)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range p.Scope().Names() {
+			if c, ok := p.Scope().Lookup(n).(*types.Const); ok && c.Exported() {
+				consts[c.Type().String()+"="+c.Val().ExactString()] = p.Name() + "." + n
+			}
+		}
+	}
+	return consts, nil
+}
+
+func pinned(bin string) bool {
+	sums, err := os.ReadFile(filepath.Join(filepath.Dir(bin), "sha256sums.txt"))
+	if err != nil {
+		return false
+	}
+	f, err := os.Open(bin)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false
+	}
+	want := hex.EncodeToString(h.Sum(nil)) + "  ./" + filepath.Base(bin)
+	for line := range strings.Lines(string(sums)) {
+		if strings.TrimRight(line, "\r\n") == want {
+			return true
+		}
+	}
+	return false
 }
 
 func findTailwind(dir string) (string, error) {

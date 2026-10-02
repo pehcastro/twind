@@ -3,9 +3,11 @@ package twi
 import (
 	"errors"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
+	devkonst "github.com/twind-dev/twind/internal/dev/konst"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/terminal"
@@ -37,8 +39,9 @@ func New(opts ...RenderOption) *Runtime {
 	for _, o := range opts {
 		o(&cfg)
 	}
+	var devState string
 	if cfg.backend == nil {
-		cfg.clock = realClock{}
+		cfg.clock, devState = realClock{}, os.Getenv(devkonst.StateEnv)
 		if !cfg.profileSet {
 			cfg.profile, cfg.profileSet = terminal.Profile(os.Stdout, os.Getenv), true
 		}
@@ -50,7 +53,7 @@ func New(opts ...RenderOption) *Runtime {
 	if cfg.theme != nil {
 		r.theme = *cfg.theme
 	}
-	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics, NoClipboard: cfg.noClipboard})
+	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics, NoClipboard: cfg.noClipboard, DevState: devState})
 	return r
 }
 
@@ -73,7 +76,22 @@ func (r *Runtime) Run(app func() Node) error {
 		}
 		b = terminalBackend{t}
 	}
-	return r.Runtime.Run(b, func() runtime.Tree { return app().runtimeTree() })
+	return r.Runtime.Run(b, func() runtime.Tree {
+		r.Remember("twi.theme", r.themeKey, r.restoreTheme)
+		return app().runtimeTree()
+	})
+}
+
+func (r *Runtime) themeKey() string {
+	return r.theme.Name + "/" + strconv.Itoa(int(r.theme.Scheme))
+}
+
+func (r *Runtime) restoreTheme(key string) {
+	for _, t := range theme.Builtin() {
+		if t.Name+"/"+strconv.Itoa(int(t.Scheme)) == key {
+			r.theme = t
+		}
+	}
 }
 
 type terminalBackend struct{ *terminal.Backend }

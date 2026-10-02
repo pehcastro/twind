@@ -232,10 +232,10 @@ func TestStaleWhenCompilerOutputChanges(t *testing.T) {
 		rules, warnings, err := Compile(src)
 		return rules[:len(rules)-1], warnings, err
 	}
-	if got, err := stale(dir, "twir_gen.go", Compile); err != nil || got {
+	if got, err := new(Checker).Stale(dir, "twir_gen.go"); err != nil || got {
 		t.Errorf("an IR from today's compiler: stale %v, error %v, want fresh", got, err)
 	}
-	if got, err := stale(dir, "twir_gen.go", lostRule); err != nil || !got {
+	if got, err := (&Checker{compile: lostRule}).Stale(dir, "twir_gen.go"); err != nil || !got {
 		t.Errorf("a compiler whose output lost a rule: stale %v, error %v, want stale", got, err)
 	}
 }

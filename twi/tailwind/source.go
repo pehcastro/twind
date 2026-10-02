@@ -1,19 +1,9 @@
 package tailwind
 
 import (
-	"bytes"
-	"crypto/sha256"
 	_ "embed"
-	"encoding/hex"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"maps"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -41,76 +31,7 @@ func Input(sources []string) string {
 }
 
 func Inputs(dir, generated string) ([]string, string, error) {
-	return inputs(dir, generated, Compile)
-}
-
-func inputs(dir, generated string, compile compileFunc) ([]string, string, error) {
-	rules, _, err := compile(strings.ReplaceAll(compilerCorpus, "\r\n", "\n"))
-	if err != nil {
-		return nil, "", err
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, "", err
-	}
-	words := map[string]bool{}
-	add := func(path string) error {
-		src, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if bytes.HasPrefix(src, []byte("// "+konst.IRMagic+" ")) {
-			return nil
-		}
-		file, err := parser.ParseFile(token.NewFileSet(), path, src, parser.SkipObjectResolution)
-		if err != nil {
-			return err
-		}
-		ast.Inspect(file, func(n ast.Node) bool {
-			switch n := n.(type) {
-			case *ast.ImportSpec:
-				return false
-			case *ast.BasicLit:
-				if n.Kind != token.STRING {
-					return true
-				}
-				text, _ := strconv.Unquote(n.Value)
-				for _, word := range strings.Fields(text) {
-					words[word] = true
-				}
-			}
-			return true
-		})
-		return nil
-	}
-	testIR := strings.HasSuffix(generated, "_test.go")
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || name == generated || filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") && !testIR {
-			continue
-		}
-		if err := add(filepath.Join(dir, name)); err != nil {
-			return nil, "", err
-		}
-	}
-	list, err := exec.Command("go", "list", "-C", dir, "-deps", "-f", `{{if .DepOnly}}{{range .Imports}}{{if eq . "github.com/twind-dev/twind/twi"}}{{$.Dir}}{{range $.GoFiles}}{{"\t"}}{{.}}{{end}}{{range $.IgnoredGoFiles}}{{"\t"}}{{.}}{{end}}{{"\n"}}{{end}}{{end}}{{end}}`, ".").CombinedOutput()
-	if err != nil {
-		return nil, "", fmt.Errorf("go list: %w\n%s", err, list)
-	}
-	for line := range strings.Lines(string(list)) {
-		fields := strings.Split(strings.TrimRight(line, "\r\n"), "\t")
-		for _, name := range fields[1:] {
-			if strings.HasSuffix(name, "_test.go") {
-				continue
-			}
-			if err := add(filepath.Join(fields[0], name)); err != nil {
-				return nil, "", err
-			}
-		}
-	}
-	candidates := slices.Sorted(maps.Keys(words))
-	sum := sha256.Sum256(fmt.Appendf(nil, "%s%s%s%#v%s", Header(""), konst.PresetTheme, twAnimate, rules, strings.Join(candidates, "\n")))
-	return candidates, hex.EncodeToString(sum[:]), nil
+	return new(Checker).Inputs(dir, generated)
 }
 
 func Header(hash string) string {
@@ -118,19 +39,5 @@ func Header(hash string) string {
 }
 
 func Stale(dir, generated string) (bool, error) {
-	return stale(dir, generated, Compile)
-}
-
-func stale(dir, generated string, compile compileFunc) (bool, error) {
-	src, err := os.ReadFile(filepath.Join(dir, generated))
-	if err != nil {
-		return false, err
-	}
-	_, hash, err := inputs(dir, generated, compile)
-	if err != nil {
-		return false, err
-	}
-	recorded, _, _ := strings.Cut(string(src), "\n")
-	current, _, _ := strings.Cut(Header(hash), "\n")
-	return strings.TrimSuffix(recorded, "\r") != current, nil
+	return new(Checker).Stale(dir, generated)
 }
