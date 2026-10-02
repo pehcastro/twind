@@ -13,4 +13,9 @@ const (
 	SaveCursor      = "\x1b7"
 	RestoreCursor   = "\x1b8"
 	EraseRight      = "\x1b[K"
+	ArchiveMagic    = "!<arch>\n"
+	ArchiveHeader   = 60
+	ArchiveNameEnd  = 16
+	ArchiveSizeAt   = 48
+	ArchiveSizeEnd  = 58
 )

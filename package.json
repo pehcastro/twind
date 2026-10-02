@@ -11,7 +11,7 @@
     "playground:wt": "node scripts/head.mjs window 120,34 twind-playground ./examples/playground",
     "playground:dev": "go run ./examples/playground",
     "docs:term": "node scripts/head.mjs run ./cmd/twind docs",
-    "docs:dev": "go run ./cmd/twind dev -log .twind/cache/dev.log ./cmd/twind docs",
+    "docs:dev": "go run ./cmd/twind dev -log .twind/cache/dev.log ./cmd/twind/docsdev",
     "docs:wt": "node scripts/head.mjs window 120,36 twind-docs ./cmd/twind docs",
     "gallery": "node scripts/head.mjs run ./examples/gallery",
     "gallery:wt": "node scripts/head.mjs window 110,34 twind-gallery ./examples/gallery",

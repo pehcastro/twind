@@ -37,6 +37,8 @@ type devSession struct {
 	irs       map[string]string
 	checker   tailwind.Checker
 	twirgen   string
+	plan      *dev.Plan
+	planning  chan *dev.Plan
 	log       *log.Logger
 	builds    int
 	saved     time.Time
@@ -158,12 +160,38 @@ func (s *devSession) build(ctx context.Context, changed []string) (string, error
 			if err := s.regenerate(dir, pkg); err != nil {
 				return "", err
 			}
+			changed = append(changed, filepath.Join(dir, style.GeneratedFile))
 			s.log.Printf("styles: regenerated after %v", time.Since(began).Round(time.Millisecond))
 		}
 	}
 	s.builds++
 	exe := executable(filepath.Join(s.work, fmt.Sprintf("app-%d", s.builds)))
 	compiled := time.Now()
+	if s.planning != nil {
+		s.plan, s.planning = <-s.planning, nil
+		s.log.Printf("plan: ready after %v", time.Since(compiled).Round(time.Millisecond))
+	}
+	if s.plan != nil {
+		steps, err := s.plan.Build(ctx, changed, exe)
+		var stale dev.StaleError
+		switch {
+		case err == nil:
+			s.built = time.Now()
+			for _, step := range steps {
+				s.log.Printf("fast build: %s %v, export changed %v", step.Package, step.Took.Round(time.Millisecond), step.Exported)
+			}
+			s.log.Printf("fast build: %v", s.built.Sub(compiled).Round(time.Millisecond))
+			return exe, nil
+		case errors.As(err, &stale):
+			s.log.Print(err)
+			s.plan = nil
+		case ctx.Err() != nil:
+			return "", ctx.Err()
+		default:
+			root, _ := os.Getwd()
+			return "", errors.New(strings.ReplaceAll(err.Error(), root+string(filepath.Separator), ""))
+		}
+	}
 	if out, err := exec.CommandContext(ctx, "go", "build", "-o", exe, s.pkg).CombinedOutput(); err != nil {
 		if ctx.Err() != nil {
 			return "", ctx.Err()
@@ -172,6 +200,14 @@ func (s *devSession) build(ctx context.Context, changed []string) (string, error
 	}
 	s.built = time.Now()
 	s.log.Printf("go build: %v", s.built.Sub(compiled).Round(time.Millisecond))
+	planning, dir := make(chan *dev.Plan, 1), filepath.Join(s.work, fmt.Sprintf("plan-%d", s.builds))
+	s.planning = planning
+	go func() {
+		began := time.Now()
+		p, err := dev.Capture(context.Background(), ".", s.pkg, dir)
+		s.log.Printf("plan: captured in %v, error %v", time.Since(began).Round(time.Millisecond), err)
+		planning <- p
+	}()
 	return exe, nil
 }
 
