@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	tkonst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/edit"
 	"github.com/twind-dev/twind/twi/input"
@@ -15,81 +16,160 @@ const (
 	cursorClass      = "bg-foreground text-background"
 	selectionClass   = "bg-primary text-primary-foreground"
 	placeholderClass = "text-muted-foreground"
+	fieldBox         = "w-full rounded-md dark:bg-input/30 "
 )
 
-type Input struct {
-	*twi.Input
-	control
-}
-
-func NewInput(rt *twi.Runtime) *Input {
-	in := &Input{Input: twi.NewInput(rt), control: control{rt: rt}}
-	in.CursorClass, in.SelectionClass, in.PlaceholderClass = cursorClass, selectionClass, placeholderClass
-	return in
-}
-
-func (in *Input) Node(options ...twi.NodeOption) twi.Node {
-	return in.field("h-3 w-full rounded-md dark:bg-input/30 "+in.edge(fieldEdge), options)
-}
-
-func (in *Input) field(classes string, options []twi.NodeOption) twi.Node {
-	return in.Input.Node(append(in.behave(nil), merged(fade+"flex flex-row min-w-0 px-1 overflow-hidden "+classes, append(options, twi.Tag(style.ElementInput)))...)...)
-}
-
-type Textarea struct {
+type editor struct {
 	edit.Buffer
 	control
-	Placeholder string
+	Placeholder   string
+	width, scroll int
+	dragging      bool
+	listeners     []twi.NodeOption
+}
+
+type Input struct{ editor }
+
+type Textarea struct{ editor }
+
+func NewInput(rt *twi.Runtime) *Input {
+	return &Input{editor{control: control{rt: rt}}}
 }
 
 func NewTextarea(rt *twi.Runtime) *Textarea {
-	return &Textarea{Buffer: edit.Buffer{Mode: edit.MultiLine}, control: control{rt: rt}}
+	return &Textarea{editor{Buffer: edit.Buffer{Mode: edit.MultiLine}, control: control{rt: rt}}}
+}
+
+func (in *Input) Node(options ...twi.NodeOption) twi.Node {
+	return in.field("h-3 "+fieldBox+in.edge(fieldEdge), options)
 }
 
 func (t *Textarea) Node(options ...twi.NodeOption) twi.Node {
-	return t.field("min-h-6 w-full rounded-md dark:bg-input/30 "+t.edge(fieldEdge), options)
+	return t.field("min-h-6 "+fieldBox+t.edge(fieldEdge), options)
 }
 
-func (t *Textarea) field(classes string, options []twi.NodeOption) twi.Node {
-	keys := t.behave(func(k input.KeyEvent) bool {
-		if k.Key == input.KeyEnter && k.Modifiers == 0 {
-			t.Insert("\n")
-			return true
+func (in *Input) Group(addons ...Addon) twi.Node {
+	return group(&in.control, in.field("h-1 grow", nil), addons)
+}
+
+func (t *Textarea) Group(addons ...Addon) twi.Node {
+	return group(&t.control, t.field("min-h-4 grow", nil), addons)
+}
+
+func (e *editor) field(classes string, options []twi.NodeOption) twi.Node {
+	e.Widths = e.rt.Widths()
+	tag := style.ElementInput
+	if e.Mode == edit.MultiLine {
+		tag = style.ElementTextarea
+	}
+	if !e.focused {
+		e.scroll = 0
+	} else if e.width > 0 {
+		_, caret := e.Cursor()
+		e.scroll = max(min(e.scroll, caret), caret+1-e.width)
+	}
+	if e.scroll > 0 {
+		widest := 0
+		for line := range strings.SplitSeq(e.Value(), "\n") {
+			widest = max(widest, e.Widths.Width(line))
 		}
-		return t.Apply(k)
-	})
-	var rows []twi.NodeOption
+		e.scroll = max(min(e.scroll, widest+1-e.width), 0)
+	}
+	own := e.behave(nil)
+	if !e.Disabled {
+		if e.listeners == nil {
+			e.listeners = []twi.NodeOption{twi.OnKeyDown(e.key), twi.OnPointerDown(e.press), twi.OnPointerMove(e.drag), twi.OnPointerUp(e.release)}
+		}
+		own = append(own, e.listeners...)
+	}
 	from := 0
-	for line := range strings.SplitSeq(t.Value(), "\n") {
-		rows = append(rows, t.row(line, from))
+	for line := range strings.SplitSeq(e.Value(), "\n") {
+		own = append(own, e.row(line, from))
 		from += len(line) + 1
 	}
-	return part(fade+"flex flex-col px-1 overflow-hidden "+classes, slices.Concat(keys, rows, options, []twi.NodeOption{twi.Tag(style.ElementTextarea)}))
+	return part(fade+"flex flex-col min-w-0 px-1 overflow-hidden select-none cursor-text "+classes, slices.Concat(own, options, []twi.NodeOption{twi.Tag(tag)}))
 }
 
-func (t *Textarea) row(line string, from int) twi.Node {
-	plain := func(s string) twi.Node { return twi.Text(strings.ReplaceAll(s, " ", " ")) }
-	start, end := t.Selection()
-	start, end = start-from, end-from
-	parts := []twi.NodeOption{plain(line)}
+func (e *editor) row(line string, from int) twi.Node {
+	skip, x := 0, 0
+	for g := range text.Graphemes(line) {
+		if x >= e.scroll {
+			break
+		}
+		skip, x = skip+len(g), x+e.Widths.Width(g)
+	}
+	line, from = line[skip:], from+skip
+	start, end := e.Selection()
+	lo, hi := start-from, end-from
+	parts := []twi.NodeOption{twi.Text(line)}
 	switch {
-	case !t.focused:
-	case start == end && start >= 0 && start <= len(line):
+	case !e.focused:
+	case lo == hi && lo >= 0 && lo <= len(line):
 		cursor := " "
-		for g := range text.Graphemes(line[start:]) {
+		for g := range text.Graphemes(line[lo:]) {
 			cursor = g
 			break
 		}
-		parts = []twi.NodeOption{plain(line[:start]), part(cursorClass, []twi.NodeOption{plain(cursor)}), plain(line[min(start+len(cursor), len(line)):])}
-	case start != end && start < len(line) && end > 0:
-		lo, hi := max(start, 0), min(end, len(line))
-		parts = []twi.NodeOption{plain(line[:lo]), part(selectionClass, []twi.NodeOption{plain(line[lo:hi])}), plain(line[hi:])}
+		parts = []twi.NodeOption{twi.Text(line[:lo]), part(cursorClass, []twi.NodeOption{twi.Text(cursor)}), twi.Text(line[min(lo+len(cursor), len(line)):])}
+	case lo != hi && lo < len(line) && hi > 0:
+		lo, hi = max(lo, 0), min(hi, len(line))
+		parts = []twi.NodeOption{twi.Text(line[:lo]), part(selectionClass, []twi.NodeOption{twi.Text(line[lo:hi])}), twi.Text(line[hi:])}
 	}
-	if t.Value() == "" {
-		parts = append(parts, part(placeholderClass, []twi.NodeOption{twi.Text(t.Placeholder)}))
+	if x > e.scroll {
+		parts = slices.Insert(parts, 0, twi.NodeOption(twi.Text(" ")))
 	}
-	return part("flex flex-row h-1", parts)
+	if e.Value() == "" {
+		parts = append(parts, part(placeholderClass, []twi.NodeOption{twi.Text(e.Placeholder)}))
+	}
+	return part("flex flex-row h-1 min-w-0 overflow-hidden whitespace-pre", parts)
 }
+
+func (e *editor) key(ev *twi.Event) {
+	k := ev.Key
+	if k.Release {
+		return
+	}
+	e.width = e.rt.ContentBox(ev.Current()).Dx()
+	if e.Mode == edit.MultiLine && k.Key == input.KeyEnter && k.Modifiers == 0 {
+		e.Insert("\n")
+	} else if !e.Apply(k) {
+		return
+	}
+	ev.PreventDefault()
+	ev.StopPropagation()
+	e.rt.Invalidate()
+}
+
+func (e *editor) at(ev *twi.Event) int {
+	box := e.rt.ContentBox(ev.Current())
+	e.width = box.Dx()
+	return e.At(ev.Mouse.Y-box.Min.Y, ev.Mouse.X-box.Min.X+e.scroll)
+}
+
+func (e *editor) press(ev *twi.Event) {
+	if ev.Mouse.Button != input.MouseLeft {
+		return
+	}
+	unit := edit.Grapheme
+	switch e.rt.Clicks() {
+	case tkonst.WordClicks:
+		unit = edit.Word
+	case tkonst.LineClicks:
+		unit = edit.Line
+	}
+	e.Press(e.at(ev), unit, unit == edit.Grapheme && ev.Mouse.Modifiers&input.ModShift != 0)
+	e.dragging = true
+	e.rt.Invalidate()
+}
+
+func (e *editor) drag(ev *twi.Event) {
+	if e.dragging {
+		e.Drag(e.at(ev))
+		e.rt.Invalidate()
+	}
+}
+
+func (e *editor) release(*twi.Event) { e.dragging = false }
 
 type Align uint8
 
@@ -120,14 +200,6 @@ func InputGroupText(children ...twi.NodeOption) twi.Node {
 
 func InputGroupButton(children ...twi.NodeOption) twi.Node {
 	return Button(Ghost, SizeXS, children...)
-}
-
-func (in *Input) Group(addons ...Addon) twi.Node {
-	return group(&in.control, in.field("h-1 grow", nil), addons)
-}
-
-func (t *Textarea) Group(addons ...Addon) twi.Node {
-	return group(&t.control, t.field("min-h-4 grow", nil), addons)
 }
 
 func group(c *control, field twi.Node, addons []Addon, options ...twi.NodeOption) twi.Node {

@@ -93,6 +93,7 @@ func (r *Runtime) press(ev input.MouseEvent) {
 	if ev.Button == input.MouseLeft {
 		r.dirty = r.restyles(r.pointer.pressed, r.pointer.hovered, style.StateActive) || r.dirty
 		r.pointer.pressed = r.pointer.hovered
+		r.sel.count(ev, r.cfg.Clock.Now())
 	}
 	prevented := target != nil && r.send(target, events.PointerDown).DefaultPrevented()
 	if ev.Button == input.MouseLeft {

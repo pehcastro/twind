@@ -58,9 +58,9 @@ func (s *selection) span() (lo, hi spot) {
 	return s.anchor, s.focus
 }
 
-func (r *Runtime) pick(ev input.MouseEvent, refused bool) {
-	s := &r.sel
-	now := r.cfg.Clock.Now()
+func (r *Runtime) Clicks() int { return r.sel.clicks }
+
+func (s *selection) count(ev input.MouseEvent, now time.Time) {
 	near := max(ev.X-s.press.X, s.press.X-ev.X, ev.Y-s.press.Y, s.press.Y-ev.Y) <= konst.MultiClickSlack
 	if near && now.Sub(s.pressed) <= konst.MultiClick {
 		s.clicks = min(s.clicks+1, konst.LineClicks)
@@ -68,6 +68,10 @@ func (r *Runtime) pick(ev input.MouseEvent, refused bool) {
 		s.clicks = 1
 	}
 	s.press, s.pressed = ev, now
+}
+
+func (r *Runtime) pick(ev input.MouseEvent, refused bool) {
+	s := &r.sel
 	r.dirty = r.dirty || s.shown
 	s.clear()
 	path := r.pointer.hovered

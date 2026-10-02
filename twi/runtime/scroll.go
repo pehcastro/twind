@@ -97,6 +97,11 @@ type Ref struct {
 
 func (f *Ref) Bounds() image.Rectangle { return f.bounds }
 
+func (r *Runtime) ContentBox(e *Elem) image.Rectangle {
+	c := r.doc.sceneOf(e).Content
+	return image.Rect(c.X, c.Y, c.X+c.W, c.Y+c.H)
+}
+
 func (r *Runtime) Viewport() image.Rectangle { return image.Rect(0, 0, r.width, r.height) }
 
 func (r *Runtime) measure() bool {

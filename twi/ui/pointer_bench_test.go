@@ -1,0 +1,34 @@
+package ui
+
+import (
+	"testing"
+
+	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/drive"
+)
+
+func BenchmarkPointerFieldKeyToFrame(b *testing.B) {
+	sheet, err := styles()
+	if err != nil {
+		b.Fatal(err)
+	}
+	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
+		name, bio := NewInput(rt), NewTextarea(rt)
+		name.Insert("Peedro Alvares Cabral de Gouveia")
+		bio.Insert("Born in Belmonte.\nSailed west in 1500.\nLanded in Porto Seguro.")
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col gap-1 p-1 w-40"), name.Node(twi.AutoFocus()), bio.Node())
+		}
+	}, drive.Size(60, 14), drive.Styles(sheet))
+	b.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			b.Error(err)
+		}
+	})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		d.Press("a")
+		d.Press("backspace")
+	}
+}

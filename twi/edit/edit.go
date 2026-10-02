@@ -41,6 +41,8 @@ type Buffer struct {
 	last       step
 	edited     time.Time
 	goal       int
+	unit       Unit
+	grabbed    [2]int
 }
 
 func (b *Buffer) Value() string { return b.value }
