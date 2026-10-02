@@ -119,6 +119,8 @@ const (
 	OverlayRetry     = 100 * time.Millisecond
 	OverlayReads     = 20
 	OverlayRestart   = 5 * time.Second
+	OverlayCoverPoll = 100 * time.Millisecond
+	OverlayOurPage   = 8
 	OverlayAncestors = 16
 	OverlayClass     = "TwindOverlay"
 	OverlayExStyle   = 0x00080000 | 0x00000020 | 0x08000000 | 0x00000080

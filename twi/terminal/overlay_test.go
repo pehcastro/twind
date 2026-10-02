@@ -51,10 +51,16 @@ func (h *fakeHost) capture(r image.Rectangle) []byte {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.reads++
-	if h.covered || h.screen == nil || r != (image.Rectangle{Min: h.at.origin, Max: h.at.origin.Add(h.at.client)}) {
+	full := image.Rectangle{Min: h.at.origin, Max: h.at.origin.Add(h.at.client)}
+	if h.covered || h.screen == nil || !r.In(full) {
 		return nil
 	}
-	return slices.Clone(h.screen)
+	var seen []byte
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		at := ((y-full.Min.Y)*h.at.client.X + r.Min.X - full.Min.X) * 4
+		seen = append(seen, h.screen[at:at+r.Dx()*4]...)
+	}
+	return seen
 }
 
 func (h *fakeHost) pixels(size image.Point) []byte {
@@ -797,8 +803,75 @@ func TestOverlayStaysShownWithoutFocus(t *testing.T) {
 			t.Errorf("%s: graphics %d cell %v, want GDI and %v", step.name, g, cell, zedCell)
 		}
 	}
-	if h.reads != reads || o.marks(zedPage, now) != nil {
-		t.Errorf("read the screen %d times or marked without focus", h.reads-reads)
+	if h.reads != reads+1 || o.marks(zedPage, now) != nil {
+		t.Errorf("read the screen %d times or marked without focus, want one check with Zed in front and focus out", h.reads-reads)
+	}
+}
+
+func TestOverlayHidesWhenItsCellsLeaveTheScreen(t *testing.T) {
+	h := zedHost()
+	o := &overlay{win: h, cells: zedCells}
+	now, _ := calibrate(t, o, h, time.Now())
+	top := image.Rect(0, 0, zedGrid.X, 1)
+	full := Pixels{Cell: zedCell, Grid: zedGrid, Clear: true, Tiles: []Tile{{Cells: top, Pix: opaque(top, zedCell)}}}
+	o.paint(full)
+	other := color.RGBA{R: zedPage.R, G: zedPage.G, B: 200, A: 255}
+	ours, foreign := zedScreen(nil), zedScreen(nil)
+	for i := 0; i < len(foreign); i += 4 {
+		foreign[i] = other.B
+	}
+	copy(ours[row(0)*zedClient.X*4:], foreign[row(0)*zedClient.X*4:row(1)*zedClient.X*4])
+	step := func(name string, screen []byte, change func(h *fakeHost), wantReads int, want Graphics, wantEvent bool) {
+		t.Helper()
+		h.set(func(h *fakeHost) {
+			h.screen = screen
+			change(h)
+		})
+		reads := h.reads
+		now = now.Add(konst.OverlayCoverPoll)
+		ev, ok := o.tick(zedGrid, now)
+		g, cell := o.surface()
+		if h.reads-reads != wantReads || g != want || ok != wantEvent || ok && ev.Cell != cell {
+			t.Errorf("%s: %d reads, graphics %d cell %v, event %+v %v; want %d reads, graphics %d, event %v", name, h.reads-reads, g, cell, ev, ok, wantReads, want, wantEvent)
+		}
+		if shown, _, _ := h.state(); want == GraphicsNone && shown || want == GraphicsGDI && !ok && !shown {
+			t.Errorf("%s: shown %v with graphics %d", name, shown, g)
+		}
+	}
+	same := func(*fakeHost) {}
+	for range 5 {
+		step("focused, another tab", foreign, same, 0, GraphicsGDI, false)
+	}
+	o.focus(false)
+	step("focus out, Twind's page on the line", ours, same, 1, GraphicsGDI, false)
+	step("focus out, another tab", foreign, same, 1, GraphicsNone, true)
+	if o.paint(full) {
+		t.Errorf("a pixel paint was accepted over another tab")
+	}
+	h.set(func(h *fakeHost) { h.screen = ours })
+	reads := h.reads
+	if o.tick(zedGrid, now.Add(konst.OverlayPoll)); h.reads != reads {
+		t.Errorf("checked again before %v", konst.OverlayCoverPoll)
+	}
+	step("Twind's cells back", ours, same, 1, GraphicsGDI, true)
+	if shown, _, _ := h.state(); shown {
+		t.Errorf("shown with the bitmap from before the other tab")
+	}
+	if !o.paint(full) {
+		t.Errorf("the full paint after coming back was refused")
+	}
+	step("another tab, Zed not in front", foreign, func(h *fakeHost) { h.at.front = false }, 0, GraphicsGDI, false)
+	step("no screen", nil, func(h *fakeHost) { h.at.front = true }, 1, GraphicsGDI, false)
+	step("another tab again", foreign, same, 1, GraphicsNone, true)
+	o.marks(other, now)
+	step("the page changed while hidden", foreign, same, 1, GraphicsGDI, true)
+	o.paint(full)
+	step("another tab with the new page", ours, same, 1, GraphicsNone, true)
+	o.focus(true)
+	step("focus in", ours, same, 0, GraphicsGDI, true)
+	o.paint(full)
+	for range 5 {
+		step("focused again", ours, same, 0, GraphicsGDI, false)
 	}
 }
 

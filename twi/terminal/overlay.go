@@ -188,6 +188,10 @@ type overlay struct {
 	reads          int
 	found          []int
 	blurred        bool
+	covered        bool
+	checked        time.Time
+	picked         bool
+	line           int
 	visible, shown bool
 	stopped        bool
 	fresh          bool
@@ -226,6 +230,7 @@ func (o *overlay) marks(page color.RGBA, now time.Time) []Mark {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if !o.marking {
+		o.page = page
 		return nil
 	}
 	if o.marked == nil || page != o.page {
@@ -239,6 +244,46 @@ func (o *overlay) focus(focused bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.blurred = !focused
+	if focused {
+		o.covered = false
+	}
+}
+
+func (o *overlay) check(at hostPlace) {
+	px := graphicskonst.GDIBytes
+	if !o.picked {
+		o.picked, o.line = true, 0
+		dib, most := o.win.pixels(o.size), -1
+		for y := 0; y < o.size.Y && dib != nil; y++ {
+			if int(o.lines[y])%o.cell.Y != 0 {
+				continue
+			}
+			open := 0
+			for i := y*o.size.X*px + px - 1; i < (y+1)*o.size.X*px; i += px {
+				if dib[i] == 0 {
+					open++
+				}
+			}
+			if open > most {
+				o.line, most = y, open
+			}
+		}
+	}
+	left := at.origin.Add(o.base).Add(image.Pt(0, o.line))
+	seen := o.win.capture(image.Rectangle{Min: left, Max: left.Add(image.Pt(o.size.X, 1))})
+	if seen == nil {
+		return
+	}
+	page := 0
+	for i := 0; i+px <= len(seen); i += px {
+		if seen[i] == o.page.B && seen[i+1] == o.page.G && seen[i+2] == o.page.R {
+			page++
+		}
+	}
+	if covered := page < konst.OverlayOurPage; covered != o.covered {
+		o.covered = covered
+		o.trace.log("cover: %d of %d pixels on line %d are the page %v, covered %t", page, o.size.X, o.line, o.page, covered)
+	}
 }
 
 func (o *overlay) tick(grid image.Point, now time.Time) (input.ResizeEvent, bool) {
@@ -271,7 +316,12 @@ func (o *overlay) tick(grid image.Point, now time.Time) (input.ResizeEvent, bool
 		o.marking, o.marked, o.painted, asked = want, nil, time.Time{}, true
 		o.trace.log("marks: wanted %t after %d reads, able %t; the page must be one opaque colour and the profile truecolor for them to be painted", want, o.reads, able)
 	}
-	visible := err == nil && at.shown && o.cell != image.Point{}
+	calibrated := err == nil && at.shown && o.cell != image.Point{}
+	if calibrated && at.front && o.blurred && now.Sub(o.checked) >= konst.OverlayCoverPoll {
+		o.checked = now
+		o.check(at)
+	}
+	visible := calibrated && !o.covered
 	if visible && at.origin != o.origin {
 		o.origin = at.origin
 		o.win.move(o.origin.Add(o.base))
@@ -331,7 +381,7 @@ func (o *overlay) drop(why string) {
 		o.win.hide()
 		o.shown = false
 	}
-	o.cell, o.origin, o.visible = image.Point{}, image.Point{}, false
+	o.cell, o.origin, o.visible, o.picked = image.Point{}, image.Point{}, false, false
 }
 
 func (o *overlay) surface() (Graphics, image.Point) {
@@ -387,6 +437,7 @@ func (o *overlay) paint(p Pixels) bool {
 	if dirty.Empty() {
 		return true
 	}
+	o.picked = false
 	drawn := o.win.draw(o.origin.Add(o.base), o.size, dirty)
 	o.trace.log("draw at %v size %v dirty %v, ok %t", o.origin.Add(o.base), o.size, dirty, drawn)
 	if !drawn {
