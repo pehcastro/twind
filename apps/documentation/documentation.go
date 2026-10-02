@@ -271,7 +271,7 @@ func (s *site) view() twi.Node {
 				s.flipScheme()
 			}
 		}),
-		el("flex flex-row shrink-0 items-center gap-2 border-b px-2",
+		el("flex flex-row shrink-0 items-center gap-2 border-b px-2 pt-1",
 			txt("font-bold", "twind"),
 			txt("text-muted-foreground", "Docs"),
 			el("grow"),

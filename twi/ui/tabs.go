@@ -30,7 +30,7 @@ func (t *Tabs) Node(children ...twi.NodeOption) twi.Node {
 }
 
 func (t *Tabs) List(children ...twi.NodeOption) twi.Node {
-	return part(fade+"flex w-fit items-center justify-center rounded-lg bg-muted text-muted-foreground "+pick("tabs list", t.Orientation, map[Orientation]string{
+	return part(fade+"flex w-fit items-center justify-center rounded-lg bg-input dark:bg-muted text-muted-foreground "+pick("tabs list", t.Orientation, map[Orientation]string{
 		Horizontal: "flex-row",
 		Vertical:   "flex-col h-fit",
 	}), append(t.behave(t.key), children...))
@@ -43,7 +43,7 @@ func (t *Tabs) Trigger(value string, children ...twi.NodeOption) twi.Node {
 	t.built = append(t.built, value)
 	classes := "text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
 	if value == t.Value {
-		classes = "bg-background text-foreground shadow-sm dark:bg-input/30 dark:text-foreground"
+		classes = "bg-background text-foreground shadow-sm dark:bg-foreground/10 dark:text-foreground"
 	}
 	return part("flex flex-row flex-1 items-center gap-1 rounded-md px-2 font-medium whitespace-nowrap [&_svg]:shrink-0 [&_svg]:pointer-events-none "+classes+t.ring("", onItem)+" "+pick("tabs trigger", t.Orientation, map[Orientation]string{
 		Horizontal: "justify-center",

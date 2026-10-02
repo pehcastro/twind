@@ -1,14 +1,76 @@
 package ui
 
 import (
+	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/drive"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/theme"
 )
+
+const visibleStep = 0.04
+
+func oklabDistance(x, y color.RGBA) float64 {
+	lab := func(c color.RGBA) [3]float64 {
+		lin := func(v uint8) float64 {
+			s := float64(v) / 255
+			if s <= 0.04045 {
+				return s / 12.92
+			}
+			return math.Pow((s+0.055)/1.055, 2.4)
+		}
+		r, g, b := lin(c.R), lin(c.G), lin(c.B)
+		l := math.Cbrt(0.4122214708*r + 0.5363325363*g + 0.0514459929*b)
+		m := math.Cbrt(0.2119034982*r + 0.6806995451*g + 0.1073969566*b)
+		s := math.Cbrt(0.0883024619*r + 0.2817188376*g + 0.6299787005*b)
+		return [3]float64{
+			0.2104542553*l + 0.7936177850*m - 0.0040720468*s,
+			1.9779984951*l - 2.4285922050*m + 0.4505937099*s,
+			0.0259040371*l + 0.7827717662*m - 0.8086757660*s,
+		}
+	}
+	a, b := lab(x), lab(y)
+	return math.Sqrt((a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2]-b[2])*(a[2]-b[2]))
+}
+
+func TestTabsActiveStandsOutInEveryTheme(t *testing.T) {
+	sheet, err := styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hex := func(c color.RGBA) string { return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B) }
+	table := "theme, scheme, page, list, active, inactive text, active text, step\n"
+	for _, th := range theme.Builtin() {
+		d := drive.New(func(rt *twi.Runtime) func() twi.Node {
+			rt.SetTheme(th)
+			tabs := NewTabs(rt)
+			return func() twi.Node {
+				return twi.Element(twi.Class("flex flex-col p-1 h-full bg-background text-foreground"),
+					tabs.Node(tabs.List(tabs.Trigger("preview", twi.Text("Preview")), tabs.Trigger("code", twi.Text("Code")))))
+			}
+		}, drive.Size(30, 4), drive.Styles(sheet))
+		d.Advance(settleTime)
+		f := d.Frame()
+		ax, ay, _ := at(f, "Preview")
+		ix, iy, _ := at(f, "Code")
+		active, list, page := f.Cells().At(ax, ay), f.Cells().At(ix, iy), f.Cells().At(0, 0)
+		step := oklabDistance(active.Bg.RGBA, list.Bg.RGBA)
+		table += fmt.Sprintf("%s, %d, %s, %s, %s, %s, %s, %.3f\n", th.Name, th.Scheme, hex(page.Bg.RGBA), hex(list.Bg.RGBA), hex(active.Bg.RGBA), hex(list.Fg.RGBA), hex(active.Fg.RGBA), step)
+		if step < visibleStep {
+			t.Errorf("%s %d: active trigger %s on list %s, step %.3f, want at least %.3f", th.Name, th.Scheme, hex(active.Bg.RGBA), hex(list.Bg.RGBA), step, visibleStep)
+		}
+		if err := d.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Log("\n" + table)
+}
 
 func TestTabsKeysAndClicks(t *testing.T) {
 	light := zinc(t, theme.Light)

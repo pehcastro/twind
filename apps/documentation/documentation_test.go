@@ -702,8 +702,12 @@ func TestHeaderNarrow(t *testing.T) {
 	d := open(t)
 	for _, width := range []int{60, 80, 120} {
 		d.Resize(width, 30)
-		row := strings.TrimRight(strings.Split(d.Frame().Text(), "\n")[0], " ")
+		lines := strings.Split(d.Frame().Text(), "\n")
+		row := strings.TrimRight(lines[1], " ")
 		t.Logf("%d columns:\n%s", width, row)
+		if strings.TrimSpace(lines[0]) != "" {
+			t.Errorf("%d columns: want an empty row above the header, got %q", width, lines[0])
+		}
 		wide := width >= 100
 		if !strings.HasSuffix(row, "☾") || !strings.Contains(row, "twind-dark ") || !strings.Contains(row, "Search") {
 			t.Errorf("%d columns: want search, the theme name and the toggle at the right edge of the header:\n%s", width, row)
