@@ -65,6 +65,31 @@ func (c *column) link(of []int32, y int, k int32) {
 	of[y] = k
 }
 
+func (c *column) shift(top, bottom, by int, blank int32) {
+	n := max(by, -by)
+	gone, open := bottom-n, top
+	if by < 0 {
+		gone, open = top, bottom-n
+	}
+	c.holders[blank] += int32(n)
+	for _, k := range c.lineOf[gone : gone+n] {
+		if k < 0 {
+			continue
+		}
+		if c.holders[k]--; c.holders[k] == 0 {
+			c.free = append(c.free, k)
+		}
+	}
+	if by > 0 {
+		copy(c.lineOf[top+by:bottom], c.lineOf[top:bottom-by])
+	} else {
+		copy(c.lineOf[top:bottom+by], c.lineOf[top-by:bottom])
+	}
+	for y := open; y < open+n; y++ {
+		c.lineOf[y] = blank
+	}
+}
+
 func (c *column) intern(runs []run, h uint64) int32 {
 	slot := &c.memo[h>>(64-graphicskonst.LineMemoBits)]
 	if k := *slot - 1; k >= 0 && c.holders[k] > 0 && c.hash[k] == h && slices.Equal(c.store[k], runs) {

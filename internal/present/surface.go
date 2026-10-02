@@ -59,10 +59,7 @@ type piece struct {
 	lo, hi int
 }
 
-type recipe struct {
-	hash          uint64
-	tile, at, end int
-}
+type recipe struct{ tile, at, end int }
 
 type layer struct {
 	buf [2][]run
@@ -400,18 +397,16 @@ func (w *worker) describe(key []byte, r image.Rectangle) []byte {
 }
 
 func (s *Screen) recall(hash uint64, key []byte) int {
-	for _, e := range s.recipes {
-		if e.hash == hash && bytes.Equal(s.arena[e.at:e.end], key) {
-			return e.tile
-		}
+	if e, ok := s.recipes[hash]; ok && bytes.Equal(s.arena[e.at:e.end], key) {
+		return e.tile
 	}
 	return -1
 }
 
 func (w *worker) remember(s *Screen, t int) {
 	s.lock.Lock()
-	if s.recall(w.hashed, w.recipe) < 0 {
-		s.recipes = append(s.recipes, recipe{hash: w.hashed, tile: t, at: len(s.arena), end: len(s.arena) + len(w.recipe)})
+	if _, taken := s.recipes[w.hashed]; !taken {
+		s.recipes[w.hashed] = recipe{tile: t, at: len(s.arena), end: len(s.arena) + len(w.recipe)}
 		s.arena = append(s.arena, w.recipe...)
 	}
 	s.lock.Unlock()

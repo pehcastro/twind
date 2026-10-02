@@ -80,7 +80,7 @@ type Screen struct {
 	based        []bool
 	claims       map[twin]int
 	lock         sync.Mutex
-	recipes      []recipe
+	recipes      map[uint64]recipe
 	arena        []byte
 	painted      atomic.Bool
 	drawing      []int
@@ -99,6 +99,7 @@ type Screen struct {
 	hashes, sent []uint64
 	dirty, send  []bool
 	moved, plain []bool
+	shifted      []bool
 	needs        []need
 	images       map[uint64]uint32
 	uses         []int
@@ -118,7 +119,9 @@ type Screen struct {
 	masks        []uint64
 	owners       []int32
 	markers      []int32
-	written      []buffer.Run
+	runs         []buffer.Run
+	reach        [][2]int
+	over         []image.Point
 	painting     terminal.Pixels
 	gdiPix       []byte
 }
@@ -182,6 +185,7 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	if cols != s.cols || rows != s.rows || s.Cell != s.cell || s.Font != s.font || s.text == nil {
 		s.reset(cols, rows)
 	}
+	clear(s.reach)
 	look := paint.Glyphs
 	switch {
 	case s.Graphics == terminal.GraphicsNone && s.Profile <= color.Attributes:
@@ -205,9 +209,11 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	}
 	if s.Graphics == terminal.GraphicsNone {
 		paint()
+		s.reached()
 	} else {
 		next, changed := s.damaged(&root)
 		s.surfaces(next, changed, paint)
+		s.reached()
 		s.transmit()
 	}
 	s.compose()
@@ -216,19 +222,24 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	}
 	if bg := root.Background; s.Marks != nil && s.Graphics == terminal.GraphicsNone && s.Profile == color.TrueColor && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
 		for _, m := range s.Marks(bg.RGBA) {
-			s.want.Set(m.Cell.X, m.Cell.Y, buffer.Cell{Grapheme: " ", Bg: color.Color{Kind: color.Literal, RGBA: m.Color}})
+			s.overlay(m.Cell.X, m.Cell.Y, buffer.Cell{Grapheme: " ", Bg: color.Color{Kind: color.Literal, RGBA: m.Color}})
 		}
 	}
-	if s.owners != nil {
-		s.written = buffer.Diff(s.written[:0], s.shown, s.want)
-		for _, r := range s.written {
-			s.disown(r.X, r.Y, r.Len)
+	s.runs = s.runs[:0]
+	for y, span := range s.reach {
+		if span[1] > span[0] {
+			s.runs = buffer.DiffRow(s.runs, s.shown, s.want, y, span[0], span[1])
 		}
 	}
-	if err := s.writer.Diff(s.shown, s.want); err != nil {
+	for _, r := range s.runs {
+		s.disown(r.X, r.Y, r.Len)
+	}
+	if err := s.writer.Runs(s.want, s.runs); err != nil {
 		return err
 	}
-	s.shown, s.want = s.want, s.shown
+	for _, r := range s.runs {
+		copy(s.shown.Row(r.Y)[r.X:r.X+r.Len], s.want.Row(r.Y)[r.X:r.X+r.Len])
+	}
 	s.fresh = false
 	if len(s.markers) > len(s.owners) {
 		s.compact()
@@ -265,10 +276,11 @@ func (s *Screen) reset(cols, rows int) {
 		s.out.WriteString(termkonst.Reset + termkonst.CSI + "2J")
 	}
 	if s.Cell != s.cell || s.cache == nil {
-		s.cache, s.shapes, s.splices, s.seed = map[uint64]*cached{}, map[string]*cached{}, map[[2]int32]int32{}, maphash.MakeSeed()
+		s.cache, s.shapes, s.splices, s.recipes, s.seed = map[uint64]*cached{}, map[string]*cached{}, map[[2]int32]int32{}, map[uint64]recipe{}, maphash.MakeSeed()
 	}
 	s.cols, s.rows, s.cell, s.font, s.fresh = cols, rows, s.Cell, s.Font, true
 	s.text, s.shown, s.want = nil, nil, nil
+	s.reach, s.over = make([][2]int, rows), s.over[:0]
 	s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
 	if s.Graphics == terminal.GraphicsNone {
 		return
@@ -306,7 +318,7 @@ func (s *Screen) reset(cols, rows int) {
 	s.pieces, s.covers, s.leads, s.twins, s.claims, s.bases, s.based = make([]piece, n), make([]image.Point, n), make([]int, n), make([]int, n), map[twin]int{}, make([][]part, n), make([]bool, n)
 	s.samples, s.sampled, s.needs = make([]color.Color, cols*rows), make([]bool, cols*rows), make([]need, cols)
 	if s.Graphics == terminal.GraphicsGDI {
-		s.masks, s.painting.Clear = make([]uint64, n), true
+		s.masks, s.shifted, s.painting.Clear = make([]uint64, n), make([]bool, n), true
 	}
 	s.owners, s.markers = nil, nil
 	if s.cellBound() {
@@ -371,11 +383,47 @@ func (s *Screen) underText() bool {
 	return s.Graphics == terminal.GraphicsSixel || s.Graphics == terminal.GraphicsITerm2
 }
 
+func (s *Screen) touch(cells image.Rectangle) {
+	cells = cells.Intersect(image.Rect(0, 0, s.cols, s.rows))
+	for y := cells.Min.Y; y < cells.Max.Y; y++ {
+		if span := &s.reach[y]; span[1] > span[0] {
+			span[0], span[1] = min(span[0], cells.Min.X), max(span[1], cells.Max.X)
+		} else {
+			*span = [2]int{cells.Min.X, cells.Max.X}
+		}
+	}
+}
+
+func (s *Screen) reached() {
+	if s.fresh {
+		s.touch(image.Rect(0, 0, s.cols, s.rows))
+	}
+	for _, r := range s.painter.Repainted() {
+		s.touch(image.Rect(r.X, r.Y, r.X+r.W, r.Y+r.H))
+	}
+	for _, t := range s.drawing {
+		s.touch(s.tiles[t])
+	}
+	for _, at := range s.over {
+		s.touch(image.Rect(at.X-1, at.Y, at.X+2, at.Y+1))
+	}
+	s.over = s.over[:0]
+}
+
+func (s *Screen) overlay(x, y int, c buffer.Cell) {
+	s.want.Set(x, y, c)
+	s.over = append(s.over, image.Pt(x, y))
+	s.touch(image.Rect(x-1, y, x+2, y+1))
+}
+
 func (s *Screen) compose() {
-	for y := range s.rows {
+	for y, span := range s.reach {
+		if span[1] <= span[0] {
+			continue
+		}
 		text, shown, want := s.text.Row(y), s.shown.Row(y), s.want.Row(y)
-		copy(want, text)
-		for x := range want {
+		copy(want[span[0]:span[1]], text[span[0]:span[1]])
+		for x := span[0]; x < span[1]; x++ {
 			c := &want[x]
 			switch {
 			case s.Graphics == terminal.GraphicsNone:
@@ -459,7 +507,8 @@ func (s *Screen) surfaces(next *scene.Frame, changed bool, paint func()) {
 			s.sent[t], s.moved[t] = s.hash(t), false
 		}
 	}
-	s.recipes, s.arena = s.recipes[:0], slices.Grow(s.arena[:0], presentkonst.RecipeBytes*len(s.drawing))
+	clear(s.recipes)
+	s.arena = slices.Grow(s.arena[:0], presentkonst.RecipeBytes*len(s.drawing))
 	s.rasterise(len(s.drawing), paint, func(w *worker, i int) {
 		t := s.drawing[i]
 		twin, memo := w.fill(s, next, t)
@@ -508,13 +557,14 @@ func (s *Screen) transmit() {
 			s.unplace(t)
 		case s.Graphics == terminal.GraphicsITerm2 && (s.sent[t] != 0 || s.fresh):
 			s.shown.Fill(buffer.Rect{X: cells.Min.X, Y: cells.Min.Y, W: cells.Dx(), H: cells.Dy()}, buffer.Cell{Grapheme: "\x00"})
+			s.touch(cells.Inset(-1))
 			s.sent[t] = 0
 		}
 	}
 	if s.underText() && !s.fresh {
-		for y := range s.rows {
+		for y, span := range s.reach {
 			shown, text := s.shown.Row(y), s.text.Row(y)
-			for x := range shown {
+			for x := span[0]; x < span[1]; x++ {
 				if t := s.tileAt(x, y); shown[x].Grapheme != "" && blank(text[x]) && !s.send[t] && !s.plain[t] && !s.flat(x, y) {
 					s.send[t] = true
 				}
@@ -603,9 +653,17 @@ func (s *Screen) put(t int) {
 
 func (s *Screen) ground() {
 	eraser, dst := terminal.Writer{Profile: s.Profile}, s.out.AvailableBuffer()
+	for t, send := range s.send {
+		if send {
+			s.touch(s.tiles[t].Inset(-1))
+		}
+	}
 	for y := range s.rows {
-		shown, text := s.shown.Row(y), s.text.Row(y)
 		band := s.tileAt(0, y)
+		if !slices.Contains(s.send[band:band+len(s.columns)], true) {
+			continue
+		}
+		shown, text := s.shown.Row(y), s.text.Row(y)
 		for x := range shown {
 			t := band + x/konst.TileColumns
 			if s.needs[x] = keep; !s.send[t] {

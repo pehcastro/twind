@@ -207,7 +207,7 @@ func reference(buf *buffer.Buffer, root scene.Node, look Look) {
 	}
 	target := buf
 	var p Painter
-	scene.Walk(&root, func(n *scene.Node) { p.draw(target, n, look, n.Clip) }, func(n *scene.Node, inside func()) {
+	new(scene.Walker).Walk(&root, func(n *scene.Node) { p.draw(target, n, look, n.Clip) }, func(n *scene.Node, inside func()) {
 		switch {
 		case n.Opacity <= 0:
 		case n.Opacity >= 1:

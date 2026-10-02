@@ -85,6 +85,8 @@ func (p *Painter) Paint(buf *buffer.Buffer, root *scene.Node, look Look) {
 	p.wide, p.wasWide = p.wasWide, p.wide
 }
 
+func (p *Painter) Repainted() []layout.Rect { return p.spans }
+
 func (p *Painter) order(root *scene.Node, screen layout.Rect) {
 	if p.nodes == nil {
 		total := size(root)

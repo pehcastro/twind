@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"reflect"
-
 	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/style"
 )
@@ -29,22 +27,25 @@ func stateful(sheet style.Sheet, root *render.Node, path []int, from int, bit st
 	if path == nil {
 		return false
 	}
-	chain := []link{{root, sheet.Marks(root.Classes), stateOf(root)}}
+	chain := append(make([]link, 0, len(path)+1), link{node: root, state: stateOf(root)})
 	for n := root; len(chain) <= len(path) && path[len(chain)-1] < len(n.Children); {
 		i := path[len(chain)-1]
 		state := placed(n.Children, i)
 		n = &n.Children[i]
-		chain = append(chain, link{n, sheet.Marks(n.Classes), state})
+		chain = append(chain, link{node: n, state: state})
 	}
 	if from >= len(chain) {
 		return false
+	}
+	for k := from; k < len(chain); k++ {
+		chain[k].marks = sheet.Marks(chain[k].node.Classes)
 	}
 	var rules []int
 	for k := from; k < len(chain); k++ {
 		f := chain[k]
 		own, with := f.state, f.state
 		with.States |= bit
-		if !reflect.DeepEqual(sheet.ComputeState(style.ComputedStyle{}, f.node.Classes, own), sheet.ComputeState(style.ComputedStyle{}, f.node.Classes, with)) {
+		if a, b := sheet.ComputeState(style.ComputedStyle{}, f.node.Classes, own), sheet.ComputeState(style.ComputedStyle{}, f.node.Classes, with); !a.Equal(&b) {
 			return true
 		}
 		rules = sheet.Hands(f.node.Classes, everyState(f.state), rules[:0])

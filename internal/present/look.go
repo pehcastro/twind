@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
+	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
 	presentkonst "github.com/twind-dev/twind/internal/konst/present"
 	rasterkonst "github.com/twind-dev/twind/internal/konst/raster"
 	"github.com/twind-dev/twind/twi/raster"
@@ -184,7 +185,7 @@ func (s *Screen) rasterise(n int, first func(), then func(w *worker, i int)) {
 		}
 	}
 	jobs := len(s.order)
-	s.parallel(jobs+n, jobs, n+drawn/presentkonst.PixelsPerTile, first, func(w *worker, i int) {
+	s.parallel(jobs+n, jobs, n*paintkonst.TileColumns*s.Cell.X*s.band*s.Cell.Y/presentkonst.TileArea+drawn/presentkonst.PixelsPerTile, first, func(w *worker, i int) {
 		if i >= jobs {
 			then(w, i-jobs)
 			return

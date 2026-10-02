@@ -28,7 +28,7 @@ func TestTopLayerPaintsLastInOpenOrder(t *testing.T) {
 	root.Children[1].Children[0].Clip = viewport
 
 	var order []*Node
-	Walk(&root, func(n *Node) { order = append(order, n) }, func(_ *Node, inside func()) { inside() })
+	new(Walker).Walk(&root, func(n *Node) { order = append(order, n) }, func(_ *Node, inside func()) { inside() })
 	at := func(n *Node) int { return slices.Index(order, n) }
 	top, open, inner := &root.Children[0].Children[0], &root.Children[1].Children[0], &root.Children[0].Children[0].Children[0]
 	if got := []int{at(&root.Children[2]), at(open), at(top), at(inner)}; !slices.IsSorted(got) || slices.Contains(got, -1) {

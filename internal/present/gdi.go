@@ -5,6 +5,7 @@ import (
 
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
 	konst "github.com/twind-dev/twind/internal/konst/paint"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/graphics"
 	"github.com/twind-dev/twind/twi/terminal"
 )
@@ -12,6 +13,11 @@ import (
 func (s *Screen) gdi() {
 	s.sending = s.sending[:0]
 	for t, dirty := range s.dirty {
+		if s.shifted[t] && !dirty {
+			s.hashes[t], s.plain[t] = s.hash(t), s.Profile == color.TrueColor && s.plainTile(s.tileLines(t, s.lineRuns[:0]))
+		}
+		dirty = dirty || s.shifted[t]
+		s.shifted[t] = false
 		switch {
 		case s.plain[t] && (!dirty || s.sent[t] == 0):
 		case s.plain[t]:

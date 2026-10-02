@@ -6,6 +6,7 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -167,20 +168,25 @@ func BenchmarkDocs(b *testing.B) {
 			}
 			return docsClick(docsSidebarX, targets[i%2])
 		}},
+		{"scheme", func(int, string, map[string]int) []input.Event {
+			return []input.Event{input.KeyEvent{Key: input.KeyRune, Rune: 'm'}}
+		}},
 	}
 	for _, p := range paths {
 		rows := docsSidebar(b, sheet, p)
 		for _, page := range []string{"card", "theming"} {
 			for _, s := range steps {
 				b.Run(p.name+"/"+page+"/"+s.name, func(b *testing.B) { docsRun(b, sheet, p, page, s, rows) })
+				if s.name != "page" {
+					b.Run("loop/"+p.name+"/"+page+"/"+s.name, func(b *testing.B) { docsLoop(b, sheet, p, page, s, rows) })
+				}
 			}
 		}
 	}
 }
 
-func docsRun(b *testing.B, sheet style.Sheet, p docsPath, page string, s docsStep, rows map[string]int) {
-	now := clock(b)
-	be := &docsBackend{events: make(chan input.Event), frames: make(chan docsFrame, 64), now: now, cols: p.cols, rows: p.rows, caps: p.caps}
+func docsStart(b *testing.B, sheet style.Sheet, p docsPath, page string) (*docsBackend, *twi.Runtime, chan error) {
+	be := &docsBackend{events: make(chan input.Event), frames: make(chan docsFrame, 64), now: clock(b), cols: p.cols, rows: p.rows, caps: p.caps}
 	rt := twi.New(twi.Backend(be, realDocsClock{}), twi.Styles(sheet), twi.ColorProfile(color.TrueColor))
 	view, err := docsapp.New(rt, docsapp.Start{Page: page, Theme: "twind-dark"})
 	if err != nil {
@@ -189,6 +195,36 @@ func docsRun(b *testing.B, sheet style.Sheet, p docsPath, page string, s docsSte
 	done := make(chan error, 1)
 	go func() { done <- rt.Run(view) }()
 	be.quiet()
+	return be, rt, done
+}
+
+func docsLoop(b *testing.B, sheet style.Sheet, p docsPath, page string, s docsStep, rows map[string]int) {
+	be, rt, done := docsStart(b, sheet, p, page)
+	be.events <- input.MouseEvent{X: docsContentColumn, Y: docsContentRow, Button: input.MouseNone, Action: input.MouseMove}
+	be.quiet()
+	b.ReportAllocs()
+	b.ResetTimer()
+	c0 := cycles()
+	for i := range b.N {
+		for _, e := range s.events(i, page, rows) {
+			be.events <- e
+		}
+		<-be.frames
+	}
+	b.ReportMetric(float64(cycles()-c0)/float64(b.N), "cycles/op")
+	b.StopTimer()
+	if extra := len(be.quiet()); extra > 0 {
+		b.Fatalf("%d frames after the loop, want one per step", extra)
+	}
+	rt.Quit()
+	if err := <-done; err != nil {
+		b.Fatal(err)
+	}
+}
+
+func docsRun(b *testing.B, sheet style.Sheet, p docsPath, page string, s docsStep, rows map[string]int) {
+	be, rt, done := docsStart(b, sheet, p, page)
+	now := be.now
 	if s.name != "hover" {
 		be.events <- input.MouseEvent{X: docsContentColumn, Y: docsContentRow, Button: input.MouseNone, Action: input.MouseMove}
 		be.quiet()
@@ -199,9 +235,13 @@ func docsRun(b *testing.B, sheet style.Sheet, p docsPath, page string, s docsSte
 	var cycleSamples []float64
 	total := docsFrame{}
 	frames := 0
+	var before, after runtime.MemStats
+	var allocated, objects uint64
+	var collections uint32
 	b.ResetTimer()
 	for i := range b.N {
 		be.stream.Reset()
+		runtime.ReadMemStats(&before)
 		c0 := cycles()
 		begin := now()
 		for _, e := range s.events(i, page, rows) {
@@ -209,6 +249,8 @@ func docsRun(b *testing.B, sheet style.Sheet, p docsPath, page string, s docsSte
 		}
 		got := be.quiet()
 		spent := cycles() - c0
+		runtime.ReadMemStats(&after)
+		allocated, objects, collections = allocated+after.TotalAlloc-before.TotalAlloc, objects+after.Mallocs-before.Mallocs, collections+after.NumGC-before.NumGC
 		if len(got) == 0 {
 			b.Fatalf("%s: no frame after the events", s.name)
 		}
@@ -245,6 +287,9 @@ func docsRun(b *testing.B, sheet style.Sheet, p docsPath, page string, s docsSte
 	b.ReportMetric(float64(total.bytes)/n, "bytes/op")
 	b.ReportMetric(float64(total.images)/n, "images/op")
 	b.ReportMetric(float64(total.pixels)/n, "pixels/op")
+	b.ReportMetric(float64(allocated)/n, "B-alloc/op")
+	b.ReportMetric(float64(objects)/n, "objects/op")
+	b.ReportMetric(float64(collections)/n, "gc/op")
 	if dir := os.Getenv(docsStreamsEnv); dir != "" {
 		var out bytes.Buffer
 		for _, r := range records {

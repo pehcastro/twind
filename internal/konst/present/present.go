@@ -2,6 +2,7 @@ package present
 
 const (
 	TilesPerWorker = 128
+	TileArea       = 80 * 60
 	PixelsPerTile  = 175
 	RecipeBytes    = 32
 	ByteLanes      = 0x00ff00ff

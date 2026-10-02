@@ -139,18 +139,23 @@ func Diff(dst []Run, prev, cur *Buffer) []Run {
 		panic("buffer: diff of buffers with different sizes")
 	}
 	for y := range cur.height {
-		p, c := prev.Row(y), cur.Row(y)
-		for x := 0; x < len(c); {
-			if same(&p[x], &c[x]) {
-				x++
-				continue
-			}
-			start := x
-			for x < len(c) && (!same(&p[x], &c[x]) || c[x].Width == Continuation) {
-				x++
-			}
-			dst = append(dst, Run{X: start, Y: y, Len: x - start})
+		dst = DiffRow(dst, prev, cur, y, 0, cur.width)
+	}
+	return dst
+}
+
+func DiffRow(dst []Run, prev, cur *Buffer, y, from, to int) []Run {
+	p, c := prev.Row(y), cur.Row(y)
+	for x := from; x < to; {
+		if same(&p[x], &c[x]) {
+			x++
+			continue
 		}
+		start := x
+		for x < len(c) && (!same(&p[x], &c[x]) || c[x].Width == Continuation) {
+			x++
+		}
+		dst = append(dst, Run{X: start, Y: y, Len: x - start})
 	}
 	return dst
 }

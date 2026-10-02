@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"regexp"
+	"slices"
 	"testing"
 
 	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
@@ -68,6 +69,57 @@ func frame(t testing.TB, s *Screen, root scene.Node) {
 	t.Helper()
 	if err := s.Frame(root, cols, rows); err != nil {
 		t.Fatal(err)
+	}
+	if test, ok := t.(*testing.T); ok {
+		composedEverywhere(test, s, root)
+	}
+}
+
+func composedEverywhere(t *testing.T, s *Screen, root scene.Node) {
+	t.Helper()
+	if s.want == nil || s.text == nil {
+		return
+	}
+	kept, reach := buffer.New(s.cols, s.rows), slices.Clone(s.reach)
+	for y := range s.rows {
+		copy(kept.Row(y), s.want.Row(y))
+		s.reach[y] = [2]int{0, s.cols}
+	}
+	s.compose()
+	if s.Graphics == terminal.GraphicsNone {
+		s.scrollbars(&root)
+		for _, at := range s.over {
+			s.want.Set(at.X, at.Y, kept.At(at.X, at.Y))
+		}
+	}
+	for y := range s.rows {
+		if !slices.Equal(s.want.Row(y), kept.Row(y)) {
+			t.Fatalf("row %d composed only where it changed is %q, composed whole %q", y, cells(kept.Row(y)), cells(s.want.Row(y)))
+		}
+		if !slices.Equal(s.shown.Row(y), kept.Row(y)) {
+			t.Fatalf("row %d on screen is %q, the frame composed %q", y, cells(s.shown.Row(y)), cells(kept.Row(y)))
+		}
+	}
+	copy(s.reach, reach)
+}
+
+func TestHoverComposesOnlyWhatChanged(t *testing.T) {
+	for _, id := range []terminal.Identity{terminal.IdentityOther, terminal.IdentityVSCode} {
+		s, _ := screen(terminal.GraphicsSixel)
+		s.Identity = id
+		frame(t, s, tree(t, demo.List(0)))
+		if err := s.Frame(tree(t, demo.List(1)), cols, rows); err != nil {
+			t.Fatal(err)
+		}
+		touched, rowsTouched := 0, 0
+		for _, span := range s.reach {
+			if span[1] > span[0] {
+				touched, rowsTouched = touched+span[1]-span[0], rowsTouched+1
+			}
+		}
+		if touched == 0 || touched > cols*rows/4 || rowsTouched > rows/3 {
+			t.Errorf("identity %d: a one-row hover composed %d cells over %d rows, want only the drawn tiles and repainted rows, under %d cells", id, touched, rowsTouched, cols*rows/4)
+		}
 	}
 }
 

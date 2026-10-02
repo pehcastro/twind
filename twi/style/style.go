@@ -1,6 +1,7 @@
 package style
 
 import (
+	"slices"
 	"time"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
@@ -483,4 +484,27 @@ type ComputedStyle struct {
 
 	Transition Transition
 	Animation  Animation
+}
+
+func (s *ComputedStyle) Equal(o *ComputedStyle) bool {
+	return s.Display == o.Display && s.Direction == o.Direction && s.Wrap == o.Wrap && s.Grow == o.Grow && s.Shrink == o.Shrink &&
+		s.Basis == o.Basis && s.AlignItems == o.AlignItems && s.AlignSelf == o.AlignSelf && s.Justify == o.Justify &&
+		s.RowGap == o.RowGap && s.ColumnGap == o.ColumnGap &&
+		s.GridColumn == o.GridColumn && s.GridRow == o.GridRow && s.GridFlow == o.GridFlow &&
+		s.JustifyItems == o.JustifyItems && s.JustifySelf == o.JustifySelf && s.AlignContent == o.AlignContent &&
+		s.Width == o.Width && s.Height == o.Height && s.MinWidth == o.MinWidth && s.MaxWidth == o.MaxWidth &&
+		s.MinHeight == o.MinHeight && s.MaxHeight == o.MaxHeight &&
+		s.Padding == o.Padding && s.Margin == o.Margin && s.Position == o.Position && s.Inset == o.Inset &&
+		s.OverflowX == o.OverflowX && s.OverflowY == o.OverflowY && s.ZIndex == o.ZIndex &&
+		s.TranslateX == o.TranslateX && s.TranslateY == o.TranslateY && s.ScaleX == o.ScaleX && s.ScaleY == o.ScaleY &&
+		s.BorderWidth == o.BorderWidth && s.BorderStyle == o.BorderStyle && s.BorderColor == o.BorderColor && s.Radius == o.Radius &&
+		s.Background == o.Background && s.Gradient == o.Gradient && s.Opacity == o.Opacity &&
+		s.ShadowColor == o.ShadowColor && s.InsetShadowColor == o.InsetShadowColor && s.Ring == o.Ring &&
+		s.Color == o.Color && s.Bold == o.Bold && s.Italic == o.Italic && s.Underline == o.Underline && s.Strikethrough == o.Strikethrough &&
+		s.TextAlign == o.TextAlign && s.Visibility == o.Visibility && s.Cursor == o.Cursor && s.UserSelect == o.UserSelect &&
+		s.WhiteSpace == o.WhiteSpace && s.TextOverflow == o.TextOverflow && s.OverflowWrap == o.OverflowWrap && s.WordBreak == o.WordBreak &&
+		s.PointerEvents == o.PointerEvents && s.AspectRatio == o.AspectRatio && s.Transition == o.Transition && s.Animation == o.Animation &&
+		slices.Equal(s.GridColumns, o.GridColumns) && slices.Equal(s.GridRows, o.GridRows) &&
+		slices.Equal(s.GridAutoColumns, o.GridAutoColumns) && slices.Equal(s.GridAutoRows, o.GridAutoRows) &&
+		slices.Equal(s.Shadows, o.Shadows) && slices.Equal(s.InsetShadows, o.InsetShadows)
 }

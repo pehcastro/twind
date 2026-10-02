@@ -29,6 +29,8 @@ type stacker struct {
 	entries  []entry
 	top      chain
 	painted  bool
+	probing  bool
+	probe    image.Point
 }
 
 type chain struct{ head, tail int32 }
@@ -99,8 +101,15 @@ func (f *Frame) Record(root *Node, cell image.Point) {
 	}
 }
 
-func Walk(root *Node, draw func(*Node), group func(n *Node, inside func())) {
-	new(Walker).Walk(root, draw, group)
+func (w *Walker) Hit(root *Node, x, y int, hits func(*Node) bool) (top *Node) {
+	w.probing, w.probe = true, image.Pt(x, y)
+	w.Walk(root, func(n *Node) {
+		if hits(n) {
+			top = n
+		}
+	}, func(_ *Node, inside func()) { inside() })
+	w.probing = false
+	return top
 }
 
 func (w *Walker) Walk(root *Node, draw func(*Node), group func(n *Node, inside func())) {
@@ -195,6 +204,9 @@ func (s *stacker) collect(ctx int32, n *Node, key uint64, round int32) {
 	}
 	for i := range n.Children {
 		c, ck := &n.Children[i], mix(key, uint64(i)+1)
+		if s.probing && !c.Holds(s.probe.X, s.probe.Y) {
+			continue
+		}
 		positioned := c.Position != layout.PositionStatic
 		switch {
 		case c.TopLayer > 0:

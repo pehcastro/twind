@@ -3,6 +3,8 @@ package scene
 import (
 	"math"
 
+	lkonst "github.com/twind-dev/twind/internal/konst/layout"
+
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/style"
@@ -42,6 +44,32 @@ type Node struct {
 	Truncate, NoWrap                       bool
 	text                                   Text
 	wrapping                               text.Wrapping
+	reach                                  layout.Rect
+	enclosed                               bool
+}
+
+func (n *Node) Enclose() {
+	n.reach, n.enclosed = n.Bounds, true
+	for i := range n.Children {
+		c := &n.Children[i]
+		if !c.enclosed {
+			n.reach = layout.Rect{X: -lkonst.Unbounded / 2, Y: -lkonst.Unbounded / 2, W: lkonst.Unbounded, H: lkonst.Unbounded}
+			return
+		}
+		switch r := c.reach; {
+		case r.W <= 0 || r.H <= 0:
+		case n.reach.W <= 0 || n.reach.H <= 0:
+			n.reach = r
+		default:
+			x, y := min(n.reach.X, r.X), min(n.reach.Y, r.Y)
+			n.reach = layout.Rect{X: x, Y: y, W: max(n.reach.X+n.reach.W, r.X+r.W) - x, H: max(n.reach.Y+n.reach.H, r.Y+r.H) - y}
+		}
+	}
+}
+
+func (n *Node) Holds(x, y int) bool {
+	r := n.reach
+	return !n.enclosed || x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H
 }
 
 type Text struct {

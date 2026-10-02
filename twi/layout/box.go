@@ -3,6 +3,7 @@ package layout
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/layout"
 )
@@ -129,6 +130,18 @@ type Style struct {
 	AutoRows    []Track
 	Column      Placement
 	Row         Placement
+}
+
+func (s *Style) Equal(o *Style) bool {
+	return s.Display == o.Display && s.Direction == o.Direction && s.Wrap == o.Wrap && s.Justify == o.Justify &&
+		s.AlignItems == o.AlignItems && s.AlignSelf == o.AlignSelf && s.Position == o.Position && s.Overflow == o.Overflow &&
+		s.Flow == o.Flow && s.JustifyItems == o.JustifyItems && s.JustifySelf == o.JustifySelf && s.AlignContent == o.AlignContent &&
+		s.Height == o.Height && s.Padding == o.Padding && s.Border == o.Border && s.Margin == o.Margin &&
+		s.Grow == o.Grow && s.Shrink == o.Shrink && s.Basis == o.Basis && s.Width == o.Width &&
+		s.MinWidth == o.MinWidth && s.MinHeight == o.MinHeight && s.MaxWidth == o.MaxWidth && s.MaxHeight == o.MaxHeight &&
+		s.RowGap == o.RowGap && s.ColumnGap == o.ColumnGap && s.Aspect == o.Aspect && s.Inset == o.Inset && s.ZIndex == o.ZIndex &&
+		s.Column == o.Column && s.Row == o.Row &&
+		slices.Equal(s.Columns, o.Columns) && slices.Equal(s.Rows, o.Rows) && slices.Equal(s.AutoColumns, o.AutoColumns) && slices.Equal(s.AutoRows, o.AutoRows)
 }
 
 type Measure func(availableWidth int) (width, height int)

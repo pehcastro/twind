@@ -42,14 +42,18 @@ func Clipboard(text string) []byte {
 
 func (w *Writer) Diff(prev, cur *buffer.Buffer) error {
 	w.runs = buffer.Diff(w.runs[:0], prev, cur)
-	if len(w.runs) == 0 {
+	return w.Runs(cur, w.runs)
+}
+
+func (w *Writer) Runs(cur *buffer.Buffer, runs []buffer.Run) error {
+	if len(runs) == 0 {
 		return nil
 	}
 	w.buf = w.buf[:0]
 	if w.Sync {
 		w.buf = append(w.buf, konst.SyncBegin...)
 	}
-	for _, r := range w.runs {
+	for _, r := range runs {
 		w.move(r.X, r.Y)
 		for _, c := range cur.Row(r.Y)[r.X : r.X+r.Len] {
 			w.cell(c)

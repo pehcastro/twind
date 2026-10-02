@@ -83,6 +83,7 @@ type Runtime struct {
 	tree          render.Tree
 	nodes         render.Node
 	scene         scene.Node
+	walker        scene.Walker
 	pointer       pointer
 	sel           selection
 	out           io.Writer

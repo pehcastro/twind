@@ -6,7 +6,6 @@ import (
 	"hash/maphash"
 	"image"
 	"math"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -335,6 +334,7 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 		transform(&n, dx, dy, sx, sy)
 	}
 	n.Turn = m.pose.Turn
+	n.Enclose()
 	if k := s.computed.Animation.Keyframes; k != style.KeyframesNone && k != style.KeyframesExit {
 		t.motion.Unseen(s.key, n.Visibility == style.Hidden || n.Bounds.W <= 0 || n.Bounds.H <= 0 || k == style.KeyframesSpin && !t.graphics)
 	}
@@ -362,6 +362,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 	if reclassed {
 		s.marks, s.near = f.Sheet.Marks(n.Classes), f.Sheet.Near(n.Classes, s.near[:0])
 	}
+	s.classes = n.Classes
 	placed, at := n.At != nil, image.Point{}
 	if placed {
 		at = *n.At
@@ -375,7 +376,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		if err != nil {
 			return err
 		}
-		if fresh || !reflect.DeepEqual(ls, s.box.Style) {
+		if fresh || !ls.Equal(&s.box.Style) {
 			s.box.Style = ls
 			s.box.Invalidate()
 		}
@@ -388,7 +389,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		if animating = moves(computed) || s.animated || t.motion.Holds(s.key); animating {
 			t.animate(s, s.computed, computed)
 		}
-		if changed = fresh || t.restyle || !reflect.DeepEqual(*computed, *s.computed); changed {
+		if changed = fresh || t.restyle || !computed.Equal(s.computed); changed {
 			s.painted = false
 		}
 		s.computed = computed
@@ -404,7 +405,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		if truncate := ellipsis && s.nowrap; truncate != s.truncate {
 			s.truncate, s.painted = truncate, false
 		}
-		s.classes, s.state, s.element, s.placed, s.at = n.Classes, state, n.Element, placed, at
+		s.state, s.element, s.placed, s.at = state, n.Element, placed, at
 	}
 	if !animating && (s.animated || t.motion.Holds(s.key)) {
 		t.animate(s, s.computed, s.computed)

@@ -174,6 +174,7 @@ func carried(nodes []scene.Node, at func(x, y int) (int, int), clip layout.Rect)
 		}
 		c.Clip = overlap(c.Clip, clip)
 		c.Children = carried(c.Children, at, clip)
+		c.Enclose()
 	}
 	return nodes
 }
