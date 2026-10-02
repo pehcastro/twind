@@ -3,6 +3,7 @@
 A fullscreen Twind app: a sidebar, cards, a dialog and a light and dark theme picker, styled with Tailwind classes and twi/ui components.
 
     go run .                                    run it: t picks the theme, tab moves focus, enter opens, q quits
+    go tool twind dev .                         run it and swap in a new build on every save, styles included
     go test ./...                               check the styles are fresh and replay testdata/demo.twd
     go tool twind drive testdata/demo.twd       write each frame of the script to frames/
 
@@ -10,7 +11,7 @@ A fullscreen Twind app: a sidebar, cards, a dialog and a light and dark theme pi
 
 ## Styles
 
-`twir_gen.go` holds the Style IR compiled from the Tailwind classes in this package and the twi/ui components it imports. It is committed, so the app builds with the Go toolchain alone. After changing a class, `go tool twind build` regenerates it with the Tailwind executable in `.twind/bin/`, and `go tool twind check` says whether it is stale.
+`twir_gen.go` holds the Style IR compiled from the Tailwind classes in this package and the twi/ui components it imports. It is committed, so the app builds with the Go toolchain alone. After changing a class, `go tool twind build` regenerates it (`twind dev` does so on every save), and `go tool twind check` says whether it is stale. Tailwind is not needed to build: it runs only to regenerate, from `.twind/bin/` in this or a parent directory, or else from the user cache (`%LocalAppData%\twind\tailwind\<version>` on Windows, `~/.cache/twind/tailwind/<version>` on Linux, `~/Library/Caches/twind/tailwind/<version>` on macOS), fetched there once from the Tailwind release and checked against the pinned sha256.
 
 ## Before the first Twind release
 

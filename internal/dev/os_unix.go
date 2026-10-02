@@ -3,11 +3,14 @@
 package dev
 
 import (
+	"context"
 	"os"
 	"syscall"
 
 	"golang.org/x/sys/unix"
 )
+
+func notify(context.Context, string, chan<- struct{}) {}
 
 func ownGroup() *syscall.SysProcAttr {
 	return nil

@@ -3,7 +3,9 @@ package dev
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/twind-dev/twind/internal/dev/konst"
@@ -116,6 +118,16 @@ func Watch(ctx context.Context, files []string) <-chan []string {
 	for i, f := range files {
 		seen[i] = look(f)
 	}
+	wake := make(chan struct{}, 1)
+	if len(files) > 0 {
+		root := filepath.Dir(files[0])
+		for _, f := range files {
+			for !strings.HasPrefix(f, root+string(filepath.Separator)) && filepath.Dir(root) != root {
+				root = filepath.Dir(root)
+			}
+		}
+		go notify(ctx, root, wake)
+	}
 	go func() {
 		tick := time.NewTicker(konst.Poll)
 		defer tick.Stop()
@@ -124,6 +136,12 @@ func Watch(ctx context.Context, files []string) <-chan []string {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
+			case <-wake:
+				time.Sleep(konst.Settle)
+				select {
+				case <-wake:
+				default:
+				}
 			}
 			var changed []string
 			for i, f := range files {

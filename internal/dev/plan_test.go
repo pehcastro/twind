@@ -78,10 +78,9 @@ func TestPlanRebuildsWhatDependsOnTheEdit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	step := func(why string, changed []string, want []string, output string) {
+	step := func(why string, changed []string, want []string, output string) (string, []Step) {
 		t.Helper()
-		exe := m.exe()
-		steps, err := p.Build(context.Background(), changed, exe)
+		exe, steps, err := p.Build(context.Background(), changed, m.exe())
 		if err != nil {
 			t.Fatalf("%s: %v", why, err)
 		}
@@ -104,6 +103,7 @@ func TestPlanRebuildsWhatDependsOnTheEdit(t *testing.T) {
 		if got := m.run(m.goBuild()); got != output {
 			t.Errorf("%s: go build binary says %q, want %q", why, got, output)
 		}
+		return exe, steps
 	}
 	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return \"two\" }\n")
 	step("a body edit in leaf", []string{filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf", "example.com/m/mid", "example.com/m"}, "mid two other first\n")
@@ -111,49 +111,91 @@ func TestPlanRebuildsWhatDependsOnTheEdit(t *testing.T) {
 	step("a header comment changed, as a regenerated Style IR does", []string{filepath.Join(m.root, "other", "other.go")}, []string{"example.com/m/other", "example.com/m"}, "mid two other first\n")
 	m.write("data/data.txt", "second")
 	step("an embedded file, the package's export data unchanged", []string{filepath.Join(m.root, "data", "data.txt")}, []string{"example.com/m/data"}, "mid two other second\n")
-	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string {\n\tdefer func() {}()\n\treturn \"rec\"\n}\n")
-	step("leaf given a defer, so its body leaves the export data", []string{filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf", "example.com/m/mid", "example.com/m"}, "mid rec other second\n")
-	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string {\n\tdefer func() {}()\n\treturn \"body\"\n}\n")
-	step("a body edit no importer can see", []string{filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf"}, "mid body other second\n")
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return \"body\" }\n")
+	step("a second body edit, the first left no inline body in the export data", []string{filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf"}, "mid body other second\n")
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return Wrap(\"generic\") }\n\nfunc Wrap[T any](v T) T { return v }\n")
+	step("a generic added", []string{filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf", "example.com/m/mid"}, "mid generic other second\n")
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return Wrap(\"generic\") }\n\nfunc Wrap[T any](v T) T { return v + v }\n")
+	if _, _, err := p.Build(context.Background(), []string{filepath.Join(m.root, "leaf", "leaf.go")}, m.exe()); err == nil {
+		t.Error("v + v on any compiled")
+	}
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return Wrap(\"generic\") }\n\nfunc Wrap[T ~string](v T) T { return v + v }\n")
+	step("a generic's body, exported with or without -l", []string{filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf", "example.com/m/mid"}, "mid genericgeneric other second\n")
 	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return undefinedName }\n")
-	if _, err := p.Build(context.Background(), []string{filepath.Join(m.root, "leaf", "leaf.go")}, m.exe()); err == nil || !strings.Contains(err.Error(), "undefinedName") {
+	if _, _, err := p.Build(context.Background(), []string{filepath.Join(m.root, "leaf", "leaf.go")}, m.exe()); err == nil || !strings.Contains(err.Error(), "undefinedName") {
 		t.Errorf("a compile error: got %v, want the compiler's message", err)
 	}
 	m.write("other/other.go", "package other\n\nconst Name = \"OTHER\"\n")
 	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return \"three\" }\n")
-	step("fixed, with the broken save still pending", []string{filepath.Join(m.root, "leaf", "leaf.go"), filepath.Join(m.root, "other", "other.go"), filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf", "example.com/m/mid", "example.com/m/other", "example.com/m"}, "mid three OTHER second\n")
+	three, _ := step("fixed, with the broken save still pending", []string{filepath.Join(m.root, "leaf", "leaf.go"), filepath.Join(m.root, "other", "other.go"), filepath.Join(m.root, "leaf", "leaf.go")}, []string{"example.com/m/leaf", "example.com/m/mid", "example.com/m/other", "example.com/m"}, "mid three OTHER second\n")
 
-	fast, slow := m.exe(), ""
-	if _, err := p.Build(context.Background(), []string{filepath.Join(m.root, "main.go")}, fast); err != nil {
-		t.Fatal(err)
+	leaf := filepath.Join(m.root, "leaf", "leaf.go")
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return \"four\" }\n")
+	step("four", []string{leaf}, []string{"example.com/m/leaf"}, "mid four OTHER second\n")
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return \"three\" }\n")
+	exe, steps := step("an undo", []string{leaf}, []string{"example.com/m/leaf"}, "mid three OTHER second\n")
+	if exe != three || !steps[0].Reused || !steps[1].Reused {
+		t.Errorf("an undo: binary %s, steps %+v; want the archive and %s reused", exe, steps, three)
 	}
-	slow = m.goBuild()
-	a, errA := os.ReadFile(fast)
-	b, errB := os.ReadFile(slow)
-	if errA != nil || errB != nil {
-		t.Fatal(errA, errB)
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return \"three\" } /"+"* a note *"+"/\n")
+	exe, steps = step("a note at a line's end", []string{leaf}, []string{"example.com/m/leaf"}, "mid three OTHER second\n")
+	if exe != three || steps[0].Reused || !steps[1].Reused {
+		t.Errorf("a note: binary %s, steps %+v; want leaf compiled and %s reused", exe, steps, three)
 	}
-	if len(a) != len(b) {
-		t.Errorf("fast binary %d bytes, go build %d", len(a), len(b))
-	}
-	t.Logf("bytes differing from go build: %d of %d", differing(a, b), len(b))
-	if n := differing(withoutBuildID(t, fast, a), withoutBuildID(t, slow, b)); n != 0 {
-		t.Errorf("%d bytes differ from go build outside the build ID", n)
-	}
-}
 
-func withoutBuildID(t *testing.T, exe string, body []byte) []byte {
-	t.Helper()
-	id, err := exec.Command("go", "tool", "buildid", exe).Output()
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string {\n\tpanic(\"boom\")\n}\n")
+	exe, _, err = p.Build(context.Background(), []string{leaf}, m.exe())
 	if err != nil {
 		t.Fatal(err)
 	}
-	full := strings.TrimSpace(string(id))
-	out := body
-	for _, part := range append(strings.Split(full, "/"), full) {
-		out = bytes.ReplaceAll(out, []byte(part), bytes.Repeat([]byte{0}, len(part)))
+	if out, err := exec.Command(exe).CombinedOutput(); err == nil || !bytes.Contains(out, []byte("leaf/leaf.go:4")) {
+		t.Errorf("a panic in the fast binary: %v, want file and line in\n%s", err, out)
 	}
-	return out
+}
+
+func TestPlanWarmLeavesOnlyTheEditedPackage(t *testing.T) {
+	m := newPlanModule(t)
+	m.goBuild()
+	p, err := Capture(context.Background(), m.root, ".", filepath.Join(m.root, "plan"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Warm(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	m.write("leaf/leaf.go", "package leaf\n\nfunc Value() string { return \"two\" }\n")
+	exe, steps, err := p.Build(context.Background(), []string{filepath.Join(m.root, "leaf", "leaf.go")}, m.exe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var compiled []string
+	for _, s := range steps {
+		if !s.Reused {
+			compiled = append(compiled, s.Package)
+		}
+	}
+	if !slices.Equal(compiled, []string{"example.com/m/leaf", "link"}) {
+		t.Errorf("first edit after a warm: compiled %v, want leaf and the link only; steps %+v", compiled, steps)
+	}
+	if got := m.run(exe); got != "mid two other first\n" {
+		t.Errorf("fast binary says %q", got)
+	}
+}
+
+func TestPlanNeverRewritesAnArchive(t *testing.T) {
+	m := newPlanModule(t)
+	m.goBuild()
+	p, err := Capture(context.Background(), m.root, ".", filepath.Join(m.root, "plan"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pk := p.order[0]
+	work := filepath.Join(m.root, "plan", "same")
+	first, errA := p.compile(context.Background(), pk, work, rewrite(pk.importcfg, p.have))
+	second, errB := p.compile(context.Background(), pk, work, rewrite(pk.importcfg, p.have))
+	if errA != nil || errB != nil || first == second {
+		t.Errorf("two compiles of %s wrote %s and %s (%v, %v); a remembered archive must keep its bytes", pk.path, first, second, errA, errB)
+	}
 }
 
 func TestPlanFallsBack(t *testing.T) {
@@ -196,18 +238,8 @@ func TestPlanFallsBack(t *testing.T) {
 		}
 		changed := filepath.Join(m.root, tc.edit(m))
 		var stale StaleError
-		if _, err := p.Build(context.Background(), []string{changed}, m.exe()); !errors.As(err, &stale) {
+		if _, _, err := p.Build(context.Background(), []string{changed}, m.exe()); !errors.As(err, &stale) {
 			t.Errorf("%s: got %v, want a stale plan", tc.why, err)
 		}
 	}
-}
-
-func differing(a, b []byte) int {
-	n := 0
-	for i := range min(len(a), len(b)) {
-		if a[i] != b[i] {
-			n++
-		}
-	}
-	return n + max(len(a), len(b)) - min(len(a), len(b))
 }

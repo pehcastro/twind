@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"io"
-	"os/exec"
+	"os"
 )
 
 func build(args []string, stdout io.Writer) error {
-	patterns, err := packages("build", "Runs the twirgen go:generate line of each package whose Style IR is stale or missing, which calls\nthe pinned Tailwind in .twind/bin, then checks every Style IR in the packages as twind check does.", args)
+	patterns, err := packages("build", "Regenerates the Style IR of each package that is stale or missing one, through its twirgen go:generate\nline, then checks every Style IR in the packages as twind check does. Tailwind comes from .twind/bin in\nthis or a parent directory, or else is fetched once, pinned and checksum-checked, into the user cache.", args)
 	if err != nil {
 		return err
 	}
@@ -24,17 +23,21 @@ func build(args []string, stdout io.Writer) error {
 			fresh[ir.dir] = false
 		}
 	}
-	var stale []string
+	var st *styler
 	for _, dir := range dirs {
-		if !fresh[dir] {
-			stale = append(stale, dir)
+		if fresh[dir] {
+			continue
 		}
-	}
-	if len(stale) > 0 {
-		generate := exec.Command("go", append([]string{"generate", "-run", "twirgen"}, stale...)...)
-		generate.Stdout, generate.Stderr = stdout, stdout
-		if err := generate.Run(); err != nil {
-			return fmt.Errorf("go generate: %w", err)
+		if st == nil {
+			work, err := os.MkdirTemp("", "twind-build-")
+			if err != nil {
+				return err
+			}
+			defer func() { _ = os.RemoveAll(work) }()
+			st = newStyler(work, stdout)
+		}
+		if err := st.regenerate(dir); err != nil {
+			return err
 		}
 	}
 	return check(patterns, stdout)

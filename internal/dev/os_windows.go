@@ -1,11 +1,14 @@
 package dev
 
 import (
+	"context"
 	"errors"
 	"os"
 	"syscall"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/twind-dev/twind/internal/dev/konst"
 )
 
 func ownGroup() *syscall.SysProcAttr {
@@ -14,6 +17,33 @@ func ownGroup() *syscall.SysProcAttr {
 
 func askToExit(p *os.Process) error {
 	return windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, uint32(p.Pid))
+}
+
+func notify(ctx context.Context, dir string, wake chan<- struct{}) {
+	name, err := windows.UTF16PtrFromString(dir)
+	if err != nil {
+		return
+	}
+	h, err := windows.CreateFile(name, windows.FILE_LIST_DIRECTORY, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		return
+	}
+	stop := context.AfterFunc(ctx, func() { _ = windows.CancelIoEx(h, nil) })
+	defer func() {
+		stop()
+		_ = windows.CloseHandle(h)
+	}()
+	buf := make([]byte, konst.NotifyBuffer)
+	for ctx.Err() == nil {
+		var n uint32
+		if windows.ReadDirectoryChanges(h, &buf[0], uint32(len(buf)), true, windows.FILE_NOTIFY_CHANGE_FILE_NAME|windows.FILE_NOTIFY_CHANGE_SIZE|windows.FILE_NOTIFY_CHANGE_LAST_WRITE, &n, nil, 0) != nil {
+			return
+		}
+		select {
+		case wake <- struct{}{}:
+		default:
+		}
+	}
 }
 
 func SaveConsole() (restore func() error, err error) {

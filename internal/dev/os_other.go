@@ -3,10 +3,13 @@
 package dev
 
 import (
+	"context"
 	"errors"
 	"os"
 	"syscall"
 )
+
+func notify(context.Context, string, chan<- struct{}) {}
 
 func ownGroup() *syscall.SysProcAttr {
 	return nil

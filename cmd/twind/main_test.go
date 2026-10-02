@@ -123,9 +123,6 @@ func TestBuildAndCheckAgree(t *testing.T) {
 		}
 		before := read(ir)
 		if err := build([]string{pattern}, &out); err != nil {
-			if strings.Contains(out.String(), "no .twind/bin/") {
-				t.Skip("no pinned Tailwind in .twind/bin")
-			}
 			t.Fatalf("%s: build: %v\n%s", c.why, err, out.String())
 		}
 		rebuilt := read(ir) != before

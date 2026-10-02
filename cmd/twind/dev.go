@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -30,20 +29,18 @@ this module, it rebuilds in the background and swaps the running program for the
 build keeps the old program running and shows the first compiler error on the last row. Stale Style
 IRs are regenerated before each build. Arguments after the package go to the program.`
 
-const twirgenPath = "github.com/twind-dev/twind/internal/twirgen"
-
 type devSession struct {
+	session   context.Context
 	pkg, work string
-	irs       map[string]string
+	irs       []string
 	checker   tailwind.Checker
-	twirgen   string
+	styles    *styler
 	plan      *dev.Plan
 	planning  chan *dev.Plan
 	log       *log.Logger
 	builds    int
 	saved     time.Time
 	built     time.Time
-	running   string
 }
 
 func devRun(args []string, _ io.Writer) error {
@@ -55,7 +52,7 @@ func devRun(args []string, _ io.Writer) error {
 		}
 		return usageError(err.Error())
 	}
-	s := &devSession{pkg: ".", irs: map[string]string{}, log: log.New(io.Discard, "", 0)}
+	s := &devSession{pkg: ".", log: log.New(io.Discard, "", 0)}
 	var appArgs []string
 	if set.NArg() > 0 {
 		s.pkg, appArgs = set.Arg(0), set.Args()[1:]
@@ -78,16 +75,16 @@ func devRun(args []string, _ io.Writer) error {
 	if err := os.Setenv("PATH", filepath.Join(strings.TrimSpace(string(goroot)), "bin")+string(os.PathListSeparator)+os.Getenv("PATH")); err != nil {
 		return err
 	}
-	listing, err := goList([]string{"-deps", s.pkg}, `{{if .Module}}{{if .Module.Main}}{{.Dir}}{{"\t"}}{{.Name}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .EmbedFiles}}{{"\t"}}{{.}}{{end}}{{end}}{{end}}`)
+	listing, err := goList([]string{"-deps", s.pkg}, `{{if .Module}}{{if .Module.Main}}{{.Dir}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .EmbedFiles}}{{"\t"}}{{.}}{{end}}{{end}}{{end}}`)
 	if err != nil {
 		return err
 	}
 	var files []string
 	for _, line := range listing {
 		fields := strings.Split(strings.TrimSpace(line), "\t")
-		for _, name := range fields[min(2, len(fields)):] {
+		for _, name := range fields[1:] {
 			if name == style.GeneratedFile {
-				s.irs[fields[0]] = fields[1]
+				s.irs = append(s.irs, fields[0])
 				continue
 			}
 			files = append(files, filepath.Join(fields[0], name))
@@ -105,7 +102,12 @@ func devRun(args []string, _ io.Writer) error {
 	env := append(os.Environ(), devkonst.DevEnv+"=1", devkonst.StateEnv+"="+state)
 	var last error
 	start := func(exe string) (dev.Child, error) {
-		if _, err := snapshot.Read(state); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		stopped := time.Since(s.built).Round(time.Millisecond)
+		kept, err := snapshot.Read(state)
+		switch {
+		case err == nil:
+			s.log.Printf("snapshot: focus %q, %d scroll offsets, %d values", kept.Focus, len(kept.Scroll), len(kept.Values))
+		case !errors.Is(err, fs.ErrNotExist):
 			s.log.Print("snapshot dropped: ", err)
 			_ = os.Remove(state)
 		}
@@ -113,11 +115,7 @@ func devRun(args []string, _ io.Writer) error {
 		if err != nil {
 			return nil, err
 		}
-		s.log.Printf("swap: stop %v, started %v after the save", time.Since(s.built).Round(time.Millisecond), time.Since(s.saved).Round(time.Millisecond))
-		if s.running != "" {
-			_ = os.Remove(s.running)
-		}
-		s.running = exe
+		s.log.Printf("swap: stop %v, start %v, started %v after the save, %s", stopped, time.Since(s.built).Round(time.Millisecond)-stopped, time.Since(s.saved).Round(time.Millisecond), filepath.Base(exe))
 		return c, nil
 	}
 	report := func(err error) {
@@ -131,8 +129,20 @@ func devRun(args []string, _ io.Writer) error {
 		}
 	}
 	_, _ = fmt.Fprintf(os.Stdout, "%stwind dev: building %s, watching %d files\r\n", devkonst.AltScreen, s.pkg, len(files))
+	s.styles = newStyler(s.work, s.log.Writer())
+	if len(s.irs) > 0 {
+		go func() {
+			_, err := s.styles.twirgen()
+			s.log.Printf("twirgen: built, error %v", err)
+		}()
+		go func() {
+			bin, err := s.styles.tailwind()
+			s.log.Printf("tailwind: %s %v", bin, err)
+		}()
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+	s.session = ctx
 	dev.Supervisor{Build: s.build, Start: start, Report: report}.Run(ctx, dev.Watch(ctx, files))
 	_, _ = os.Stdout.WriteString(term.GraphemesOff + term.KittyPop + term.MouseOff + term.InBandOff + term.LeaveScreen)
 	return errors.Join(restore(), last)
@@ -150,38 +160,71 @@ func (s *devSession) build(ctx context.Context, changed []string) (string, error
 		s.saved = began
 	}
 	s.log.Printf("build: %d saves, %v after the last", len(changed), began.Sub(s.saved).Round(time.Millisecond))
-	for dir, pkg := range s.irs {
+	if s.planning != nil {
+		s.plan, s.planning = <-s.planning, nil
+		s.log.Printf("plan: ready after %v", time.Since(began).Round(time.Millisecond))
+	}
+	next := func() string {
+		s.builds++
+		return executable(filepath.Join(s.work, fmt.Sprintf("app-%d", s.builds)))
+	}
+	exe, compiled := next(), time.Now()
+	var steps []dev.Step
+	var fast string
+	var ahead chan error
+	speculative, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		if ahead != nil {
+			<-ahead
+		}
+	}()
+	if s.plan != nil {
+		ahead = make(chan error, 1)
+		go func() {
+			var err error
+			fast, steps, err = s.plan.Build(speculative, changed, exe)
+			ahead <- err
+		}()
+	}
+	for _, dir := range s.irs {
 		stale, err := s.checker.Stale(dir, style.GeneratedFile)
 		if err != nil {
 			return "", err
 		}
 		s.log.Printf("styles: %s stale %v after %v", filepath.Base(dir), stale, time.Since(began).Round(time.Millisecond))
-		if stale {
-			if err := s.regenerate(dir, pkg); err != nil {
-				return "", err
-			}
-			changed = append(changed, filepath.Join(dir, style.GeneratedFile))
-			s.log.Printf("styles: regenerated after %v", time.Since(began).Round(time.Millisecond))
+		if !stale {
+			continue
 		}
-	}
-	s.builds++
-	exe := executable(filepath.Join(s.work, fmt.Sprintf("app-%d", s.builds)))
-	compiled := time.Now()
-	if s.planning != nil {
-		s.plan, s.planning = <-s.planning, nil
-		s.log.Printf("plan: ready after %v", time.Since(compiled).Round(time.Millisecond))
+		if ahead != nil {
+			cancel()
+			<-ahead
+			ahead = nil
+			s.log.Print("styles: the build started beside the check is dropped")
+		}
+		if err := s.styles.regenerate(dir); err != nil {
+			return "", err
+		}
+		changed = append(changed, filepath.Join(dir, style.GeneratedFile))
+		s.log.Printf("styles: regenerated after %v", time.Since(began).Round(time.Millisecond))
 	}
 	if s.plan != nil {
-		steps, err := s.plan.Build(ctx, changed, exe)
+		var err error
+		if ahead != nil {
+			err, ahead = <-ahead, nil
+		} else {
+			exe, compiled = next(), time.Now()
+			fast, steps, err = s.plan.Build(ctx, changed, exe)
+		}
 		var stale dev.StaleError
 		switch {
 		case err == nil:
 			s.built = time.Now()
 			for _, step := range steps {
-				s.log.Printf("fast build: %s %v, export changed %v", step.Package, step.Took.Round(time.Millisecond), step.Exported)
+				s.log.Printf("fast build: %s %v, export changed %v, reused %v", step.Package, step.Took.Round(time.Millisecond), step.Exported, step.Reused)
 			}
 			s.log.Printf("fast build: %v", s.built.Sub(compiled).Round(time.Millisecond))
-			return exe, nil
+			return fast, nil
 		case errors.As(err, &stale):
 			s.log.Print(err)
 			s.plan = nil
@@ -204,58 +247,14 @@ func (s *devSession) build(ctx context.Context, changed []string) (string, error
 	s.planning = planning
 	go func() {
 		began := time.Now()
-		p, err := dev.Capture(context.Background(), ".", s.pkg, dir)
+		p, err := dev.Capture(s.session, ".", s.pkg, dir)
 		s.log.Printf("plan: captured in %v, error %v", time.Since(began).Round(time.Millisecond), err)
 		planning <- p
+		if p != nil {
+			began = time.Now()
+			err = p.Warm(s.session)
+			s.log.Printf("plan: every package of the module compiled for dev in %v, error %v", time.Since(began).Round(time.Millisecond), err)
+		}
 	}()
 	return exe, nil
-}
-
-func (s *devSession) regenerate(dir, pkg string) error {
-	if s.twirgen == "" {
-		exe := executable(filepath.Join(s.work, "twirgen"))
-		if out, err := exec.Command("go", "build", "-o", exe, twirgenPath).CombinedOutput(); err != nil {
-			return fmt.Errorf("go build twirgen: %w\n%s", err, out)
-		}
-		s.twirgen = exe
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	var args []string
-	for _, e := range entries {
-		if filepath.Ext(e.Name()) != ".go" || strings.HasSuffix(e.Name(), "_test.go") {
-			continue
-		}
-		src, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil {
-			return err
-		}
-		for line := range strings.Lines(string(src)) {
-			if _, after, ok := strings.Cut(line, "//go:generate go run "+twirgenPath); ok {
-				args = strings.Fields(after)
-			}
-		}
-	}
-	run := exec.Command(s.twirgen, args...)
-	run.Dir, run.Env = dir, append(os.Environ(), "GOPACKAGE="+pkg)
-	out, err := run.CombinedOutput()
-	if err == nil {
-		return nil
-	}
-	var kept strings.Builder
-	for line := range strings.Lines(string(out)) {
-		if !strings.Contains(line, ": warning: ") {
-			kept.WriteString(line)
-		}
-	}
-	return fmt.Errorf("%stwirgen: %w", kept.String(), err)
-}
-
-func executable(path string) string {
-	if runtime.GOOS == "windows" {
-		return path + ".exe"
-	}
-	return path
 }

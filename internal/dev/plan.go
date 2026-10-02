@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/twind-dev/twind/internal/dev/konst"
@@ -36,19 +40,28 @@ type planned struct {
 	importcfg   string
 	embedcfg    string
 	deps        []string
+	files       []string
 	plain       bool
 }
 
 type Plan struct {
-	work    string
-	main    string
-	order   []*planned
-	owner   map[string]*planned
-	heads   map[string]string
-	have    map[string]string
-	link    command
-	linkCfg string
-	builds  int
+	work     string
+	main     string
+	order    []*planned
+	owner    map[string]*planned
+	heads    map[string]string
+	have     map[string]string
+	link     command
+	linkCfg  string
+	builds   int
+	commits  int
+	compiles atomic.Int64
+	cache    sync.Mutex
+	sums     map[string]string
+	exports  map[string]string
+	archives map[string]string
+	exes     map[string]string
+	linked   []string
 }
 
 func Capture(ctx context.Context, root, pkg, work string) (*Plan, error) {
@@ -64,7 +77,7 @@ func Capture(ctx context.Context, root, pkg, work string) (*Plan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("go list -export: %w", err)
 	}
-	p := &Plan{work: work, owner: map[string]*planned{}, heads: map[string]string{}, have: map[string]string{}}
+	p := &Plan{work: work, owner: map[string]*planned{}, heads: map[string]string{}, have: map[string]string{}, sums: map[string]string{}, exports: map[string]string{}, archives: map[string]string{}, exes: map[string]string{}}
 	local := map[string]bool{}
 	for line := range strings.Lines(string(listed)) {
 		f := strings.Split(strings.TrimRight(line, "\r\n"), "\t")
@@ -136,6 +149,7 @@ func Capture(ctx context.Context, root, pkg, work string) (*Plan, error) {
 					file = filepath.Join(cwd, file)
 				}
 				p.owner[file] = pk
+				pk.files = append(pk.files, file)
 				if filepath.Ext(file) == ".go" {
 					if p.heads[file], err = head(file); err != nil {
 						return nil, err
@@ -157,33 +171,91 @@ type Step struct {
 	Package  string
 	Took     time.Duration
 	Exported bool
+	Reused   bool
 }
 
-func (p *Plan) Build(ctx context.Context, changed []string, exe string) ([]Step, error) {
+func (p *Plan) Build(ctx context.Context, changed []string, exe string) (string, []Step, error) {
 	dirty := map[string]bool{}
 	for _, file := range changed {
 		pk, ok := p.owner[file]
 		if !ok {
-			return nil, StaleError(file + " is in no planned package")
+			return "", nil, StaleError(file + " is in no planned package")
 		}
 		if !pk.plain {
-			return nil, StaleError(pk.path + " has assembly")
+			return "", nil, StaleError(pk.path + " has assembly")
 		}
 		if want, ok := p.heads[file]; ok {
 			if now, err := head(file); err != nil || now != want {
-				return nil, StaleError("the imports or build constraints of " + file + " changed")
+				return "", nil, StaleError("the imports or build constraints of " + file + " changed")
 			}
 		} else if _, err := os.Stat(file); err != nil {
-			return nil, StaleError(file + " is gone")
+			return "", nil, StaleError(file + " is gone")
 		}
 		dirty[pk.path] = true
 	}
 	p.builds++
 	work := filepath.Join(p.work, "b"+strconv.Itoa(p.builds))
-	next := map[string]string{}
-	for k, v := range p.have {
-		next[k] = v
+	next, steps, err := p.compileDirty(ctx, dirty, work)
+	if err != nil {
+		return "", nil, err
 	}
+	began, ids := time.Now(), p.identities(next)
+	key := ids[p.main] + "\n" + rewrite(p.linkCfg, ids)
+	p.cache.Lock()
+	kept, ok := p.exes[key]
+	p.cache.Unlock()
+	if ok {
+		if _, err := os.Stat(kept); err == nil {
+			p.cache.Lock()
+			p.have, p.commits = next, p.commits+1
+			p.cache.Unlock()
+			return kept, append(steps, Step{Package: "link", Took: time.Since(began), Reused: true}), nil
+		}
+	}
+	cfg := flagValue(p.link.args, "-importcfg")
+	link := command{env: p.link.env, dir: p.link.dir, args: slices.Insert(slices.Clone(p.link.args), 1, konst.NoDWARF)}
+	link.args[len(link.args)-1] = next[p.main]
+	if err := os.MkdirAll(filepath.Dir(strings.Replace(cfg, "$WORK", work, 1)), 0o755); err != nil {
+		return "", nil, err
+	}
+	if err := os.WriteFile(strings.Replace(cfg, "$WORK", work, 1), []byte(rewrite(p.linkCfg, next)), 0o600); err != nil {
+		return "", nil, err
+	}
+	if err := run(ctx, link, work, exe); err != nil {
+		return "", nil, err
+	}
+	p.cache.Lock()
+	defer p.cache.Unlock()
+	p.have, p.commits, p.exes[key], p.linked = next, p.commits+1, exe, append(p.linked, key)
+	if len(p.linked) > konst.KeptBuilds {
+		_ = os.Remove(p.exes[p.linked[0]])
+		delete(p.exes, p.linked[0])
+		p.linked = p.linked[1:]
+	}
+	return exe, append(steps, Step{Package: "link", Took: time.Since(began)}), nil
+}
+
+func (p *Plan) Warm(ctx context.Context) error {
+	dirty := map[string]bool{}
+	for _, pk := range p.order {
+		dirty[pk.path] = pk.plain
+	}
+	p.cache.Lock()
+	base := p.commits
+	p.cache.Unlock()
+	next, _, err := p.compileDirty(ctx, dirty, filepath.Join(p.work, "warm"))
+	p.cache.Lock()
+	defer p.cache.Unlock()
+	if err == nil && p.commits == base {
+		p.have = next
+	}
+	return err
+}
+
+func (p *Plan) compileDirty(ctx context.Context, dirty map[string]bool, work string) (map[string]string, []Step, error) {
+	p.cache.Lock()
+	next := maps.Clone(p.have)
+	p.cache.Unlock()
 	var steps []Step
 	var failed error
 	var mu sync.Mutex
@@ -220,9 +292,23 @@ func (p *Plan) Build(ctx context.Context, changed []string, exe string) ([]Step,
 			}
 			began, old := time.Now(), next[pk.path]
 			for {
-				early, importcfg := pending(pk), rewrite(pk.importcfg, next)
+				early, importcfg, deps := pending(pk), rewrite(pk.importcfg, next), map[string]string{}
+				for _, dep := range pk.deps {
+					deps[dep] = next[dep]
+				}
 				mu.Unlock()
-				archive, err := p.compile(ctx, pk, work, importcfg)
+				key, err := p.sourceKey(pk, deps)
+				p.cache.Lock()
+				archive, reused := p.archives[key]
+				p.cache.Unlock()
+				if err == nil && !reused {
+					archive, err = p.compile(ctx, pk, work, importcfg)
+				}
+				if err == nil && !reused {
+					if again, _ := p.sourceKey(pk, deps); again == key {
+						err = p.remember(key, archive)
+					}
+				}
 				changed := false
 				if err == nil {
 					changed, err = exportChanged(old, archive)
@@ -238,34 +324,80 @@ func (p *Plan) Build(ctx context.Context, changed []string, exe string) ([]Step,
 				}
 				if !slices.ContainsFunc(early, func(dep string) bool { return exported[dep] }) {
 					next[pk.path], exported[pk.path] = archive, changed
-					steps = append(steps, Step{pk.path, time.Since(began), changed})
+					steps = append(steps, Step{pk.path, time.Since(began), changed, reused})
 					return
 				}
 			}
 		})
 	}
 	wg.Wait()
-	if failed != nil {
-		return nil, failed
+	return next, steps, failed
+}
+
+func (p *Plan) identities(archives map[string]string) map[string]string {
+	p.cache.Lock()
+	defer p.cache.Unlock()
+	ids := make(map[string]string, len(archives))
+	for pkg, archive := range archives {
+		ids[pkg] = cmp.Or(p.sums[archive], archive)
 	}
-	cfg := flagValue(p.link.args, "-importcfg")
-	link := command{env: p.link.env, dir: p.link.dir, args: append([]string(nil), p.link.args...)}
-	link.args[len(link.args)-1] = next[p.main]
-	if err := os.MkdirAll(filepath.Dir(strings.Replace(cfg, "$WORK", work, 1)), 0o755); err != nil {
-		return nil, err
+	return ids
+}
+
+func (p *Plan) exportID(archive string) (string, error) {
+	p.cache.Lock()
+	id, ok := p.exports[archive]
+	p.cache.Unlock()
+	if ok {
+		return id, nil
 	}
-	if err := os.WriteFile(strings.Replace(cfg, "$WORK", work, 1), []byte(rewrite(p.linkCfg, next)), 0o600); err != nil {
-		return nil, err
+	export, err := exportData(archive)
+	if err != nil {
+		return "", err
 	}
-	began := time.Now()
-	if err := run(ctx, link, work, exe); err != nil {
-		return nil, err
+	sum := sha256.Sum256(export)
+	p.cache.Lock()
+	defer p.cache.Unlock()
+	p.exports[archive] = hex.EncodeToString(sum[:])
+	return p.exports[archive], nil
+}
+
+func (p *Plan) remember(key, archive string) error {
+	data, err := os.ReadFile(archive)
+	if err != nil {
+		return err
 	}
-	p.have = next
-	return append(steps, Step{Package: "link", Took: time.Since(began)}), nil
+	sum := sha256.Sum256(data)
+	p.cache.Lock()
+	defer p.cache.Unlock()
+	p.archives[key], p.sums[archive] = archive, hex.EncodeToString(sum[:])
+	return nil
+}
+
+func (p *Plan) sourceKey(pk *planned, deps map[string]string) (string, error) {
+	ids := map[string]string{}
+	for dep, archive := range deps {
+		id, err := p.exportID(archive)
+		if err != nil {
+			return "", err
+		}
+		ids[dep] = id
+	}
+	h := sha256.New()
+	h.Write([]byte(strings.Join(pk.compile.args, "\x00") + "\x00" + pk.embedcfg + "\x00" + rewrite(pk.importcfg, ids)))
+	for _, file := range slices.Sorted(slices.Values(pk.files)) {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		h.Write([]byte(file + "\x00"))
+		h.Write(src)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func (p *Plan) compile(ctx context.Context, pk *planned, work, importcfg string) (string, error) {
+	work = filepath.Join(work, strconv.FormatInt(p.compiles.Add(1), 10))
 	block := strings.Replace(pk.block, "$WORK", work, 1)
 	if err := os.MkdirAll(block, 0o755); err != nil {
 		return "", err
@@ -278,7 +410,9 @@ func (p *Plan) compile(ctx context.Context, pk *planned, work, importcfg string)
 			return "", err
 		}
 	}
-	return filepath.Join(block, "_pkg_.a"), run(ctx, pk.compile, work, "")
+	lean := pk.compile
+	lean.args = slices.Insert(slices.Clone(lean.args), indexOf(lean.args, "-pack"), konst.NoInline)
+	return filepath.Join(block, "_pkg_.a"), run(ctx, lean, work, "")
 }
 
 func exportChanged(old, archive string) (bool, error) {
