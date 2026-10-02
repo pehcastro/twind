@@ -18,7 +18,7 @@ The target look is "H": real text in cells, with rounded borders, pills and soft
 | Rio with a newer conpty.dll | good | sixel |
 | Alacritty with a newer conpty.dll | fair | overlay window over the terminal; cells alone have square corners |
 | VS Code (terminal.integrated.enableImages on) | good | sixel |
-| Zed terminal | fair | overlay window, placed by two clicks; soft edges because GPUI cells are fractional (7.8 x 16.81 px) |
+| Zed terminal (Windows) | good | overlay window over the panel, placed by reading faint marker cells off the screen (no clicks); follows Zed's own cell edges |
 | Rio (stock) | bad | no mouse, images print as text |
 | mintty (Git Bash, MSYS2 zsh) | bad | no mouse; overlay works but drifts |
 | Alacritty (stock) | worst | no mouse, no images, square box corners |
@@ -81,7 +81,7 @@ Env vars (`TERM_PROGRAM`, `ZED_TERM`, `WT_SESSION`) leak into child windows star
 
 ## Open
 
-- Overlay: follow window move, resize, minimise, scroll; DPI above 100%; draw at fractional cell positions (Zed); find the panel origin without clicks.
+- Overlay: done for Zed on Windows (TWI-207). Not yet for Alacritty. DPI above 100% and several Zed windows not measured.
 - Contour clicks work (TWI-199, 2026-10-01): the earlier failure was the tour clicking between two sidebar rows. `twi/terminal/record_windows_test.go` records raw console input inside any terminal (`TWIND_RECORD=<file>`).
 - VS Code with images off: not measured.
 
