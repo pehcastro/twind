@@ -15,7 +15,7 @@ func CarouselDemo(rt *twi.Runtime) func() twi.Node {
 			slides = append(slides, carousel.Item(ui.Card(twi.Class("h-full items-center justify-center"), twi.Text(strconv.Itoa(i)))))
 		}
 		return twi.Element(twi.Class("flex px-5"),
-			carousel.Node(twi.Class("w-24 h-8"), carousel.Content(slides...), carousel.Previous(), carousel.Next()),
+			carousel.Node(twi.Class("w-24 h-9"), carousel.Content(slides...), carousel.Previous(), carousel.Next()),
 		)
 	}
 }

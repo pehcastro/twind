@@ -63,7 +63,7 @@ func props() map[string][]prop {
 		},
 		"ButtonGroup": {
 			{"o", "ui.Orientation", "Horizontal or Vertical"},
-			{"ButtonGroupSeparator(o)", "twi.Node", "a line between two buttons"},
+			{"ButtonGroupSeparator(o)", "twi.Node", "a line between two filled buttons; outline buttons join without one"},
 			{"ButtonGroupText(children...)", "twi.Node", "text that sits in the group like a button"},
 		},
 		"Attachment": {

@@ -35,8 +35,8 @@ func LoginForm(rt *twi.Runtime) func() twi.Node {
 				ui.Field(ui.Horizontal, remember.Node(), ui.FieldLabel(twi.Text("Remember me"))),
 			)),
 			ui.CardFooter(twi.Class("flex-col gap-1"),
-				ui.Button(ui.Default, ui.SizeDefault, twi.Class("w-full"), login, twi.Text("Login")),
-				ui.Button(ui.Outline, ui.SizeDefault, twi.Class("w-full"), twi.Text("Login with Google")),
+				ui.Button(ui.Default, ui.SizeDefault, twi.Class("w-full py-1"), login, twi.Text("Login")),
+				ui.Button(ui.Outline, ui.SizeDefault, twi.Class("w-full border shadow-none"), twi.Text("Login with Google")),
 				twi.Element(twi.Class("text-muted-foreground"), twi.Text(status)),
 			),
 		)

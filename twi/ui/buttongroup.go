@@ -3,9 +3,9 @@ package ui
 import "github.com/twind-dev/twind/twi"
 
 func ButtonGroup(o Orientation, children ...twi.NodeOption) twi.Node {
-	return part("flex items-stretch "+pick("button group", o, map[Orientation]string{
-		Horizontal: "flex-row",
-		Vertical:   "flex-col",
+	return part("flex w-fit items-stretch "+pick("button group", o, map[Orientation]string{
+		Horizontal: "flex-row [&>*:not(:first-child)]:rounded-l-none [&>*:not(:last-child)]:rounded-r-none",
+		Vertical:   "flex-col [&>*:not(:first-child)]:rounded-t-none [&>*:not(:last-child)]:rounded-b-none",
 	}), children)
 }
 

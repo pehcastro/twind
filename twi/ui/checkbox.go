@@ -20,5 +20,5 @@ func (c *Checkbox) Node(options ...twi.NodeOption) twi.Node {
 		box, mark = "bg-primary text-primary-foreground "+c.ring(primaryRing, onSelf), []twi.NodeOption{icon("✓", "")}
 	}
 	keys := c.pressable(space, flip(&c.Checked, c.OnChange))
-	return part(fade+"flex flex-row w-2 h-1 shrink-0 items-center justify-center rounded-sm "+box, slices.Concat(keys, mark, options))
+	return part(fade+"flex flex-row w-3 h-1 shrink-0 items-center justify-center rounded-sm "+box, slices.Concat(keys, mark, options))
 }

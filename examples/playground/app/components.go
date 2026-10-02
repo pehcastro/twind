@@ -243,9 +243,9 @@ func buttonGroupPage(controls) twi.Node {
 	outline := func(s string) twi.Node { return ui.Button(ui.Outline, ui.SizeDefault, twi.Text(s)) }
 	return show("Button group", "buttons joined in a row or a column",
 		row(
-			ui.ButtonGroup(ui.Horizontal, outline("Archive"), ui.ButtonGroupSeparator(ui.Vertical), outline("Report"), ui.ButtonGroupSeparator(ui.Vertical), outline("Snooze")),
+			ui.ButtonGroup(ui.Horizontal, outline("Archive"), outline("Report"), outline("Snooze")),
 			ui.ButtonGroup(ui.Horizontal, ui.ButtonGroupText(twi.Text("https://")), outline("twind.dev")),
-			ui.ButtonGroup(ui.Vertical, outline("+"), ui.ButtonGroupSeparator(ui.Horizontal), outline("-")),
+			ui.ButtonGroup(ui.Vertical, outline("+"), outline("-")),
 		))
 }
 

@@ -88,8 +88,8 @@ func TestControlStates(t *testing.T) {
 		return in.Group(InputGroupAddon(InlineStart, InputGroupText(twi.Text("https://"))), InputGroupAddon(InlineEnd, twi.Text(".com")))
 	}
 	checkParts(t, []partCase{
-		{"checkbox unchecked: a two-cell box in the input ring, no fill", light, checkbox(false, false, false, false), nil, func(s style.ComputedStyle) bool {
-			return ring(s, light.Tokens[theme.Input]) && s.Width == cells(2) && s.Height == cells(1) && s.Radius == style.RadiusSm && s.Background.Kind == color.Unset && s.Shrink == 0
+		{"checkbox unchecked: a three-cell box in the input ring, no fill", light, checkbox(false, false, false, false), nil, func(s style.ComputedStyle) bool {
+			return ring(s, light.Tokens[theme.Input]) && s.Width == cells(3) && s.Height == cells(1) && s.Radius == style.RadiusSm && s.Background.Kind == color.Unset && s.Shrink == 0
 		}},
 		{"checkbox unchecked, dark: bg-input/30", dark, checkbox(false, false, false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == scaled(dark, theme.Input, 0.3) && ring(s, dark.Tokens[theme.Input])
@@ -132,8 +132,8 @@ func TestControlStates(t *testing.T) {
 		{"radio item: circle and label in a row, gap-3 as shadcn's radio rows, room for the ring and the pill caps", light, radio("b", false, false), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.ColumnGap == cells(3)
 		}},
-		{"radio unchecked: a two-cell circle in the input ring", light, radio("b", false, false), []int{0, 0}, func(s style.ComputedStyle) bool {
-			return ring(s, light.Tokens[theme.Input]) && s.Radius == style.RadiusFull && s.Width == cells(2) && s.Background.Kind == color.Unset
+		{"radio unchecked: a three-cell circle in the input ring", light, radio("b", false, false), []int{0, 0}, func(s style.ComputedStyle) bool {
+			return ring(s, light.Tokens[theme.Input]) && s.Radius == style.RadiusFull && s.Width == cells(3) && s.Background.Kind == color.Unset
 		}},
 		{"radio checked: text-primary for the dot", light, radio("b", false, false), []int{1, 0}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.Primary] && ring(s, light.Tokens[theme.Input])

@@ -15,9 +15,9 @@ func CalendarDemo(rt *twi.Runtime) func() twi.Node {
 		if !calendar.Selected.IsZero() {
 			picked = calendar.Selected.Format("Monday 2 January")
 		}
-		return twi.Element(twi.Class("flex flex-row items-center gap-2"),
+		return twi.Element(twi.Class("flex flex-col items-center gap-1"),
 			calendar.Node(twi.Class("rounded-lg border shadow-sm")),
-			twi.Element(twi.Class("w-24 text-muted-foreground"), twi.Text("selected: "+picked)),
+			twi.Element(twi.Class("text-muted-foreground"), twi.Text("selected: "+picked)),
 		)
 	}
 }

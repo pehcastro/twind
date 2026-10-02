@@ -9,6 +9,8 @@ import (
 	"github.com/twind-dev/twind/twi/input"
 )
 
+const weeksShown = 6
+
 type Calendar struct {
 	control
 	Month, Selected, Today time.Time
@@ -57,14 +59,13 @@ func (c *Calendar) Node(options ...twi.NodeOption) twi.Node {
 		weekdays[i] = part("w-4 text-center text-muted-foreground select-none", []twi.NodeOption{twi.Text(time.Weekday(i).String()[:2])})
 	}
 	start := c.Month.AddDate(0, 0, -int(c.Month.Weekday()))
-	weeks := []twi.NodeOption{part("flex flex-row", weekdays)}
-	for day := start; day.Before(c.Month.AddDate(0, 1, 0)); {
+	weeks := []twi.NodeOption{part("flex flex-row gap-1", weekdays)}
+	for w := range weeksShown {
 		week := make([]twi.NodeOption, konst.DaysInWeek)
 		for i := range week {
-			week[i] = c.day(day)
-			day = day.AddDate(0, 0, 1)
+			week[i] = c.day(start.AddDate(0, 0, w*konst.DaysInWeek+i))
 		}
-		weeks = append(weeks, part("flex flex-row", week))
+		weeks = append(weeks, part("flex flex-row gap-1", week))
 	}
 	return part("flex flex-col w-fit gap-1 rounded-md bg-background p-1", append([]twi.NodeOption{
 		part("relative flex flex-row items-center justify-between", []twi.NodeOption{turn("‹", -1), part("font-medium select-none", []twi.NodeOption{twi.Text(c.Month.Format("January 2006"))}), turn("›", 1)}),

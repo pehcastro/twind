@@ -65,25 +65,25 @@ func (c *Carousel) Item(children ...twi.NodeOption) twi.Node {
 
 func (c *Carousel) Previous(children ...twi.NodeOption) twi.Node {
 	return c.arrow(-1, "carousel-previous", pick("carousel previous", c.Orientation, map[Orientation]string{
-		Horizontal: "top-1/2 -left-4 -translate-y-1/2",
-		Vertical:   "-top-2 left-1/2 -translate-x-1/2",
-	}), pick("carousel previous", c.Orientation, map[Orientation]string{Horizontal: "‹", Vertical: "↑"}), children)
+		Horizontal: "inset-y-0 -left-4",
+		Vertical:   "inset-x-0 -top-2",
+	}), pick("carousel previous", c.Orientation, map[Orientation]string{Horizontal: "←", Vertical: "↑"}), children)
 }
 
 func (c *Carousel) Next(children ...twi.NodeOption) twi.Node {
 	return c.arrow(1, "carousel-next", pick("carousel next", c.Orientation, map[Orientation]string{
-		Horizontal: "top-1/2 -right-4 -translate-y-1/2",
-		Vertical:   "-bottom-2 left-1/2 -translate-x-1/2",
-	}), pick("carousel next", c.Orientation, map[Orientation]string{Horizontal: "›", Vertical: "↓"}), children)
+		Horizontal: "inset-y-0 -right-4",
+		Vertical:   "inset-x-0 -bottom-2",
+	}), pick("carousel next", c.Orientation, map[Orientation]string{Horizontal: "→", Vertical: "↓"}), children)
 }
 
 func (c *Carousel) arrow(by int, slot, at, glyph string, children []twi.NodeOption) twi.Node {
 	if len(children) == 0 {
 		children = []twi.NodeOption{icon(glyph, "")}
 	}
-	return part(button(Outline, SizeIcon, idleRing(Outline)+" "+focusRing)+" absolute rounded-full "+at, append([]twi.NodeOption{
+	return part("absolute flex items-center justify-center "+at, []twi.NodeOption{part(button(Outline, SizeIcon, idleRing(Outline)+" "+focusRing)+" rounded-full", append([]twi.NodeOption{
 		twi.Data("slot", slot), twi.Focusable(), c.click(func() { c.step(by) }),
-	}, children...))
+	}, children...))})
 }
 
 func (c *Carousel) step(by int) {

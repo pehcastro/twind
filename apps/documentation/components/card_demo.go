@@ -17,8 +17,8 @@ func CardDemo(rt *twi.Runtime) func() twi.Node {
 			),
 			ui.CardContent(ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Email")), email.Node())),
 			ui.CardFooter(twi.Class("flex-col gap-1"),
-				ui.Button(ui.Default, ui.SizeDefault, twi.Class("w-full"), twi.Text("Login")),
-				ui.Button(ui.Outline, ui.SizeDefault, twi.Class("w-full"), twi.Text("Login with Google")),
+				ui.Button(ui.Default, ui.SizeDefault, twi.Class("w-full py-1"), twi.Text("Login")),
+				ui.Button(ui.Outline, ui.SizeDefault, twi.Class("w-full border shadow-none"), twi.Text("Login with Google")),
 			),
 		)
 	}

@@ -9,7 +9,7 @@ import (
 
 func toggle(c *control, v Variant, s Size, on bool, at ringAt) string {
 	classes := fade + "flex flex-row shrink-0 items-center justify-center gap-1 h-1 rounded-md font-medium select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none " +
-		pick("toggle", s, map[Size]string{SizeDefault: "min-w-4 px-1", SizeSM: "min-w-3 px-1", SizeLG: "min-w-5 px-1"})
+		pick("toggle", s, map[Size]string{SizeDefault: "min-w-5 px-1", SizeSM: "min-w-3 px-1", SizeLG: "min-w-5 px-2"})
 	if on {
 		classes += " bg-accent text-accent-foreground"
 	}
