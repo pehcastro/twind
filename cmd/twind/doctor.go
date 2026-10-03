@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi/color"
+	"github.com/twind-dev/twind/twi/fix"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/terminal"
 	"github.com/twind-dev/twind/twi/text"
@@ -45,15 +47,29 @@ type answers struct {
 }
 
 func doctor(args []string, stdout io.Writer) error {
-	fs := flags("doctor", "[-o file]", doctorHelp)
+	fs := flags("doctor", "[-o file] [-fix | -undo [folder]]", doctorHelp)
 	file := fs.String("o", "", "also write the report to this file")
+	conpty := fs.Bool("fix", false, "in Alacritty or Rio on Windows 10, put Microsoft's newer ConPTY beside the terminal's exe, after asking")
+	undo := fs.Bool("undo", false, "remove the ConPTY that -fix put in the folder, the running terminal's by default, and restore what it renamed")
 	positional, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
-	if len(positional) > 0 {
+	if len(positional) > 1 || len(positional) == 1 && !*undo || *conpty && *undo {
 		fs.Usage()
-		return usageError("doctor takes no arguments")
+		return usageError("doctor takes -fix or -undo, not both, and a folder only after -undo")
+	}
+	if *conpty || *undo {
+		run := func() (string, error) { return fix.Undo(strings.Join(positional, "")) }
+		if *conpty {
+			run = func() (string, error) { return fix.ConPTY(context.Background(), fix.Ask(os.Stdin, stdout)) }
+		}
+		said, err := run()
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(stdout, said)
+		return err
 	}
 	width, height, err := terminal.Size(os.Stdout)
 	if err != nil {
@@ -282,6 +298,7 @@ func identityFix(i terminal.Identity, g terminal.Graphics) string {
 		return "fix        the Windows 10 inbox ConPTY drops mouse input, images and colour replies here.\n" +
 			"           Put a newer conpty.dll and OpenConsole.exe beside the terminal's exe.\n" +
 			"           Both ship with Windows Terminal and WezTerm, or use one of those instead.\n" +
+			"           In Alacritty and Rio, twind doctor -fix does it after asking, and -undo puts it back.\n" +
 			"           In mintty, set MSYS=disable_pcon to skip ConPTY.\n"
 	case terminal.IdentityConhost, terminal.IdentityZed, terminal.IdentityOther:
 		return ""

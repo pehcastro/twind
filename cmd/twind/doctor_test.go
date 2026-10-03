@@ -168,7 +168,7 @@ func TestDoctorFixesOnlyTheInboxConPTY(t *testing.T) {
 		}
 	}
 	fix := identityFix(terminal.IdentityInboxConPTY, terminal.GraphicsNone)
-	for _, want := range []string{"mouse", "images", "colour replies", "conpty.dll", "OpenConsole.exe", "beside the terminal's exe", "Windows Terminal", "WezTerm", "MSYS=disable_pcon"} {
+	for _, want := range []string{"mouse", "images", "colour replies", "conpty.dll", "OpenConsole.exe", "beside the terminal's exe", "Windows Terminal", "WezTerm", "MSYS=disable_pcon", "twind doctor -fix", "-undo"} {
 		if !strings.Contains(fix, want) {
 			t.Errorf("fix %q lacks %q", fix, want)
 		}

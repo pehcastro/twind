@@ -19,7 +19,7 @@ usage: twind <verb> [arguments]
   check  [packages]                    report every stale Style IR, without Tailwind
   drive  [-out dir] script [package]   run a driver script headless and write its frames
   dev    [-log file] [package] [args]  run a package, rebuild and swap it on every save
-  doctor                               print what this terminal supports
+  doctor [-fix | -undo [folder]]       print what this terminal supports, or fix its ConPTY
   docs   [-page name] [-theme name]    open the documentation
 
 Packages are go list patterns, the current directory by default.
