@@ -79,11 +79,14 @@ func TestOverlayWindowIsAHiddenClickThroughToolWindow(t *testing.T) {
 	}
 }
 
-func TestOverlayHostLineNamesTheWindowOrWhy(t *testing.T) {
-	line := OverlayHost()
-	t.Log(line)
-	if !strings.HasPrefix(line, "host hwnd ") && !strings.HasPrefix(line, "no host: ") {
-		t.Errorf("host line %q names neither a window nor a reason", line)
+func TestOverlayHostLineNamesTheWindowOnlyWhereOneDraws(t *testing.T) {
+	line, ok := OverlayHost(Capabilities{Identity: IdentityZed})
+	t.Log(line, ok)
+	if ok != strings.HasPrefix(line, "host hwnd ") {
+		t.Errorf("host line %q with ok %t", line, ok)
+	}
+	if line, ok := OverlayHost(Capabilities{Identity: IdentityZed, Graphics: GraphicsSixel}); ok || line != "" {
+		t.Errorf("sixel: host line %q ok %t, want none", line, ok)
 	}
 }
 

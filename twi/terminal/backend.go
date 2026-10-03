@@ -113,7 +113,7 @@ type tty interface {
 	cancel()
 	restore() error
 	drawable() (window, error)
-	overlay(tr *trace) (host, error)
+	overlay(tr *trace, id Identity) (host, error)
 }
 
 var errQuiet = errors.New("terminal: no input within the escape timeout")
@@ -252,12 +252,12 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	}
 	b.trace.log("terminal: detected identity %d in %v", b.Capabilities.Identity, time.Since(detecting).Round(time.Microsecond))
 	switch {
-	case b.Capabilities.Identity != IdentityZed:
-		b.trace.log("overlay: none, identity %d is not Zed", b.Capabilities.Identity)
 	case o.forced:
 		b.trace.log("overlay: none, TWIND_GRAPHICS forced")
+	case b.Capabilities.Graphics != GraphicsNone:
+		b.trace.log("overlay: none, graphics %d", b.Capabilities.Graphics)
 	default:
-		win, err := t.overlay(b.trace)
+		win, err := t.overlay(b.trace, b.Capabilities.Identity)
 		if err != nil {
 			b.trace.log("overlay: none, %v", err)
 			break

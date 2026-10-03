@@ -202,15 +202,15 @@ func TestOverlayMarksTheLastRowAndColumn(t *testing.T) {
 	if len(marks) != zedGrid.X+zedGrid.Y-1 {
 		t.Fatalf("%d marks, want %d", len(marks), zedGrid.X+zedGrid.Y-1)
 	}
-	a, b := color.RGBA{R: 6, G: 4, B: 6, A: 255}, color.RGBA{R: 5, G: 5, B: 6, A: 255}
-	c, d := color.RGBA{R: 5, G: 4, B: 7, A: 255}, color.RGBA{R: 6, G: 5, B: 7, A: 255}
+	a, b := color.RGBA{R: 7, G: 4, B: 6, A: 255}, color.RGBA{R: 5, G: 6, B: 6, A: 255}
+	c, d := color.RGBA{R: 5, G: 4, B: 8, A: 255}, color.RGBA{R: 7, G: 6, B: 8, A: 255}
 	for i, want := range []Mark{{image.Pt(0, 33), a}, {image.Pt(1, 33), b}, {image.Pt(199, 33), b}, {image.Pt(199, 0), c}, {image.Pt(199, 1), d}, {image.Pt(199, 32), c}} {
 		if !slices.Contains(marks, want) {
 			t.Errorf("mark %d %+v missing", i, want)
 		}
 	}
 	white := o.marks(color.RGBA{R: 255, G: 255, B: 255, A: 255}, now)
-	if !slices.Contains(white, Mark{image.Pt(0, 33), color.RGBA{R: 254, G: 255, B: 255, A: 255}}) {
+	if !slices.Contains(white, Mark{image.Pt(0, 33), color.RGBA{R: 253, G: 255, B: 255, A: 255}}) {
 		t.Errorf("a channel at 255 was not lowered: %+v", white[:2])
 	}
 	for _, step := range []func(h *fakeHost){
@@ -309,12 +309,12 @@ func TestOverlayLocatesTheMarksZedPainted(t *testing.T) {
 		t.Errorf("columns %d..%d rows %d..%d, want the marks the shot shows at x 341..1519 and y 935..952", cols[0], cols[grid.X], rows[grid.Y-1], rows[grid.Y])
 	}
 	for c := range grid.X {
-		if want := marks[c].Color; at(cols[c], 943) != want || at(cols[c+1]-1, 943) != want || cols[c+1]-cols[c] < 7 || cols[c+1]-cols[c] > 8 {
+		if want := marks[c].Color; !near(at(cols[c], 943), want) || !near(at(cols[c+1]-1, 943), want) || cols[c+1]-cols[c] < 7 || cols[c+1]-cols[c] > 8 {
 			t.Errorf("column %d at %d..%d: pixels %v and %v, want %v, 7 or 8 px wide", c, cols[c], cols[c+1], at(cols[c], 943), at(cols[c+1]-1, 943), want)
 		}
 	}
 	for r := range grid.Y - 1 {
-		if want := marks[grid.X+r].Color; at(1515, rows[r]) != want || at(1515, rows[r+1]-1) != want {
+		if want := marks[grid.X+r].Color; !near(at(1515, rows[r]), want) || !near(at(1515, rows[r+1]-1), want) {
 			t.Errorf("row %d at %d..%d: pixels %v and %v, want %v", r, rows[r], rows[r+1], at(1515, rows[r]), at(1515, rows[r+1]-1), want)
 		}
 	}
@@ -590,32 +590,43 @@ func TestOverlayRefusedDrawFallsBackToCells(t *testing.T) {
 	}
 }
 
-func TestOverlayChosenForZedOnly(t *testing.T) {
+func TestOverlayChosenForZedAlacrittyAndRio(t *testing.T) {
+	newerConPTY := []string{"\x1b[6;16;8t", "\x1b[4;576;960t\x1b[?61;6;7;14;21;22;23;24;28;32;42c"}
+	newerConPTYSixel := []string{"\x1b[6;16;8t", "\x1b[4;576;960t\x1b[?61;4;6;7;14;21;22;23;24;28;32;42c"}
 	cases := []struct {
-		name    string
-		answers []string
-		conhost bool
-		host    bool
-		offer   offer
-		opt     Options
-		chosen  bool
+		name       string
+		answers    []string
+		conhost    bool
+		host       bool
+		exe, class string
+		offer      offer
+		chosen     bool
 	}{
-		{"zed with a window", zed, false, true, offer{zed: true}, Options{}, true},
-		{"zed without a window", zed, false, false, offer{zed: true}, Options{}, false},
-		{"zed forced none", zed, false, true, offer{zed: true, forced: true}, Options{}, false},
-		{"windows terminal", windowsTerminal, false, true, offer{}, Options{}, false},
-		{"conhost", conPTY, true, true, offer{}, Options{}, false},
-		{"inbox conpty", conPTY, false, true, offer{}, Options{}, false},
-		{"kitty", kitty, false, true, offer{}, Options{}, false},
+		{"zed with a window", zed, false, true, "Zed.exe", "Zed::Window", offer{zed: true}, true},
+		{"zed without a window", zed, false, false, "", "", offer{zed: true}, false},
+		{"zed forced none", zed, false, true, "Zed.exe", "Zed::Window", offer{zed: true, forced: true}, false},
+		{"windows terminal", windowsTerminal, false, true, "WindowsTerminal.exe", "CASCADIA_HOSTING_WINDOW_CLASS", offer{}, false},
+		{"windows terminal under an alacritty window", windowsTerminal, false, true, "alacritty.exe", konst.WinitClass, offer{}, false},
+		{"conhost", conPTY, true, true, "alacritty.exe", konst.WinitClass, offer{}, false},
+		{"inbox conpty in mintty", conPTY, false, true, "mintty.exe", "mintty", offer{}, false},
+		{"inbox conpty in another winit program", conPTY, false, true, "foo.exe", konst.WinitClass, offer{}, false},
+		{"inbox conpty in alacritty with another class", conPTY, false, true, "alacritty.exe", "Alacritty", offer{}, false},
+		{"kitty", kitty, false, true, "kitty.exe", konst.WinitClass, offer{}, false},
+		{"stock alacritty", conPTY, false, true, "alacritty.exe", konst.WinitClass, offer{}, true},
+		{"stock alacritty without a window", conPTY, false, false, "alacritty.exe", konst.WinitClass, offer{}, false},
+		{"stock alacritty forced none", conPTY, false, true, "alacritty.exe", konst.WinitClass, offer{forced: true}, false},
+		{"stock rio", conPTY, false, true, "Rio.exe", konst.WinitClass, offer{}, true},
+		{"alacritty with a newer conpty", newerConPTY, false, true, "Alacritty.exe", konst.WinitClass, offer{}, true},
+		{"rio with a newer conpty draws sixel", newerConPTYSixel, false, true, "rio.exe", konst.WinitClass, offer{}, false},
 	}
 	for _, tc := range cases {
 		term := newFake(tc.answers...)
 		h := zedHost()
-		term.tty.window = tc.conhost
+		term.tty.window, term.tty.exe, term.tty.class = tc.conhost, tc.exe, tc.class
 		if tc.host {
 			term.tty.host = h
 		}
-		b, err := enter(term, term.tty, tc.opt, tc.offer)
+		b, err := enter(term, term.tty, Options{}, tc.offer)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -632,10 +643,112 @@ func TestOverlayChosenForZedOnly(t *testing.T) {
 			t.Errorf("%s: host released %v, want %v", tc.name, h.released, tc.chosen)
 		}
 		term = newFake(append([]string{"\x1b[3;1R"}, tc.answers...)...)
-		term.tty.window = tc.conhost
+		term.tty.window, term.tty.exe, term.tty.class = tc.conhost, tc.exe, tc.class
 		term.tty.host = zedHost()
 		if caps, _, err := query(term, term.tty, tc.offer); err != nil || caps.Graphics == GraphicsGDI || term.tty.host.released {
 			t.Errorf("%s: query err %v graphics %d touched the host %v", tc.name, err, caps.Graphics, term.tty.host.released)
+		}
+	}
+}
+
+func TestOverlayCalibratesOnAnIntegerGrid(t *testing.T) {
+	exact := func(v uint8) uint8 { return v }
+	rio := func(v uint8) uint8 {
+		if v >= 46 {
+			return v - 1
+		}
+		return v
+	}
+	for _, tc := range []struct {
+		name string
+		page color.RGBA
+		read func(uint8) uint8
+	}{
+		{"alacritty", color.RGBA{R: 30, G: 30, B: 46, A: 255}, exact},
+		{"rio reads 46 as 45", color.RGBA{R: 30, G: 30, B: 46, A: 255}, rio},
+		{"rio merges 45 and 46", color.RGBA{R: 30, G: 30, B: 45, A: 255}, rio},
+		{"alacritty near white nudges down", color.RGBA{R: 250, G: 252, B: 255, A: 255}, exact},
+		{"alacritty next to a rewritten grey nudges down", color.RGBA{R: 10, G: 10, B: 10, A: 255}, exact},
+	} {
+		grid, client, panel, cell := image.Pt(120, 36), image.Pt(980, 600), image.Pt(5, 5), image.Pt(8, 16)
+		h := &fakeHost{at: hostPlace{origin: image.Pt(40, 60), client: client, shown: true, front: true}}
+		o := &overlay{win: h}
+		now := time.Now()
+		for range konst.OverlayReads {
+			o.tick(grid, now)
+			if marks := o.marks(tc.page, now); marks != nil {
+				pix := make([]byte, client.X*client.Y*4)
+				for i := 0; i < len(pix); i += 4 {
+					copy(pix[i:], []byte{tc.read(tc.page.B), tc.read(tc.page.G), tc.read(tc.page.R), 255})
+				}
+				for _, m := range marks {
+					for y := range cell.Y {
+						for x := range cell.X {
+							copy(pix[((panel.Y+m.Cell.Y*cell.Y+y)*client.X+panel.X+m.Cell.X*cell.X+x)*4:], []byte{tc.read(m.Color.B), tc.read(m.Color.G), tc.read(m.Color.R), 255})
+						}
+					}
+				}
+				h.set(func(h *fakeHost) { h.screen = pix })
+			}
+			now = now.Add(konst.OverlayRetry)
+		}
+		size := image.Pt(grid.X*cell.X, grid.Y*cell.Y)
+		if g, got := o.surface(); g != GraphicsGDI || got != cell || o.base != panel || o.size != size {
+			t.Errorf("%s: graphics %d cell %v base %v size %v after %d reads, want GDI, %v, %v and %v", tc.name, g, got, o.base, o.size, h.reads, cell, panel, size)
+		}
+	}
+}
+
+func TestOverlayMarksAvoidTheGreysTheInboxConPTYRewrites(t *testing.T) {
+	rewritten := []uint8{12, 118, 204, 242}
+	var pages []color.RGBA
+	for _, g := range append([]uint8{0, 1, 253, 254, 255}, rewritten...) {
+		for d := -3; d <= 3; d++ {
+			v := uint8(min(max(int(g)+d, 0), 255))
+			pages = append(pages, color.RGBA{R: v, G: v, B: v, A: 255}, color.RGBA{R: v, G: g, B: g, A: 255}, color.RGBA{R: g, G: v, B: g, A: 255}, color.RGBA{R: g, G: g, B: v, A: 255})
+		}
+	}
+	grid := image.Pt(3, 3)
+	for _, page := range pages {
+		marks := (&overlay{grid: grid}).layout(page)
+		four := []color.RGBA{marks[0].Color, marks[1].Color, marks[grid.X].Color, marks[grid.X+1].Color}
+		for i, m := range four {
+			if m.R == m.G && m.G == m.B && slices.Contains(rewritten, m.R) {
+				t.Errorf("page %v: mark %d is %v, a grey the inbox ConPTY rewrites", page, i, m)
+			}
+			if near(m, page) {
+				t.Errorf("page %v: mark %d is %v, within the slack of the page", page, i, m)
+			}
+			for j, other := range four[:i] {
+				if near(m, other) {
+					t.Errorf("page %v: marks %d and %d are %v and %v, within the slack of each other", page, j, i, other, m)
+				}
+			}
+		}
+	}
+}
+
+func TestOverlayDrawsOverZedAlacrittyAndRioOnly(t *testing.T) {
+	for _, tc := range []struct {
+		id         Identity
+		exe, class string
+		want       bool
+	}{
+		{IdentityZed, "Zed.exe", "Zed::Window", true},
+		{IdentityZed, "", "", true},
+		{IdentityInboxConPTY, "alacritty.exe", konst.WinitClass, true},
+		{IdentityInboxConPTY, "RIO.EXE", konst.WinitClass, true},
+		{IdentityOther, "alacritty.exe", konst.WinitClass, true},
+		{IdentityOther, "rio.exe", konst.WinitClass, true},
+		{IdentityInboxConPTY, "alacritty.exe", "Alacritty", false},
+		{IdentityInboxConPTY, "foo.exe", konst.WinitClass, false},
+		{IdentityInboxConPTY, "mintty.exe", "mintty", false},
+		{IdentityOther, "WindowsTerminal.exe", "CASCADIA_HOSTING_WINDOW_CLASS", false},
+		{IdentityConhost, "alacritty.exe", konst.WinitClass, false},
+		{IdentityVSCode, "alacritty.exe", konst.WinitClass, false},
+	} {
+		if got := drawsOver(tc.id, tc.exe, tc.class); got != tc.want {
+			t.Errorf("identity %d in %s class %q: overlay %v, want %v", tc.id, tc.exe, tc.class, got, tc.want)
 		}
 	}
 }

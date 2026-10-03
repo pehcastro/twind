@@ -132,7 +132,7 @@ func (t *unixTTY) drawable() (window, error) {
 	return nil, errNoWindow
 }
 
-func (t *unixTTY) overlay(*trace) (host, error) {
+func (t *unixTTY) overlay(*trace, Identity) (host, error) {
 	return nil, errNoWindow
 }
 

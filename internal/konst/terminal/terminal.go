@@ -123,6 +123,15 @@ const (
 	OverlayOurPage   = 8
 	OverlayAncestors = 16
 	OverlayClass     = "TwindOverlay"
+	OverlayMarkStep  = 2
+	OverlayMarkSlack = 1
+	InboxBlack       = 12
+	InboxBrightBlack = 118
+	InboxWhite       = 204
+	InboxBrightWhite = 242
+	WinitClass       = "Window Class"
+	AlacrittyExe     = "alacritty.exe"
+	RioExe           = "rio.exe"
 	OverlayExStyle   = 0x00080000 | 0x00000020 | 0x08000000 | 0x00000080
 	PopupStyle       = 0x80000000
 	OwnerWindow      = 4

@@ -129,15 +129,21 @@ func TestDoctorNamesEachIdentity(t *testing.T) {
 	identityName(terminal.IdentityVSCode + 1)
 }
 
-func TestDoctorNamesTheOverlayHostOnlyInZed(t *testing.T) {
-	host := func() string { return "host hwnd 0x10 class Zed::Window client 1536x951 at 78,61" }
-	for _, identity := range []terminal.Identity{terminal.IdentityConhost, terminal.IdentityInboxConPTY, terminal.IdentityOther} {
-		if got := overlayLine(identity, host); got != "" {
-			t.Errorf("identity %d: %q, want no overlay line", identity, got)
-		}
+func TestDoctorNamesTheOverlayHostWhereOneDraws(t *testing.T) {
+	var asked []terminal.Capabilities
+	host := func(c terminal.Capabilities) (string, bool) {
+		asked = append(asked, c)
+		return "host hwnd 0x10 exe alacritty.exe class Window Class client 960x612 at 216,239", c.Identity == terminal.IdentityInboxConPTY
 	}
-	if got, want := overlayLine(terminal.IdentityZed, host), "overlay    host hwnd 0x10 class Zed::Window client 1536x951 at 78,61\n"; got != want {
-		t.Errorf("Zed: %q, want %q", got, want)
+	if got := overlayLine(terminal.Capabilities{Identity: terminal.IdentityOther}, host); got != "" {
+		t.Errorf("no overlay: %q, want no line", got)
+	}
+	caps := terminal.Capabilities{Identity: terminal.IdentityInboxConPTY}
+	if got, want := overlayLine(caps, host), "overlay    host hwnd 0x10 exe alacritty.exe class Window Class client 960x612 at 216,239\n"; got != want {
+		t.Errorf("alacritty: %q, want %q", got, want)
+	}
+	if len(asked) != 2 || asked[1] != caps {
+		t.Errorf("asked %+v, want the detected capabilities each time", asked)
 	}
 }
 

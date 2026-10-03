@@ -49,7 +49,7 @@ type layeredInfo struct {
 
 type layered struct {
 	k      win32
-	zed    uintptr
+	term   uintptr
 	hwnd   uintptr
 	thread uint32
 	ended  chan struct{}
@@ -57,44 +57,49 @@ type layered struct {
 	shot   gdiWindow
 }
 
-func OverlayHost() string {
+func OverlayHost(c Capabilities) (string, bool) {
 	k := loadWin32()
-	if zed := k.ancestor(nil); zed != 0 {
-		return k.describe(zed)
+	term, exe := k.ancestor(nil)
+	if term == 0 || c.Graphics != GraphicsNone || !drawsOver(c.Identity, exe, classOf(term)) {
+		return "", false
 	}
-	return fmt.Sprintf("no host: no ancestor within %d has a visible unowned window", konst.OverlayAncestors)
+	return k.describe(term, exe), true
 }
 
-func (k win32) overlay(tr *trace) (host, error) {
+func (k win32) overlay(tr *trace, id Identity) (host, error) {
 	for _, p := range []*windows.LazyProc{k.createDC, k.deleteDC, k.selectObject, k.deleteObject, k.createDIB, k.clientRect, k.getDC, k.releaseDC, k.bitBlt, k.clientToScreen, k.iconic, k.findWindow, k.relative, k.registerClass, k.createWindow, k.destroyWindow, k.showWindow, k.setWindowPos, k.updateLayered, k.getMessage, k.dispatchMessage, k.postThreadMessage, k.defProc} {
 		if err := p.Find(); err != nil {
 			return nil, err
 		}
 	}
-	zed := k.ancestor(tr)
-	if zed == 0 {
+	term, exe := k.ancestor(tr)
+	if term == 0 {
 		return nil, errors.New("no host window")
 	}
-	tr.log("host: %s", k.describe(zed))
-	h, err := k.overlayOn(zed)
+	tr.log("host: %s", k.describe(term, exe))
+	if class := classOf(term); !drawsOver(id, exe, class) {
+		return nil, fmt.Errorf("identity %d in %s class %q is not a terminal the overlay draws over", id, exe, class)
+	}
+	h, err := k.overlayOn(term)
 	if err != nil {
 		return nil, err
 	}
-	tr.log("overlay window %#x created, owned by %#x", h.hwnd, zed)
+	tr.log("overlay window %#x created, owned by %#x", h.hwnd, term)
 	return h, nil
 }
 
-func (k win32) ancestor(tr *trace) uintptr {
+func (k win32) ancestor(tr *trace) (uintptr, string) {
 	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
 		tr.log("host: process snapshot: %v", err)
-		return 0
+		return 0, ""
 	}
 	defer func() { _ = windows.CloseHandle(snapshot) }()
-	parents := map[uint32]uint32{}
+	parents, exes := map[uint32]uint32{}, map[uint32]string{}
 	entry := windows.ProcessEntry32{Size: uint32(unsafe.Sizeof(windows.ProcessEntry32{}))}
 	for err = windows.Process32First(snapshot, &entry); err == nil; err = windows.Process32Next(snapshot, &entry) {
 		parents[entry.ProcessID] = entry.ParentProcessID
+		exes[entry.ProcessID] = windows.UTF16ToString(entry.ExeFile[:])
 	}
 	shown := map[uint32][]candidate{}
 	k.aware(func() {
@@ -108,27 +113,28 @@ func (k win32) ancestor(tr *trace) uintptr {
 			}
 		}
 	})
-	return hostOf(parents, shown, windows.GetCurrentProcessId(), uintptr(windows.GetForegroundWindow()), tr)
+	term := hostOf(parents, shown, windows.GetCurrentProcessId(), uintptr(windows.GetForegroundWindow()), tr)
+	var pid uint32
+	_, _ = windows.GetWindowThreadProcessId(windows.HWND(term), &pid)
+	return term, exes[pid]
 }
 
-func (k win32) describe(zed uintptr) string {
-	class := make([]uint16, konst.WindowClassLength)
-	n, _ := windows.GetClassName(windows.HWND(zed), &class[0], int32(len(class)))
+func (k win32) describe(term uintptr, exe string) string {
 	var pid uint32
-	_, _ = windows.GetWindowThreadProcessId(windows.HWND(zed), &pid)
+	_, _ = windows.GetWindowThreadProcessId(windows.HWND(term), &pid)
 	var origin point
 	var client windows.Rect
 	k.aware(func() {
-		_, _, _ = k.clientToScreen.Call(zed, uintptr(unsafe.Pointer(&origin)))
-		_, _, _ = k.clientRect.Call(zed, uintptr(unsafe.Pointer(&client)))
+		_, _, _ = k.clientToScreen.Call(term, uintptr(unsafe.Pointer(&origin)))
+		_, _, _ = k.clientRect.Call(term, uintptr(unsafe.Pointer(&client)))
 	})
-	return fmt.Sprintf("host hwnd %#x pid %d class %s client %dx%d at %d,%d, foreground %t", zed, pid, windows.UTF16ToString(class[:n]), client.Right, client.Bottom, origin.x, origin.y, uintptr(windows.GetForegroundWindow()) == zed)
+	return fmt.Sprintf("host hwnd %#x pid %d exe %s class %s client %dx%d at %d,%d, foreground %t", term, pid, exe, classOf(term), client.Right, client.Bottom, origin.x, origin.y, uintptr(windows.GetForegroundWindow()) == term)
 }
 
-func (k win32) overlayOn(zed uintptr) (*layered, error) {
+func (k win32) overlayOn(term uintptr) (*layered, error) {
 	dc, _, err := k.createDC.Call(0)
 	shot, _, _ := k.createDC.Call(0)
-	h := &layered{k: k, zed: zed, ended: make(chan struct{}), dib: gdiWindow{k: k, dc: dc}, shot: gdiWindow{k: k, dc: shot}}
+	h := &layered{k: k, term: term, ended: make(chan struct{}), dib: gdiWindow{k: k, dc: dc}, shot: gdiWindow{k: k, dc: shot}}
 	if dc == 0 || shot == 0 {
 		h.dib.release()
 		h.shot.release()
@@ -156,7 +162,7 @@ func (h *layered) pump(made chan<- error) {
 	class := windowClass{proc: h.k.defProc.Addr(), instance: uintptr(instance), name: name}
 	class.size = uint32(unsafe.Sizeof(class))
 	_, _, _ = h.k.registerClass.Call(uintptr(unsafe.Pointer(&class)))
-	hwnd, _, err := h.k.createWindow.Call(konst.OverlayExStyle, uintptr(unsafe.Pointer(name)), 0, konst.PopupStyle, 0, 0, 0, 0, h.zed, 0, uintptr(instance), 0)
+	hwnd, _, err := h.k.createWindow.Call(konst.OverlayExStyle, uintptr(unsafe.Pointer(name)), 0, konst.PopupStyle, 0, 0, 0, 0, h.term, 0, uintptr(instance), 0)
 	h.hwnd, h.thread = hwnd, windows.GetCurrentThreadId()
 	if hwnd == 0 {
 		made <- fmt.Errorf("CreateWindowEx: %w", err)
@@ -178,17 +184,17 @@ func (h *layered) place() (hostPlace, error) {
 	h.k.aware(func() {
 		var origin point
 		var client windows.Rect
-		moved, _, _ := h.k.clientToScreen.Call(h.zed, uintptr(unsafe.Pointer(&origin)))
-		sized, _, _ := h.k.clientRect.Call(h.zed, uintptr(unsafe.Pointer(&client)))
-		if !windows.IsWindow(windows.HWND(h.zed)) || moved == 0 || sized == 0 {
+		moved, _, _ := h.k.clientToScreen.Call(h.term, uintptr(unsafe.Pointer(&origin)))
+		sized, _, _ := h.k.clientRect.Call(h.term, uintptr(unsafe.Pointer(&client)))
+		if !windows.IsWindow(windows.HWND(h.term)) || moved == 0 || sized == 0 {
 			return
 		}
-		iconic, _, _ := h.k.iconic.Call(h.zed)
+		iconic, _, _ := h.k.iconic.Call(h.term)
 		at = hostPlace{
 			origin: image.Pt(int(origin.x), int(origin.y)),
 			client: image.Pt(int(client.Right), int(client.Bottom)),
-			shown:  windows.IsWindowVisible(windows.HWND(h.zed)) && iconic == 0,
-			front:  uintptr(windows.GetForegroundWindow()) == h.zed,
+			shown:  windows.IsWindowVisible(windows.HWND(h.term)) && iconic == 0,
+			front:  uintptr(windows.GetForegroundWindow()) == h.term,
 		}
 		err = nil
 	})

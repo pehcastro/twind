@@ -42,7 +42,7 @@ func TestTraceEachTerminalPhase(t *testing.T) {
 	want := []string{
 		"terminal: detecting",
 		"terminal: detected identity 0 in T",
-		"overlay: none, identity 0 is not Zed",
+		"overlay: none, terminal: no console window to draw on",
 		"app: a line from above",
 		"terminal: first frame written, 5 bytes",
 		"terminal: exit",

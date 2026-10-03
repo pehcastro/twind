@@ -86,7 +86,7 @@ type console interface {
 	font(h windows.Handle) Font
 	lacks(face, cluster string) bool
 	drawable() (window, error)
-	overlay(tr *trace) (host, error)
+	overlay(tr *trace, id Identity) (host, error)
 }
 
 type win32 struct {
@@ -179,6 +179,10 @@ func (k win32) windowClass() string {
 	if window == 0 || !windows.IsWindowVisible(windows.HWND(window)) {
 		return ""
 	}
+	return classOf(window)
+}
+
+func classOf(window uintptr) string {
 	class := make([]uint16, konst.WindowClassLength)
 	n, _ := windows.GetClassName(windows.HWND(window), &class[0], int32(len(class)))
 	return windows.UTF16ToString(class[:n])
@@ -372,8 +376,8 @@ func (t *consoleTTY) drawable() (window, error) {
 	return t.console.drawable()
 }
 
-func (t *consoleTTY) overlay(tr *trace) (host, error) {
-	return t.console.overlay(tr)
+func (t *consoleTTY) overlay(tr *trace, id Identity) (host, error) {
+	return t.console.overlay(tr, id)
 }
 
 func (t *consoleTTY) cancel() {

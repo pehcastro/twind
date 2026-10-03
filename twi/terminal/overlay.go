@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +52,24 @@ func (t *trace) log(format string, args ...any) {
 	_, _ = fmt.Fprintf(t.w, "%s "+format+"\n", append([]any{time.Now().Format(konst.TraceTime)}, args...)...)
 }
 
+func drawsOver(id Identity, exe, class string) bool {
+	switch id {
+	case IdentityZed:
+		return true
+	case IdentityInboxConPTY, IdentityOther:
+		exe = strings.ToLower(exe)
+		return class == konst.WinitClass && (exe == konst.AlacrittyExe || exe == konst.RioExe)
+	case IdentityConhost, IdentityVSCode:
+		return false
+	}
+	panic(fmt.Sprintf("terminal: unknown identity %d", id))
+}
+
+func near(a, b color.RGBA) bool {
+	fits := func(x, y uint8) bool { return max(x, y)-min(x, y) <= konst.OverlayMarkSlack }
+	return fits(a.R, b.R) && fits(a.G, b.G) && fits(a.B, b.B)
+}
+
 type candidate struct {
 	hwnd uintptr
 	area int
@@ -88,11 +107,11 @@ func locate(pix []byte, size image.Point, marks []Mark, grid image.Point) (cols,
 	a, b, c, d := marks[0].Color, marks[1].Color, marks[n].Color, marks[n+1].Color
 	pattern := func(length int, along func(int) color.RGBA, first, second color.RGBA, want int) []int {
 		for i := 0; i < length; i++ {
-			if along(i) != first {
+			if !near(along(i), first) {
 				continue
 			}
 			edges, j := []int{i}, i+1
-			for ; j < length && (along(j) == first || along(j) == second); j++ {
+			for ; j < length && (near(along(j), first) || near(along(j), second)); j++ {
 				if along(j) != along(j-1) {
 					edges = append(edges, j)
 				}
@@ -206,15 +225,26 @@ type overlay struct {
 }
 
 func (o *overlay) layout(page color.RGBA) []Mark {
-	nudge := func(v uint8) uint8 {
-		if v == math.MaxUint8 {
-			return v - 1
+	mark := func(r, g, b bool) color.RGBA {
+		var m color.RGBA
+		for _, step := range []int{konst.OverlayMarkStep, -konst.OverlayMarkStep} {
+			nudge := func(v uint8, on bool) uint8 {
+				if !on {
+					return v
+				}
+				if moved := int(v) + step; moved >= 0 && moved <= math.MaxUint8 {
+					return uint8(moved)
+				}
+				return uint8(int(v) - step)
+			}
+			m = color.RGBA{R: nudge(page.R, r), G: nudge(page.G, g), B: nudge(page.B, b), A: page.A}
+			if m.R != m.G || m.G != m.B || m.R != konst.InboxBlack && m.R != konst.InboxBrightBlack && m.R != konst.InboxWhite && m.R != konst.InboxBrightWhite {
+				break
+			}
 		}
-		return v + 1
+		return m
 	}
-	a, b, c := page, page, page
-	a.R, b.G, c.B = nudge(page.R), nudge(page.G), nudge(page.B)
-	d := color.RGBA{R: nudge(page.R), G: nudge(page.G), B: nudge(page.B), A: page.A}
+	a, b, c, d := mark(true, false, false), mark(false, true, false), mark(false, false, true), mark(true, true, true)
 	n, m := o.grid.X, o.grid.Y
 	marks := make([]Mark, 0, n+m-1)
 	for x := range n {
@@ -276,7 +306,7 @@ func (o *overlay) check(at hostPlace) {
 	}
 	page := 0
 	for i := 0; i+px <= len(seen); i += px {
-		if seen[i] == o.page.B && seen[i+1] == o.page.G && seen[i+2] == o.page.R {
+		if near(color.RGBA{R: seen[i+2], G: seen[i+1], B: seen[i], A: o.page.A}, o.page) {
 			page++
 		}
 	}
@@ -372,7 +402,7 @@ func (o *overlay) measure(at hostPlace) {
 	o.size = image.Pt(cols[n], rows[m]).Sub(o.base)
 	o.columns, o.lines = remap(cols, o.cell.X), remap(rows, o.cell.Y)
 	o.fresh, o.marking = true, false
-	o.trace.log("calibrated: cell %dx%d from %.3fx%.3f, panel %v in Zed's client", o.cell.X, o.cell.Y, float64(o.size.X)/float64(n), float64(o.size.Y)/float64(m), image.Rectangle{Min: o.base, Max: o.base.Add(o.size)})
+	o.trace.log("calibrated: cell %dx%d from %.3fx%.3f, panel %v in the host's client", o.cell.X, o.cell.Y, float64(o.size.X)/float64(n), float64(o.size.Y)/float64(m), image.Rectangle{Min: o.base, Max: o.base.Add(o.size)})
 }
 
 func (o *overlay) drop(why string) {

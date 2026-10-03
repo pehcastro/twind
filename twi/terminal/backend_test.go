@@ -30,6 +30,8 @@ type fakeTTY struct {
 	asked     []string
 	win       *fakeWindow
 	host      *fakeHost
+	exe       string
+	class     string
 }
 
 func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
@@ -74,8 +76,8 @@ func (f *fakeTTY) drawable() (window, error) {
 	}
 	return f.win, nil
 }
-func (f *fakeTTY) overlay(*trace) (host, error) {
-	if f.host == nil {
+func (f *fakeTTY) overlay(_ *trace, id Identity) (host, error) {
+	if f.host == nil || !drawsOver(id, f.exe, f.class) {
 		return nil, errNoWindow
 	}
 	return f.host, nil
