@@ -138,7 +138,9 @@ func (b *Box) scroll() bool {
 	b.ScrollWidth = max(view.W, s.Padding.Left+right+s.Padding.Right)
 	b.ScrollHeight = max(view.H, s.Padding.Top+bottom+s.Padding.Bottom)
 	b.ScrollX = max(min(b.ScrollX, b.ScrollWidth-view.W), 0)
-	b.ScrollY = max(min(b.ScrollY, b.ScrollHeight-view.H), 0)
+	limit := b.ScrollHeight - view.H
+	limit = -whole(-limit, s.RowUnits)
+	b.ScrollY = max(min(b.ScrollY, limit), 0)
 	return was != [4]int{b.ScrollX, b.ScrollY, b.ScrollWidth, b.ScrollHeight}
 }
 
@@ -173,7 +175,7 @@ func (a *arena) placeOut(b *Box, static Rect, cb *container) bool {
 	h = limit(s.MinHeight, s.MaxHeight, area.H, true).clamp(h)
 	x := edge(hasLeft, hasRight, area.X+left+m.Left, area.X+area.W-right-m.Right-w, static.X+m.Left)
 	y := edge(hasTop, hasBottom, area.Y+top+m.Top, area.Y+area.H-bottom-m.Bottom-h, static.Y+m.Top)
-	return a.place(b, Rect{x, y, w, h}, mode, &cb.clip, cb)
+	return a.place(b, Rect{x, y + b.nudge(y), w, h}, mode, &cb.clip, cb)
 }
 
 func edge(hasNear, hasFar bool, near, far, static int) int {
@@ -254,22 +256,30 @@ func (a *arena) arrangeColumn(b *Box, innerW, innerH int, mode heightMode) (int,
 		}
 	}
 	spent, used, settled := hypothetical(items, s.RowGap)
-	free := 0
+	free, step := 0, max(s.RowUnits, 1)
 	if mode != measuring {
 		if !rigid(items, innerH-used) {
-			used = spent + a.flexSizes(items, innerH-spent)
+			used = spent + a.flexSizes(items, innerH-spent, step)
 		}
 		free = innerH - used
 	}
-	pos, extra := a.justify(s.Justify, free, len(items))
+	pos, extra := a.justify(s.Justify, free/step, len(items))
+	pos *= step
+	for k := range extra {
+		extra[k] *= step
+	}
 	for k := range items {
 		it := &items[k]
 		m, f := &it.box.Style.Margin, &it.box.frame
+		pos += it.box.nudge(pos + m.Top)
 		f.Y, f.H = pos+m.Top, it.size
 		pos += m.Top + it.size + m.Bottom + s.RowGap
 		if extra != nil {
 			pos += extra[k]
 		}
+	}
+	if len(items) > 0 {
+		used = max(used, pos-s.RowGap)
 	}
 	return used, settled
 }
@@ -326,7 +336,7 @@ func (a *arena) arrangeRow(b *Box, innerW, innerH int, mode heightMode) int {
 			}
 		}
 		if used > innerW || !rigid(group, innerW-used) {
-			used = spent + a.flexSizes(group, innerW-spent)
+			used = spent + a.flexSizes(group, innerW-spent, 1)
 		}
 		pos, extra := a.justify(s.Justify, innerW-used, len(group))
 		line := innerH
@@ -347,6 +357,7 @@ func (a *arena) arrangeRow(b *Box, innerW, innerH int, mode heightMode) int {
 				line = max(line, f.H+m.Top+m.Bottom)
 			}
 		}
+		reach := line
 		for k := range group {
 			c := group[k].box
 			cs, f := &c.Style, &c.frame
@@ -354,7 +365,12 @@ func (a *arena) arrangeRow(b *Box, innerW, innerH int, mode heightMode) int {
 			if _, sized := c.height(innerH, fixed); !sized && al == AlignStretch {
 				f.H = c.heightLimit(innerH, fixed).clamp(avail)
 			}
-			f.Y = cross + cs.Margin.Top + offset(al, avail-f.H)
+			f.Y = cross + cs.Margin.Top + whole(offset(al, avail-f.H), s.RowUnits)
+			f.Y += c.nudge(f.Y)
+			reach = max(reach, f.Y+f.H+cs.Margin.Bottom-cross)
+		}
+		if mode == measuring || multi {
+			line = reach
 		}
 		cross += line + s.RowGap
 		if end == len(items) {
@@ -413,7 +429,7 @@ func aspectWidth(s *Style, base int, baseDefinite bool) (int, bool) {
 		return 0, false
 	}
 	h, ok := resolve(s.Height, base, baseDefinite)
-	return scale(h, s.Aspect.W, s.Aspect.H), ok
+	return scale(h, s.Aspect.W, s.Aspect.H*max(s.RowUnits, 1)), ok
 }
 
 func scale(v, num, den int) int {
@@ -530,7 +546,7 @@ func (a *arena) heightOf(b *Box, w, base int, baseDefinite bool) int {
 
 func (a *arena) contentHeight(b *Box, w int) int {
 	if r := b.Style.Aspect; r != (Ratio{}) {
-		return scale(w, r.H, r.W)
+		return scale(w, r.H, r.W) * max(b.Style.RowUnits, 1)
 	}
 	m := &b.memo
 	if m.heightKnown && m.heightWidth == w {

@@ -17,9 +17,10 @@ const (
 	activeRing        = "in-focus-visible:data-[active=true]:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"
 	invalidFocusRing  = "focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:focus-visible:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
 	invalidActiveRing = "in-focus-visible:data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_20%,transparent)] dark:in-focus-visible:data-[active=true]:shadow-[0_0_0_1px_var(--color-destructive),0_0_0_3px_color-mix(in_oklab,var(--color-destructive)_40%,transparent)]"
-	fieldEdge         = "border border-input focus-visible:border-ring"
+	fieldEdge         = "border-[0.5px] border-input focus-visible:border-ring"
+	areaEdge          = "border border-input focus-visible:border-ring"
 	groupEdge         = "border border-input has-focus-visible:border-ring"
-	invalidEdge       = "border border-destructive"
+	invalidEdge       = "border-destructive"
 )
 
 type ringAt uint8
@@ -44,7 +45,8 @@ func (c *control) ring(idle string, at ringAt) string {
 
 func (c *control) edge(valid string) string {
 	if c.Invalid {
-		return invalidEdge
+		width, _, _ := strings.Cut(valid, " ")
+		return width + " " + invalidEdge
 	}
 	return valid
 }

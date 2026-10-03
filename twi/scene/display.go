@@ -19,7 +19,7 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 	if !paints(n) {
 		return image.Rectangle{}, 0, false
 	}
-	bounds := f.pixels(n.Bounds).Sub(origin)
+	bounds := f.surface(n.Bounds, n.Halves.Bounds).Sub(origin)
 	if bounds.Empty() {
 		return bounds, 0, false
 	}
@@ -45,7 +45,7 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 		return visual, 0, false
 	}
 	drawn, ok := len(f.ops), true
-	if clip := f.pixels(n.Clip); clip != layerClip || round != 0 {
+	if clip := f.surface(n.Clip, n.Halves.Clip); clip != layerClip || round != 0 {
 		visual, ok = f.clip(start, visual, clip, layerClip, origin, round)
 	}
 	switch {
@@ -160,7 +160,7 @@ func (f *Frame) clip(start int, visual, clip, layerClip image.Rectangle, origin 
 	seen := visual.Intersect(clip.Sub(origin))
 	for ; round != 0; round = f.entries[round].round {
 		n := f.entries[round].node
-		outer, shape := f.pixels(n.Bounds), f.pixels(n.Padding)
+		outer, shape := f.surface(n.Bounds, n.Halves.Bounds), f.surface(n.Padding, n.Halves.Padding)
 		inset := max(shape.Min.X-outer.Min.X, shape.Min.Y-outer.Min.Y, outer.Max.X-shape.Max.X, outer.Max.Y-shape.Max.Y)
 		r := f.radii(n.Border.Radius)
 		for i := range r {
@@ -300,6 +300,17 @@ func angle(g style.GradientLine, box raster.Rect) float64 {
 
 func (f *Frame) pixels(r layout.Rect) image.Rectangle {
 	return image.Rect(r.X*f.cell.X, r.Y*f.cell.Y, (r.X+r.W)*f.cell.X, (r.Y+r.H)*f.cell.Y)
+}
+
+func (f *Frame) surface(r layout.Rect, h Half) image.Rectangle {
+	p := f.pixels(r)
+	if h&HalfTop != 0 {
+		p.Min.Y += f.cell.Y / 2
+	}
+	if h&HalfBottom != 0 {
+		p.Max.Y -= f.cell.Y - f.cell.Y/2
+	}
+	return p
 }
 
 func rect(r image.Rectangle) raster.Rect {

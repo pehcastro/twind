@@ -112,7 +112,8 @@ func (a *arena) arrangeGrid(b *Box, innerW, innerH int, mode heightMode) int {
 			h = a.heightOf(c, it.width, areaH, true)
 		}
 		availW := extent(cols, it.area[across]) - m.Left - m.Right
-		c.frame = Rect{x + m.Left + offset(justifyOf(s, cs), availW-it.width), y + m.Top + offset(al, availH-h), it.width, h}
+		c.frame = Rect{x + m.Left + offset(justifyOf(s, cs), availW-it.width), y + m.Top + whole(offset(al, availH-h), s.RowUnits), it.width, h}
+		c.frame.Y += c.nudge(c.frame.Y)
 	}
 	a.ints, a.tracks, a.cells = a.ints[:ints], a.tracks[:tracks], a.cells[:cells]
 	return total(rows, s.RowGap)

@@ -174,7 +174,7 @@ func BenchmarkDocs(b *testing.B) {
 	}
 	for _, p := range paths {
 		rows := docsSidebar(b, sheet, p)
-		for _, page := range []string{"card", "theming"} {
+		for _, page := range []string{"card", "theming", "blocks"} {
 			for _, s := range steps {
 				b.Run(p.name+"/"+page+"/"+s.name, func(b *testing.B) { docsRun(b, sheet, p, page, s, rows) })
 				if s.name != "page" {

@@ -18,9 +18,19 @@ type Border struct {
 	Color                    color.Color
 }
 
+type Half uint8
+
+const (
+	HalfTop Half = 1 << iota
+	HalfBottom
+)
+
+type Halves struct{ Bounds, Padding, Clip Half }
+
 type Node struct {
 	Bounds                                 layout.Rect
 	Clip                                   layout.Rect
+	Halves                                 Halves
 	Children                               []Node
 	ZIndex                                 int
 	TopLayer                               int

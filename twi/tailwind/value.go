@@ -256,8 +256,6 @@ func length(toks []css.Token) (style.Length, problem) {
 		return style.Length{Unit: style.Percent, Value: q.value}, problem{}
 	case q.unit != "px" && (q.unit != "" || q.value != 0):
 		return style.Length{}, problem{Unsupported, "unit " + strconv.Quote(q.unit) + " has no cell size in the preset"}
-	case q.value != math.Round(q.value):
-		return style.Length{Unit: style.Cells, Value: math.Round(q.value)}, problem{Approximated, "fractional cells rounded"}
 	}
 	return style.Length{Unit: style.Cells, Value: q.value}, problem{}
 }

@@ -20,7 +20,7 @@ const (
 	placeholderClass = "text-muted-foreground"
 	chipClass        = "text-amber-700 dark:text-amber-300"
 	fieldBox         = "w-full rounded-md dark:bg-input/30 "
-	inputHeight      = "h-3 min-h-3 "
+	inputHeight      = "shrink-0 "
 )
 
 type editor struct {
@@ -50,7 +50,7 @@ func (in *Input) Node(options ...twi.NodeOption) twi.Node {
 }
 
 func (t *Textarea) Node(options ...twi.NodeOption) twi.Node {
-	return t.field("min-h-6 "+fieldBox+t.edge(fieldEdge), options)
+	return t.field("min-h-6 "+fieldBox+t.edge(areaEdge), options)
 }
 
 func (in *Input) Group(addons ...Addon) twi.Node {

@@ -72,6 +72,7 @@ type styledBox struct {
 	raw      string
 	text     scene.Text
 	natural  [2]int
+	rows     int
 	sizes    []sized
 	children []*styledBox
 	exiting  []*styledBox
@@ -113,6 +114,7 @@ type Tree struct {
 	now              time.Duration
 	presenting       bool
 	graphics         bool
+	rows             int
 	drawn            scene.Node
 	blank            style.ComputedStyle
 	seed             maphash.Seed
@@ -147,6 +149,15 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	if t.styles == nil {
 		t.seed, t.styles = maphash.MakeSeed(), map[cascade]*styledBox{}
 	}
+	rows := 1
+	if f.Graphics {
+		rows = lkonst.HalfRows
+	}
+	if rows != t.rows && t.root != nil {
+		rescale(t.root, rows)
+		t.restyle = true
+	}
+	t.rows = rows
 	styled, fresh := t.root, t.root == nil
 	if fresh {
 		styled = new(styledBox)
@@ -158,8 +169,13 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 		t.root = nil
 		return scene.Node{}, err
 	}
-	layout.Layout(&styled.box, f.Width, f.Height)
-	t.drawn = t.scene(styled, reclip{viewport: styled.box.Clip})
+	height := f.Height
+	if height.Unit == layout.Cells {
+		height.Value *= rows
+	}
+	layout.Layout(&styled.box, f.Width, height)
+	viewport, _ := t.outer(styled.box.Clip)
+	t.drawn = t.scene(styled, reclip{viewport: viewport})
 	styled.node = &t.drawn
 	return t.drawn, nil
 }
@@ -204,18 +220,18 @@ func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, n *N
 		auto := style.Length{Unit: style.Auto}
 		computed.Inset = style.Edges{Top: style.Length{Value: float64(at.Y)}, Left: style.Length{Value: float64(at.X)}, Right: auto, Bottom: auto}
 	}
-	ls, err := boxStyle(parent, computed, f.Cell)
+	ls, err := boxStyle(parent, computed, f.Cell, t.rows)
 	return computed, ls, err
 }
 
 func (t *Tree) ScrollBy(path []int, dx, dy int) bool {
 	b := t.scroller(path)
-	return b != nil && t.scrollTo(b, b.ScrollX+dx, b.ScrollY+dy)
+	return b != nil && t.scrollTo(b, b.ScrollX+dx, b.ScrollY+dy*t.rows)
 }
 
 func (t *Tree) ScrollTo(path []int, x, y int) bool {
 	b := t.scroller(path)
-	return b != nil && t.scrollTo(b, x, y)
+	return b != nil && t.scrollTo(b, x, y*t.rows)
 }
 
 func (t *Tree) ScrollIntoView(path []int) bool {
@@ -265,7 +281,12 @@ func (t *Tree) find(path []int) (*styledBox, []*layout.Box) {
 }
 
 func (t *Tree) scrollTo(b *layout.Box, x, y int) bool {
-	x, y = max(min(x, b.ScrollWidth-b.PaddingBox.W), 0), max(min(y, b.ScrollHeight-b.PaddingBox.H), 0)
+	x, y = max(min(x, b.ScrollWidth-b.PaddingBox.W), 0), max(min(y, up(b.ScrollHeight-b.PaddingBox.H, t.rows)*t.rows), 0)
+	if y < b.ScrollY {
+		y = down(y, t.rows) * t.rows
+	} else {
+		y = up(y, t.rows) * t.rows
+	}
 	if x == b.ScrollX && y == b.ScrollY {
 		return false
 	}
@@ -290,11 +311,17 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 	}
 	n := scene.New(&s.box, *st, s.text)
 	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
+	n.Bounds, n.Halves.Bounds = t.outer(n.Bounds)
+	n.Padding, n.Halves.Padding = t.outer(n.Padding)
+	n.Clip, n.Halves.Clip = t.outer(n.Clip)
+	row := up(n.Content.Y, t.rows)
+	n.Content.Y, n.Content.H = row, up(n.Content.Y+n.Content.H, t.rows)-row
+	n.ScrollContent, _ = t.outer(n.ScrollContent)
 	if s.top > 0 {
 		r.on, r.flow, r.absolute = true, r.viewport, r.viewport
 	}
 	if r.on {
-		n.Clip = r.flow
+		n.Clip, n.Halves.Clip = r.flow, 0
 		if n.HidesOverflow {
 			r.flow = overlap(r.flow, n.Padding)
 		}
@@ -344,6 +371,39 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 	return n
 }
 
+func rescale(s *styledBox, rows int) {
+	s.box.ScrollY = s.box.ScrollY / s.rows * rows
+	s.rows, s.sizes, s.painted = rows, s.sizes[:0], false
+	s.box.Invalidate()
+	for _, list := range [2][]*styledBox{s.children, s.exiting} {
+		for _, c := range list {
+			rescale(c, rows)
+		}
+	}
+}
+
+func (t *Tree) outer(r layout.Rect) (layout.Rect, scene.Half) {
+	top, bottom := down(r.Y, t.rows), up(r.Y+r.H, t.rows)
+	var h scene.Half
+	if top*t.rows != r.Y {
+		h |= scene.HalfTop
+	}
+	if bottom*t.rows != r.Y+r.H {
+		h |= scene.HalfBottom
+	}
+	return layout.Rect{X: r.X, Y: top, W: r.W, H: bottom - top}, h
+}
+
+func down(v, n int) int {
+	q := v / n
+	if v%n < 0 {
+		q--
+	}
+	return q
+}
+
+func up(v, n int) int { return -down(-v, n) }
+
 func overlap(a, b layout.Rect) layout.Rect {
 	x, y := max(a.X, b.X), max(a.Y, b.Y)
 	return layout.Rect{X: x, Y: y, W: max(min(a.X+a.W, b.X+b.W)-x, 0), H: max(min(a.Y+a.H, b.Y+b.H)-y, 0)}
@@ -351,7 +411,7 @@ func overlap(a, b layout.Rect) layout.Rect {
 
 func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedStyle, parentChanged bool, n Node, place style.Place, siblings []*styledBox) error {
 	if fresh {
-		s.key, s.born = t.key(), t.now
+		s.key, s.born, s.rows = t.key(), t.now, t.rows
 	}
 	s.enter, s.exit = n.Enter, n.Exit
 	changed, animating := false, false
@@ -599,25 +659,26 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 		}
 		size[0], size[1] = s.text.Size(s.wrapping, wrapAt)
 	}
+	size[1] *= s.rows
 	s.sizes = append(s.sizes, sized{availableWidth, size})
 	return size[0], size[1]
 }
 
-func boxStyle(parent, s *style.ComputedStyle, cell image.Point) (layout.Style, error) {
+func boxStyle(parent, s *style.ComputedStyle, cell image.Point, rows int) (layout.Style, error) {
 	var unsupported []string
-	cells := func(name string, l style.Length) int {
+	cells := func(name string, l style.Length, unit int) int {
 		if l.Unit != style.Cells {
 			unsupported = append(unsupported, name)
 		}
-		return int(math.Round(l.Value))
+		return int(math.Round(l.Value * float64(unit)))
 	}
 	edges := func(name string, e style.Edges) layout.Edges {
-		return layout.Edges{Top: cells(name, e.Top), Right: cells(name, e.Right), Bottom: cells(name, e.Bottom), Left: cells(name, e.Left)}
+		return layout.Edges{Top: cells(name, e.Top, rows), Right: cells(name, e.Right, 1), Bottom: cells(name, e.Bottom, rows), Left: cells(name, e.Left, 1)}
 	}
-	length := func(l style.Length) layout.Length {
+	length := func(l style.Length, unit int) layout.Length {
 		switch l.Unit {
 		case style.Cells:
-			return layout.Length{Unit: layout.Cells, Value: int(math.Round(l.Value))}
+			return layout.Length{Unit: layout.Cells, Value: int(math.Round(l.Value * float64(unit)))}
 		case style.Percent:
 			return layout.Length{Unit: layout.Percent, Value: int(math.Round(l.Value))}
 		case style.Auto, style.None, style.FitContent:
@@ -652,6 +713,11 @@ func boxStyle(parent, s *style.ComputedStyle, cell image.Point) (layout.Style, e
 	placement := func(p style.GridPlacement) layout.Placement {
 		return layout.Placement{Start: layout.Line{Index: p.Start.Line, Span: p.Start.Span}, End: layout.Line{Index: p.End.Line, Span: p.End.Span}}
 	}
+	column := parent.Display != style.DisplayFlex || parent.Direction == style.Column || parent.Direction == style.ColumnReverse
+	along := 1
+	if column {
+		along = rows
+	}
 	out := layout.Style{
 		Justify:      justify(s.Justify),
 		AlignContent: justify(s.AlignContent),
@@ -659,10 +725,10 @@ func boxStyle(parent, s *style.ComputedStyle, cell image.Point) (layout.Style, e
 		AlignSelf:    align("align-self", s.AlignSelf),
 		JustifyItems: align("justify-items", s.JustifyItems),
 		JustifySelf:  align("justify-self", s.JustifySelf),
-		Columns:      tracks(s.GridColumns),
-		Rows:         tracks(s.GridRows),
-		AutoColumns:  tracks(s.GridAutoColumns),
-		AutoRows:     tracks(s.GridAutoRows),
+		Columns:      tracks(s.GridColumns, 1),
+		Rows:         tracks(s.GridRows, rows),
+		AutoColumns:  tracks(s.GridAutoColumns, 1),
+		AutoRows:     tracks(s.GridAutoRows, rows),
 		Column:       placement(s.GridColumn),
 		Row:          placement(s.GridRow),
 		Flow: [...]layout.Flow{
@@ -673,20 +739,21 @@ func boxStyle(parent, s *style.ComputedStyle, cell image.Point) (layout.Style, e
 		}[s.GridFlow],
 		Grow:      int(math.Round(s.Grow)),
 		Shrink:    int(math.Round(s.Shrink)),
-		Basis:     length(s.Basis),
-		Width:     length(s.Width),
-		Height:    length(s.Height),
-		MinWidth:  length(s.MinWidth),
-		MinHeight: length(s.MinHeight),
-		MaxWidth:  length(s.MaxWidth),
-		MaxHeight: length(s.MaxHeight),
-		RowGap:    cells("row-gap", s.RowGap),
-		ColumnGap: cells("column-gap", s.ColumnGap),
+		Basis:     length(s.Basis, along),
+		Width:     length(s.Width, 1),
+		Height:    length(s.Height, rows),
+		MinWidth:  length(s.MinWidth, 1),
+		MinHeight: length(s.MinHeight, rows),
+		MaxWidth:  length(s.MaxWidth, 1),
+		MaxHeight: length(s.MaxHeight, rows),
+		RowGap:    cells("row-gap", s.RowGap, rows),
+		ColumnGap: cells("column-gap", s.ColumnGap, 1),
 		Padding:   edges("padding", s.Padding),
 		Margin:    edges("margin", s.Margin),
 		Border:    edges("border-width", s.BorderWidth),
-		Inset:     layout.Insets{Top: length(s.Inset.Top), Right: length(s.Inset.Right), Bottom: length(s.Inset.Bottom), Left: length(s.Inset.Left)},
+		Inset:     layout.Insets{Top: length(s.Inset.Top, rows), Right: length(s.Inset.Right, 1), Bottom: length(s.Inset.Bottom, rows), Left: length(s.Inset.Left, 1)},
 		ZIndex:    s.ZIndex,
+		RowUnits:  rows,
 	}
 	switch {
 	case scrolls(s.OverflowX) || scrolls(s.OverflowY):
@@ -727,7 +794,6 @@ func boxStyle(parent, s *style.ComputedStyle, cell image.Point) (layout.Style, e
 		return self == style.AlignStretch || self == style.AlignAuto && (items == style.AlignAuto || items == style.AlignStretch)
 	}
 	stretched := stretches(s.AlignSelf, parent.AlignItems)
-	column := parent.Display != style.DisplayFlex || parent.Direction == style.Column || parent.Direction == style.ColumnReverse
 	switch {
 	case parent.Display == style.DisplayGrid:
 		if stretches(s.JustifySelf, parent.JustifyItems) && s.Width.Unit == style.FitContent {
@@ -771,7 +837,7 @@ func boxStyle(parent, s *style.ComputedStyle, cell image.Point) (layout.Style, e
 	return out, nil
 }
 
-func tracks(ts []style.Track) []layout.Track {
+func tracks(ts []style.Track, unit int) []layout.Track {
 	if ts == nil {
 		return nil
 	}
@@ -780,7 +846,7 @@ func tracks(ts []style.Track) []layout.Track {
 		case style.SizeAuto:
 			return layout.Breadth{}
 		case style.SizeCells:
-			return layout.Breadth{Kind: layout.SizeCells, Value: int(math.Round(b.Value))}
+			return layout.Breadth{Kind: layout.SizeCells, Value: int(math.Round(b.Value * float64(unit)))}
 		case style.SizePercent:
 			return layout.Breadth{Kind: layout.SizePercent, Value: int(math.Round(b.Value))}
 		case style.SizeFr:

@@ -66,7 +66,7 @@ func rigid(items []flexItem, free int) bool {
 	return true
 }
 
-func (a *arena) flexSizes(items []flexItem, space int) int {
+func (a *arena) flexSizes(items []flexItem, space, step int) int {
 	hypothetical := 0
 	for i := range items {
 		it := &items[i]
@@ -92,10 +92,11 @@ func (a *arena) flexSizes(items []flexItem, space int) int {
 			free -= items[i].size
 		}
 		mark := len(a.ints)
-		raw := a.distribute(max(free, -free), weights)
+		raw := a.distribute(max(free, -free)/step, weights)
 		violation := 0
 		for i := range items {
 			if it := &items[i]; weights[i] != 0 {
+				raw[i] *= step
 				if free < 0 {
 					raw[i] = -raw[i]
 				}

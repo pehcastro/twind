@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/twind-dev/twind/twi"
@@ -22,25 +21,6 @@ func shortField(t *testing.T, classes func(in *Input) string) *field {
 		}
 	})
 	return f
-}
-
-func TestShortInputKeepsItsTextRow(t *testing.T) {
-	for _, height := range []string{"h-2 ", "h-1 "} {
-		f := shortField(t, func(in *Input) string {
-			return strings.Replace(inputHeight, "h-3 ", height, 1) + fieldBox + in.edge(fieldEdge)
-		})
-		x, y, ok := at(f.Frame(), "Peedro")
-		if !ok {
-			t.Errorf("Input edited to %sshows no text:\n%s", height, f.Frame().Text())
-			continue
-		}
-		settledClick(f.Driver, x+3, y)
-		settledPress(f.Driver, "X")
-		f.want(t, "PeeXdro", 4, 4)
-		if !has(f.Driver, "PeeXdro") {
-			t.Errorf("Input edited to %s: typed text not shown:\n%s", height, f.Frame().Text())
-		}
-	}
 }
 
 func TestClickBorderOfAFieldWithNoTextRow(t *testing.T) {

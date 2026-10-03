@@ -176,6 +176,21 @@ func TestConditionsKept(t *testing.T) {
 	}
 }
 
+func TestCompileKeepsHalfCells(t *testing.T) {
+	rules, warnings, err := Compile("@layer utilities { .p-half { padding: 0.5px; } .h-x { height: calc(var(--s, 1px) * 1.5); } .b-half { border-top-width: 0.5px; } }")
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("half cells: error %v warnings %v, want none: rounding is the layout's, per terminal", err, warnings)
+	}
+	sheet, err := style.NewSheet(1, rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := sheet.Compute(style.ComputedStyle{}, []string{"p-half", "h-x", "b-half"})
+	if half := (style.Length{Unit: style.Cells, Value: 0.5}); got.Padding.Top != half || got.Padding.Left != half || got.BorderWidth.Top != half || got.Height != (style.Length{Unit: style.Cells, Value: 1.5}) {
+		t.Errorf("padding %+v, border top %+v, height %+v, want 0.5, 0.5 and 1.5 cells", got.Padding, got.BorderWidth.Top, got.Height)
+	}
+}
+
 func TestCompileRejects(t *testing.T) {
 	cases := map[string]string{
 		"rem length":       ".w-4 { width: 1rem; }",
@@ -188,7 +203,6 @@ func TestCompileRejects(t *testing.T) {
 		"two colours":      ".s-x { box-shadow: 1px 1px #000 #fff; }",
 		"two ring shadows": ".r-x { --tw-ring-shadow: 0 0 0 2px #000, 0 0 0 1px #fff; box-shadow: var(--tw-ring-shadow); }",
 		"inset ring":       ".r-x { --tw-inset-ring-shadow: inset 0 0 0 1px #000; box-shadow: var(--tw-inset-ring-shadow); }",
-		"fraction cells":   ".p-half { padding: 0.5px; }",
 	}
 	for name, src := range cases {
 		_, warnings, err := Compile("@layer utilities { " + src + " }")

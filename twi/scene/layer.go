@@ -282,7 +282,7 @@ func (f *Frame) promote(ctx int32, parent int, scroll bool) {
 		key: key, hash: key, opsFrom: len(f.ops), boxFrom: len(f.boxes), scroller: scroll,
 	}
 	if scroll {
-		l.Origin, l.Clip = f.pixels(n.ScrollContent).Min, f.pixels(n.Padding).Intersect(f.pixels(n.Clip))
+		l.Origin, l.Clip = f.pixels(n.ScrollContent).Min, f.surface(n.Padding, n.Halves.Padding).Intersect(f.surface(n.Clip, n.Halves.Clip))
 	}
 	c := &chunk{first: len(f.Layers)}
 	f.Layers = append(f.Layers, l)

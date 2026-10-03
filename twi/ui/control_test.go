@@ -35,6 +35,10 @@ func TestControlStates(t *testing.T) {
 		one := cells(1)
 		return s.BorderWidth == style.Edges{Top: one, Right: one, Bottom: one, Left: one} && s.BorderColor == c && len(s.Shadows) == 0
 	}
+	hairline := func(s style.ComputedStyle, c color.Color) bool {
+		half := style.Length{Unit: style.Cells, Value: 0.5}
+		return s.BorderWidth == style.Edges{Top: half, Right: half, Bottom: half, Left: half} && s.BorderColor == c && len(s.Shadows) == 0
+	}
 	checkbox := func(checked, focused, disabled, invalid bool) twi.Node {
 		c := NewCheckbox(rt)
 		c.Checked, c.focused, c.Disabled, c.Invalid = checked, focused, disabled, invalid
@@ -207,14 +211,14 @@ func TestControlStates(t *testing.T) {
 		{"native select chevron: muted at half opacity", light, selector(false, false), []int{1}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.MutedForeground] && s.Opacity == 0.5
 		}},
-		{"input: a full-width box in an input border, three rows so the text never shares a row with the edge", light, field(false, false), nil, func(s style.ComputedStyle) bool {
-			return edged(s, light.Tokens[theme.Input]) && s.Height == cells(3) && s.Padding.Left == cells(1) && s.Width == percent(100) && s.Radius == style.RadiusMd && s.OverflowX == style.OverflowHidden
+		{"input: a full-width box in a half-row input border around its text row, two rows with pixels and three without", light, field(false, false), nil, func(s style.ComputedStyle) bool {
+			return hairline(s, light.Tokens[theme.Input]) && s.Height.Unit == style.Auto && s.Shrink == 0 && s.Padding.Left == cells(1) && s.Width == percent(100) && s.Radius == style.RadiusMd && s.OverflowX == style.OverflowHidden
 		}},
 		{"input, dark: bg-input/30", dark, field(false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == scaled(dark, theme.Input, 0.3)
 		}},
-		{"input invalid: a destructive border", light, field(false, true), nil, func(s style.ComputedStyle) bool {
-			return edged(s, light.Tokens[theme.Destructive])
+		{"input invalid: a destructive border, as thin as the valid one", light, field(false, true), nil, func(s style.ComputedStyle) bool {
+			return hairline(s, light.Tokens[theme.Destructive])
 		}},
 		{"input disabled", light, field(true, false), nil, faded},
 		{"textarea: a bordered column, four text rows at least", light, NewTextarea(rt).Node(), nil, func(s style.ComputedStyle) bool {
@@ -249,7 +253,7 @@ func TestControlStates(t *testing.T) {
 		{"toggle focused", light, toggle(Default, true, false), root, nil, lightFocus},
 		{"native select focused", light, selector(false, false), root, nil, lightFocus},
 		{"input focused: the border turns ring, no halo", light, field(false, false), root, nil, func(s style.ComputedStyle) bool {
-			return edged(s, light.Tokens[theme.Ring])
+			return hairline(s, light.Tokens[theme.Ring])
 		}},
 		{"textarea focused: the border turns ring, no halo", light, NewTextarea(rt).Node(), root, nil, func(s style.ComputedStyle) bool {
 			return edged(s, light.Tokens[theme.Ring])

@@ -595,8 +595,8 @@ func TestDevDrivenSession(t *testing.T) {
 		usable(why, saved, shows)
 		shot(strings.ReplaceAll(why, " ", "-"))
 	}
-	step("h-3 to h-2", true, true, `inputHeight      = "h-3 `, `inputHeight      = "h-2 `)
-	step("h-2 back to h-3", true, true, `inputHeight      = "h-2 `, `inputHeight      = "h-3 `)
+	step("h-2", true, true, `inputHeight      = "shrink-0 `, `inputHeight      = "h-2 shrink-0 `)
+	step("h-2 back to auto", true, true, `inputHeight      = "h-2 shrink-0 `, `inputHeight      = "shrink-0 `)
 	step("placeholder colour", true, true, `placeholderClass = "text-muted-foreground"`, `placeholderClass = "text-destructive"`)
 	step("a new class", true, true, `placeholderClass = "text-destructive"`, `placeholderClass = "text-lime-700"`)
 	step("a compile error", false, true, `in.edge(fieldEdge)`, `in.edge(fieldEdgeX)`)

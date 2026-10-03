@@ -70,7 +70,7 @@ func SidebarContent(children ...twi.NodeOption) twi.Node {
 }
 
 func SidebarGroup(children ...twi.NodeOption) twi.Node {
-	return part("relative flex flex-col w-full min-w-0 px-1", children)
+	return part("relative flex flex-col w-full min-w-0 px-1 ", children)
 }
 
 func SidebarGroupLabel(children ...twi.NodeOption) twi.Node {

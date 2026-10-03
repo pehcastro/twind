@@ -123,6 +123,7 @@ type Style struct {
 	Aspect       Ratio
 	Inset        Insets
 	ZIndex       int
+	RowUnits     int
 
 	Columns     []Track
 	Rows        []Track
@@ -139,7 +140,7 @@ func (s *Style) Equal(o *Style) bool {
 		s.Height == o.Height && s.Padding == o.Padding && s.Border == o.Border && s.Margin == o.Margin &&
 		s.Grow == o.Grow && s.Shrink == o.Shrink && s.Basis == o.Basis && s.Width == o.Width &&
 		s.MinWidth == o.MinWidth && s.MinHeight == o.MinHeight && s.MaxWidth == o.MaxWidth && s.MaxHeight == o.MaxHeight &&
-		s.RowGap == o.RowGap && s.ColumnGap == o.ColumnGap && s.Aspect == o.Aspect && s.Inset == o.Inset && s.ZIndex == o.ZIndex &&
+		s.RowGap == o.RowGap && s.ColumnGap == o.ColumnGap && s.Aspect == o.Aspect && s.Inset == o.Inset && s.ZIndex == o.ZIndex && s.RowUnits == o.RowUnits &&
 		s.Column == o.Column && s.Row == o.Row &&
 		slices.Equal(s.Columns, o.Columns) && slices.Equal(s.Rows, o.Rows) && slices.Equal(s.AutoColumns, o.AutoColumns) && slices.Equal(s.AutoRows, o.AutoRows)
 }
@@ -335,6 +336,26 @@ func alignOf(parent, child *Style) Align {
 		return AlignStretch
 	}
 	return a
+}
+
+func (b *Box) nudge(y int) int {
+	s := &b.Style
+	if s.RowUnits <= 1 || len(b.Children) == 0 && b.Measure == nil {
+		return 0
+	}
+	top := y + s.Border.Top + s.Padding.Top
+	return whole(top+s.RowUnits-1, s.RowUnits) - top
+}
+
+func whole(v, step int) int {
+	if step <= 1 {
+		return v
+	}
+	q := v / step
+	if v%step < 0 {
+		q--
+	}
+	return q * step
 }
 
 func offset(a Align, free int) int {

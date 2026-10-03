@@ -90,8 +90,8 @@ func TestGridCompiles(t *testing.T) {
 		{"gap-2", gaps, [2]style.Length{cells(2), cells(2)}},
 		{"gap-x-6", gaps, [2]style.Length{{}, cells(6)}},
 		{"gap-x-3 gap-y-1", gaps, [2]style.Length{cells(1), cells(3)}},
-		{"gap-y-0.5", gaps, [2]style.Length{cells(1), {}}},
-		{"gap-1.5", gaps, [2]style.Length{cells(2), cells(2)}},
+		{"gap-y-0.5", gaps, [2]style.Length{cells(0.5), {}}},
+		{"gap-1.5", gaps, [2]style.Length{cells(1.5), cells(1.5)}},
 	} {
 		if got := tc.field(sheet.Compute(style.ComputedStyle{}, strings.Fields(tc.classes))); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("%q: %+v, want %+v", tc.classes, got, tc.want)
@@ -104,8 +104,6 @@ func TestGridWarnings(t *testing.T) {
 		"inline-grid":       Approximated,
 		"grid-cols-subgrid": Unsupported,
 		"grid-cols-[repeat(auto-fill,minmax(10px,1fr))]": Unsupported,
-		"gap-1.5":   Approximated,
-		"gap-y-0.5": Approximated,
 	}
 	got := appWarnings(t, "")
 	for class, c := range want {
