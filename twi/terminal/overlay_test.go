@@ -592,7 +592,7 @@ func TestOverlayRefusedDrawFallsBackToCells(t *testing.T) {
 
 func TestOverlayChosenForZedAlacrittyAndRio(t *testing.T) {
 	newerConPTY := []string{"\x1b[6;16;8t", "\x1b[4;576;960t\x1b[?61;6;7;14;21;22;23;24;28;32;42c"}
-	newerConPTYSixel := []string{"\x1b[6;16;8t", "\x1b[4;576;960t\x1b[?61;4;6;7;14;21;22;23;24;28;32;42c"}
+	newerRio := []string{konst.KittyOK, "\x1b[6;16;8t", "\x1b[4;576;960t\x1b[?61;4;6;7;14;21;22;23;24;28;32;42c"}
 	cases := []struct {
 		name       string
 		answers    []string
@@ -617,7 +617,8 @@ func TestOverlayChosenForZedAlacrittyAndRio(t *testing.T) {
 		{"stock alacritty forced none", conPTY, false, true, "alacritty.exe", konst.WinitClass, offer{forced: true}, false},
 		{"stock rio", conPTY, false, true, "Rio.exe", konst.WinitClass, offer{}, true},
 		{"alacritty with a newer conpty", newerConPTY, false, true, "Alacritty.exe", konst.WinitClass, offer{}, true},
-		{"rio with a newer conpty draws sixel", newerConPTYSixel, false, true, "rio.exe", konst.WinitClass, offer{}, false},
+		{"rio with a newer conpty takes the overlay", newerRio, false, true, "rio.exe", konst.WinitClass, offer{}, true},
+		{"sixel and kitty under another winit program", newerRio, false, true, "foo.exe", konst.WinitClass, offer{}, false},
 	}
 	for _, tc := range cases {
 		term := newFake(tc.answers...)

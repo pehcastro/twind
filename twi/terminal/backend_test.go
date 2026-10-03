@@ -404,8 +404,8 @@ func TestRioOnWindowsNeverTakesKitty(t *testing.T) {
 		graphics Graphics
 		lookups  bool
 	}{
-		{"rio with a newer conpty", rio, "rio.exe", offer{}, GraphicsSixel, true},
-		{"rio named in capitals", rio, "Rio.exe", offer{}, GraphicsSixel, true},
+		{"rio with a newer conpty", rio, "rio.exe", offer{}, GraphicsNone, true},
+		{"rio named in capitals", rio, "Rio.exe", offer{}, GraphicsNone, true},
 		{"rio without sixel", rioNoSixel, "rio.exe", offer{}, GraphicsNone, true},
 		{"rio with kitty forced", rio, "rio.exe", offer{graphics: GraphicsKitty, forced: true}, GraphicsKitty, false},
 		{"kitty", kitty, "kitty.exe", offer{}, GraphicsKitty, true},

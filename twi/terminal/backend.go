@@ -390,6 +390,7 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 	case caps.Identity == IdentityVSCode:
 		graphics = GraphicsNone
 	case kitty && strings.EqualFold(b.tty.hostExe(), konst.RioExe):
+		graphics = GraphicsNone
 	case kitty:
 		graphics = GraphicsKitty
 	}
