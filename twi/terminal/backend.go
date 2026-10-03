@@ -113,6 +113,7 @@ type tty interface {
 	cancel()
 	restore() error
 	drawable() (window, error)
+	hostExe() string
 	overlay(tr *trace, id Identity) (host, error)
 }
 
@@ -382,15 +383,15 @@ func (b *Backend) detect(raw []byte, replies []input.ReplyEvent, o offer) Capabi
 	}
 	kitty := bytes.Contains(raw, []byte(konst.KittyOK))
 	switch {
+	case o.forced:
+		graphics = o.graphics
 	case caps.Identity == IdentityVSCode && kitty:
 		graphics = GraphicsSixel
 	case caps.Identity == IdentityVSCode:
 		graphics = GraphicsNone
+	case kitty && strings.EqualFold(b.tty.hostExe(), konst.RioExe):
 	case kitty:
 		graphics = GraphicsKitty
-	}
-	if o.forced {
-		graphics = o.graphics
 	}
 	if caps.CellPixels != (image.Point{}) {
 		caps.Graphics = graphics

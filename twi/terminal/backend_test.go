@@ -32,6 +32,7 @@ type fakeTTY struct {
 	host      *fakeHost
 	exe       string
 	class     string
+	lookups   int
 }
 
 func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
@@ -75,6 +76,10 @@ func (f *fakeTTY) drawable() (window, error) {
 		return nil, errNoWindow
 	}
 	return f.win, nil
+}
+func (f *fakeTTY) hostExe() string {
+	f.lookups++
+	return f.exe
 }
 func (f *fakeTTY) overlay(_ *trace, id Identity) (host, error) {
 	if f.host == nil || !drawsOver(id, f.exe, f.class) {
@@ -384,6 +389,50 @@ func TestGraphics(t *testing.T) {
 		}
 		if err := b.Exit(); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+func TestRioOnWindowsNeverTakesKitty(t *testing.T) {
+	rio := []string{"\x1b_Gi=31;OK\x1b\\", "\x1b[6;16;8t", "\x1b[4;576;960t\x1b[?61;4;6;7;14;21;22;23;24;28;32;42c"}
+	rioNoSixel := []string{"\x1b_Gi=31;OK\x1b\\", "\x1b[6;16;8t", "\x1b[4;576;960t\x1b[?61;6;7;14;21;22;23;24;28;32;42c"}
+	cases := []struct {
+		name     string
+		answers  []string
+		exe      string
+		offer    offer
+		graphics Graphics
+		lookups  bool
+	}{
+		{"rio with a newer conpty", rio, "rio.exe", offer{}, GraphicsSixel, true},
+		{"rio named in capitals", rio, "Rio.exe", offer{}, GraphicsSixel, true},
+		{"rio without sixel", rioNoSixel, "rio.exe", offer{}, GraphicsNone, true},
+		{"rio with kitty forced", rio, "rio.exe", offer{graphics: GraphicsKitty, forced: true}, GraphicsKitty, false},
+		{"kitty", kitty, "kitty.exe", offer{}, GraphicsKitty, true},
+		{"the same replies under wezterm", rio, "wezterm-gui.exe", offer{}, GraphicsKitty, true},
+		{"no host found", rio, "", offer{}, GraphicsKitty, true},
+		{"windows terminal never looks", windowsTerminal, "rio.exe", offer{}, GraphicsSixel, false},
+	}
+	for _, tc := range cases {
+		term := newFake(tc.answers...)
+		term.tty.exe = tc.exe
+		b, err := enter(term, term.tty, Options{}, tc.offer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Capabilities.Graphics != tc.graphics {
+			t.Errorf("%s: graphics %d, want %d", tc.name, b.Capabilities.Graphics, tc.graphics)
+		}
+		if looked := term.tty.lookups > 0; looked != tc.lookups {
+			t.Errorf("%s: host looked up %d times, want any %v", tc.name, term.tty.lookups, tc.lookups)
+		}
+		if err := b.Exit(); err != nil {
+			t.Fatal(err)
+		}
+		term = newFake(append([]string{"\x1b[3;1R"}, tc.answers...)...)
+		term.tty.exe = tc.exe
+		if caps, _, err := query(term, term.tty, tc.offer); err != nil || caps.Graphics != tc.graphics {
+			t.Errorf("%s: query graphics %d err %v, want %d", tc.name, caps.Graphics, err, tc.graphics)
 		}
 	}
 }

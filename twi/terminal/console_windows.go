@@ -86,6 +86,7 @@ type console interface {
 	font(h windows.Handle) Font
 	lacks(face, cluster string) bool
 	drawable() (window, error)
+	hostExe() string
 	overlay(tr *trace, id Identity) (host, error)
 }
 
@@ -374,6 +375,10 @@ func (t *consoleTTY) lacks(face, cluster string) bool {
 
 func (t *consoleTTY) drawable() (window, error) {
 	return t.console.drawable()
+}
+
+func (t *consoleTTY) hostExe() string {
+	return t.console.hostExe()
 }
 
 func (t *consoleTTY) overlay(tr *trace, id Identity) (host, error) {

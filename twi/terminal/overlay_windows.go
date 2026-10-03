@@ -66,6 +66,11 @@ func OverlayHost(c Capabilities) (string, bool) {
 	return k.describe(term, exe), true
 }
 
+func (k win32) hostExe() string {
+	_, exe := k.ancestor(nil)
+	return exe
+}
+
 func (k win32) overlay(tr *trace, id Identity) (host, error) {
 	for _, p := range []*windows.LazyProc{k.createDC, k.deleteDC, k.selectObject, k.deleteObject, k.createDIB, k.clientRect, k.getDC, k.releaseDC, k.bitBlt, k.clientToScreen, k.iconic, k.findWindow, k.relative, k.registerClass, k.createWindow, k.destroyWindow, k.showWindow, k.setWindowPos, k.updateLayered, k.getMessage, k.dispatchMessage, k.postThreadMessage, k.defProc} {
 		if err := p.Find(); err != nil {
