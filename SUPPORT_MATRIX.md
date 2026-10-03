@@ -15,13 +15,13 @@ The target look is "H": real text in cells, with rounded borders, pills and soft
 | Contour | good | sixel |
 | PowerShell / cmd window (conhost) | good | GDI drawing on the console window |
 | PowerShell + oh-my-posh | good | same as conhost; oh-my-posh changes nothing |
-| Rio with a newer conpty.dll | good | sixel |
-| Alacritty with a newer conpty.dll | fair | overlay window over the terminal; cells alone have square corners |
+| Rio with a newer conpty.dll | good | overlay window (Rio on Windows stretches sixel and draws kitty over text, TWI-227, TWI-228); `twind doctor -fix` installs ConPTY 1.25 |
+| Alacritty with a newer conpty.dll | good | overlay window; ConPTY 1.25 via `twind doctor -fix` |
 | VS Code (terminal.integrated.enableImages on) | good | sixel |
 | Zed terminal (Windows) | good | overlay window over the panel, placed by reading faint marker cells off the screen (no clicks); follows Zed's own cell edges |
-| Rio (stock) | bad | no mouse, images print as text |
+| Rio (stock) | fair | overlay window gives the look; no mouse until `twind doctor -fix` |
 | mintty (Git Bash, MSYS2 zsh) | bad | no mouse; overlay works but drifts |
-| Alacritty (stock) | worst | no mouse, no images, square box corners |
+| Alacritty (stock) | fair | overlay window gives the look (slow to calibrate); no mouse until `twind doctor -fix` |
 
 Policy: mintty is not supported. Alacritty is the gate: every rendering or component fix is checked in Alacritty before anyone says it works.
 
