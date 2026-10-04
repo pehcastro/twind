@@ -1,11 +1,16 @@
 package chart
 
 import (
+	"encoding/binary"
+	"hash/fnv"
+	"image"
+	"math"
 	"slices"
 	"strings"
 
 	konst "github.com/twind-dev/twind/internal/konst/chart"
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/text"
 	"github.com/twind-dev/twind/twi/theme"
 )
@@ -55,10 +60,12 @@ func tones(t theme.Token) [4]string {
 	panic("chart: a series colour is chart-1 to chart-5, not " + t.String())
 }
 
-func cellMetrics() metrics { return metrics{margin: konst.CellMargin, half: 0.5, gap: 1} }
+func (p plot) halves(h int) metrics { return p.rows(metrics{half: 0.5, gap: 1}, h, konst.CellRows) }
 
-func (p plot) row(v float64, h int) int {
-	return min(int(p.y(v, float32(h*konst.CellRows), cellMetrics()))/konst.CellRows, h-1)
+func (p plot) row(v float64, h int) int { return int(p.y(v, p.halves(h))) / konst.CellRows }
+
+func (c *Chart) column(i, w int) (x0, x1 int) {
+	return i * w / len(c.Labels), (i + 1) * w / len(c.Labels)
 }
 
 func (c *Chart) cells(p plot, w, h int) []cell {
@@ -66,10 +73,14 @@ func (c *Chart) cells(p plot, w, h int) []cell {
 	r := c.halfs
 	r.ink = slices.Grow(r.ink[:0], len(r.cover))[:len(r.cover)]
 	clear(r.ink)
-	c.draw(r, p, cellMetrics(), 0)
+	c.draw(r, p, p.halves(h), 0)
 	grid := make([]bool, h)
 	for _, t := range p.ticks {
 		grid[p.row(t, h)] = true
+	}
+	x0, x1 := 0, 0
+	if c.hover > 0 {
+		x0, x1 = c.column(c.hover-1, w)
 	}
 	fg := func(ink uint8) string { return tones(c.Series[(ink-1)/2].Color)[2*int(1-ink%2)] }
 	bg := func(ink uint8) string { return tones(c.Series[(ink-1)/2].Color)[1+2*int(1-ink%2)] }
@@ -94,6 +105,9 @@ func (c *Chart) cells(p plot, w, h int) []cell {
 				at = cell{konst.Upper, fg(top), ""}
 			default:
 				at = cell{konst.Upper, fg(top), bg(bottom)}
+			}
+			if x >= x0 && x < x1 && at.bg == "" {
+				at.bg = "bg-muted/50"
 			}
 			out[y*w+x] = at
 		}
@@ -121,51 +135,94 @@ func (c *Chart) Node(options ...twi.NodeOption) twi.Node {
 	for _, l := range labels {
 		yAxis = append(yAxis, twi.Text(strings.Repeat(konst.Blank, axis-widths.Width(l))+l))
 	}
+	tokens, hover := c.rt.Theme().Tokens, c.hover
+	plot := []twi.NodeOption{twi.Class("flex flex-col"), twi.Canvas(c.key(&tokens, hover), func(dst *image.RGBA, cell image.Point) {
+		c.paint(dst, p, p.rows(pixelMetrics(cell), h, float32(cell.Y)), hover, func(t theme.Token) color.RGBA { return tokens[t].RGBA })
+	})}
 	grid := c.cells(p, w, h)
-	plotArea := []twi.NodeOption{twi.Class("relative flex flex-row")}
-	for i := range p.points {
-		x0, x1 := i*w/p.points, (i+1)*w/p.points
-		rows := []twi.NodeOption{twi.Class("flex flex-col")}
-		if i == c.hover-1 {
-			rows[0] = twi.Class("flex flex-col bg-muted/50")
-		}
-		for y := range h {
-			runs := []twi.NodeOption{twi.Class("flex flex-row")}
-			for x := x0; x < x1; {
-				at, end := grid[y*w+x], x+1
-				for end < x1 && grid[y*w+end] == at {
-					end++
-				}
-				glyphs := twi.Text(strings.Repeat(at.glyph, end-x))
-				if at.fg != "" || at.bg != "" {
-					glyphs = twi.Element(twi.Class(at.fg, at.bg), glyphs)
-				}
-				runs, x = append(runs, glyphs), end
+	for y := range h {
+		runs := []twi.NodeOption{twi.Class("flex flex-row")}
+		for x := 0; x < w; {
+			at, end := grid[y*w+x], x+1
+			for end < w && grid[y*w+end] == at {
+				end++
 			}
-			rows = append(rows, twi.Element(runs...))
+			glyphs := twi.Text(strings.Repeat(at.glyph, end-x))
+			if at.fg != "" || at.bg != "" {
+				glyphs = twi.Element(twi.Class(at.fg, at.bg), glyphs)
+			}
+			runs, x = append(runs, glyphs), end
 		}
-		label := widths.Truncate(text.Sanitize(c.Labels[i], text.RemoveBidi), x1-x0)
-		plotArea = append(plotArea, twi.Element(twi.Class("flex flex-col"), twi.OnPointerEnter(func() { c.point(i + 1) }),
-			twi.Element(rows...),
-			twi.Element(twi.Class("flex flex-row justify-center text-muted-foreground"), twi.Text(label)),
-		))
+		plot = append(plot, twi.Element(runs...))
+	}
+	var xAxis strings.Builder
+	for i := range p.points {
+		x0, x1 := c.column(i, w)
+		label := widths.Truncate(text.Sanitize(c.Labels[i], text.RemoveBidi), max(x1-x0-1, 1))
+		pad := x1 - x0 - widths.Width(label)
+		xAxis.WriteString(strings.Repeat(konst.Blank, pad/2) + label + strings.Repeat(konst.Blank, pad-pad/2))
+	}
+	area := []twi.NodeOption{twi.Class("relative flex flex-col"),
+		twi.OnPointerMove(func(e *twi.Event) { c.point(c.under(e.Offset().X, w)) }),
+		twi.OnPointerLeave(func() { c.point(0) }),
+		twi.Element(plot...),
+		twi.Element(twi.Class("text-muted-foreground"), twi.Text(xAxis.String())),
 	}
 	if c.hover > 0 {
-		plotArea = append(plotArea, c.tooltip(widths, c.hover-1, w))
+		area = append(area, c.tooltip(widths, c.hover-1, w))
 	}
 	legend := []twi.NodeOption{twi.Class("flex flex-row justify-center gap-2 mt-1")}
 	for _, s := range c.Series {
 		legend = append(legend, twi.Element(twi.Class("flex flex-row gap-1"), twi.Element(twi.Class(tones(s.Color)[0]), twi.Text(konst.Key)), twi.Text(text.Sanitize(s.Label, text.RemoveBidi))))
 	}
-	return twi.Element(append([]twi.NodeOption{twi.Class("flex flex-col whitespace-pre"), twi.OnPointerLeave(func() { c.point(0) }),
-		twi.Element(twi.Class("flex flex-row gap-1"), twi.Element(yAxis...), twi.Element(plotArea...)),
+	return twi.Element(append([]twi.NodeOption{twi.Class("flex flex-col whitespace-pre"),
+		twi.Element(twi.Class("flex flex-row gap-1"), twi.Element(yAxis...), twi.Element(area...)),
 		twi.Element(legend...),
 	}, options...)...)
 }
 
+func (c *Chart) key(tokens *theme.Tokens, hover int) uint64 {
+	h := fnv.New64a()
+	var word []byte
+	put := func(v uint64) {
+		word = binary.LittleEndian.AppendUint64(word[:0], v)
+		h.Write(word)
+	}
+	tone := func(t theme.Token) {
+		rgb := tokens[t].RGBA
+		put(uint64(rgb.R)<<24 | uint64(rgb.G)<<16 | uint64(rgb.B)<<8 | uint64(rgb.A))
+	}
+	put(uint64(c.Kind))
+	put(uint64(len(c.Labels)))
+	put(uint64(hover))
+	if c.Stacked {
+		put(1)
+	}
+	tone(theme.Border)
+	tone(theme.Muted)
+	for _, s := range c.Series {
+		tone(s.Color)
+		for _, v := range s.Values {
+			put(math.Float64bits(v))
+		}
+	}
+	return h.Sum64()
+}
+
+func (c *Chart) under(x, w int) int {
+	for i := range c.Labels {
+		if _, x1 := c.column(i, w); x < x1 {
+			return i + 1
+		}
+	}
+	return 0
+}
+
 func (c *Chart) point(hover int) {
-	c.hover = hover
-	c.rt.Invalidate()
+	if hover != c.hover {
+		c.hover = hover
+		c.rt.Invalidate()
+	}
 }
 
 func (c *Chart) tooltip(widths text.Widths, i, w int) twi.Node {
@@ -181,7 +238,7 @@ func (c *Chart) tooltip(widths text.Widths, i, w int) twi.Node {
 		))
 	}
 	width += konst.TooltipChrome
-	x0, x1 := i*w/len(c.Labels), (i+1)*w/len(c.Labels)
+	x0, x1 := c.column(i, w)
 	x := x1 + 1
 	if x+width > w {
 		x = max(x0-1-width, 0)

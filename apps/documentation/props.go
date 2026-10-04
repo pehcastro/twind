@@ -100,8 +100,7 @@ func props() map[string][]prop {
 			{"Labels", "[]string", "one label per point, under the x axis"},
 			{"Series", "[]chart.Series", "a Label, a Color from theme.Chart1 to theme.Chart5 and one value per label"},
 			{"Width, Height", "int", "the size in cells, axis and legend included"},
-			{"Node(options...)", "twi.Node", "the chart; the pointer over a point shows its values"},
-			{"Draw(dst, cell, token)", "func(*image.RGBA, image.Point, func(theme.Token) color.RGBA)", "paints the chart into an image at cell pixel size, with token giving each colour"},
+			{"Node(options...)", "twi.Node", "the chart, drawn as pixels where the terminal has graphics and as half blocks where it has none; the pointer over a point shows its values"},
 		},
 		"Checkbox": {
 			{"Checked", "bool", "whether it is ticked"},

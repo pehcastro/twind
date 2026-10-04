@@ -89,6 +89,9 @@ func (s *Screen) canonical(key []byte, b *scene.Box) []byte {
 			inset = 1
 		}
 		key = binary.AppendUvarint(append(key, byte(op.Kind), byte(op.Dash), inset, op.Color.R, op.Color.G, op.Color.B, op.Color.A), uint64(len(op.Stops)))
+		if op.Pixels != nil {
+			key = binary.LittleEndian.AppendUint64(key, op.Pixels.Key)
+		}
 		number(x, y, op.Box.W, op.Box.H, r[0], r[1], r[2], r[3], op.Angle, op.Width, op.Opacity, op.Shadow.X, op.Shadow.Y, op.Shadow.Blur, op.Shadow.Spread, op.Turn, op.Pivot.X, op.Pivot.Y)
 		for _, stop := range op.Stops {
 			key = append(key, stop.Color.R, stop.Color.G, stop.Color.B, stop.Color.A)
@@ -504,6 +507,8 @@ func plan(drawn []bool, ops []raster.Op) {
 			mark(0, float64(h))
 		case op.Kind == raster.Fill && r == [4]float64{} && b.Y <= 0 && b.Y+b.H >= float64(h):
 			continue
+		case op.Kind == raster.Canvas:
+			mark(b.Y, b.Y+b.H)
 		case op.Kind == raster.Shadow:
 			s := op.Shadow
 			pad := s.Blur*rasterkonst.SigmaPerBlur*rasterkonst.ShadowReach + math.Abs(s.Spread) + 1

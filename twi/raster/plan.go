@@ -71,6 +71,8 @@ func (r *Raster) plan(ops []Op, tile image.Rectangle) {
 			r.frames = append(r.frames, frame{clip: c, nest: f.nest + 1})
 		case Pop:
 			r.frames = r.frames[:max(len(r.frames)-1, 1)]
+		case Canvas:
+			r.band(op.Box.pixels(0).Intersect(c), 1, 0)
 		}
 	}
 }

@@ -32,11 +32,17 @@ const (
 	Opacity
 	Clip
 	Pop
+	Canvas
 )
 
 type Stop struct {
 	Color color.RGBA
 	At    float64
+}
+
+type Pixels struct {
+	Key   uint64
+	Image *image.RGBA
 }
 
 type BoxShadow struct {
@@ -56,6 +62,7 @@ type Op struct {
 	Opacity float64
 	Turn    float64
 	Pivot   Point
+	Pixels  *Pixels
 }
 
 type layer struct {
@@ -146,6 +153,8 @@ func (r *Raster) Draw(dst *image.RGBA, ops []Op, tile image.Rectangle) {
 			r.layers = append(r.layers, layer{img: r.group(tile, c), clip: c, opacity: 1, mask: b.fit(), group: true})
 		case Pop:
 			r.pop()
+		case Canvas:
+			r.canvas(op)
 		default:
 			panic(fmt.Sprintf("raster: unknown op kind %d", op.Kind))
 		}
@@ -322,6 +331,29 @@ func (r *Raster) fill(op Op) {
 				continue
 			}
 			r.shade(px, r.memo[x-area.Min.X:][:1], down, cov)
+		}
+	}
+}
+
+func (r *Raster) canvas(op Op) {
+	src, top, at := op.Pixels.Image, r.top(), image.Pt(round(op.Box.X), round(op.Box.Y))
+	area := src.Rect.Sub(src.Rect.Min).Add(at).Intersect(top.clip)
+	for y := area.Min.Y; y < area.Max.Y; y++ {
+		if r.skip(y) {
+			continue
+		}
+		from := src.Pix[src.PixOffset(src.Rect.Min.X+area.Min.X-at.X, src.Rect.Min.Y+y-at.Y):][:4*area.Dx()]
+		to := top.img.Pix[top.img.PixOffset(area.Min.X, y):]
+		for i := 0; i < len(from); i += 4 {
+			switch keep := uint32(math.MaxUint8 - from[i+3]); keep {
+			case math.MaxUint8:
+			case 0:
+				copy(to[i:i+4], from[i:i+4])
+			default:
+				for c := i; c < i+4; c++ {
+					to[c] = from[c] + uint8((uint32(to[c])*keep+math.MaxUint8/2)/math.MaxUint8)
+				}
+			}
 		}
 	}
 }

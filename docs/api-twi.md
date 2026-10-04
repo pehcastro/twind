@@ -44,6 +44,7 @@ func New(opts ...RenderOption) \*Runtime\
 Runtime embeds \*runtime.Runtime\
 func (\*Runtime) Run(app func() Node) error\
 func (\*Runtime) SetTheme(t theme.Theme)\
+func (\*Runtime) Theme() theme.Theme\
 func (\*Runtime) After(d time.Duration, fn func()) \*runtime.Timer\
 func (\*Runtime) Clicks() int\
 func (\*Runtime) ContentBox(e \*runtime.Elem) image.Rectangle\
@@ -71,6 +72,7 @@ func Text(s string) Node\
 type NodeOption interface\
 func At(x, y int) NodeOption\
 func AutoFocus() NodeOption\
+func Canvas(key uint64, paint func(dst \*image.RGBA, cell image.Point)) NodeOption\
 func Class(classes ...string) NodeOption\
 func Classes(options \[\]NodeOption) (classes \[\]string, rest \[\]NodeOption)\
 func Data(name, value string) NodeOption\

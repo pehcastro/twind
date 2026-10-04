@@ -20,5 +20,4 @@ Chart.Labels \[\]string\
 Chart.Series \[\]Series\
 Chart.Width int\
 Chart.Height int\
-func (\*Chart) Draw(dst \*image.RGBA, cell image.Point, token func(theme.Token) color.RGBA)\
 func (\*Chart) Node(options ...twi.NodeOption) twi.Node

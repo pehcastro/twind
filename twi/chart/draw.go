@@ -49,15 +49,15 @@ func reuse(r *raster, w, h int) *raster {
 func pixelMetrics(cell image.Point) metrics {
 	f := float32(cell.Y) / stylekonst.RemPixels
 	return metrics{
-		margin: konst.TopMargin * f, half: konst.StrokeWidth * f / 2, dot: konst.DotRadius * f, active: konst.ActiveDotRadius * f,
+		half: konst.StrokeWidth * f / 2, active: konst.ActiveDotRadius * f,
 		radius: konst.BarRadius * f, gap: max(1, round(konst.BarGap*f)), grid: max(1, round(konst.GridWidth*f)),
 	}
 }
 
-func (c *Chart) Draw(dst *image.RGBA, cell image.Point, token func(theme.Token) color.RGBA) {
+func (c *Chart) paint(dst *image.RGBA, p plot, m metrics, hover int, token func(theme.Token) color.RGBA) {
 	c.pixels = reuse(c.pixels, dst.Rect.Dx(), dst.Rect.Dy())
 	c.pixels.dst, c.pixels.token = dst, token
-	c.draw(c.pixels, c.model(), pixelMetrics(cell), c.hover)
+	c.draw(c.pixels, p, m, hover)
 }
 
 func (c *Chart) draw(r *raster, p plot, m metrics, hover int) {
@@ -70,7 +70,7 @@ func (c *Chart) draw(r *raster, p plot, m metrics, hover int) {
 	}
 	if m.grid > 0 {
 		for _, t := range p.ticks {
-			y := min(max(round(p.y(t, h, m)-m.grid/2), 0), h-m.grid)
+			y := min(max(round(p.y(t, m)-m.grid/2), 0), h-m.grid)
 			r.span(0, w, func(float32) (float32, float32) { return y, y + m.grid })
 			r.commit(paint{token: theme.Border, top: konst.GridAlpha, bottom: konst.GridAlpha})
 		}
@@ -90,7 +90,7 @@ func (c *Chart) draw(r *raster, p plot, m metrics, hover int) {
 		case Bar:
 			for i, v := range p.top[s] {
 				x0, x1 := p.bar(i, s, w, m)
-				y0, y1 := p.y(v, h, m), p.y(p.base[s][i], h, m)
+				y0, y1 := p.y(v, m), p.y(p.base[s][i], m)
 				far, near := m.radius, m.radius
 				if p.stacked && s != last {
 					far = 0
@@ -105,19 +105,13 @@ func (c *Chart) draw(r *raster, p plot, m metrics, hover int) {
 				r.commit(solid)
 			}
 		case Line, Area:
-			r.points = p.series(s, w, h, m, r.points)
+			r.points = p.series(s, w, m, r.points)
 			r.curve = natural(r.curve, r.points)
 			r.stroke(r.curve, m.half)
 			r.commit(solid)
-			for i, pt := range r.points {
-				radius := m.dot
-				if i == hover-1 {
-					radius = m.active
-				}
-				if radius > 0 && (p.kind == Line || i == hover-1) {
-					r.disc(pt, radius)
-					r.commit(solid)
-				}
+			if hover > 0 && m.active > 0 {
+				r.disc(r.points[hover-1], m.active)
+				r.commit(solid)
 			}
 		default:
 			panic("chart: unknown kind " + strconv.Itoa(int(p.kind)))
@@ -128,13 +122,13 @@ func (c *Chart) draw(r *raster, p plot, m metrics, hover int) {
 func (c *Chart) areas(r *raster, p plot, m metrics) {
 	w, h := float32(r.w), float32(r.h)
 	for s, series := range c.Series {
-		r.points = p.series(s, w, h, m, r.points)
+		r.points = p.series(s, w, m, r.points)
 		r.curve = natural(r.curve, r.points)
 		if p.stacked && s > 0 {
-			r.under = p.series(s-1, w, h, m, r.under)
+			r.under = p.series(s-1, w, m, r.under)
 			r.lower = natural(r.lower, r.under)
 		} else {
-			zero := p.y(0, h, m)
+			zero := p.y(0, m)
 			r.lower = append(r.lower[:0], point{r.points[0].x, zero}, point{r.points[len(r.points)-1].x, zero})
 		}
 		top, bottom := h, float32(0)

@@ -220,7 +220,7 @@ func same(a []raster.Op, aAt image.Point, b []raster.Op, bAt image.Point) bool {
 			ne(r[0], s[0])|ne(r[1], s[1])|ne(r[2], s[2])|ne(r[3], s[3])|
 			ne(p.Angle, q.Angle)|ne(p.Width, q.Width)|ne(p.Opacity, q.Opacity)|ne(p.Turn, q.Turn)|ne(p.Pivot.X, q.Pivot.X)|ne(p.Pivot.Y, q.Pivot.Y)|
 			ne(u.X, v.X)|ne(u.Y, v.Y)|ne(u.Blur, v.Blur)|ne(u.Spread, v.Spread)|
-			uint64(p.Kind^q.Kind)|uint64(p.Dash^q.Dash)|packed(p.Color)^packed(q.Color) != 0 || u.Inset != v.Inset ||
+			uint64(p.Kind^q.Kind)|uint64(p.Dash^q.Dash)|packed(p.Color)^packed(q.Color) != 0 || u.Inset != v.Inset || p.Pixels != q.Pixels ||
 			!slices.EqualFunc(p.Stops, q.Stops, func(m, n raster.Stop) bool { return m.Color == n.Color && ne(m.At, n.At) == 0 }) {
 			return false
 		}
@@ -245,6 +245,9 @@ func hash(ops []raster.Op, at image.Point) uint64 {
 			inset = 1
 		}
 		h = mix(mix(h, packed(op.Color)), inset)
+		if op.Kind == raster.Canvas {
+			h = mix(h, op.Pixels.Key)
+		}
 		if op.Turn != 0 {
 			h = mix(mix(mix(h, math.Float64bits(op.Turn)), math.Float64bits(op.Pivot.X)), math.Float64bits(op.Pivot.Y))
 		}

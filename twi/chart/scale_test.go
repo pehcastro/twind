@@ -69,12 +69,31 @@ func TestBarStackSitsOnTheSeriesBelow(t *testing.T) {
 
 func TestLineMapsTicksToTheCanvas(t *testing.T) {
 	c := &Chart{Kind: Line, Labels: []string{"a", "b", "c", "d"}, Series: []Series{{Label: "x", Color: theme.Chart1, Values: []float64{0, 305, 160, 80}}}}
-	m := metrics{margin: 5}
-	pts := c.model().series(0, 400, 105, m, nil)
+	m := metrics{top: 5, bottom: 105}
+	pts := c.model().series(0, 400, m, nil)
 	want := []point{{50, 105}, {150, 5 + 100*15.0/320}, {250, 55}, {350, 80}}
 	for i := range want {
 		if math.Abs(float64(pts[i].x-want[i].x)) > 1e-3 || math.Abs(float64(pts[i].y-want[i].y)) > 1e-3 {
 			t.Errorf("point %d at %v, want %v: band centres across, top tick 320 at the margin, zero at the bottom", i, pts[i], want[i])
+		}
+	}
+}
+
+func TestCanvasTicksSitOnTheirLabelRows(t *testing.T) {
+	p := (&Chart{Kind: Line, Labels: []string{"a"}, Series: []Series{{Color: theme.Chart1, Values: []float64{305}}}}).model()
+	for _, h := range []int{5, 9, 10, 14, 22} {
+		pixels := p.rows(metrics{}, h, 20)
+		for _, tick := range p.ticks {
+			row := p.row(tick, h)
+			if got, want := p.y(tick, pixels), float32(row)*20+10; got != want {
+				t.Errorf("%d rows: tick %v at pixel %v, want %v, the middle of its label row %d", h, tick, got, want, row)
+			}
+		}
+		if bottom := p.row(0, h); bottom != h-1 {
+			t.Errorf("%d rows: zero labelled on row %d, want the last row", h, bottom)
+		}
+		if gap := p.row(p.ticks[3], h) - p.row(p.ticks[4], h); gap != p.row(0, h)-p.row(p.ticks[1], h) {
+			t.Errorf("%d rows: ticks %d rows apart at the top and %d at the bottom, want even", h, gap, p.row(0, h)-p.row(p.ticks[1], h))
 		}
 	}
 }

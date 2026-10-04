@@ -17,6 +17,7 @@ import (
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/motion"
 	"github.com/twind-dev/twind/twi/paint"
+	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/text"
@@ -33,6 +34,12 @@ type Node struct {
 	Enter    *motion.Presence
 	Exit     *motion.Presence
 	At       *image.Point
+	Canvas   *Canvas
+}
+
+type Canvas struct {
+	Key   uint64
+	Paint func(dst *image.RGBA, cell image.Point)
 }
 
 type Frame struct {
@@ -83,6 +90,8 @@ type styledBox struct {
 	enter    *motion.Presence
 	exit     *motion.Presence
 	move     *moving
+	canvas   *Canvas
+	pixels   *raster.Pixels
 }
 
 func Render(root Node, f Frame) (*buffer.Buffer, error) {
@@ -349,8 +358,18 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 		}
 		r.absolute = r.flow
 	}
+	if size := image.Pt(n.Content.W*t.cell.X, n.Content.H*t.cell.Y); s.canvas != nil && t.graphics && size.X > 0 && size.Y > 0 {
+		if s.pixels == nil || s.pixels.Key != s.canvas.Key || s.pixels.Image.Rect.Size() != size {
+			s.pixels = &raster.Pixels{Key: s.canvas.Key, Image: image.NewRGBA(image.Rectangle{Max: size})}
+			s.canvas.Paint(s.pixels.Image, t.cell)
+		}
+		n.Pixels = s.pixels
+	}
 	n.Children = make([]scene.Node, 0, len(s.children)+len(s.exiting))
 	for _, list := range [2][]*styledBox{s.children, s.exiting} {
+		if n.Pixels != nil {
+			break
+		}
 		for _, c := range list {
 			inner := r
 			switch c.box.Style.Position {
@@ -509,6 +528,10 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 	if n.TopLayer != s.top {
 		s.top, s.painted = n.TopLayer, false
 	}
+	if (n.Canvas == nil) != (s.canvas == nil) || n.Canvas != nil && n.Canvas.Key != s.canvas.Key {
+		s.painted = false
+	}
+	s.canvas = n.Canvas
 	if (n.Text != s.raw || n.Text != "" && f.Widths != s.wrapping.Widths) && s.retext(f, n.Text) {
 		s.box.Invalidate()
 	}
@@ -559,7 +582,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 			at = len(n.Children) - 1 - i
 		}
 		s.box.Children[at] = &child.box
-		s.painted = s.painted && child.painted
+		s.painted = s.painted && (child.painted || s.canvas != nil && t.graphics)
 	}
 	s.box.Children = s.box.Children[:len(n.Children)]
 	for _, e := range s.exiting {

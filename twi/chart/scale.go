@@ -101,18 +101,28 @@ func number(v float64) string {
 }
 
 type metrics struct {
-	margin, half, dot, active, radius, gap, grid float32
+	top, bottom, half, active, radius, gap, grid float32
 }
 
-func (p plot) y(v float64, h float32, m metrics) float32 {
+func (p plot) y(v float64, m metrics) float32 {
 	top, bottom := p.ticks[len(p.ticks)-1], p.ticks[0]
-	return m.margin + float32((top-v)/(top-bottom))*(h-m.margin)
+	return m.top + float32((top-v)/(top-bottom))*(m.bottom-m.top)
 }
 
-func (p plot) series(s int, w, h float32, m metrics, out []point) []point {
+func (p plot) rows(m metrics, h int, unit float32) metrics {
+	last := len(p.ticks) - 1
+	span := h - 1
+	if step := span / last; step > 0 {
+		span = step * last
+	}
+	m.top, m.bottom = (float32(h-1-span)+0.5)*unit, (float32(h)-0.5)*unit
+	return m
+}
+
+func (p plot) series(s int, w float32, m metrics, out []point) []point {
 	out = out[:0]
 	for i, v := range p.top[s] {
-		out = append(out, point{(float32(i) + 0.5) * w / float32(p.points), p.y(v, h, m)})
+		out = append(out, point{(float32(i) + 0.5) * w / float32(p.points), p.y(v, m)})
 	}
 	return out
 }

@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	konst "github.com/twind-dev/twind/internal/konst/chart"
+	stylekonst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/theme"
 )
@@ -29,10 +31,12 @@ func TestLineMaskMatchesResvg(t *testing.T) {
 	}
 	c := &Chart{Kind: Line, Labels: months(), Series: []Series{{Label: "Desktop", Color: theme.Chart1, Values: visitors}}}
 	const w, h = 480, 200
-	m := pixelMetrics(image.Point{10, 20})
+	cell := image.Point{10, 20}
+	m := pixelMetrics(cell)
+	m.top, m.bottom = konst.TopMargin*float32(cell.Y)/stylekonst.RemPixels, h
 	r := reuse(nil, w, h)
 	p := c.model()
-	r.stroke(natural(nil, p.series(0, w, h, m, nil)), m.half)
+	r.stroke(natural(nil, p.series(0, w, m, nil)), m.half)
 	var sum, worst float64
 	for y := range h {
 		for x := range w {
@@ -73,8 +77,8 @@ func TestAreaFillsBetweenTheCurveAndTheSeriesBelow(t *testing.T) {
 		{Color: theme.Chart1, Values: []float64{2, 2}},
 		{Color: theme.Chart2, Values: []float64{2, 2}},
 	}}
-	dst := image.NewRGBA(image.Rect(0, 0, 40, 40))
-	c.Draw(dst, image.Point{8, 16}, palette)
+	dst := image.NewRGBA(image.Rect(0, 0, 40, 48))
+	draw(c, dst, image.Point{8, 16})
 	ink := dst.RGBAAt
 	if o := ink(20, 35); o.R == 0 || o.B != 0 {
 		t.Errorf("below the first curve %v: want chart-1 (red) fill", o)
@@ -88,7 +92,7 @@ func TestAreaFillsBetweenTheCurveAndTheSeriesBelow(t *testing.T) {
 	if o := ink(5, 35); o.A != 0 {
 		t.Errorf("left of the first point %v: the area starts at the first band centre", o)
 	}
-	if a, b := ink(20, 8).A, ink(20, 20).A; a <= b {
+	if a, b := ink(20, 11).A, ink(20, 21).A; a <= b {
 		t.Errorf("gradient alpha %d near the top of chart-2's area, %d near its bottom: want it falling downward", a, b)
 	}
 }
@@ -99,15 +103,15 @@ func TestBarStackRoundsOnlyTheOuterEnds(t *testing.T) {
 		{Color: theme.Chart2, Values: []float64{2}},
 	}}
 	dst := image.NewRGBA(image.Rect(0, 0, 100, 200))
-	c.Draw(dst, image.Point{10, 20}, palette)
+	draw(c, dst, image.Point{10, 20})
 	left, right := 10, 89
-	if a := dst.RGBAAt(left, 199).A; a == math.MaxUint8 {
+	if a := dst.RGBAAt(left, 189).A; a == math.MaxUint8 {
 		t.Errorf("bottom corner of the stack's first series is square (alpha %d): want rounded", a)
 	}
-	if a := dst.RGBAAt(right, 7).A; a == math.MaxUint8 {
+	if a := dst.RGBAAt(right, 30).A; a == math.MaxUint8 {
 		t.Errorf("top corner of the stack's last series is square (alpha %d): want rounded", a)
 	}
-	for _, y := range []int{100, 106} {
+	for _, y := range []int{106, 112} {
 		for _, x := range []int{left, right} {
 			if a := dst.RGBAAt(x, y).A; a != math.MaxUint8 {
 				t.Errorf("corner %d,%d where the two series meet has alpha %d: inner ends stay square", x, y, a)
@@ -122,7 +126,7 @@ func BenchmarkDraw(b *testing.B) {
 		dst := image.NewRGBA(image.Rect(0, 0, 900, 440))
 		b.Run([]string{Bar: "bar", Line: "line", Area: "stacked-area"}[kind]+"/pixels-900x440", func(b *testing.B) {
 			for b.Loop() {
-				c.Draw(dst, image.Point{10, 20}, palette)
+				draw(c, dst, image.Point{10, 20})
 			}
 		})
 		b.Run([]string{Bar: "bar", Line: "line", Area: "stacked-area"}[kind]+"/cells-90x22", func(b *testing.B) {
@@ -131,6 +135,11 @@ func BenchmarkDraw(b *testing.B) {
 			}
 		})
 	}
+}
+
+func draw(c *Chart, dst *image.RGBA, cell image.Point) {
+	p := c.model()
+	c.paint(dst, p, p.rows(pixelMetrics(cell), dst.Rect.Dy()/cell.Y, float32(cell.Y)), c.hover, palette)
 }
 
 func palette(t theme.Token) color.RGBA {

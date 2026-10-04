@@ -169,6 +169,14 @@ func (p at) apply(n *node) {
 
 func At(x, y int) NodeOption { return at{X: x, Y: y} }
 
+type canvas render.Canvas
+
+func (c *canvas) apply(n *node) { n.tree.Canvas = (*render.Canvas)(c) }
+
+func Canvas(key uint64, paint func(dst *image.RGBA, cell image.Point)) NodeOption {
+	return &canvas{Key: key, Paint: paint}
+}
+
 func Data(name, value string) NodeOption { return attribute{Name: "data-" + name, Value: value} }
 
 func Dir(d text.Direction) NodeOption { return attribute(render.Dir(d)) }

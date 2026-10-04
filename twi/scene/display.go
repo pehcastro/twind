@@ -23,7 +23,7 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 	if bounds.Empty() {
 		return bounds, 0, false
 	}
-	start, plain := len(f.ops), n != f.root && n.Gradient.Kind != style.GradientLinear && n.Turn == 0 && n.Shrink == 0
+	start, plain := len(f.ops), n != f.root && n.Gradient.Kind != style.GradientLinear && n.Turn == 0 && n.Shrink == 0 && n.Pixels == nil
 	var st *stamp
 	hit, visual := false, bounds
 	if len(n.Shadows) > 0 {
@@ -77,7 +77,7 @@ func (f *Frame) cast(bounds image.Rectangle, shadows []style.Shadow) image.Recta
 }
 
 func paints(n *Node) bool {
-	return bordered(&n.Border) || shows(n.Background) || len(n.Shadows)+len(n.InsetShadows) > 0 || n.Gradient.Kind == style.GradientLinear
+	return bordered(&n.Border) || shows(n.Background) || len(n.Shadows)+len(n.InsetShadows) > 0 || n.Gradient.Kind == style.GradientLinear || n.Pixels != nil
 }
 
 func bordered(b *Border) bool { return b.Style != style.BorderNone && shows(b.Color) }
@@ -138,6 +138,9 @@ func (f *Frame) shapes(n *Node, bounds, visual image.Rectangle, origin image.Poi
 				f.put(raster.Fill, raster.Box{Rect: side.line}, edges.Color.RGBA).Dash = dash(edges.Style)
 			}
 		}
+	}
+	if n.Pixels != nil {
+		f.put(raster.Canvas, raster.Box{Rect: rect(f.pixels(n.Content).Sub(origin))}, color.RGBA{}).Pixels = n.Pixels
 	}
 	if len(f.ops) == start || n.Turn == 0 {
 		return visual

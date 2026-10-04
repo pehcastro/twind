@@ -7,6 +7,7 @@ import (
 
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
+	"github.com/twind-dev/twind/twi/raster"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/text"
 )
@@ -44,6 +45,7 @@ type Node struct {
 	Border                                 Border
 	Shadows, InsetShadows                  []style.Shadow
 	Gradient                               style.Gradient
+	Pixels                                 *raster.Pixels
 	Padding                                layout.Rect
 	Content                                layout.Rect
 	ScrollContent                          layout.Rect

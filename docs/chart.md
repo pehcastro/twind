@@ -1,6 +1,6 @@
 # Chart
 
-Bar, line and area charts drawn in cells, with a y axis, a legend and the values of a point under the pointer.
+Bar, line and area charts with a y axis, a legend and the values of a point under the pointer. Where the terminal shows images the plot is drawn in pixels: smooth curves, gradient areas and rounded bars. Elsewhere it is drawn in half blocks.
 
 <Preview name="chart-bar" />
 
@@ -9,7 +9,7 @@ Bar, line and area charts drawn in cells, with a y axis, a legend and the values
 ```go
 c := chart.New(rt)
 c.Kind, c.Width, c.Height = chart.Bar, 56, 14
-c.Labels = []string{"January", "February", "March", "April", "May", "June"}
+c.Labels = []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun"}
 c.Series = []chart.Series{
 	{Label: "Desktop", Color: theme.Chart1, Values: []float64{186, 305, 237, 73, 209, 214}},
 	{Label: "Mobile", Color: theme.Chart2, Values: []float64{80, 200, 120, 190, 130, 140}},

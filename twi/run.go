@@ -61,6 +61,8 @@ func (r *Runtime) SetTheme(t theme.Theme) {
 	r.Restyle(func() { r.theme = t })
 }
 
+func (r *Runtime) Theme() theme.Theme { return r.theme }
+
 func (r *Runtime) Run(app func() Node) error {
 	if !r.cfg.profileSet {
 		return errors.New("twi: Backend needs a ColorProfile")

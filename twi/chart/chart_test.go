@@ -77,7 +77,7 @@ func TestCellsUseOnlyConsoleGlyphs(t *testing.T) {
 func TestCellsDrawBarsInHalfCells(t *testing.T) {
 	c := &Chart{Kind: Bar, Labels: []string{"a", "b"}, Series: []Series{{Color: theme.Chart1, Values: []float64{4, 2}}}}
 	cells := c.cells(c.model(), 5, 5)
-	want := []string{"▄▄───", "██───", "██─▄▄", "██─██", "██─██"}
+	want := []string{"▄▄───", "██───", "██─▄▄", "██─██", "▀▀─▀▀"}
 	for y, row := range want {
 		var got strings.Builder
 		for x := range 5 {
@@ -107,7 +107,7 @@ func TestCellsKeepSteepLinesConnected(t *testing.T) {
 			t.Errorf("column %d has no line cell between the first and last point", x)
 		}
 	}
-	for y := range h {
+	for y := c.model().row(100, h); y < h; y++ {
 		lit := 0
 		for x := 5; x <= 15; x++ {
 			if g := cells[y*w+x].glyph; g != konst.Blank && g != konst.Grid {
