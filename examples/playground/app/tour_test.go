@@ -68,7 +68,7 @@ func TestTour(t *testing.T) {
 	expect("close: gone after the 100 ms exit", !strings.Contains(text(closing[4]), dialog), closing[4])
 	toast := "Saved to the playground"
 	expect("toast: shown until 4 s, gone after", strings.Contains(text("toast-017ms"), toast) && strings.Contains(text("toast-3917ms"), toast) && !strings.Contains(text("toast-4017ms"), toast), "toast-017ms", "toast-3917ms", "toast-4017ms")
-	loaded := "three rows fetched"
+	loaded := "loaded, still"
 	expect("load: a skeleton for 2 s, then the content", !strings.Contains(text("load-017ms"), loaded) && strings.Contains(text("load-2017ms"), loaded), "load-017ms", "load-2017ms")
 	expect("selection: the drag lights cells without changing the text", text("selection") == text("selected") && ansi("selection") != ansi("selected"), "selected")
 	for _, f := range [][]string{hover, open, closing, {"toast-017ms", "toast-4017ms", "load-017ms", "load-2017ms", "selected"}} {

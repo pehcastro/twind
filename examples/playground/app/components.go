@@ -40,6 +40,7 @@ type kit struct {
 	sidebar                      *ui.Sidebar
 	spinners                     [4]*ui.Spinner
 	lookup, query, url           *ui.Input
+	moves                        *moves
 	message                      *ui.Textarea
 	framework                    *ui.Combobox
 	calendar                     *ui.Calendar
@@ -75,7 +76,7 @@ func newKit(rt *twi.Runtime, today time.Time) *kit {
 		chosen: "nothing yet", side: "Home", person: "Pedro Duarte", panel: "Bottom", statusBar: true, progress: 60, goal: 350, row: -1,
 	}
 	k.tip.Side, k.tip.Align = ui.Bottom, ui.End
-	k.invite = k.menu.Sub()
+	k.invite, k.moves = k.menu.Sub(), newMoves(rt)
 	k.file, k.edit, k.view = k.bar.Menu(), k.bar.Menu(), k.bar.Menu()
 	choose := func(item string) { k.chosen = item }
 	k.command.OnSelect, k.menu.OnSelect, k.context.OnSelect = choose, choose, choose

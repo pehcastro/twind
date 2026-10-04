@@ -12,6 +12,7 @@ import (
 	"time"
 
 	docsapp "github.com/twind-dev/twind/apps/documentation"
+	playground "github.com/twind-dev/twind/examples/playground/app"
 	runkonst "github.com/twind-dev/twind/internal/konst/runtime"
 	termkonst "github.com/twind-dev/twind/internal/konst/terminal"
 	"github.com/twind-dev/twind/twi"
@@ -536,10 +537,30 @@ type motionStep struct {
 }
 
 type motionScenario struct {
-	name    string
-	page    string
-	targets []string
-	cycle   []motionStep
+	name       string
+	page       string
+	targets    []string
+	cycle      []motionStep
+	playground bool
+}
+
+func (sc motionScenario) app(rt *twi.Runtime) (func() twi.Node, error) {
+	if sc.playground {
+		return playground.New(rt, playground.Env{Profile: "truecolor", Size: func() string { return "bench" }}, playground.Start{Page: sc.page, Theme: "twind-dark", Focus: "input"})
+	}
+	return docsapp.New(rt, docsapp.Start{Page: sc.page, Theme: "twind-dark"})
+}
+
+func (sc motionScenario) styles(t testing.TB) style.Sheet {
+	styles := docsapp.Styles
+	if sc.playground {
+		styles = playground.Styles
+	}
+	sheet, err := styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sheet
 }
 
 func motionClick(target string) func(map[string]image.Point) []input.Event {
@@ -564,7 +585,7 @@ func motionWheel(button input.MouseButton) func(map[string]image.Point) []input.
 
 func motionTargets(t testing.TB, sheet style.Sheet, p motionPath, sc motionScenario) map[string]image.Point {
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
-		view, err := docsapp.New(rt, docsapp.Start{Page: sc.page, Theme: "twind-dark"})
+		view, err := sc.app(rt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -627,22 +648,25 @@ func motionPaths() []motionPath {
 
 func motionScenarios() []motionScenario {
 	return []motionScenario{
-		{"dialog", "dialog", []string{"Edit profile"}, []motionStep{{"open", motionClick("Edit profile")}, {"close", motionKey(input.KeyEscape)}}},
-		{"dropdown", "dropdown-menu", []string{"Open menu"}, []motionStep{{"open", motionClick("Open menu")}, {"close", motionKey(input.KeyEscape)}}},
-		{"toast", "toaster", []string{"Show toast"}, []motionStep{{"in", motionClick("Show toast")}, {"out", motionKey(input.KeyEscape)}}},
-		{"button", "button", []string{"↑"}, []motionStep{{"hover", motionMove("↑", 0)}, {"leave", motionMove("↑", 6)}}},
-		{"sidebar", "card", []string{"Introduction", "Installation"}, []motionStep{{"hover", motionMove("Introduction", 0)}, {"next", motionMove("Installation", 0)}}},
-		{"accordion", "accordion", []string{"What is your return policy?", "What are your shipping options?"}, []motionStep{{"returns", motionClick("What is your return policy?")}, {"shipping", motionClick("What are your shipping options?")}}},
-		{"tabs", "tabs", []string{"Password", "Account"}, []motionStep{{"password", motionClick("Password")}, {"account", motionClick("Account")}}},
-		{"wheel", "card", nil, []motionStep{{"down", motionWheel(input.MouseWheelDown)}, {"up", motionWheel(input.MouseWheelUp)}}},
+		{"dialog", "dialog", []string{"Edit profile"}, []motionStep{{"open", motionClick("Edit profile")}, {"close", motionKey(input.KeyEscape)}}, false},
+		{"dropdown", "dropdown-menu", []string{"Open menu"}, []motionStep{{"open", motionClick("Open menu")}, {"close", motionKey(input.KeyEscape)}}, false},
+		{"toast", "toaster", []string{"Show toast"}, []motionStep{{"in", motionClick("Show toast")}, {"out", motionKey(input.KeyEscape)}}, false},
+		{"button", "button", []string{"↑"}, []motionStep{{"hover", motionMove("↑", 0)}, {"leave", motionMove("↑", 6)}}, false},
+		{"sidebar", "card", []string{"Introduction", "Installation"}, []motionStep{{"hover", motionMove("Introduction", 0)}, {"next", motionMove("Installation", 0)}}, false},
+		{"accordion", "accordion", []string{"What is your return policy?", "What are your shipping options?"}, []motionStep{{"returns", motionClick("What is your return policy?")}, {"shipping", motionClick("What are your shipping options?")}}, false},
+		{"tabs", "tabs", []string{"Password", "Account"}, []motionStep{{"password", motionClick("Password")}, {"account", motionClick("Account")}}, false},
+		{"wheel", "card", nil, []motionStep{{"down", motionWheel(input.MouseWheelDown)}, {"up", motionWheel(input.MouseWheelUp)}}, false},
+		{"spring", "motion", []string{"Open menu"}, []motionStep{{"open", motionClick("Open menu")}, {"close", motionClick("Open menu")}}, true},
+		{"reorder", "motion", []string{"Rotate"}, []motionStep{{"rotate", motionClick("Rotate")}, {"again", motionClick("Rotate")}}, true},
 	}
 }
 
-func runMotion(t testing.TB, now func() time.Duration, sheet style.Sheet, p motionPath, sc motionScenario, rounds int) map[string][]motionResult {
+func runMotion(t testing.TB, now func() time.Duration, p motionPath, sc motionScenario, rounds int) map[string][]motionResult {
+	sheet := sc.styles(t)
 	at := motionTargets(t, sheet, p, sc)
 	be := &motionBackend{events: make(chan input.Event), signal: make(chan struct{}, 1), now: now, cols: p.cols, rows: p.rows, caps: p.caps}
 	rt := twi.New(twi.Backend(be, realDocsClock{}), twi.Styles(sheet), twi.ColorProfile(color.TrueColor))
-	view, err := docsapp.New(rt, docsapp.Start{Page: sc.page, Theme: "twind-dark"})
+	view, err := sc.app(rt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -678,15 +702,11 @@ func runMotion(t testing.TB, now func() time.Duration, sheet style.Sheet, p moti
 }
 
 func BenchmarkMotion(b *testing.B) {
-	sheet, err := docsapp.Styles()
-	if err != nil {
-		b.Fatal(err)
-	}
 	for _, p := range motionPaths() {
 		for _, sc := range motionScenarios() {
 			for _, s := range sc.cycle {
 				b.Run(p.name+"/"+sc.name+"/"+s.name, func(b *testing.B) {
-					results := runMotion(b, clock(b), sheet, p, sc, b.N)[s.name]
+					results := runMotion(b, clock(b), p, sc, b.N)[s.name]
 					reportMotion(b, results)
 				})
 			}
@@ -695,16 +715,12 @@ func BenchmarkMotion(b *testing.B) {
 }
 
 func TestMotionHasNoBlinks(t *testing.T) {
-	sheet, err := docsapp.Styles()
-	if err != nil {
-		t.Fatal(err)
-	}
 	hoverFollowsLayout := map[string]bool{"accordion": true}
 	for _, p := range motionPaths() {
 		t.Run(p.name, func(t *testing.T) {
 			t.Parallel()
 			for _, sc := range motionScenarios() {
-				for step, results := range runMotion(t, clock(t), sheet, p, sc, 1) {
+				for step, results := range runMotion(t, clock(t), p, sc, 1) {
 					for _, r := range results {
 						var shown []motionBlink
 						for _, k := range r.blinks {

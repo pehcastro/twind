@@ -117,7 +117,7 @@ func basics() []page {
 		{"layout", layoutPage, nil},
 		{"counter", counterPage, []key{{"+", "increment"}, {"-", "decrement"}}},
 		{"list", listPage, []key{{"wheel", "scroll"}, {"pgdn", "page"}, {"home", "top"}}},
-		{"motion", motionPage, []key{{"d", "dialog"}, {"s", "sheet"}, {"n", "toast"}, {"l", "load"}, {"esc", "close"}}},
+		{"motion", motionPage, []key{{"o", "menu"}, {"r", "reorder"}, {"d", "dialog"}, {"s", "sheet"}, {"n", "toast"}, {"l", "load"}, {"esc", "close"}}},
 		{"selection", selectionPage, []key{{"drag", "select"}, {"2" + nbsp + "clicks", "word"}, {"3" + nbsp + "clicks", "line"}, {"ctrl+c", "copy"}, {"esc", "clear"}}},
 	}
 }
@@ -251,6 +251,10 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			k.dialog.Open = true
 		case cmd == "sheet":
 			k.sheet.Open = true
+		case cmd == "menu":
+			k.moves.toggle()
+		case cmd == "reorder":
+			k.moves.reorder()
 		case cmd == "toast":
 			k.toaster.Show("Saved to the playground", "leaves after 4 s, a hover holds it", ui.ToastAction{})
 		case cmd == "load":

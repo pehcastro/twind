@@ -177,20 +177,22 @@ func counterPage(c controls) twi.Node {
 func motionPage(c controls) twi.Node {
 	hover := "flex-1 transition-colors hover:bg-accent hover:text-accent-foreground"
 	run := func(cmd string) func(*state) { return func(s *state) { c.command(s, cmd) } }
-	loaded := []twi.Node{txt("text-muted-foreground", "three rows fetched, the pulse is gone and so are the frames")}
+	loaded := []twi.Node{txt("text-muted-foreground", "loaded, still")}
 	if c.state.loading {
 		loaded = []twi.Node{ui.Skeleton(twi.Class("h-1 w-full animate-pulse")), ui.Skeleton(twi.Class("h-1 w-2/3 animate-pulse"))}
 	}
 	return el("flex flex-col gap-1",
 		heading("Motion", "frames only while something moves; at rest the runtime sleeps"),
 		el("flex flex-row gap-2",
-			card(hover, "Hover", "transition-colors eases this card to accent in 150 ms, and back"),
-			card(hover, "Dialog", "fade-in-0 and zoom-in-95 over 200 ms", c.uiButton("open dialog", ui.Outline, "Open dialog", run("dialog"))),
-			card(hover, "Sheet", "slide-in-from-right, 500 ms in, 300 ms out", c.uiButton("open sheet", ui.Outline, "Open sheet", run("sheet"))),
+			card(hover, "Hover", "eases to accent in 150 ms"),
+			ui.Card(twi.Class("flex-1"), ui.CardHeader(ui.CardTitle(twi.Text("Spring")), ui.CardDescription(twi.Text("press o")), ui.CardAction(c.springMenu()))),
+			card(hover, "Reorder", "r: last row to the top", el("flex flex-row items-center gap-2", c.flipList(), c.uiButton("reorder", ui.Outline, "Rotate", run("reorder")))),
 		),
 		el("flex flex-row gap-2",
-			card(hover, "Loading", "l loads for 2 s behind an animate-pulse skeleton", loaded...),
-			card(hover, "Toast", "sonner's stack in the corner", c.uiButton("show toast", ui.Outline, "Show toast", run("toast"))),
+			card(hover, "Dialog", "zoom-in-95, 200 ms", c.uiButton("open dialog", ui.Outline, "Open dialog", run("dialog"))),
+			card(hover, "Sheet", "slides in, 500 ms", c.uiButton("open sheet", ui.Outline, "Open sheet", run("sheet"))),
+			card(hover, "Loading", "l: pulse for 2 s", loaded...),
+			card(hover, "Toast", "sonner's stack", c.uiButton("show toast", ui.Outline, "Show toast", run("toast"))),
 		),
 	)
 }
