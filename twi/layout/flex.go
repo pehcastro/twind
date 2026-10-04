@@ -15,8 +15,8 @@ type arena struct {
 	items  []flexItem
 	tracks []track
 	cells  []gridItem
+	root   *Box
 	screen container
-	port   Rect
 	reuse  bool
 }
 
@@ -64,7 +64,7 @@ func Layout(root *Box, width int, height Length) {
 		viewport.H = viewHeight
 	}
 	screen := container{viewport, viewport}
-	a.screen, a.reuse, a.port = screen, a.screen == screen, viewport
+	a.root, a.screen, a.reuse = root, screen, a.screen == screen
 	a.place(root, Rect{0, 0, w, h}, mode, &viewport, &screen)
 }
 
@@ -92,12 +92,9 @@ func (a *arena) place(b *Box, border Rect, mode heightMode, outer *Rect, absolut
 	if !m.framesKnown || m.framesW != content.W || m.framesH != content.H || m.framesMode != mode {
 		a.arrange(b, content.W, content.H, mode)
 	}
-	bound, port := content, a.port
 	if s.Overflow == OverflowScroll {
 		moved = b.scroll() || moved
 		content.X, content.Y, padding.X, padding.Y = content.X-b.ScrollX, content.Y-b.ScrollY, padding.X-b.ScrollX, padding.Y-b.ScrollY
-		bound = Rect{content.X, content.Y, max(content.W, b.ScrollWidth-s.Padding.Left-s.Padding.Right), max(content.H, b.ScrollHeight-s.Padding.Top-s.Padding.Bottom)}
-		a.port = b.PaddingBox
 	}
 	if s.Position != PositionStatic {
 		absolute = &container{padding, clip}
@@ -124,16 +121,33 @@ func (a *arena) place(b *Box, border Rect, mode heightMode, outer *Rect, absolut
 			}
 			f.X, f.Y = f.X+content.X, f.Y+content.Y
 			if cs.Position == PositionSticky {
-				m := cs.Margin
-				f.X = stick(f.X, f.W, cs.Inset.Left, cs.Inset.Right, a.port.X, a.port.W, bound.X+m.Left, bound.X+bound.W-m.Right)
-				f.Y = stick(f.Y, f.H, cs.Inset.Top, cs.Inset.Bottom, a.port.Y, a.port.H, bound.Y+m.Top, bound.Y+bound.H-m.Bottom)
+				f = a.stuck(b, cs, f, content)
 			}
 			moved = a.place(c, f, childMode, &clip, absolute) || moved
 		}
 	}
-	a.port = port
 	b.Moved, b.stale = b.Moved || moved, false
 	return moved
+}
+
+func (a *arena) stuck(b *Box, cs *Style, f, bound Rect) Rect {
+	if s := &b.Style; s.Overflow == OverflowScroll {
+		bound.W, bound.H = max(bound.W, b.ScrollWidth-s.Padding.Left-s.Padding.Right), max(bound.H, b.ScrollHeight-s.Padding.Top-s.Padding.Bottom)
+	}
+	port := a.screen.box
+	for p := b; ; p = p.parent {
+		if p.Style.Overflow == OverflowScroll {
+			port = p.PaddingBox
+			break
+		}
+		if p == a.root {
+			break
+		}
+	}
+	m := cs.Margin
+	f.X = stick(f.X, f.W, cs.Inset.Left, cs.Inset.Right, port.X, port.W, bound.X+m.Left, bound.X+bound.W-m.Right)
+	f.Y = stick(f.Y, f.H, cs.Inset.Top, cs.Inset.Bottom, port.Y, port.H, bound.Y+m.Top, bound.Y+bound.H-m.Bottom)
+	return f
 }
 
 func stick(at, size int, near, far Length, view, span, low, high int) int {
@@ -283,11 +297,7 @@ func (a *arena) arrangeColumn(b *Box, innerW, innerH int, mode heightMode) (int,
 		}
 		free = innerH - used
 	}
-	pos, extra := a.justify(s.Justify, free/step, len(items))
-	pos *= step
-	for k := range extra {
-		extra[k] *= step
-	}
+	pos, extra := a.justify(s.Justify, free, len(items), step)
 	for k := range items {
 		it := &items[k]
 		m, f := &it.box.Style.Margin, &it.box.frame
@@ -358,7 +368,7 @@ func (a *arena) arrangeRow(b *Box, innerW, innerH int, mode heightMode) int {
 		if used > innerW || !rigid(group, innerW-used) {
 			used = spent + a.flexSizes(group, innerW-spent, 1)
 		}
-		pos, extra := a.justify(s.Justify, innerW-used, len(group))
+		pos, extra := a.justify(s.Justify, innerW-used, len(group), 1)
 		line := innerH
 		if multi {
 			line = 0

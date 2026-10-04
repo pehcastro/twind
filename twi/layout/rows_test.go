@@ -62,6 +62,15 @@ func TestHalfRowsAspectIsWholeRows(t *testing.T) {
 	}
 }
 
+func TestHalfRowsJustifySpacesInWholeRows(t *testing.T) {
+	texts := []*Box{halfText(), halfText(), halfText()}
+	root := halves(Style{Direction: Column, Justify: JustifyBetween, Width: cells(20), Height: cells(11)}, texts...)
+	Layout(root, 20, Length{})
+	if got := [3]int{texts[0].BorderBox.Y, texts[1].BorderBox.Y, texts[2].BorderBox.Y}; got != [3]int{0, 4, 8} {
+		t.Errorf("three texts spread over 11 units at %v, want [0 4 8]: 5 free units are 2 whole rows, one per gap", got)
+	}
+}
+
 func TestHalfRowsPlacedBoxes(t *testing.T) {
 	placed := halves(Style{Position: PositionAbsolute, Inset: Insets{Top: cells(1), Left: cells(0)}}, halfText())
 	root := halves(Style{Direction: Column, Position: PositionRelative, Width: cells(20), Height: cells(10)}, placed)

@@ -164,7 +164,14 @@ func (a *arena) even(amount, n int) []int {
 	return a.distribute(amount, weights)
 }
 
-func (a *arena) justify(j Justify, free, n int) (int, []int) {
+func (a *arena) justify(j Justify, free, n, step int) (int, []int) {
+	if step > 1 {
+		pos, extra := a.justify(j, free/step, n, 1)
+		for k := range extra {
+			extra[k] *= step
+		}
+		return pos * step, extra
+	}
 	switch j {
 	case JustifyStart, JustifyStretch:
 		return 0, nil
