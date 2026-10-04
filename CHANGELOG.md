@@ -1,10 +1,34 @@
 # Changelog
 
+## v0.4.0 (2026-10-04)
+
+Build a full app: events, focus, mouse, motion, the shadcn component set, a docs app and a dev mode, in every Windows terminal.
+
+- Events in `twi`: `OnClick`, `OnPointerDown`, `OnPointerMove`, `OnPointerUp`, `OnPointerEnter`, `OnPointerLeave`, `OnPointerDownOutside`, `OnFocusOutside`, `OnScroll`, `OnPaste`, `OnHotkey`, `OnWidth`. Focus moves with Tab, events bubble, and `NonModalFocusScope` lets focus leave a popover.
+- Also in `twi`: `Ref`, `NewRef` and `Measure` read where an element is and how big; `Focus`, `ScrollIntoView`, `Timer`, `TopLayer`, `At`, `Tag`, `Data`, `Classes`, `NoClipboard`.
+- Text fields edit like tofu's prompt: click places the cursor, drag and double click select, word moves, undo and redo, history, Shift+Enter for a new line, long pastes as chips. Selected text copies with OSC 52.
+- Styling: CSS grid, scroll containers, `sticky`, breakpoints by terminal width, `group-`, `peer-`, `has-` and child variants, transitions, keyframes, enter and exit animations, `animate-spin`, one corner rounded at a time, dashed borders, half-row spacing where the terminal draws pixels.
+- `twi/ui`: the shadcn set, among them dialog, sheet, drawer, popover, tooltip, menus, menubar, command palette, toasts, tabs, select, combobox, calendar, sidebar, resizable, carousel, accordion, form controls, and chat parts. Focus rings show only from the keyboard.
+- New packages: `twi/chart`, `twi/icon`, `twi/highlight` (Go, bash, JSON, TOML, CSS, YAML, Markdown, TypeScript, TSX), `twi/markdown` (`Parse`, `Render` with components), `twi/fix` (installs a newer ConPTY beside Alacritty or Rio, with undo).
+- Themes: seven built-in themes with a light and dark toggle; a theme loads from a shadcn CSS file.
+- `twi/drive`: `Click`, `Move`, `Down`, `Up`, `Hold`, `Wheel`, `Clipboard`; script verbs `widths`, `wheel`, `move`, `down`.
+- CLI: `twind new`; `twind dev` rebuilds and swaps the app on save and keeps its page and state; `twind docs`; `twind doctor -fix` and `-undo`.
+- Terminals: Windows Terminal, WezTerm, Contour and VS Code draw surfaces with sixel; the PowerShell window, Zed, Alacritty and Rio draw them on an overlay window; Windows consoles get 24-bit colour, mouse input and stand-ins for missing glyphs. `SUPPORT_MATRIX.md` lists every terminal.
+- The docs app: `apps/documentation`, a page for every component and guide, live examples next to their code, search.
+- Examples: playground pages for every component, the gallery dashboard, six landing pages in `examples/sites/landing`, a portfolio in `examples/sites/portfolio`.
+- Speed: style, layout, text wrapping and image encoding are 1.5x to 2.9x faster; per-version numbers in the gains ledger.
+
+Breaking:
+
+- `twi/events`: `MouseDown`, `MouseMove`, `MouseUp` are now `PointerDown`, `PointerMove`, `PointerUp`.
+- `twi/theme.Builtin()` returns the seven built-in themes instead of every shadcn palette.
+- `twi/scene`: `Truncate` and `Walk` are removed.
+
 ## v0.3.0 (2026-09-30)
 
 Run a fullscreen app whose surfaces are pixels under crisp terminal text.
 
-- `twi.NewRuntime`, `rt.Run`, `twi.NewSignal(rt, v)` and `rt.Dispatch`: a retained app that redraws only what changed, with key events, runtime themes (`rt.SetTheme`, every shadcn palette, light and dark) and a headless driver (`twi/drive`) with a fake clock and a script format (`size`, `press`, `type`, `wait`, `resize`, `frame`).
+- `twi.New`, `rt.Run`, `twi.NewSignal(rt, v)` and `rt.Dispatch`: a retained app that redraws only what changed, with key events, runtime themes (`rt.SetTheme`, every shadcn palette, light and dark) and a headless driver (`twi/drive`) with a fake clock and a script format (`size`, `press`, `type`, `wait`, `resize`, `frame`).
 - Backgrounds, borders, radius, soft shadows, gradients and opacity are rasterised into images and sent as Sixel, Kitty graphics or iTerm2 images, whichever the terminal speaks, with text drawn as real cells on top. Terminals without graphics, `NO_COLOR` and 256 or 16 colours fall back to cells.
 - Terminal detection at start: graphics protocol, cell pixel size, synchronized output, emoji widths and grapheme mode.
 - `position` absolute, relative and fixed, z-index, overflow clipping.
