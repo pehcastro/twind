@@ -50,16 +50,23 @@ func TestTour(t *testing.T) {
 		look           site
 		shown, missing []string
 	}{
-		{"platform", platform, []string{"Quarry", "https://quarry.example", "█▀▀▀▄ █   █ ▄▀▀▀▀ █   █", "The whole stack, live from one git push.", "Start deploying", "npx quarry deploy"}, []string{"Plainsheet", "atelier nine"}},
+		{"platform", platform, []string{"Quarry", "⊙ quarry.example", "█▀▀▀▄ █   █ ▄▀▀▀▀ █   █", "The whole stack, live from one git push.", "Start deploying", "npx quarry deploy"}, []string{"Plainsheet", "atelier nine"}},
 		{"platform-features", platform, []string{"quarry.example/deployments/main", "Deploying to 38 regions", "Orbit Labs"}, []string{"The whole stack"}},
 		{"platform-footer", platform, []string{"Your next deploy is one command away.", "Create a free project", "© 2026 ▲ Quarry"}, nil},
-		{"product", product, []string{"Plainsheet", "https://plainsheet.example", "█▀▀▀▄ █     ▄▀▀▀▄ █▄  █", "Skip the busywork.", "app.plainsheet.example", "Onboarding", "Amara"}, []string{"Quarry"}},
+		{"product", product, []string{"Plainsheet", "⊙ plainsheet.example", "█▀▀▀▄ █     ▄▀▀▀▄ █▄  █", "Skip the busywork.", "app.plainsheet.example", "Onboarding", "Amara"}, []string{"Quarry"}},
 		{"product-pricing", product, []string{"Simple plans that grow with you", "Monthly", "Most popular", "$12", "$29", "Choose Team"}, []string{"Skip the busywork."}},
 		{"product-yearly", product, []string{"$10", "$24", "Choose Team"}, []string{"$12", "$29"}},
 		{"product-end", product, []string{"Where is my data stored?", "Give your team one calm page.", "© 2026 ◧ Plainsheet"}, []string{"Drop in a CSV"}},
 		{"studio", studio, []string{"atelier nine", "Taking projects for spring", "W E   D E S I G N", "██████", "Start a project"}, []string{"Plainsheet"}},
 		{"studio-work", studio, []string{"Fieldnote", "Open Orchard", "Interaction Annual, 2024"}, nil},
 		{"platform-again", platform, []string{"The whole stack, live from one git push."}, []string{"atelier nine"}},
+		{"event", event, []string{"Fieldwork 26", "12 to 13 November", "Two days on interface engineering", "█   █  ▀▀▀█", "Early bird", "Get tickets →"}, []string{"█   █ █▀▀▀▄"}},
+		{"event-later", event, []string{"█   █ █▀▀▀▄", "Early bird"}, []string{"█   █  ▀▀▀█"}},
+		{"store", store, []string{"Hearth mug", "Colour Lake", "Side", "Front", "Top", "16 oz"}, []string{"Your cart"}},
+		{"store-large", store, []string{"Add to cart · $32"}, []string{"Add to cart · $28"}},
+		{"store-cart", store, []string{"Your cart", "1 item", "Lake · 16 oz × 1", "Subtotal", "Added to cart"}, nil},
+		{"project", project, []string{"tern", "❯ tern r", "v2.4.0 · remote cache is here", "18.4k"}, []string{"tern run build", "318 passed"}},
+		{"project-output", project, []string{"❯ tern run build --watch", "tern 2.4.0 · 12 tasks in 3 packages", "318 passed"}, nil},
 	} {
 		read := func(ext string) string {
 			b, err := os.ReadFile(filepath.Join(out, c.frame+ext))

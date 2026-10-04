@@ -11,12 +11,12 @@ import (
 //go:generate go run github.com/twind-dev/twind/internal/twirgen
 
 func main() {
-	name := flag.String("style", "platform", "page style open at start: platform, product or studio")
+	name := flag.String("style", "platform", "page style open at start: platform, product, studio, event, store or project")
 	at := flag.String("section", "", "section to open at, like a #fragment: Features, Pricing, Work")
 	flag.Parse()
 	s, ok := named(*name)
 	if !ok {
-		fail(fmt.Errorf("-style %q: want platform, product or studio", *name))
+		fail(fmt.Errorf("-style %q: want platform, product, studio, event, store or project", *name))
 	}
 	sheet, err := Styles()
 	if err != nil {

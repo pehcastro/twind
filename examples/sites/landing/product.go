@@ -147,5 +147,5 @@ func newProduct(k kit) page {
 			),
 		)
 	}
-	return page{nav, body}
+	return page{nav: nav, body: body}
 }

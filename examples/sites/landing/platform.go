@@ -134,5 +134,5 @@ func newPlatform(k kit) page {
 			),
 		)
 	}
-	return page{nav, body}
+	return page{nav: nav, body: body}
 }

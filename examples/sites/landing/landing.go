@@ -3,6 +3,7 @@ package main
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/input"
@@ -16,23 +17,28 @@ const (
 	platform site = iota
 	product
 	studio
+	event
+	store
+	project
 )
 
-func sites() []site { return []site{platform, product, studio} }
+func sites() []site { return []site{platform, product, studio, event, store, project} }
 
 func (s site) String() string {
-	return [...]string{platform: "Platform", product: "Product", studio: "Studio"}[s]
+	return [...]string{platform: "Platform", product: "Product", studio: "Studio", event: "Event", store: "Store", project: "Project"}[s]
 }
 
 func (s site) address() string {
-	return [...]string{platform: "quarry.example", product: "plainsheet.example", studio: "atelier-nine.example"}[s]
+	return [...]string{platform: "quarry.example", product: "plainsheet.example", studio: "atelier-nine.example",
+		event: "fieldwork.example/26", store: "hearth.example/mug", project: "tern.example"}[s]
 }
 
 func (s site) theme() theme.Theme {
 	look := [...]struct {
 		name   string
 		scheme theme.Scheme
-	}{platform: {"twind", theme.Dark}, product: {"cloud", theme.Light}, studio: {"mono", theme.Light}}[s]
+	}{platform: {"twind", theme.Dark}, product: {"cloud", theme.Light}, studio: {"mono", theme.Light},
+		event: {"sukuna", theme.Dark}, store: {"dream", theme.Light}, project: {"dew", theme.Dark}}[s]
 	for _, t := range theme.Builtin() {
 		if t.Name == look.name && t.Scheme == look.scheme {
 			return t
@@ -47,7 +53,7 @@ func named(name string) (site, bool) {
 }
 
 type page struct {
-	nav, body func() twi.Node
+	nav, body, bar func() twi.Node
 }
 
 type kit struct {
@@ -65,7 +71,14 @@ func section(class string, children ...twi.NodeOption) twi.Node {
 	return el("flex flex-col shrink-0 w-full max-w-110 self-center px-4 "+class, children...)
 }
 
-const sectionKey = "section-"
+const (
+	sectionKey    = "section-"
+	eventStartsIn = 12*24*time.Hour + 4*time.Hour + 31*time.Minute + 9*time.Second
+	typeDelay     = 60 * time.Millisecond
+	lineDelay     = 350 * time.Millisecond
+	loopPause     = 3 * time.Second
+	demoPrompt    = "tern run build --watch"
+)
 
 func anchor(name string) twi.NodeOption { return twi.Key(sectionKey + name) }
 
@@ -123,7 +136,7 @@ func landing(rt *twi.Runtime, start site) func() twi.Node {
 	}
 	show(start)
 	k := kit{rt, ui.NewToaster(rt)}
-	pages := [...]page{platform: newPlatform(k), product: newProduct(k), studio: newStudio(k)}
+	pages := [...]page{platform: newPlatform(k), product: newProduct(k), studio: newStudio(k), event: newEvent(k), store: newStore(k), project: newProject(k)}
 	keys := twi.OnKeyDown(func(e *twi.Event) {
 		key := e.Key
 		if key.Release || key.Key != input.KeyRune || key.Modifiers != 0 {
@@ -142,93 +155,25 @@ func landing(rt *twi.Runtime, start site) func() twi.Node {
 			triggers = append(triggers, tabs.Trigger(s.String(), twi.Text(s.String())))
 		}
 		p := pages[current]
+		view := []twi.NodeOption{twi.Key(current.String()),
+			p.nav(),
+			el("flex flex-col grow min-h-0 overflow-y-auto", twi.Focusable(), twi.AutoFocus(),
+				el("flex flex-col shrink-0 animate-in fade-in-0 slide-in-from-bottom-2 duration-300", p.body())),
+		}
+		if p.bar != nil {
+			view = append(view, p.bar())
+		}
 		return el("flex flex-col h-full bg-background text-foreground", keys,
 			el("flex flex-row items-center shrink-0 gap-2 px-2 py-0.5 bg-muted/60",
 				lights(),
 				tabs.Node(tabs.List(triggers...)),
 				el("flex flex-row grow min-w-0 justify-center",
-					el("flex flex-row items-center w-50 min-w-0 rounded-full bg-background px-2 text-muted-foreground whitespace-nowrap shadow-[0_0_0_1px_var(--color-border)]",
-						txt("text-chart-2 pr-1", "⊙"), twi.Text("https://"), txt("text-foreground", current.address()))),
-				txt("shrink-0 whitespace-nowrap text-muted-foreground", "1-3 sites · q quit"),
+					el("flex flex-row items-center w-50 min-w-0 overflow-hidden rounded-full bg-background px-2 text-muted-foreground whitespace-nowrap shadow-[0_0_0_1px_var(--color-border)]",
+						txt("text-chart-2 pr-1", "⊙"), txt("text-foreground", current.address()))),
+				txt("shrink-0 whitespace-nowrap text-muted-foreground", "1-6 · q quit"),
 			),
-			el("flex flex-col grow min-h-0", twi.Key(current.String()),
-				p.nav(),
-				el("flex flex-col grow min-h-0 overflow-y-auto", twi.Focusable(), twi.AutoFocus(),
-					el("flex flex-col shrink-0 animate-in fade-in-0 slide-in-from-bottom-2 duration-300", p.body())),
-			),
+			el("flex flex-col grow min-h-0", view...),
 			k.toast.Node(),
 		)
 	}
-}
-
-func display(s string, scale int, colours ...string) twi.Node {
-	letters := []twi.NodeOption{}
-	runes := []rune(s)
-	for i, r := range runes {
-		g := glyph(r)
-		w, h, gap := len(g[0])*scale, len(g)*scale, scale
-		if i == len(runes)-1 {
-			gap = 0
-		}
-		lit := func(x, y int) int {
-			if y < h && g[y/scale][x/scale] == '#' {
-				return 1
-			}
-			return 0
-		}
-		rows := []twi.NodeOption{}
-		for y := 0; y < h; y += 2 {
-			var b strings.Builder
-			for x := range w {
-				b.WriteString([...]string{" ", "▀", "▄", "█"}[lit(x, y)+2*lit(x, y+1)])
-			}
-			rows = append(rows, twi.Text(b.String()+strings.Repeat(" ", gap)))
-		}
-		letters = append(letters, el("flex flex-col whitespace-pre "+colours[i*len(colours)/len(runes)], rows...))
-	}
-	return el("flex flex-row shrink-0 font-bold", letters...)
-}
-
-func glyph(r rune) [5]string {
-	switch r {
-	case ' ':
-		return [5]string{"...", "...", "...", "...", "..."}
-	case '.':
-		return [5]string{".", ".", ".", ".", "#"}
-	case '\'':
-		return [5]string{"#", "#", ".", ".", "."}
-	case 'A':
-		return [5]string{".###.", "#...#", "#####", "#...#", "#...#"}
-	case 'E':
-		return [5]string{"#####", "#....", "####.", "#....", "#####"}
-	case 'F':
-		return [5]string{"#####", "#....", "####.", "#....", "#...."}
-	case 'H':
-		return [5]string{"#...#", "#...#", "#####", "#...#", "#...#"}
-	case 'I':
-		return [5]string{"###", ".#.", ".#.", ".#.", "###"}
-	case 'K':
-		return [5]string{"#...#", "#..#.", "###..", "#..#.", "#...#"}
-	case 'L':
-		return [5]string{"#....", "#....", "#....", "#....", "#####"}
-	case 'N':
-		return [5]string{"#...#", "##..#", "#.#.#", "#..##", "#...#"}
-	case 'O':
-		return [5]string{".###.", "#...#", "#...#", "#...#", ".###."}
-	case 'P':
-		return [5]string{"####.", "#...#", "####.", "#....", "#...."}
-	case 'Q':
-		return [5]string{".###.", "#...#", "#...#", "#..#.", ".##.#"}
-	case 'R':
-		return [5]string{"####.", "#...#", "####.", "#..#.", "#...#"}
-	case 'S':
-		return [5]string{".####", "#....", ".###.", "....#", "####."}
-	case 'T':
-		return [5]string{"#####", "..#..", "..#..", "..#..", "..#.."}
-	case 'U':
-		return [5]string{"#...#", "#...#", "#...#", "#...#", ".###."}
-	case 'W':
-		return [5]string{"#...#", "#...#", "#.#.#", "##.##", "#...#"}
-	}
-	panic("landing: no glyph for " + string(r))
 }

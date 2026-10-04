@@ -29,3 +29,26 @@ frame studio-work
 press 1
 wait 400ms
 frame platform-again
+press 4
+wait 400ms
+frame event
+wait 3s
+frame event-later
+press 5
+wait 400ms
+frame store
+click 97 36
+wheel down 60 30
+wheel down 60 30
+wait 100ms
+frame store-large
+click 100 35
+wait 700ms
+frame store-cart
+press escape
+wait 400ms
+press 6
+wait 400ms
+frame project
+wait 3s
+frame project-output
