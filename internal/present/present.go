@@ -101,6 +101,7 @@ type Screen struct {
 	moved, plain []bool
 	shifted      []bool
 	needs        []need
+	bridged      []bool
 	images       map[uint64]uint32
 	uses         []int
 	samples      []color.Color
@@ -318,6 +319,7 @@ func (s *Screen) reset(cols, rows int) {
 	s.hashes, s.sent, s.dirty, s.send, s.moved, s.plain = make([]uint64, n), make([]uint64, n), make([]bool, n), make([]bool, n), make([]bool, n), make([]bool, n)
 	s.pieces, s.covers, s.leads, s.twins, s.claims, s.bases, s.based = make([]piece, n), make([]image.Point, n), make([]int, n), make([]int, n), map[twin]int{}, make([][]part, n), make([]bool, n)
 	s.samples, s.sampled, s.needs = make([]color.Color, cols*rows), make([]bool, cols*rows), make([]need, cols)
+	s.bridged = make([]bool, cols)
 	if s.Graphics == terminal.GraphicsGDI {
 		s.masks, s.shifted, s.painting.Clear = make([]uint64, n), make([]bool, n), true
 	}
@@ -424,6 +426,9 @@ func (s *Screen) compose() {
 		}
 		text, shown, want := s.text.Row(y), s.shown.Row(y), s.want.Row(y)
 		copy(want[span[0]:span[1]], text[span[0]:span[1]])
+		if s.underText() {
+			s.bridge(text, y, span)
+		}
 		for x := span[0]; x < span[1]; x++ {
 			c := &want[x]
 			switch {
@@ -440,7 +445,7 @@ func (s *Screen) compose() {
 				if c.Bg.RGBA.A != math.MaxUint8 {
 					c.Bg = s.pageBg
 				}
-			case blank(*c) && s.Graphics == terminal.GraphicsSixel && s.besideSymbol(text, x, y):
+			case blank(*c) && (s.bridged[x] || s.Graphics == terminal.GraphicsSixel && s.besideSymbol(text, x, y)):
 				c.Fg, c.Bg, c.Attr, c.Width = color.Color{}, s.behind(x, y), 0, buffer.Narrow
 			case blank(*c) && shown[x].Grapheme == "":
 				c.Grapheme, c.Fg, c.Bg, c.Attr, c.Width = "", shown[x].Fg, shown[x].Bg, shown[x].Attr, shown[x].Width
@@ -457,6 +462,42 @@ func symbol(c buffer.Cell) bool { return len(c.Grapheme) > 1 && c.Width == buffe
 
 func (s *Screen) besideSymbol(text []buffer.Cell, x, y int) bool {
 	return (x > 0 && symbol(text[x-1]) || x+1 < len(text) && symbol(text[x+1])) && s.flat(x, y, s.inset())
+}
+
+func (s *Screen) bridge(text []buffer.Cell, y int, span [2]int) {
+	clear(s.bridged)
+	edged := false
+	for x := span[0] / konst.TileColumns * konst.TileColumns; x < span[1] && !edged; x += konst.TileColumns {
+		edged = s.edged(x, y)
+	}
+	if !edged {
+		return
+	}
+	l := span[0]
+	for l > 0 && blank(text[l]) {
+		l--
+	}
+	for ; l < span[1] && l+1 < len(text); l++ {
+		if blank(text[l]) || !blank(text[l+1]) {
+			continue
+		}
+		r, gap := l+1, false
+		for ; r < len(text) && blank(text[r]); r++ {
+			gap = gap || s.edged(r, y)
+		}
+		if !gap || r == len(text) {
+			l = r - 1
+			continue
+		}
+		fill := s.behind(l, y)
+		for x := l + 1; x < r && gap; x++ {
+			gap = s.behind(x, y) == fill && s.flat(x, y, s.inset())
+		}
+		for x := l + 1; x < r && gap; x++ {
+			s.bridged[x] = !s.flat(x, y, 0)
+		}
+		l = r - 1
+	}
 }
 
 func blank(c buffer.Cell) bool {
@@ -575,9 +616,13 @@ func (s *Screen) transmit() {
 	}
 	if s.underText() && !s.fresh {
 		for y, span := range s.reach {
+			if span[1] <= span[0] {
+				continue
+			}
 			shown, text := s.shown.Row(y), s.text.Row(y)
+			s.bridge(text, y, span)
 			for x := span[0]; x < span[1]; x++ {
-				if t := s.tileAt(x, y); shown[x].Grapheme != "" && blank(text[x]) && !s.send[t] && !s.plain[t] && !s.flat(x, y, 0) {
+				if t := s.tileAt(x, y); shown[x].Grapheme != "" && blank(text[x]) && !s.bridged[x] && !s.send[t] && !s.plain[t] && !s.flat(x, y, 0) {
 					s.send[t] = true
 				}
 			}

@@ -313,12 +313,16 @@ func (s *Screen) sample(x, y int) color.Color {
 }
 
 func (s *Screen) behind(x, y int) color.Color {
-	r, c, _ := s.area(x, y)
-	middle := c.lineOf[(r.Min.Y+r.Max.Y)/2]
-	if c.lineOf[r.Min.Y] == middle && c.lineOf[r.Max.Y-1] == middle {
-		return s.sample(x, y)
+	if s.edged(x, y) {
+		return s.mean(x, y, s.inset())
 	}
-	return s.mean(x, y, s.inset())
+	return s.sample(x, y)
+}
+
+func (s *Screen) edged(x, y int) bool {
+	of, top := s.columns[x/konst.TileColumns].lineOf, y*s.Cell.Y
+	middle := of[top+s.Cell.Y/2]
+	return of[top] != middle || of[top+s.Cell.Y-1] != middle
 }
 
 func (s *Screen) mean(x, y, margin int) color.Color {
