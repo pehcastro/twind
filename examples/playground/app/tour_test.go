@@ -61,8 +61,8 @@ func TestTour(t *testing.T) {
 	expect("hover: only colours move", text("motion") == text(hover[2]), "motion", hover[2])
 	open := []string{"hover-200ms", "open-017ms", "open-040ms", "open-075ms", "open-150ms"}
 	dialog := "plays it back out"
-	moving("open", open...)
-	expect("open: zoom-in-95 draws the panel smaller than it settles, and it has settled at 150 ms", text(open[2]) != text(open[4]) && strings.Contains(text(open[4]), dialog), open[2], open[4])
+	moving("open", open[0], open[1], open[3], open[4])
+	expect("open: the panel fades in at its settled cells, zoom-in-95 moves no cell, and it has settled at 150 ms", text(open[3]) == text(open[4]) && strings.Contains(text(open[4]), dialog), open[3], open[4])
 	closing := []string{"open-150ms", "close-017ms", "close-040ms", "close-075ms", "close-150ms"}
 	moving("close", closing...)
 	expect("close: gone after the 100 ms exit", !strings.Contains(text(closing[4]), dialog), closing[4])

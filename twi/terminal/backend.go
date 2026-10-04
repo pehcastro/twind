@@ -246,7 +246,7 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	b.Capabilities = b.detect(raw, replies, o)
 	b.rightPastes.Store(b.Capabilities.Identity == IdentityVSCode)
 	if b.Capabilities.Identity == IdentityConhost && !o.forced {
-		if c, err := openCanvas(t); err == nil {
+		if c, err := openCanvas(t, b.trace); err == nil {
 			b.Capabilities.Graphics, b.Capabilities.CellPixels = GraphicsGDI, c.cell
 			b.canvas.Store(c)
 		}

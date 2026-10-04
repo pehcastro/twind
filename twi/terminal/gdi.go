@@ -45,6 +45,8 @@ type canvas struct {
 	cell    image.Point
 	pix     []byte
 	drawn   image.Rectangle
+	trace   *trace
+	wrote   time.Time
 	dropped bool
 	seen    geometry
 	since   time.Time
@@ -57,12 +59,12 @@ type canvas struct {
 	ended   chan struct{}
 }
 
-func openCanvas(t tty) (*canvas, error) {
+func openCanvas(t tty, tr *trace) (*canvas, error) {
 	win, err := t.drawable()
 	if err != nil {
 		return nil, err
 	}
-	c := &canvas{win: win, wake: make(chan struct{}, 1), done: make(chan struct{}), ended: make(chan struct{})}
+	c := &canvas{win: win, trace: tr, wake: make(chan struct{}, 1), done: make(chan struct{}), ended: make(chan struct{})}
 	cols, rows, err := t.size()
 	g, ok := c.measure(cols, rows)
 	if err != nil || !ok || win.read(g.client, image.Rect(0, 0, 1, 1)) == nil {
@@ -150,6 +152,7 @@ func (c *canvas) paint(p Pixels, cols, rows int) bool {
 	}
 	if !dirty.Empty() {
 		c.win.blit(c.pix, c.shape.client, dirty)
+		c.trace.log("gdi: painted %v, %v after the write", dirty, time.Since(c.wrote))
 	}
 	c.settled()
 	return true
@@ -158,6 +161,7 @@ func (c *canvas) paint(p Pixels, cols, rows int) bool {
 func (c *canvas) written() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.wrote = time.Now()
 	c.settled()
 }
 
@@ -184,6 +188,7 @@ func (c *canvas) check() {
 		for i := c.at(c.drawn.Min.X, y); i < c.at(c.drawn.Max.X, y); i += graphicskonst.GDIBytes {
 			if c.pix[i+3] != 0 && (c.pix[i] != seen[i] || c.pix[i+1] != seen[i+1] || c.pix[i+2] != seen[i+2]) {
 				c.win.blit(c.pix, c.shape.client, c.drawn)
+				c.trace.log("gdi: the console painted over pixel %d,%d, redrawn %v after the write", i/graphicskonst.GDIBytes%c.shape.client.X, i/graphicskonst.GDIBytes/c.shape.client.X, time.Since(c.wrote))
 				return
 			}
 		}

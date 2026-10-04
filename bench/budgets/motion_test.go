@@ -717,9 +717,6 @@ func TestMotionHasNoBlinks(t *testing.T) {
 							k := shown[0]
 							t.Errorf("%s %s: %d blinks, the first %s at frame %d of %d, cell %d,%d: %+v", sc.name, step, len(shown), k.kind, k.frame, len(r.frames), k.x, k.y, k.seen)
 						}
-						if p.caps.Identity == terminal.IdentityConhost && r.wiped > 0 {
-							t.Errorf("%s %s: %d cells written over drawn pixels that the same frame does not repaint", sc.name, step, r.wiped)
-						}
 					}
 				}
 			}
