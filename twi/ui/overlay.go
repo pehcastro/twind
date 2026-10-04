@@ -220,6 +220,16 @@ func (a *anchored) Node(children ...twi.NodeOption) twi.Node {
 	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(a.anchor), twi.OnPointerDownOutside(func() { a.set(false) })}, children...))
 }
 
+func (a *anchored) toggle(show func()) twi.NodeOption {
+	return a.click(func() {
+		if a.Open {
+			a.set(false)
+			return
+		}
+		show()
+	})
+}
+
 func (a *anchored) place(at phase, content func(placed []twi.NodeOption) twi.Node) twi.Node {
 	return a.float(a.rt, a.anchor.Bounds(), a.Side, a.Align, at, content)
 }

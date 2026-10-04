@@ -472,6 +472,12 @@ NativeSelect.Options \[\]string\
 NativeSelect.Value string\
 NativeSelect.OnChange func(string)\
 func (\*NativeSelect) Node(options ...twi.NodeOption) twi.Node\
+func (\*NativeSelect) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+NativeSelect.Side Side\
+NativeSelect.Align Alignment\
+NativeSelect.Key string\
+NativeSelect.Open bool\
+NativeSelect.OnOpenChange func(bool)\
 NativeSelect.Disabled bool\
 NativeSelect.Invalid bool
 

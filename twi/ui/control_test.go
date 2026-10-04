@@ -201,14 +201,14 @@ func TestControlStates(t *testing.T) {
 			return ring(s, light.Tokens[theme.Input])
 		}},
 		{"otp full and focused, without the runtime's focus-visible: the last slot keeps its idle ring", light, otp("1234", true), []int{2, 1}, inputRinged},
-		{"native select: a one-row box in the input ring", light, selector(false, false), nil, func(s style.ComputedStyle) bool {
+		{"native select: a one-row box in the input ring", light, selector(false, false), []int{0}, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input]) && s.Height == cells(1) && s.Radius == style.RadiusMd && s.Direction == style.Row
 		}},
-		{"native select invalid", light, selector(false, true), nil, func(s style.ComputedStyle) bool {
+		{"native select invalid", light, selector(false, true), []int{0}, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Destructive])
 		}},
-		{"native select disabled", light, selector(true, false), nil, faded},
-		{"native select chevron: muted at half opacity", light, selector(false, false), []int{1}, func(s style.ComputedStyle) bool {
+		{"native select disabled", light, selector(true, false), []int{0}, faded},
+		{"native select chevron: muted at half opacity", light, selector(false, false), []int{0, 1}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.MutedForeground] && s.Opacity == 0.5
 		}},
 		{"input: a full-width box in a half-row input border around its text row, two rows with pixels and three without", light, field(false, false), nil, func(s style.ComputedStyle) bool {
@@ -251,7 +251,7 @@ func TestControlStates(t *testing.T) {
 		}},
 		{"switch focused", light, switcher(true, false), root, nil, lightFocus},
 		{"toggle focused", light, toggle(Default, true, false), root, nil, lightFocus},
-		{"native select focused", light, selector(false, false), root, nil, lightFocus},
+		{"native select focused", light, selector(false, false), []int{0}, []int{0}, lightFocus},
 		{"input focused: the border turns ring, no halo", light, field(false, false), root, nil, func(s style.ComputedStyle) bool {
 			return hairline(s, light.Tokens[theme.Ring])
 		}},

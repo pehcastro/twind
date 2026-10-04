@@ -35,21 +35,14 @@ func (s *Select) Trigger(children ...twi.NodeOption) twi.Node {
 		case press(k) || k.Key == input.KeyArrowDown || k.Key == input.KeyArrowUp:
 			s.open()
 		case typed(k) && len(s.items) > 0:
-			s.change(s.items[typeahead(len(s.items), s.index(), k.Rune, func(i int) string { return s.items[i].label })].value)
+			s.change(s.items[typeahead(len(s.items), s.index(), k.Rune, s.itemLabel)].value)
 		default:
 			return false
 		}
 		return true
 	})
-	toggle := s.click(func() {
-		if s.Open {
-			s.set(false)
-			return
-		}
-		s.open()
-	})
 	return part(fade+"flex flex-row h-1 items-center justify-between gap-2 rounded-md px-1 whitespace-nowrap dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:text-muted-foreground [&_svg]:shrink-0 [&_svg]:pointer-events-none "+s.ring(inputRing, onSelf),
-		slices.Concat(keys, []twi.NodeOption{toggle, value, icon("⌄", "opacity-50")}, children))
+		slices.Concat(keys, []twi.NodeOption{s.toggle(s.open), value, icon("⌄", "opacity-50")}, children))
 }
 
 func (s *Select) Content(children ...twi.NodeOption) twi.Node {
@@ -58,11 +51,45 @@ func (s *Select) Content(children ...twi.NodeOption) twi.Node {
 	if s.label() != s.shown {
 		s.rt.Invalidate()
 	}
-	at := s.phase()
-	return s.place(at, func(placed []twi.NodeOption) twi.Node {
+	return s.list(func(k input.KeyEvent) bool {
+		return s.listKey(k, &s.active, len(s.items), s.itemLabel, func(i int) { s.choose(s.items[i].value) })
+	}, children)
+}
+
+func (s *Select) itemLabel(i int) string { return s.items[i].label }
+
+func (a *anchored) list(keys func(input.KeyEvent) bool, children []twi.NodeOption) twi.Node {
+	at := a.phase()
+	return a.place(at, func(placed []twi.NodeOption) twi.Node {
 		return part("flex flex-col shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md "+popMotion,
-			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(s.rt, s.key), placed, children))
+			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(a.rt, keys), placed, children))
 	})
+}
+
+func (a *anchored) listKey(k input.KeyEvent, active *int, n int, label func(int) string, choose func(int)) bool {
+	last := n - 1
+	switch {
+	case escape(k):
+		a.set(false)
+	case k.Key == input.KeyTab:
+	case last < 0:
+		return press(k) || typed(k) || arrow(k) != 0
+	case k.Key == input.KeyArrowDown:
+		*active = min(*active+1, last)
+	case k.Key == input.KeyArrowUp:
+		*active = max(*active-1, 0)
+	case k.Key == input.KeyHome:
+		*active = 0
+	case k.Key == input.KeyEnd:
+		*active = last
+	case press(k):
+		choose(*active)
+	case typed(k):
+		*active = typeahead(n, *active, k.Rune, label)
+	default:
+		return false
+	}
+	return true
 }
 
 func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node {
@@ -94,32 +121,6 @@ func SelectLabel(children ...twi.NodeOption) twi.Node {
 
 func SelectSeparator() twi.Node {
 	return DropdownMenuSeparator()
-}
-
-func (s *Select) key(k input.KeyEvent) bool {
-	last := len(s.items) - 1
-	switch {
-	case escape(k):
-		s.set(false)
-	case k.Key == input.KeyTab:
-	case last < 0:
-		return press(k) || typed(k) || arrow(k) != 0
-	case k.Key == input.KeyArrowDown:
-		s.active = min(s.active+1, last)
-	case k.Key == input.KeyArrowUp:
-		s.active = max(s.active-1, 0)
-	case k.Key == input.KeyHome:
-		s.active = 0
-	case k.Key == input.KeyEnd:
-		s.active = last
-	case press(k):
-		s.choose(s.items[s.active].value)
-	case typed(k):
-		s.active = typeahead(last+1, s.active, k.Rune, func(i int) string { return s.items[i].label })
-	default:
-		return false
-	}
-	return true
 }
 
 func (s *Select) open() {

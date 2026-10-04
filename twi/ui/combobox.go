@@ -37,18 +37,16 @@ func (c *Combobox) Input(options ...twi.NodeOption) twi.Node {
 		}
 	}
 	c.field.Placeholder = c.Placeholder
-	glyph, act := "⌄", func() {
-		if c.Open {
-			c.set(false)
-			return
-		}
-		c.show()
-	}
+	glyph, act := "⌄", c.toggle(c.show)
 	if c.ShowClear && c.field.Value() != "" {
-		glyph, act = "✕", func() { c.choose(selectItem{}) }
+		glyph, act = "✕", c.click(func() { c.choose(selectItem{}) })
 	}
-	trigger := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{c.click(act), icon(glyph, "")})
-	field := c.field.field("h-1 grow", []twi.NodeOption{twi.OnBlur(func() { c.set(false) })})
+	trigger := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{act, icon(glyph, "")})
+	field := c.field.field("h-1 grow", []twi.NodeOption{twi.OnBlur(func() { c.set(false) }), c.click(func() {
+		if !c.Open {
+			c.show()
+		}
+	})})
 	return group(&c.field.control, field, []Addon{InputGroupAddon(InlineEnd, trigger)}, append(options, keyDown(c.rt, c.key))...)
 }
 
