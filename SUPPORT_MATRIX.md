@@ -13,7 +13,7 @@ The target look is "H": real text in cells, with rounded borders, pills and soft
 | Windows Terminal | good | sixel for borders, pills, shadows |
 | WezTerm | good | sixel (kitty graphics is off by default) |
 | Contour | good | sixel |
-| PowerShell / cmd window (conhost) | good | GDI drawing on the console window |
+| PowerShell / cmd window (conhost) | good | overlay window over the console (no repaint flash, TWI-229); GDI on the console window as the fallback |
 | PowerShell + oh-my-posh | good | same as conhost; oh-my-posh changes nothing |
 | Rio with a newer conpty.dll | good | overlay window (Rio on Windows stretches sixel and draws kitty over text, TWI-227, TWI-228); `twind doctor -fix` installs ConPTY 1.25 |
 | Alacritty with a newer conpty.dll | good | overlay window; ConPTY 1.25 via `twind doctor -fix` |
