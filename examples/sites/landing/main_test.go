@@ -65,8 +65,8 @@ func TestTour(t *testing.T) {
 		{"store", store, []string{"Hearth mug", "Colour Lake", "Side", "Front", "Top", "16 oz"}, []string{"Your cart"}},
 		{"store-large", store, []string{"Add to cart · $32"}, []string{"Add to cart · $28"}},
 		{"store-cart", store, []string{"Your cart", "1 item", "Lake · 16 oz × 1", "Subtotal", "Added to cart"}, nil},
-		{"project", project, []string{"tern", "❯ tern r", "v2.4.0 · remote cache is here", "18.4k"}, []string{"tern run build", "318 passed"}},
-		{"project-output", project, []string{"❯ tern run build --watch", "tern 2.4.0 · 12 tasks in 3 packages", "318 passed"}, nil},
+		{"project", project, []string{"taskn", "❯ taskn ", "v2.4.0 · remote cache is here", "18.4k"}, []string{"taskn run build", "318 passed"}},
+		{"project-output", project, []string{"❯ taskn run build --watch", "taskn 2.4.0 · 12 tasks", "318 passed"}, nil},
 	} {
 		read := func(ext string) string {
 			b, err := os.ReadFile(filepath.Join(out, c.frame+ext))

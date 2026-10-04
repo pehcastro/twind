@@ -7,12 +7,12 @@ import (
 
 func newProject(k kit) page {
 	output := []struct{ mark, class, text string }{
-		{"◇", "text-muted-foreground", "tern 2.4.0 · 12 tasks in 3 packages"},
-		{"✓", "text-primary", "lint          0.8 s   cached"},
-		{"✓", "text-primary", "typecheck     2.1 s"},
-		{"✓", "text-primary", "test          4.6 s   318 passed"},
-		{"✓", "text-primary", "build         3.2 s"},
-		{"●", "text-chart-3", "watching 214 files for changes"},
+		{"◇", "text-muted-foreground", "taskn 2.4.0 · 12 tasks"},
+		{"✓", "text-primary", "lint       0.8 s  cached"},
+		{"✓", "text-primary", "typecheck  2.1 s"},
+		{"✓", "text-primary", "test       4.6 s  318 passed"},
+		{"✓", "text-primary", "build      3.2 s"},
+		{"●", "text-chart-3", "watching 214 files"},
 	}
 	step := 0
 	var tick *twi.Timer
@@ -24,10 +24,10 @@ func newProject(k kit) page {
 	installs := ui.NewTabs(k.rt)
 	installs.Value = "macOS"
 	commands := map[string]string{
-		"macOS":   "brew install tern",
-		"Linux":   "curl -fsSL https://tern.example/install | sh",
-		"Windows": "winget install tern",
-		"Go":      "go install tern.example/cmd/tern@latest",
+		"macOS":   "brew install taskn",
+		"Linux":   "curl -fsSL https://taskn.example/install | sh",
+		"Windows": "winget install taskn",
+		"Go":      "go install taskn.example/cmd/taskn@latest",
 	}
 	release := func(version, date, notes, class string) twi.Node {
 		return el("flex flex-row gap-2",
@@ -38,7 +38,7 @@ func newProject(k kit) page {
 	}
 	nav := func() twi.Node {
 		return navbar("bg-background/80 shadow-md",
-			el("flex flex-row items-center gap-1", txt("flex flex-row w-4 justify-center rounded-md bg-linear-to-br from-primary-300 to-primary-700 py-0.5 font-bold text-primary-foreground", "❯"), txt("font-bold py-0.5", "tern")),
+			el("flex flex-row items-center gap-1", txt("flex flex-row w-4 justify-center rounded-md bg-linear-to-br from-primary-300 to-primary-700 py-0.5 font-bold text-primary-foreground", "❯"), txt("font-bold py-0.5", "taskn")),
 			k.links("text-muted-foreground", "Install", "Changelog"), el("grow"),
 			el("flex flex-row items-center gap-1 rounded-full px-2 py-0.5 shadow-[0_0_0_1px_var(--color-border)] transition-colors duration-200 hover:bg-accent",
 				twi.Focusable(), txt("text-chart-3", "★"), twi.Text("Star"), txt("rounded-full bg-muted px-1 text-muted-foreground", "18.4k")),
@@ -66,12 +66,12 @@ func newProject(k kit) page {
 		}
 		command := commands[installs.Value]
 		return el("flex flex-col shrink-0 gap-3 pt-2",
-			section("flex-row items-center gap-4",
-				el("flex flex-col w-46 shrink-0 gap-1",
+			section("flex-row items-center gap-3",
+				el("flex flex-col w-58 shrink-0 gap-1",
 					el("flex flex-row", txt("rounded-full bg-primary/15 px-2 py-0.5 text-primary shadow-[0_0_0_1px_var(--color-primary)]", "v2.4.0 · remote cache is here →")),
-					el("pt-1", display("TERN", 2, "text-primary-300", "text-primary", "text-primary-600")),
+					el("pt-1", display("TASKN", 2, "text-primary-300", "text-primary", "text-primary-600")),
 					txt("font-bold", "A tiny task runner that knows what changed."),
-					txt("text-muted-foreground", "Describe tasks once, and tern runs only what is affected, in parallel, with a cache your whole team shares."),
+					txt("text-muted-foreground", "Describe tasks once, and taskn runs only what is affected, in parallel, with a cache your whole team shares."),
 					el("flex flex-row items-center gap-1 pt-1",
 						ui.Button(ui.Default, ui.SizeLG, twi.Class("rounded-lg py-0.5 shadow-lg"), twi.OnClick(func(*twi.Event) { k.rt.ScrollIntoView(sectionKey + "Install") }), twi.Text("Get started")),
 						ui.Button(ui.Ghost, ui.SizeLG, twi.Class("rounded-lg py-0.5"), twi.Text("Read the docs →"))),
@@ -112,7 +112,7 @@ func newProject(k kit) page {
 				release("v2.2.0", "May 2026", "Windows support, including long paths and console colours.", "text-muted-foreground"),
 				release("v2.0.0", "January 2026", "Tasks in one typed file; the old YAML format still loads.", "text-muted-foreground"),
 			),
-			footer("❯ tern", "A tiny task runner. MIT licensed.",
+			footer("❯ taskn", "A tiny task runner. MIT licensed.",
 				[]string{"Project", "Docs", "Changelog", "Roadmap"},
 				[]string{"Community", "Discussions", "Contributing", "Sponsors"},
 			),

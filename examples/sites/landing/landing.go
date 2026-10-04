@@ -30,7 +30,7 @@ func (s site) String() string {
 
 func (s site) address() string {
 	return [...]string{platform: "quarry.example", product: "plainsheet.example", studio: "atelier-nine.example",
-		event: "fieldwork.example/26", store: "hearth.example/mug", project: "tern.example"}[s]
+		event: "fieldwork.example/26", store: "hearth.example/mug", project: "taskn.example"}[s]
 }
 
 func (s site) theme() theme.Theme {
@@ -77,7 +77,7 @@ const (
 	typeDelay     = 60 * time.Millisecond
 	lineDelay     = 350 * time.Millisecond
 	loopPause     = 3 * time.Second
-	demoPrompt    = "tern run build --watch"
+	demoPrompt    = "taskn run build --watch"
 )
 
 func anchor(name string) twi.NodeOption { return twi.Key(sectionKey + name) }
