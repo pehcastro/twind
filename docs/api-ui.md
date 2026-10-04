@@ -247,6 +247,24 @@ func FieldDescription(children ...twi.NodeOption) twi.Node\
 func FieldError(children ...twi.NodeOption) twi.Node\
 func FieldSeparator(children ...twi.NodeOption) twi.Node
 
+## Form
+
+type FormValues struct\
+FormValues.Text map\[string\]string\
+FormValues.Checked map\[string\]bool\
+type Form struct\
+func NewForm(rt \*twi.Runtime) \*Form\
+Form.OnSubmit func(FormValues)\
+func (\*Form) Checkbox(key string, c \*Checkbox, rules ...func(bool) string)\
+func (\*Form) Control(key string, options ...twi.NodeOption) twi.Node\
+func (\*Form) Input(key string, in \*Input, rules ...func(string) string)\
+func (\*Form) Item(key string, children ...twi.NodeOption) twi.Node\
+func (\*Form) Label(key string, children ...twi.NodeOption) twi.Node\
+func (\*Form) Reset()\
+func (\*Form) Select(key string, s \*Select, rules ...func(string) string)\
+func (\*Form) Submit()\
+func (\*Form) Textarea(key string, t \*Textarea, rules ...func(string) string)
+
 ## Input
 
 type Input struct\

@@ -50,6 +50,7 @@ func All() Catalog {
 		"drawer-demo":           DrawerDemo,
 		"dropdown-menu-demo":    DropdownMenuDemo,
 		"field-demo":            FieldDemo,
+		"form-demo":             FormDemo,
 		"hover-card-demo":       HoverCardDemo,
 		"input-demo":            InputDemo,
 		"input-group-demo":      InputGroupDemo,

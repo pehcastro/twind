@@ -164,6 +164,15 @@ func props() map[string][]prop {
 			{"FieldLabel, FieldDescription, FieldError", "twi.Node", "the label, a hint and an error"},
 			{"FieldSeparator(children...)", "twi.Node", "a line, with optional text in the middle"},
 		},
+		"Form": {
+			{"Input, Textarea, Checkbox, Select(key, control, rules...)", "func", "register a control; a rule returns the message to show, or an empty string"},
+			{"OnSubmit", "func(ui.FormValues)", "called once when every rule passes, with Text and Checked keyed by name"},
+			{"Item(key, children...)", "twi.Node", "a vertical field that adds the message under its children"},
+			{"Label(key, children...)", "twi.Node", "a label that turns destructive while the field has a message"},
+			{"Control(key, options...)", "twi.Node", "the registered control; Enter in an Input submits"},
+			{"Submit()", "func()", "validates every field, focuses the first invalid one, or calls OnSubmit"},
+			{"Reset()", "func()", "restores the registered values and clears every message"},
+		},
 		"HoverCard": append(anchored, prop{"Content(children...)", "twi.Node", "shown while the pointer or the focus is on the trigger"}),
 		"Input": {
 			{"Placeholder", "string", "shown while it is empty"},

@@ -292,7 +292,7 @@ func TestSidebarScrolls(t *testing.T) {
 		d.Press("tab")
 	}
 	d.Press("enter")
-	for range 58 {
+	for range 59 {
 		d.Press("tab")
 	}
 	d.Press("enter")

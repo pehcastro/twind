@@ -2,6 +2,7 @@ package app
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/twind-dev/twind/twi"
@@ -47,6 +48,12 @@ type kit struct {
 	scroller                     *ui.MessageScroller
 	panes, stack                 *ui.Resizable
 	carousel                     *ui.Carousel
+	signup                       *ui.Form
+	handle, mail, secret         *ui.Input
+	plan                         *ui.Select
+	agree                        *ui.Checkbox
+	bio                          *ui.Textarea
+	joined                       string
 	sent                         int
 	chosen, pressed, side        string
 	person, panel, href          string
@@ -109,6 +116,25 @@ func newKit(rt *twi.Runtime, today time.Time) *kit {
 	k.scroller, k.sent = ui.NewMessageScroller(rt), len(chatLines())
 	k.panes, k.stack, k.carousel = ui.NewResizable(rt), ui.NewResizable(rt), ui.NewCarousel(rt)
 	k.panes.Sizes, k.stack.Orientation = []int{40, 60}, ui.Vertical
+	k.signup, k.handle, k.mail, k.secret = ui.NewForm(rt), ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt)
+	k.plan, k.agree, k.bio, k.joined = ui.NewSelect(rt), ui.NewCheckbox(rt), ui.NewTextarea(rt), "not yet"
+	k.handle.Placeholder, k.mail.Placeholder, k.secret.Placeholder, k.plan.Placeholder = "shadcn", "m@example.com", "8 or more characters", "Select a plan"
+	k.bio.Placeholder = "A line about you"
+	failing := func(bad bool, message string) string {
+		if bad {
+			return message
+		}
+		return ""
+	}
+	k.signup.Input("username", k.handle, func(v string) string { return failing(len(v) < shortestUsername, "Use 2 or more characters.") })
+	k.signup.Input("email", k.mail,
+		func(v string) string { return failing(v == "", "Email is required.") },
+		func(v string) string { return failing(!strings.Contains(v, "@"), "Enter a valid email.") })
+	k.signup.Input("password", k.secret, func(v string) string { return failing(len(v) < shortestPassword, "Use 8 or more characters.") })
+	k.signup.Textarea("bio", k.bio, func(v string) string { return failing(len(v) > longestBio, "Keep it under 160.") })
+	k.signup.Select("plan", k.plan, func(v string) string { return failing(v == "", "Choose a plan.") })
+	k.signup.Checkbox("terms", k.agree, func(on bool) string { return failing(!on, "Accept the terms first.") })
+	k.signup.OnSubmit = func(v ui.FormValues) { k.joined = v.Text["username"] + " on " + v.Text["plan"] }
 	return k
 }
 
@@ -139,6 +165,7 @@ func components() []page {
 		{"dropdown menu", dropdownMenuPage, nil},
 		{"empty", emptyPage, nil},
 		{"field", fieldPage, nil},
+		{"form", formPage, []key{{"enter", "submit"}}},
 		{"hover card", hoverCardPage, nil},
 		{"input", inputPage, nil},
 		{"input group", inputGroupPage, nil},
@@ -286,6 +313,24 @@ func fieldPage(c controls) twi.Node {
 				ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Card number")), k.bad.Node(), ui.FieldError(twi.Text("Enter a valid card number"))),
 			),
 		))
+}
+
+func formPage(c controls) twi.Node {
+	f, k := c.kit.signup, c.kit
+	text := func(key, label string) twi.Node {
+		return f.Item(key, f.Label(key, twi.Text(label)), f.Control(key))
+	}
+	return show("Form", "rules per field; a message on blur and on submit, focus on the first error",
+		el("flex flex-row gap-3",
+			el("w-28 flex flex-col gap-1", text("username", "Username"), text("email", "Email")),
+			el("w-28 flex flex-col gap-1",
+				text("password", "Password"),
+				f.Item("plan", f.Label("plan", twi.Text("Plan")), k.plan.Node(twi.Class("w-full"), f.Control("plan", twi.Class("w-full")), k.plan.Content(k.plan.Item("free", "Free"), k.plan.Item("pro", "Pro"), k.plan.Item("team", "Team")))),
+				f.Item("terms", ui.Field(ui.Horizontal, f.Control("terms"), f.Label("terms", twi.Text("Accept the terms")))),
+			),
+			el("w-28 flex flex-col", text("bio", "Bio")),
+		),
+		row(c.uiButton("form-submit", ui.Default, "Create account", func(*state) { f.Submit() }), c.uiButton("form-reset", ui.Outline, "Reset", func(*state) { f.Reset() }), txt("text-muted-foreground", "joined: "+k.joined)))
 }
 
 func itemPage(controls) twi.Node {

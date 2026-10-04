@@ -20,13 +20,16 @@ import (
 //go:generate go run github.com/twind-dev/twind/internal/twirgen
 
 const (
-	listRows   = 40
-	cardDelay  = 700 * time.Millisecond
-	cardShown  = 3 * time.Second
-	loadFor    = 2 * time.Second
-	focusRing  = " focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"
-	pill       = "shrink-0 rounded-full px-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-	activePill = " data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
+	listRows         = 40
+	cardDelay        = 700 * time.Millisecond
+	cardShown        = 3 * time.Second
+	loadFor          = 2 * time.Second
+	shortestUsername = 2
+	shortestPassword = 8
+	longestBio       = 160
+	focusRing        = " focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"
+	pill             = "shrink-0 rounded-full px-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+	activePill       = " data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
 )
 
 type Env struct {
