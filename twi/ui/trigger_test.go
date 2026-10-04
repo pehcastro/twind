@@ -174,6 +174,60 @@ func TestNavigationMenuOpensFromTheWholeTrigger(t *testing.T) {
 	})
 }
 
+func TestListsLeaveAClippingCard(t *testing.T) {
+	var (
+		native *NativeSelect
+		sel    *Select
+		combo  *Combobox
+	)
+	d := overlayDriver(t, 80, 16, func(rt *twi.Runtime) func() twi.Node {
+		native, sel, combo = NewNativeSelect(rt), NewSelect(rt), NewCombobox(rt)
+		native.Options, native.Value = []string{"Todo", "In Progress", "Done", "Cancelled"}, "Todo"
+		sel.Placeholder, combo.Placeholder = "Pick a fruit", "Pick a framework"
+		card := func(child twi.Node) twi.Node {
+			return twi.Element(twi.Class("flex flex-row h-5 items-center overflow-hidden rounded-lg border px-1"), child)
+		}
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-row gap-1 p-1 h-full bg-background text-foreground"),
+				card(native.Node(twi.Class("w-20"))),
+				card(sel.Node(sel.Trigger(twi.Class("w-20")), sel.Content(sel.Item("apple", "Apple"), sel.Item("kiwi", "Kiwi"), sel.Item("mango", "Mango"), sel.Item("plum", "Plum")))),
+				card(combo.Node(twi.Class("w-24"), combo.Input(), combo.Content(combo.Item("next", "Next.js"), combo.Item("nuxt", "Nuxt.js"), combo.Item("remix", "Remix"), combo.Item("astro", "Astro")))),
+			)
+		}
+	})
+	for _, c := range []struct{ label, last string }{{"Todo", "Cancelled"}, {"Pick a fruit", "Plum"}, {"Pick a framework", "Astro"}} {
+		x, y, _ := at(d.Frame(), c.label)
+		settledClick(d, x+1, y)
+		lx, ly, ok := at(d.Frame(), c.last)
+		switch {
+		case !ok || ly < 6:
+			t.Errorf("the %s list is clipped by its card:\n%s", c.label, d.Frame().Text())
+		case lx < x-1:
+			t.Errorf("the %s list starts left of its trigger at %d, not %d:\n%s", c.label, lx, x, d.Frame().Text())
+		default:
+			t.Logf("the %s list over its card:\n%s", c.label, d.Frame().Text())
+		}
+		hit(d, "escape")
+	}
+}
+
+func TestNativeSelectListFlipsAboveNearTheBottom(t *testing.T) {
+	d := overlayDriver(t, 40, 10, func(rt *twi.Runtime) func() twi.Node {
+		s := NewNativeSelect(rt)
+		s.Options, s.Value = []string{"Todo", "In Progress", "Done", "Cancelled"}, "Todo"
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col justify-end p-1 h-full bg-background text-foreground"),
+				twi.Element(twi.Class("flex flex-row overflow-hidden rounded-lg border px-1"), s.Node(twi.Class("w-20"))))
+		}
+	})
+	x, y, _ := at(d.Frame(), "Todo")
+	settledClick(d, x+1, y)
+	if _, cy, ok := at(d.Frame(), "Cancelled"); !ok || cy >= y {
+		t.Errorf("the list near the bottom does not open above its trigger on row %d:\n%s", y, d.Frame().Text())
+	}
+	t.Logf("flipped above:\n%s", d.Frame().Text())
+}
+
 func TestDatePickerOpensFromTheWholeTrigger(t *testing.T) {
 	var pop *Popover
 	d := overlayDriver(t, 60, 40, func(rt *twi.Runtime) func() twi.Node {

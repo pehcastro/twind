@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 	"slices"
+	"strings"
 
 	konst "github.com/twind-dev/twind/internal/konst/ui"
 	"github.com/twind-dev/twind/twi"
@@ -146,22 +147,19 @@ type floating struct {
 }
 
 func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align Alignment, at phase, content func(placed []twi.NodeOption) twi.Node) twi.Node {
-	positioner, holder := "fixed z-50 flex", "flex flex-col shrink-0"
-	if f.anchorWidth {
-		positioner, holder = "absolute z-50 flex min-w-full", holder+" min-w-full"
-	}
 	var children []twi.NodeOption
 	if at != gone {
 		f.at, side = f.spot(rt.Viewport(), from, side, align)
-		if f.anchorWidth {
-			f.at = f.at.Sub(f.anchor.Bounds().Min)
-		}
-		children = []twi.NodeOption{part(holder, []twi.NodeOption{twi.Measure(f.box), content([]twi.NodeOption{
+		held := []twi.NodeOption{twi.Measure(f.box), content([]twi.NodeOption{
 			twi.Data("side", pick("side", side, map[Side]string{Bottom: "bottom", Top: "top", Right: "right", Left: "left"})),
 			twi.Data("align", pick("align", align, map[Alignment]string{Start: "start", Center: "center", End: "end"})),
-		})})}
+		})}
+		if f.anchorWidth {
+			held = append(held, part("h-0 overflow-hidden whitespace-pre", []twi.NodeOption{twi.Text(strings.Repeat(" ", from.Dx()))}))
+		}
+		children = []twi.NodeOption{part("flex flex-col shrink-0", held)}
 	}
-	return part(positioner, append([]twi.NodeOption{twi.At(f.at.X, f.at.Y)}, children...))
+	return part("fixed z-50 flex", append([]twi.NodeOption{twi.At(f.at.X, f.at.Y)}, children...))
 }
 
 func (f *floating) spot(view, anchor image.Rectangle, side Side, align Alignment) (image.Point, Side) {
