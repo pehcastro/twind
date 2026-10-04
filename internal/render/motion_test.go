@@ -142,12 +142,11 @@ func TestPresenceDialogZoomIn(t *testing.T) {
 			}
 			continue
 		}
-		b := final.Bounds
-		if off := func(a, b int) bool { return a-b > 1 || b-a > 1 }; d.Bounds.W > b.W || d.Bounds.H > b.H || off(2*d.Bounds.X+d.Bounds.W, 2*b.X+b.W) || off(2*d.Bounds.Y+d.Bounds.H, 2*b.Y+b.H) {
-			t.Errorf("%v after mount bounds %+v, want at most %+v about the same centre, within half a cell", after, d.Bounds, b)
+		if d.Bounds != final.Bounds || d.Children[0].Bounds != final.Children[0].Bounds {
+			t.Errorf("%v after mount bounds %+v title %+v, want %+v %+v: a zoom moves no cell", after, d.Bounds, d.Children[0].Bounds, final.Bounds, final.Children[0].Bounds)
 		}
-		if title := d.Children[0].Bounds; title.W != final.Children[0].Bounds.W || title.X < d.Bounds.X || title.Y < d.Bounds.Y {
-			t.Errorf("%v after mount title %+v escapes the zoomed dialog %+v or changed width", after, title, d.Bounds)
+		if d.Shrink <= 0 || d.Shrink > 0.05+1e-9 {
+			t.Errorf("%v after mount shrink %v, want above 0 and at most 0.05 (zoom-in-95)", after, d.Shrink)
 		}
 	}
 	if opacities[0] != 0 || !(opacities[1] > 0 && opacities[1] < opacities[2] && opacities[2] < 1) {
@@ -189,8 +188,8 @@ func TestPresenceExitKeepsNode(t *testing.T) {
 		if step.kids == 2 {
 			d := root.Children[1]
 			t.Logf("  exiting dialog opacity %.3f bounds %+v", d.Opacity, d.Bounds)
-			if step.after > 0 && (d.Opacity <= 0 || d.Opacity >= 1 || d.Bounds.W >= 60) {
-				t.Errorf("%v after removal dialog opacity %v width %d, want fading and shrinking", step.after, d.Opacity, d.Bounds.W)
+			if step.after > 0 && (d.Opacity <= 0 || d.Opacity >= 1 || d.Shrink <= 0 || d.Bounds.W != 60) {
+				t.Errorf("%v after removal dialog opacity %v shrink %v width %d, want fading, shrinking as pixels and 60 wide", step.after, d.Opacity, d.Shrink, d.Bounds.W)
 			}
 			if r.tree.Reaches([]int{1}) {
 				t.Errorf("an exiting node is reachable by its old path")

@@ -235,6 +235,9 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	for _, r := range s.runs {
 		s.disown(r.X, r.Y, r.Len)
 	}
+	if s.Graphics == terminal.GraphicsGDI && s.Identity == terminal.IdentityConhost {
+		s.repaintUnderWrites()
+	}
 	if err := s.writer.Runs(s.want, s.runs); err != nil {
 		return err
 	}

@@ -50,6 +50,7 @@ type canvas struct {
 	since   time.Time
 	asked   bool
 	settle  time.Time
+	repaint time.Time
 	stopped bool
 	wake    chan struct{}
 	done    chan struct{}
@@ -161,7 +162,7 @@ func (c *canvas) written() {
 }
 
 func (c *canvas) settled() {
-	c.settle = time.Now().Add(konst.GDISettle)
+	c.settle, c.repaint = time.Now().Add(konst.GDISettle), time.Now().Add(konst.GDIRepaintWindow)
 	select {
 	case c.wake <- struct{}{}:
 	default:
@@ -203,7 +204,10 @@ func (c *canvas) run() {
 		}
 		c.mu.Lock()
 		poll := konst.GDIIdlePoll
-		if time.Now().Before(c.settle) {
+		switch now := time.Now(); {
+		case now.Before(c.repaint):
+			poll = konst.GDIRepaintPoll
+		case now.Before(c.settle):
 			poll = konst.GDISettlePoll
 		}
 		c.mu.Unlock()

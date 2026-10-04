@@ -374,6 +374,7 @@ func (m *motionModel) paint(p *terminal.Pixels) {
 }
 
 type motionLook struct {
+	text   string
 	glyph  string
 	pixels bool
 	colour [3]int
@@ -395,7 +396,7 @@ func (m *motionModel) state() []motionLook {
 	for i, c := range m.cells {
 		l := &looks[i]
 		if strings.TrimSpace(c.text) != "" {
-			l.glyph = fmt.Sprint(c.text, c.fg, c.attr)
+			l.text, l.glyph = c.text, fmt.Sprint(c.text, c.fg, c.attr)
 		}
 		bg := [3]int{int(c.bg >> 16 & 0xff), int(c.bg >> 8 & 0xff), int(c.bg & 0xff)}
 		x, y := i%m.size.X, i/m.size.X
@@ -690,6 +691,39 @@ func BenchmarkMotion(b *testing.B) {
 				})
 			}
 		}
+	}
+}
+
+func TestMotionHasNoBlinks(t *testing.T) {
+	sheet, err := docsapp.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hoverFollowsLayout := map[string]bool{"accordion": true}
+	for _, p := range motionPaths() {
+		t.Run(p.name, func(t *testing.T) {
+			t.Parallel()
+			for _, sc := range motionScenarios() {
+				for step, results := range runMotion(t, clock(t), sheet, p, sc, 1) {
+					for _, r := range results {
+						var shown []motionBlink
+						for _, k := range r.blinks {
+							if hoverFollowsLayout[sc.name] && k.kind == "glyph gone" && k.seen[0].text == k.seen[1].text {
+								continue
+							}
+							shown = append(shown, k)
+						}
+						if len(shown) > 0 {
+							k := shown[0]
+							t.Errorf("%s %s: %d blinks, the first %s at frame %d of %d, cell %d,%d: %+v", sc.name, step, len(shown), k.kind, k.frame, len(r.frames), k.x, k.y, k.seen)
+						}
+						if p.caps.Identity == terminal.IdentityConhost && r.wiped > 0 {
+							t.Errorf("%s %s: %d cells written over drawn pixels that the same frame does not repaint", sc.name, step, r.wiped)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 

@@ -208,6 +208,38 @@ func TestGDIRedrawsWhatTheConsoleRepainted(t *testing.T) {
 	}
 }
 
+func TestGDIRedrawsSoonAfterTheConsoleRepaintsAWrite(t *testing.T) {
+	win := &fakeWindow{size: image.Pt(800, 480)}
+	term := conhostFake(win)
+	b, err := enter(term, term.tty, Options{}, offer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ring := image.Rect(1, 1, 9, 2)
+	b.Paint(Pixels{Cell: b.Capabilities.CellPixels, Grid: image.Pt(80, 24), Clear: true, Tiles: []Tile{{Cells: ring, Pix: opaque(ring, b.Capabilities.CellPixels)}}})
+	var slowest time.Duration
+	for range 5 {
+		blits, _ := win.counts()
+		if _, err := b.Write([]byte("x")); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(konst.GDIRepaintPoll)
+		win.repaint(image.Rect(30, 20, 40, 40))
+		repainted := time.Now()
+		for now, _ := win.counts(); now == blits && time.Since(repainted) < konst.GDISettle; now, _ = win.counts() {
+			time.Sleep(time.Millisecond / 4)
+		}
+		slowest = max(slowest, time.Since(repainted))
+	}
+	t.Logf("the ring came back at most %v after the console repainted over it", slowest)
+	if slowest > konst.GDISettlePoll/2 {
+		t.Errorf("the ring came back %v after the console repainted over it, want within %v: the flash after every frame lasts until the slow poll", slowest, konst.GDISettlePoll/2)
+	}
+	if err := b.Exit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (w *fakeWindow) resize(size image.Point) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

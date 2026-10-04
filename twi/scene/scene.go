@@ -36,6 +36,7 @@ type Node struct {
 	TopLayer                               int
 	Opacity                                float64
 	Turn                                   float64
+	Shrink                                 float64
 	Position                               layout.Position
 	Scroll                                 bool
 	HidesOverflow                          bool

@@ -16,7 +16,7 @@ func cycles() uint64 {
 	return n
 }
 
-func clock(b *testing.B) func() time.Duration {
+func clock(b testing.TB) func() time.Duration {
 	kernel := windows.NewLazySystemDLL("kernel32.dll")
 	counter := kernel.NewProc("QueryPerformanceCounter").Addr()
 	var perSecond int64

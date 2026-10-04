@@ -105,6 +105,8 @@ const (
 const (
 	GDISettle          = 300 * time.Millisecond
 	GDISettlePoll      = 15 * time.Millisecond
+	GDIRepaintPoll     = 2 * time.Millisecond
+	GDIRepaintWindow   = 60 * time.Millisecond
 	GDIIdlePoll        = 250 * time.Millisecond
 	GDIResizeSettle    = 100 * time.Millisecond
 	DPIPerMonitorAware = ^uintptr(3)

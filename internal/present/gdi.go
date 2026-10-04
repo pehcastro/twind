@@ -29,12 +29,27 @@ func (s *Screen) gdi() {
 	}
 	s.gdiPix = slices.Grow(s.gdiPix[:0], len(s.sending)*s.band*konst.TileColumns*s.Cell.X*s.Cell.Y*graphicskonst.GDIBytes)
 	for _, t := range s.sending {
-		at := len(s.gdiPix)
-		s.lineRuns = s.tileLines(t, s.lineRuns[:0])
-		s.masks[t], s.sent[t] = s.mask(t), s.hashes[t]
-		s.gdiPix = graphics.GDIPixels(s.gdiPix, s.lineRuns, s.Cell, s.masks[t])
-		s.strips(t, s.gdiPix[at:])
-		s.painting.Tiles = append(s.painting.Tiles, terminal.Tile{Cells: s.tiles[t], Pix: s.gdiPix[at:len(s.gdiPix):len(s.gdiPix)]})
+		s.attach(t)
+	}
+}
+
+func (s *Screen) attach(t int) {
+	at := len(s.gdiPix)
+	s.lineRuns = s.tileLines(t, s.lineRuns[:0])
+	s.masks[t], s.sent[t] = s.mask(t), s.hashes[t]
+	s.gdiPix = graphics.GDIPixels(s.gdiPix, s.lineRuns, s.Cell, s.masks[t])
+	s.strips(t, s.gdiPix[at:])
+	s.painting.Tiles = append(s.painting.Tiles, terminal.Tile{Cells: s.tiles[t], Pix: s.gdiPix[at:len(s.gdiPix):len(s.gdiPix)]})
+}
+
+func (s *Screen) repaintUnderWrites() {
+	for _, r := range s.runs {
+		for x := r.X; x < r.X+r.Len; x++ {
+			if t := s.tileAt(x, r.Y); s.sent[t] != 0 && !slices.Contains(s.sending, t) {
+				s.sending = append(s.sending, t)
+				s.attach(t)
+			}
+		}
 	}
 }
 

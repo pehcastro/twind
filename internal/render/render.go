@@ -331,7 +331,7 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 	}
 	dx := int(math.Round(translated(st.TranslateX, n.Bounds.W) + translated(m.pose.TranslateX, n.Bounds.W) + m.lift.X))
 	dy := int(math.Round(translated(st.TranslateY, n.Bounds.H) + translated(m.pose.TranslateY, n.Bounds.H) + m.lift.Y))
-	sx, sy := st.ScaleX*m.lift.Scale*m.pose.Scale, st.ScaleY*m.lift.Scale*m.pose.Scale
+	sx, sy := st.ScaleX, st.ScaleY
 	transformed := dx != 0 || dy != 0 || sx != 1 || sy != 1
 	if transformed {
 		r.on, r.flow = true, layout.Rect{X: -lkonst.Unbounded / 2, Y: -lkonst.Unbounded / 2, W: lkonst.Unbounded, H: lkonst.Unbounded}
@@ -362,7 +362,7 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 	if transformed {
 		transform(&n, dx, dy, sx, sy)
 	}
-	n.Turn = m.pose.Turn
+	n.Turn, n.Shrink = m.pose.Turn, 1-m.lift.Scale*m.pose.Scale
 	n.Enclose()
 	if k := s.computed.Animation.Keyframes; k != style.KeyframesNone && k != style.KeyframesExit {
 		t.motion.Unseen(s.key, n.Visibility == style.Hidden || n.Bounds.W <= 0 || n.Bounds.H <= 0 || k == style.KeyframesSpin && !t.graphics)

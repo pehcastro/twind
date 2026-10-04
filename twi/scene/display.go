@@ -23,7 +23,7 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 	if bounds.Empty() {
 		return bounds, 0, false
 	}
-	start, plain := len(f.ops), n != f.root && n.Gradient.Kind != style.GradientLinear && n.Turn == 0
+	start, plain := len(f.ops), n != f.root && n.Gradient.Kind != style.GradientLinear && n.Turn == 0 && n.Shrink == 0
 	var st *stamp
 	hit, visual := false, bounds
 	if len(n.Shadows) > 0 {
@@ -84,8 +84,12 @@ func bordered(b *Border) bool { return b.Style != style.BorderNone && shows(b.Co
 
 func (f *Frame) shapes(n *Node, bounds, visual image.Rectangle, origin image.Point) image.Rectangle {
 	edges, start, bordered := &n.Border, len(f.ops), bordered(&n.Border)
-	shape := rect(bounds)
+	shape, scale := rect(bounds), 1-n.Shrink
+	shape.X, shape.Y, shape.W, shape.H = shape.X+shape.W*n.Shrink/2, shape.Y+shape.H*n.Shrink/2, shape.W*scale, shape.H*scale
 	outer := raster.Box{Rect: shape, Radii: f.radii(n.Border.Radius)}
+	for c := range outer.Radii {
+		outer.Radii[c] *= scale
+	}
 	for i := len(n.Shadows) - 1; i >= 0; i-- {
 		if s := &n.Shadows[i]; shows(s.Color) {
 			f.put(raster.Shadow, outer, s.Color.RGBA).Shadow = f.shadow(*s)

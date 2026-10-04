@@ -34,12 +34,14 @@ func TestClassPresenceEnter(t *testing.T) {
 		opacities = append(opacities, d.Opacity)
 		r.wake(after < 200*time.Millisecond)
 		switch {
-		case after >= 200*time.Millisecond && (d.Opacity != 1 || d.Bounds != final.Bounds):
-			t.Errorf("%v after mount opacity %v bounds %+v, want 1 %+v", after, d.Opacity, d.Bounds, final.Bounds)
-		case after == 0 && (d.Opacity != 0 || d.Bounds.W != 57):
-			t.Errorf("at mount opacity %v width %d, want 0 and 57 (zoom-in-95 of 60)", d.Opacity, d.Bounds.W)
-		case after > 0 && after < 200*time.Millisecond && (d.Bounds.W > final.Bounds.W || d.Bounds.W < 57):
-			t.Errorf("%v after mount width %d, want between 57 and 60", after, d.Bounds.W)
+		case d.Bounds != final.Bounds || d.Children[0].Bounds != final.Children[0].Bounds:
+			t.Errorf("%v after mount bounds %+v text %+v, want %+v %+v: a zoom moves no cell", after, d.Bounds, d.Children[0].Bounds, final.Bounds, final.Children[0].Bounds)
+		case after >= 200*time.Millisecond && (d.Opacity != 1 || d.Shrink != 0):
+			t.Errorf("%v after mount opacity %v shrink %v, want 1 and 0", after, d.Opacity, d.Shrink)
+		case after == 0 && (d.Opacity != 0 || math.Abs(d.Shrink-0.05) > 1e-9):
+			t.Errorf("at mount opacity %v shrink %v, want 0 and 0.05 (zoom-in-95)", d.Opacity, d.Shrink)
+		case after > 0 && after < 200*time.Millisecond && (d.Shrink < 0 || d.Shrink > 0.05):
+			t.Errorf("%v after mount shrink %v, want between 0 and 0.05", after, d.Shrink)
 		}
 	}
 	for i := 1; i < 5; i++ {
