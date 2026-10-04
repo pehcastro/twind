@@ -18,6 +18,7 @@ The target look is "H": real text in cells, with rounded borders, pills and soft
 | Rio with a newer conpty.dll | good | overlay window (Rio on Windows stretches sixel and draws kitty over text, TWI-227, TWI-228); `twind doctor -fix` installs ConPTY 1.25 |
 | Alacritty with a newer conpty.dll | good | overlay window; ConPTY 1.25 via `twind doctor -fix` |
 | VS Code (terminal.integrated.enableImages on) | good | sixel |
+| VS Code, images off (the default) | fair | cells look: no images, every cell an explicit colour, nothing printed as text (measured headless, TWI-248); theme swatches show as empty rings, a cells-look gap in every terminal |
 | Zed terminal (Windows) | good | overlay window over the panel, placed by reading faint marker cells off the screen (no clicks); follows Zed's own cell edges |
 | Rio (stock) | fair | overlay window gives the look; no mouse until `twind doctor -fix` |
 | mintty (Git Bash, MSYS2 zsh) | bad | no mouse; overlay works but drifts |
