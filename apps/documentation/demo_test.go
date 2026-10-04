@@ -117,6 +117,29 @@ func TestDialogShowsNoPageThroughItWhileItMoves(t *testing.T) {
 	}
 }
 
+func TestSheetDemoToastClearsTheSheet(t *testing.T) {
+	d, _, _ := framed(t, "sheet")
+	x, y := spot(t, d, "Right")
+	d.Click(x+1, y)
+	d.Advance(time.Second)
+	x, y = spot(t, d, "Save changes")
+	d.Click(x+1, y)
+	d.Advance(time.Second)
+	t.Logf("right sheet, Save changes pressed, 120x36:\n%s", d.Frame().Text())
+	if !strings.Contains(d.Frame().Text(), "Profile saved") {
+		t.Fatalf("Save changes shows no toast and keeps the sheet open:\n%s", d.Frame().Text())
+	}
+	sheetX, _ := spot(t, d, "Edit profile")
+	tx, ty := spot(t, d, "Profile saved")
+	row := []rune(strings.Split(d.Frame().Text(), "\n")[ty])
+	if end := slices.Index(row[tx:], '│') + tx; end < tx || end >= sheetX-2 {
+		t.Errorf("the toast's right border at %d reaches the sheet, whose title starts at %d:\n%s", end, sheetX, d.Frame().Text())
+	}
+	for _, label := range []string{"Save changes", "Close"} {
+		spot(t, d, label)
+	}
+}
+
 func TestDrawerDemoFitsAndDrags(t *testing.T) {
 	d, _, _ := framed(t, "drawer")
 	x, y := spot(t, d, "Open drawer")

@@ -16,6 +16,8 @@ const (
 	drawer
 )
 
+const sideWidth = "w-3/4 max-w-48"
+
 type Dialog struct {
 	overlay
 	kind          dialogKind
@@ -54,8 +56,11 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	if d.kind != alert && at == opened {
 		children = append(children, twi.OnPointerDownOutside(func() { d.set(false) }))
 	}
+	if d.side == Bottom && (d.kind == sheet || d.kind == drawer) {
+		children = append(children, twi.Measure(d.box))
+	}
 	if d.kind == drawer && d.side == Bottom {
-		children = append([]twi.NodeOption{d.handle(), twi.Measure(d.box)}, children...)
+		children = append([]twi.NodeOption{d.handle()}, children...)
 		if d.drag.moved > 0 {
 			children = append(children, twi.At(0, d.drag.top+d.drag.moved))
 		}
@@ -66,8 +71,8 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 		return part("absolute", nil)
 	}
 	edge := pick("sheet", d.side, map[Side]string{
-		Right:  "h-full w-3/4 max-w-48 border-l",
-		Left:   "h-full w-3/4 max-w-48 border-r",
+		Right:  "h-full border-l " + sideWidth,
+		Left:   "h-full border-r " + sideWidth,
 		Top:    "w-full border-b",
 		Bottom: "w-full border-t",
 	})

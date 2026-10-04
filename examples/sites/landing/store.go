@@ -70,6 +70,7 @@ func newStore(k kit) page {
 	var cart []line
 	picked, sized, shown, qty := 0, 1, 0, 1
 	drawer := ui.NewSheet(k.rt, ui.Right)
+	k.toast.Avoid(drawer)
 	pick := func(set func()) twi.NodeOption {
 		return twi.OnClick(func(*twi.Event) {
 			set()

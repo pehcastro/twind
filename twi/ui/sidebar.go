@@ -117,5 +117,5 @@ func SidebarMenuSubButton(active bool, children ...twi.NodeOption) twi.Node {
 }
 
 func ScrollArea(children ...twi.NodeOption) twi.Node {
-	return part("relative flex flex-col overflow-y-auto pr-1 "+focusRing, append([]twi.NodeOption{twi.Focusable()}, children...))
+	return part("relative flex flex-col overflow-y-auto pr-1 focus-visible:border-ring", append([]twi.NodeOption{twi.Focusable()}, children...))
 }

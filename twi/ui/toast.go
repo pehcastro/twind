@@ -38,9 +38,19 @@ type Toaster struct {
 	toasts   []*toast
 	made     int
 	hovered  bool
+	panels   []*Dialog
 }
 
 func NewToaster(rt *twi.Runtime) *Toaster { return &Toaster{Duration: konst.ToastDuration, rt: rt} }
+
+func (t *Toaster) Avoid(panels ...*Dialog) {
+	for _, p := range panels {
+		if p.kind != sheet && p.kind != drawer {
+			panic("ui: a toaster avoids sheets and drawers only")
+		}
+	}
+	t.panels = append(t.panels, panels...)
+}
 
 func (t *Toaster) Show(title, description string, action ToastAction) {
 	t.add(ToastDefault, title, description, action)
@@ -126,7 +136,27 @@ func (t *Toaster) Node() twi.Node {
 	if t.hovered {
 		gap = "gap-1"
 	}
-	return part("fixed bottom-1 inset-x-2 z-50 flex flex-row justify-end pointer-events-none", []twi.NodeOption{part("flex flex-col w-52 min-w-0 pointer-events-auto "+gap, children)})
+	var before, after []twi.NodeOption
+	top := 0
+	for _, p := range t.panels {
+		if !p.Open {
+			continue
+		}
+		switch p.side {
+		case Left:
+			before = []twi.NodeOption{part("h-full shrink-0 "+sideWidth, nil)}
+		case Right:
+			after = []twi.NodeOption{part("h-full shrink-0 "+sideWidth, nil)}
+		case Bottom:
+			if box := p.box.Bounds(); !box.Empty() {
+				top = min(top, box.Min.Y-t.rt.Viewport().Max.Y)
+			}
+		case Top:
+		}
+	}
+	stack := part("flex flex-col w-52 max-w-full min-w-0 pointer-events-auto "+gap, children)
+	return part("fixed w-full h-full z-50 flex flex-row pointer-events-none", slices.Concat([]twi.NodeOption{twi.At(0, top)}, before,
+		[]twi.NodeOption{part("flex flex-col grow min-w-0 justify-end items-end px-2 pb-1", []twi.NodeOption{stack})}, after))
 }
 
 func (t *Toaster) toast(s *toast) twi.Node {

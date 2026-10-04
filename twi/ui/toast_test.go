@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -136,6 +137,86 @@ func TestToastStack(t *testing.T) {
 	d.Press("x")
 	expect("a title holding escape sequences reaches the screen as text", has("red") && has("title") && d.Frame().Cells().At(0, 0).Grapheme != "\x1b")
 	t.Logf("sanitised title:\n%s", d.Frame().Text())
+}
+
+func TestToastClearsOpenPanels(t *testing.T) {
+	var (
+		toaster             *Toaster
+		right, left, drawer *Dialog
+	)
+	d := overlayDriver(t, 100, 30, func(rt *twi.Runtime) func() twi.Node {
+		toaster, right, left, drawer = NewToaster(rt), NewSheet(rt, Right), NewSheet(rt, Left), NewDrawer(rt, Bottom)
+		toaster.Avoid(right, left, drawer)
+		panel := func(p *Dialog, title, action string) twi.Node {
+			return p.Content(p.Header(p.Title(twi.Text(title))), p.Footer(Button(Default, SizeDefault, twi.Text(action))))
+		}
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col p-1 h-full bg-background text-foreground"),
+				twi.Text("page"), panel(right, "Your cart", "Checkout"), panel(left, "Filters", "Leftward"), panel(drawer, "Move goal", "Submit"), toaster.Node())
+		}
+	})
+	expect := expecter(t, d)
+	corners := func() (x0, x1, y1 int) {
+		_, ty, _ := at(d.Frame(), "Added to cart")
+		lines := strings.Split(d.Frame().Text(), "\n")
+		top, bottom := []rune(lines[ty-2]), []rune(lines[ty+3])
+		x0, x1 = slices.Index(top, '╭'), slices.Index(bottom, '╯')
+		return x0, x1, ty + 3
+	}
+	column := func(title string) int {
+		x, _, _ := at(d.Frame(), title)
+		return x
+	}
+	show := func(p *Dialog) {
+		p.set(true)
+		d.Advance(settleTime)
+		toaster.Success("Added to cart", "Hearth mug, Lake, 16 oz", ToastAction{})
+		d.Advance(settleTime)
+	}
+	hide := func(p *Dialog) {
+		p.set(false)
+		toaster.dismiss(toaster.toasts[0])
+		d.Advance(settleTime)
+	}
+
+	show(right)
+	x0, x1, _ := corners()
+	t.Logf("right sheet and a toast, 100x30:\n%s", d.Frame().Text())
+	expect("a right sheet: Checkout stays visible", has(d, "Checkout"))
+	expect("a right sheet: the toast "+strconv.Itoa(x0)+".."+strconv.Itoa(x1)+" sits beside the sheet, whose title starts at "+strconv.Itoa(column("Your cart")), x0 >= 0 && x1 >= 0 && x1 < column("Your cart")-3)
+	hide(right)
+
+	show(drawer)
+	_, ty, _ := at(d.Frame(), "Move goal")
+	_, _, y1 := corners()
+	t.Logf("bottom drawer and a toast, 100x30:\n%s", d.Frame().Text())
+	expect("a bottom drawer: Submit stays visible", has(d, "Submit"))
+	expect("a bottom drawer: the toast's last row "+strconv.Itoa(y1)+" sits above the drawer title row "+strconv.Itoa(ty), y1 < ty-2)
+	hide(drawer)
+
+	show(left)
+	x0, _, _ = corners()
+	t.Logf("left sheet and a toast, 100x30:\n%s", d.Frame().Text())
+	edge := slices.Index([]rune(line(d, "Filters")), '│')
+	expect("a left sheet: Leftward stays visible and the toast "+strconv.Itoa(x0)+" stays right of the sheet's edge "+strconv.Itoa(edge), has(d, "Leftward") && edge > 0 && x0 > edge)
+	left.set(false)
+	d.Advance(settleTime)
+	x, y, _ := at(d.Frame(), "Added to cart")
+	expect("closed: the toast is back in the bottom right corner", x > 50 && y > 20)
+}
+
+func TestToastAvoidsOnlyPanels(t *testing.T) {
+	rt := twi.New()
+	for name, d := range map[string]*Dialog{"dialog": NewDialog(rt), "alert dialog": NewAlertDialog(rt)} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("Avoid(%s) did not panic", name)
+				}
+			}()
+			NewToaster(rt).Avoid(d)
+		}()
+	}
 }
 
 func line(d *drive.Driver, s string) string {

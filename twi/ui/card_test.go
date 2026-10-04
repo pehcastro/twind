@@ -10,6 +10,32 @@ import (
 	"github.com/twind-dev/twind/twi/theme"
 )
 
+func TestAlertTextKeepsOffItsBorder(t *testing.T) {
+	d := overlayDriver(t, 50, 16, func(*twi.Runtime) func() twi.Node {
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
+				Alert(Default, AlertTitle(twi.Text("Heads up")), AlertDescription(twi.Text("Themes switch at runtime."))),
+				Alert(Destructive, AlertTitle(twi.Text("Payment failed")), AlertDescription(twi.Text("Check your card."))))
+		}
+	})
+	lines := strings.Split(d.Frame().Text(), "\n")
+	t.Logf("two alerts, 50x16:\n%s", d.Frame().Text())
+	for title, last := range map[string]string{"Heads up": "Themes switch", "Payment failed": "Check your card"} {
+		x, y, _ := at(d.Frame(), title)
+		_, below, _ := at(d.Frame(), last)
+		border := slices.Index([]rune(lines[y]), '│')
+		if border < 0 || x-border != 3 {
+			t.Errorf("%s: text at column %d, left border at %d, want two blank columns between", title, x, border)
+		}
+		if top := []rune(lines[y-2]); y < 2 || x >= len(top) || top[x] != '─' || strings.TrimSpace(string([]rune(lines[y-1])[border+1:x+len(title)])) != "" {
+			t.Errorf("%s: want a blank row between the top border and the title", title)
+		}
+		if bottom := []rune(lines[below+2]); x >= len(bottom) || bottom[x] != '─' || strings.TrimSpace(string([]rune(lines[below+1])[border+1:x+len(last)])) != "" {
+			t.Errorf("%s: want a blank row between the description and the bottom border", title)
+		}
+	}
+}
+
 func TestCardActionKeepsItsColumnDriven(t *testing.T) {
 	sheet, err := styles()
 	if err != nil {

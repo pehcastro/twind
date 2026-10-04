@@ -318,6 +318,7 @@ func props() map[string][]prop {
 		"Toaster": {
 			{"Duration", "time.Duration", "how long a toast stays"},
 			{"Show, Success, Error", "func(title, description, ui.ToastAction)", "adds a toast"},
+			{"Avoid(panels...)", "func(...*ui.Dialog)", "sheets and drawers the stack moves beside or above while open"},
 			{"Node()", "twi.Node", "the stack in the corner; render it once"},
 		},
 		"Toggle": {

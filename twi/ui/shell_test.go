@@ -404,6 +404,55 @@ func TestScrollArea(t *testing.T) {
 	t.Logf("scrolled to the end:\n%s", d.Frame().Text())
 }
 
+func TestScrollAreaRingStaysInside(t *testing.T) {
+	ring := zinc(t, theme.Light).Tokens[theme.Ring].RGBA
+	d := overlayDriver(t, 40, 16, func(*twi.Runtime) func() twi.Node {
+		rows := []twi.NodeOption{twi.Class("grow min-h-0")}
+		for i := range 20 {
+			rows = append(rows, twi.Text("line "+string(rune('a'+i))))
+		}
+		return func() twi.Node {
+			return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
+				twi.Element(twi.Class("shrink-0 border-b"), twi.Text("header")),
+				ScrollArea(rows...),
+				twi.Element(twi.Class("flex flex-row shrink-0 gap-2 border-t p-1"),
+					ScrollArea(twi.Class("h-4 w-16 rounded-md border"), twi.Text("boxed a"), twi.Text("boxed b"), twi.Text("boxed c"), twi.Text("boxed d")),
+					twi.Text("footer")),
+			)
+		}
+	})
+	expect := expecter(t, d)
+	tinted := func(x0, x1, y0, y1 int) bool {
+		cells := d.Frame().Cells()
+		for y := y0; y <= y1; y++ {
+			for x := x0; x <= x1; x++ {
+				if c := cells.At(x, y); c.Fg.RGBA == ring && strings.TrimSpace(c.Grapheme) != "" || c.Bg.RGBA == ring {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	wide := d.Frame().Cells().Width() - 1
+	_, header, _ := at(d.Frame(), "header")
+	_, footer, _ := at(d.Frame(), "footer")
+	hit(d, "tab")
+	t.Logf("the page area focused from the keyboard, 40x16:\n%s", d.Frame().Text())
+	expect("the page area focused: no ring on the header rows", !tinted(0, wide, header, header+1))
+	expect("the page area focused: no ring on the footer's border row", !tinted(0, wide, footer-2, footer-2))
+	hit(d, "tab")
+	bx, by, _ := at(d.Frame(), "boxed a")
+	t.Logf("the bordered area focused from the keyboard:\n%s", d.Frame().Text())
+	expect("the bordered area focused: its own border takes the ring", tinted(bx-1, bx-1, by, by) && ringed(d.Frame(), ring))
+	expect("the bordered area focused: nothing outside its border", !tinted(0, wide, by-2, by-2) && !tinted(0, wide, by+3, by+3) && !tinted(bx-2, bx-2, by-1, by+2) && !tinted(bx+15, bx+15, by-1, by+2))
+	x, y, _ := at(d.Frame(), "line c")
+	settledClick(d, x, y)
+	x, y, _ = at(d.Frame(), "boxed b")
+	settledClick(d, x, y)
+	t.Logf("the bordered area clicked:\n%s", d.Frame().Text())
+	expect("the bordered area clicked: no ring", !tinted(0, wide, 0, d.Frame().Cells().Height()-1))
+}
+
 func TestOverlayClosingFrame(t *testing.T) {
 	var (
 		pop     *Popover

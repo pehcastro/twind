@@ -3,7 +3,7 @@ package ui
 import "github.com/twind-dev/twind/twi"
 
 func Alert(v Variant, children ...twi.NodeOption) twi.Node {
-	return part("relative flex flex-col w-full rounded-lg border bg-card px-1 "+pick("alert", v, map[Variant]string{
+	return part("relative flex flex-col w-full rounded-lg border bg-card px-2 py-1 "+pick("alert", v, map[Variant]string{
 		Default:     "text-card-foreground",
 		Destructive: "text-destructive",
 	}), children)
