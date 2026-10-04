@@ -15,8 +15,10 @@ type listener = events.Listener[*runtime.Elem]
 
 func (n *node) behave() *runtime.Node {
 	own := n.withHandlers()
-	own.behaves = true
-	return &own.events
+	if own.events == nil {
+		own.events = &runtime.Node{}
+	}
+	return own.events
 }
 
 func push[T any](list *[]T, item T) { *list = append(*list, item) }

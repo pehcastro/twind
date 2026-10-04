@@ -31,10 +31,15 @@ type node struct {
 }
 
 type handlers struct {
-	keys    []func(input.KeyEvent)
-	ownKeys int
-	events  runtime.Node
-	behaves bool
+	keys   []func(input.KeyEvent)
+	events *runtime.Node
+	below  []handled
+	first  [1]handled
+}
+
+type handled struct {
+	at int
+	*handlers
 }
 
 type NodeOption interface{ apply(*node) }
@@ -50,36 +55,62 @@ func (n Node) runtimeTree() runtime.Tree {
 	built := n.node()
 	tree := runtime.Tree{Root: built.tree}
 	if h := built.handlers; h != nil {
-		tree.Keys, tree.Events = h.keys, h.events
+		if h.events != nil {
+			tree.Events = *h.events
+		}
+		tree.Events.Children = h.lifted(&tree.Keys)
 	}
 	return tree
 }
 
+func (h *handlers) eventsBelow() int {
+	count := 0
+	for _, b := range h.below {
+		if b.events != nil {
+			count++
+		} else {
+			count += b.eventsBelow()
+		}
+	}
+	return count
+}
+
+func (h *handlers) lifted(keys *[]func(input.KeyEvent)) []runtime.Node {
+	var out []runtime.Node
+	if count := h.eventsBelow(); count > 0 {
+		out = make([]runtime.Node, 0, count)
+	}
+	h.lift(nil, keys, &out)
+	return out
+}
+
+func (h *handlers) lift(path []int, keys *[]func(input.KeyEvent), out *[]runtime.Node) {
+	*keys = append(*keys, h.keys...)
+	for _, b := range h.below {
+		if b.events == nil {
+			b.lift(append(path, b.at), keys, out)
+			continue
+		}
+		events := *b.events
+		events.At = append(slices.Clip(path), b.at)
+		events.Children = b.lifted(keys)
+		*out = append(*out, events)
+	}
+}
+
 func (n Node) apply(parent *node) {
 	built := n.node()
-	at := len(parent.tree.Children)
 	parent.tree.Children = append(parent.tree.Children, built.tree)
-	child := built.handlers
-	if child == nil {
-		return
-	}
-	own := parent.withHandlers()
-	own.keys = append(own.keys, child.keys...)
-	if child.behaves {
-		events := child.events
-		events.At = []int{at}
-		own.events.Children = append(own.events.Children, events)
-		return
-	}
-	for _, c := range child.events.Children {
-		c.At = append([]int{at}, c.At...)
-		own.events.Children = append(own.events.Children, c)
+	if built.handlers != nil {
+		own := parent.withHandlers()
+		own.below = append(own.below, handled{len(parent.tree.Children) - 1, built.handlers})
 	}
 }
 
 func (n *node) withHandlers() *handlers {
 	if n.handlers == nil {
 		n.handlers = &handlers{}
+		n.handlers.below = n.handlers.first[:0]
 	}
 	return n.handlers
 }
@@ -88,8 +119,7 @@ type onKey func(input.KeyEvent)
 
 func (h onKey) apply(n *node) {
 	own := n.withHandlers()
-	own.keys = slices.Insert(own.keys, own.ownKeys, (func(input.KeyEvent))(h))
-	own.ownKeys++
+	own.keys = append(own.keys, h)
 }
 
 func OnKey(handler func(input.KeyEvent)) NodeOption { return onKey(handler) }
@@ -160,14 +190,22 @@ func Element(options ...NodeOption) Node {
 func Text(s string) Node { return Node{&node{tree: render.Node{Text: s}}} }
 
 func Class(classes ...string) NodeOption {
+	count := 0
+	for _, c := range classes {
+		for range strings.FieldsSeq(c) {
+			count++
+		}
+	}
 	list := &classList{}
-	list.names = list.inline[:0]
+	list.names = list.inline[:0:min(count, inlineClasses)]
+	if count > inlineClasses {
+		list.names = make([]string, 0, count)
+	}
 	for _, c := range classes {
 		for name := range strings.FieldsSeq(c) {
 			list.names = append(list.names, name)
 		}
 	}
-	list.names = slices.Clip(list.names)
 	return list
 }
 

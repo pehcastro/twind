@@ -57,6 +57,24 @@ func TestReusedChildKeepsItsOwnPaths(t *testing.T) {
 	}
 }
 
+func TestDeepHandlerCostsOneEntryPerLevel(t *testing.T) {
+	const depth = 32
+	leaf := Element(Focusable())
+	chain := func() Node {
+		n := leaf
+		for range depth {
+			n = Element(Class("a"), n)
+		}
+		return n
+	}
+	if got := paths(chain().runtimeTree().Events); len(got) != 1 || strings.Count(got[0], ".") != depth-1 {
+		t.Fatalf("paths %q, want one path %d deep", got, depth)
+	}
+	if allocs := testing.AllocsPerRun(10, func() { chain() }); allocs > 4*depth {
+		t.Errorf("a %d-level chain over one handler allocates %.0f times, want at most 4 per level", depth, allocs)
+	}
+}
+
 func TestReusedClassOptionIsNotShared(t *testing.T) {
 	shared := Class("a b")
 	one := Element(shared)
