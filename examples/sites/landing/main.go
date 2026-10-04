@@ -12,6 +12,7 @@ import (
 
 func main() {
 	name := flag.String("style", "platform", "page style open at start: platform, product or studio")
+	at := flag.String("section", "", "section to open at, like a #fragment: Features, Pricing, Work")
 	flag.Parse()
 	s, ok := named(*name)
 	if !ok {
@@ -22,7 +23,11 @@ func main() {
 		fail(err)
 	}
 	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
-	if err := rt.Run(landing(rt, s)); err != nil {
+	app := landing(rt, s)
+	if *at != "" {
+		rt.ScrollIntoView(sectionKey + *at)
+	}
+	if err := rt.Run(app); err != nil {
 		fail(err)
 	}
 }

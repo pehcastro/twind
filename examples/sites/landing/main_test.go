@@ -50,15 +50,16 @@ func TestTour(t *testing.T) {
 		look           site
 		shown, missing []string
 	}{
-		{"platform", platform, []string{"▲ Quarry", "Ship the whole stack", "Start deploying", "npx quarry deploy", "99.99%"}, []string{"Plainsheet", "atelier nine"}},
-		{"platform-features", platform, []string{"Preview every branch", "Secrets per stage", "quarry.config.ts", "\"vite\""}, []string{"Ship the whole stack"}},
-		{"platform-footer", platform, []string{"Create a free project", "© 2026 ▲ Quarry"}, nil},
-		{"product", product, []string{"◧ Plainsheet", "Plan the work. Skip the busywork.", "app.plainsheet.example", "Billing migration", "Blocked", "Simple plans that grow with you"}, []string{"Quarry"}},
-		{"product-pricing", product, []string{"Starter", "Team", "Business", "Most popular", "$12", "Choose Team"}, nil},
-		{"product-faq", product, []string{"Frequently asked questions", "How does the free trial work?", "every Team feature for 14 days", "Where is my data stored?"}, []string{"Drop in a CSV"}},
-		{"studio", studio, []string{"atelier nine", "W E   D E S I G N   Q U I E T", "Start a project"}, []string{"Plainsheet"}},
-		{"studio-work", studio, []string{"Harbor Ledger", "Open Orchard", "L E T   U S   T A L K", "© 2026 atelier nine"}, nil},
-		{"platform-again", platform, []string{"Ship the whole stack"}, []string{"atelier nine"}},
+		{"platform", platform, []string{"Quarry", "https://quarry.example", "█▀▀▀▄ █   █ ▄▀▀▀▀ █   █", "The whole stack, live from one git push.", "Start deploying", "npx quarry deploy"}, []string{"Plainsheet", "atelier nine"}},
+		{"platform-features", platform, []string{"quarry.example/deployments/main", "Deploying to 38 regions", "Orbit Labs"}, []string{"The whole stack"}},
+		{"platform-footer", platform, []string{"Your next deploy is one command away.", "Create a free project", "© 2026 ▲ Quarry"}, nil},
+		{"product", product, []string{"Plainsheet", "https://plainsheet.example", "█▀▀▀▄ █     ▄▀▀▀▄ █▄  █", "Skip the busywork.", "app.plainsheet.example", "Onboarding", "Amara"}, []string{"Quarry"}},
+		{"product-pricing", product, []string{"Simple plans that grow with you", "Monthly", "Most popular", "$12", "$29", "Choose Team"}, []string{"Skip the busywork."}},
+		{"product-yearly", product, []string{"$10", "$24", "Choose Team"}, []string{"$12", "$29"}},
+		{"product-end", product, []string{"Where is my data stored?", "Give your team one calm page.", "© 2026 ◧ Plainsheet"}, []string{"Drop in a CSV"}},
+		{"studio", studio, []string{"atelier nine", "Taking projects for spring", "W E   D E S I G N", "██████", "Start a project"}, []string{"Plainsheet"}},
+		{"studio-work", studio, []string{"Fieldnote", "Open Orchard", "Interaction Annual, 2024"}, nil},
+		{"platform-again", platform, []string{"The whole stack, live from one git push."}, []string{"atelier nine"}},
 	} {
 		read := func(ext string) string {
 			b, err := os.ReadFile(filepath.Join(out, c.frame+ext))

@@ -1,18 +1,31 @@
 size 120x40
+wait 400ms
 frame platform
 press pagedown
+wait 100ms
 frame platform-features
 press end
+wait 100ms
 frame platform-footer
 press 2
+wait 400ms
 frame product
-press pagedown
+click 41 5
+wait 100ms
 frame product-pricing
+click 61 15
+wait 100ms
+frame product-yearly
+click 3 20
 press end
-frame product-faq
+wait 100ms
+frame product-end
 press 3
+wait 400ms
 frame studio
 press pagedown
+wait 100ms
 frame studio-work
 press 1
+wait 400ms
 frame platform-again

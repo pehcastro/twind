@@ -5,18 +5,26 @@ import (
 	"github.com/twind-dev/twind/twi/ui"
 )
 
-func newProduct(rt *twi.Runtime) func() twi.Node {
-	faq := ui.NewAccordion(rt)
+func newProduct(k kit) page {
+	faq := ui.NewAccordion(k.rt)
 	faq.Collapsible, faq.Value = true, []string{"trial"}
+	billing := ui.NewTabs(k.rt)
+	billing.Value = "Monthly"
 	question := func(value, q, a string) twi.Node {
 		return faq.Item(value, faq.Trigger(value, twi.Text(q)), faq.Content(value, txt("text-muted-foreground", a)))
 	}
-	tier := func(name, price, blurb string, popular bool, perks ...string) twi.Node {
-		class, cta, badge := "flex-1 py-1", ui.Outline, el("")
+	tier := func(name, monthly, yearly, blurb string, popular bool, perks ...string) twi.Node {
+		class, cta := "flex-1 py-1 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg", ui.Outline
+		badge := el("")
 		if popular {
-			class, cta, badge = "flex-1 py-1 border-primary shadow-md", ui.Default, ui.Badge(ui.Default, twi.Text("Most popular"))
+			class, cta = "flex-1 py-1 border-primary shadow-xl -translate-y-0.5 bg-linear-to-b from-primary/10 to-card", ui.Default
+			badge = ui.Badge(ui.Default, twi.Class("py-0.5"), twi.Text("Most popular"))
 		}
-		list := []twi.NodeOption{twi.Class("flex flex-col gap-0")}
+		price := monthly
+		if billing.Value == "Yearly" {
+			price = yearly
+		}
+		list := []twi.NodeOption{}
 		for _, p := range perks {
 			list = append(list, el("flex flex-row gap-1", txt("text-primary", "✓"), twi.Text(p)))
 		}
@@ -24,60 +32,102 @@ func newProduct(rt *twi.Runtime) func() twi.Node {
 			ui.CardHeader(ui.CardTitle(twi.Text(name)), ui.CardDescription(twi.Text(blurb)), ui.CardAction(badge)),
 			ui.CardContent(el("flex flex-col gap-1",
 				el("flex flex-row items-end gap-1", txt("font-bold", price), txt("text-muted-foreground", "per seat / month")),
-				el("", list...),
+				el("flex flex-col", list...),
 			)),
-			ui.CardFooter(ui.Button(cta, ui.SizeDefault, twi.Class("grow"), twi.Text("Choose "+name))),
+			ui.CardFooter(twi.Class("pt-0.5"), ui.Button(cta, ui.SizeDefault, twi.Class("grow py-0.5"), twi.Text("Choose "+name))),
 		)
 	}
-	row := func(name, owner, status string, v ui.Variant) twi.Node {
-		return el("flex flex-row items-center gap-1 px-1 border-b",
-			txt("grow truncate", name), txt("w-6 text-muted-foreground", owner), ui.Badge(v, twi.Text(status)))
+	task := func(name, owner, pad, bar, span string) twi.Node {
+		return el("flex flex-row items-center gap-1",
+			txt("w-10 shrink-0 truncate", name),
+			el("flex flex-row grow min-w-0 whitespace-nowrap", el("shrink-0 "+pad), txt("shrink-0 rounded-full px-1 text-white shadow-sm "+bar+" "+span, owner)))
 	}
-	return func() twi.Node {
-		return el("flex flex-col shrink-0",
-			section("flex-row items-center gap-2 py-0.5",
-				txt("font-bold text-primary", "◧ Plainsheet"), links("text-muted-foreground", "Features", "Pricing", "Customers", "FAQ"), el("grow"),
-				ui.Button(ui.Link, ui.SizeSM, twi.Text("Sign in")), ui.Button(ui.Default, ui.SizeSM, twi.Text("Try it free")),
-			),
-			section("flex-row items-center gap-4 pt-3 pb-2",
-				el("flex flex-col w-42 shrink-0 gap-1",
-					ui.Badge(ui.Secondary, twi.Text("Now with shared timelines")),
-					txt("font-bold", "Plan the work. Skip the busywork."),
+	avatar := func(class, initials string) twi.Node {
+		return txt("rounded-full px-1 font-medium text-white shadow-[0_0_0_1px_var(--color-background)] "+class, initials)
+	}
+	feature := func(glyph, title, body string) twi.Node {
+		return el("flex flex-col flex-1 gap-0.5",
+			el("flex flex-row", txt("rounded-lg bg-primary/15 px-1 py-0.5 font-bold text-primary", glyph)),
+			txt("font-semibold pt-0.5", title), txt("text-muted-foreground", body))
+	}
+	nav := func() twi.Node {
+		return navbar("bg-background shadow-sm",
+			el("flex flex-row items-center gap-1", txt("flex flex-row w-4 justify-center rounded-md bg-linear-to-br from-primary-400 to-primary-700 py-0.5 font-bold text-white", "◧"), txt("font-bold py-0.5", "Plainsheet")),
+			k.links("text-muted-foreground", "Features", "Pricing", "FAQ"), el("grow"),
+			ui.Button(ui.Ghost, ui.SizeSM, twi.Class("rounded-lg py-0.5"), twi.Text("Sign in")),
+			ui.Button(ui.Default, ui.SizeSM, twi.Class("rounded-lg py-0.5 shadow-md"), twi.Text("Try it free →")),
+		)
+	}
+	body := func() twi.Node {
+		return el("flex flex-col shrink-0 gap-3 pt-2",
+			section("flex-row items-center gap-3",
+				el("flex flex-col w-46 shrink-0 gap-1",
+					el("flex flex-row", txt("rounded-full bg-primary/10 px-2 py-0.5 text-primary shadow-[0_0_0_1px_var(--color-primary)]", "✦ Now with shared timelines →")),
+					el("flex flex-col gap-0.5 pt-1", display("PLAN THE", 1, "text-foreground"), el("flex flex-row gap-1", display("WORK", 1, "text-foreground"), display(".", 1, "text-primary"))),
+					el("flex flex-row", txt("rounded-md bg-linear-to-r from-primary/30 to-primary/5 px-1 py-0.5 -ml-1 font-bold", "Skip the busywork.")),
 					txt("text-muted-foreground", "Plainsheet keeps projects, owners and deadlines on one calm page, so the team always knows what is next."),
-					el("flex flex-row gap-1 pt-1",
-						ui.Button(ui.Default, ui.SizeLG, twi.Class("py-0.5"), twi.Text("Start a free trial")),
-						ui.Button(ui.Ghost, ui.SizeLG, twi.Class("py-0.5"), twi.Text("▶ Watch the tour")),
+					el("flex flex-row items-center gap-1 pt-1",
+						ui.Button(ui.Default, ui.SizeLG, twi.Class("rounded-lg py-0.5 shadow-lg"), twi.Text("Start a free trial")),
+						ui.Button(ui.Ghost, ui.SizeLG, twi.Class("rounded-lg py-0.5"), twi.Text("▶ Watch the tour")),
 					),
-					txt("text-muted-foreground pt-1", "★★★★★  Loved by 4,000 small teams"),
+					el("flex flex-row items-center gap-1 pt-1",
+						el("flex flex-row", avatar("bg-primary-400", "RK"), avatar("bg-primary-500", "AM"), avatar("bg-primary-700", "TS"), avatar("bg-primary-900", "+9")),
+						el("flex flex-col", txt("text-amber-500", "★★★★★"), txt("text-muted-foreground", "Loved by 4,000 small teams"))),
 				),
-				ui.Card(twi.Class("flex-1 gap-0 py-0 overflow-hidden shadow-lg"),
-					el("flex flex-row items-center gap-1 px-2 py-0.5 border-b bg-muted",
-						txt("text-muted-foreground", "● ● ●"), el("grow"), txt("px-2 rounded-md bg-background text-muted-foreground", "app.plainsheet.example"), el("grow")),
-					el("flex flex-row",
-						el("flex flex-col w-16 shrink-0 px-1 py-1 border-r bg-muted/40 whitespace-nowrap",
-							txt("px-1 rounded-md bg-accent text-accent-foreground font-medium", "▤ Projects"),
-							txt("px-1 text-muted-foreground", "◷ Timeline"), txt("px-1 text-muted-foreground", "◎ Goals"), txt("px-1 text-muted-foreground", "⚙ Settings")),
-						el("flex flex-col grow px-1 py-1",
-							el("flex flex-row items-center pb-0.5", txt("font-semibold grow", "Q3 launch"), ui.Button(ui.Default, ui.SizeXS, twi.Text("+ New"))),
-							row("Pricing page copy", "Rosa", "Done", ui.Secondary),
-							row("Onboarding emails", "Kenji", "In review", ui.Outline),
-							row("Billing migration", "Amara", "Blocked", ui.Destructive),
-							row("Launch checklist", "Theo", "Planned", ui.Outline),
+				el("flex flex-col flex-1 min-w-0 rounded-2xl bg-linear-to-br from-primary-200 via-primary-100 to-primary-300 p-2 shadow-lg",
+					el("flex flex-col overflow-hidden rounded-xl border bg-card shadow-xl",
+						el("flex flex-row items-center gap-1 px-2 py-0.5 border-b bg-muted",
+							lights(), el("grow"),
+							txt("px-2 rounded-md bg-background text-muted-foreground", "app.plainsheet.example"), el("grow")),
+						el("flex flex-row",
+							el("flex flex-col w-15 shrink-0 gap-0.5 px-1 py-1 border-r bg-muted/40 whitespace-nowrap",
+								txt("px-1 rounded-md bg-accent text-accent-foreground font-medium", "◷ Timeline"),
+								txt("px-1 text-muted-foreground", "▤ Projects"), txt("px-1 text-muted-foreground", "◎ Goals"), txt("px-1 text-muted-foreground", "≡ Settings")),
+							el("flex flex-col grow min-w-0 gap-0.5 px-2 py-1",
+								el("flex flex-row items-center", txt("font-semibold grow", "Q3 launch"), txt("rounded-md bg-primary px-1 text-primary-foreground", "+ New")),
+								el("flex flex-row gap-1 text-muted-foreground", el("w-10 shrink-0"), txt("w-6", "Jul"), txt("w-6", "Aug"), txt("w-6", "Sep")),
+								task("Copy", "Rosa", "w-0", "bg-linear-to-r from-primary-400 to-primary-600", "w-7"),
+								task("Onboarding", "Kenji", "w-3", "bg-linear-to-r from-primary-500 to-primary-700", "w-9"),
+								task("Billing", "Amara", "w-7", "bg-linear-to-r from-primary-600 to-primary-800", "w-7"),
+								task("Launch", "Theo", "w-11", "bg-linear-to-r from-primary-700 to-primary-900", "w-6"),
+							),
 						),
 					),
 				),
 			),
-			section("items-center gap-1 pt-3",
+			section("items-center gap-1",
+				txt("text-muted-foreground", "Teams that plan with Plainsheet"),
+				el("flex flex-row justify-between w-full px-4 font-semibold text-muted-foreground",
+					twi.Text("Fernway"), twi.Text("Copperleaf"), twi.Text("Tidewell"), twi.Text("Marlow & Pike"), twi.Text("Sundial")),
+			),
+			section("gap-1", anchor("Features"),
+				txt("text-primary font-medium", "Features"),
+				txt("font-bold", "Everything in one calm page."),
+				el("flex flex-row gap-4 pt-1",
+					feature("◷", "Timelines that move", "Drag a bar and every date after it follows."),
+					feature("◎", "Goals with owners", "Each goal has one name next to it, never a committee."),
+					feature("⇄", "Imports in a minute", "Bring a spreadsheet; columns map themselves."),
+				),
+			),
+			section("items-center gap-1", anchor("Pricing"),
 				txt("text-primary font-medium", "Pricing"),
 				txt("font-bold", "Simple plans that grow with you"),
 				txt("text-muted-foreground", "Every plan starts with a 14 day trial. No card needed."),
+				billing.Node(billing.List(billing.Trigger("Monthly", twi.Text("Monthly")), billing.Trigger("Yearly", twi.Text("Yearly"), txt("text-primary", "-20%")))),
 				el("flex flex-row w-full gap-2 pt-1",
-					tier("Starter", "$0", "For trying it out", false, "Up to 3 projects", "2 collaborators", "Email support"),
-					tier("Team", "$12", "For teams", true, "Unlimited projects", "Shared timelines", "Guest access", "Priority support"),
-					tier("Business", "$29", "For whole companies", false, "Everything in Team", "Single sign-on", "Audit log", "Dedicated manager"),
+					tier("Starter", "$0", "$0", "For trying it out", false, "Up to 3 projects", "2 collaborators", "Email support"),
+					tier("Team", "$12", "$10", "For teams", true, "Unlimited projects", "Shared timelines", "Guest access", "Priority support"),
+					tier("Business", "$29", "$24", "For whole companies", false, "Everything in Team", "Single sign-on", "Audit log", "Dedicated manager"),
 				),
 			),
-			section("gap-1 pt-3 max-w-80",
+			section("max-w-80",
+				el("flex flex-col gap-1 rounded-2xl border bg-linear-to-br from-primary/10 via-card to-primary-100 px-4 py-1.5 shadow-md",
+					txt("text-primary font-bold", "“"),
+					txt("font-medium", "We replaced three tools and a weekly status meeting. Everyone just opens the timeline now."),
+					el("flex flex-row items-center gap-1 pt-0.5", avatar("bg-primary-700", "LN"), el("flex flex-col", txt("font-semibold", "Lena Novak"), txt("text-muted-foreground", "Head of Operations, Fernway"))),
+				),
+			),
+			section("gap-1 max-w-80", anchor("FAQ"),
 				txt("font-bold text-center", "Frequently asked questions"),
 				faq.Node(twi.Class("w-full"),
 					question("trial", "How does the free trial work?", "You get every Team feature for 14 days. When it ends, pick a plan or stay on Starter."),
@@ -86,6 +136,10 @@ func newProduct(rt *twi.Runtime) func() twi.Node {
 					question("data", "Where is my data stored?", "In the region you choose at sign-up, encrypted at rest and in transit."),
 				),
 			),
+			section("items-center gap-1",
+				txt("font-bold", "Give your team one calm page."),
+				ui.Button(ui.Default, ui.SizeLG, twi.Class("rounded-lg py-0.5 shadow-lg"), twi.Text("Start a free trial")),
+			),
 			footer("◧ Plainsheet", "Calm planning for small teams.",
 				[]string{"Product", "Features", "Pricing", "Changelog"},
 				[]string{"Help", "Guides", "FAQ", "Contact"},
@@ -93,4 +147,5 @@ func newProduct(rt *twi.Runtime) func() twi.Node {
 			),
 		)
 	}
+	return page{nav, body}
 }
