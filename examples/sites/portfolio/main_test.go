@@ -47,21 +47,23 @@ func TestTour(t *testing.T) {
 		frame          string
 		shown, missing []string
 	}{
-		{"home", []string{"Noor Valenko", "Software engineer", "Code ↗", "Now", "Recent writing", "A diff renderer in one evening", "Small tools, kept small", "All posts ›"}, []string{"Notes from a year of on-call"}},
-		{"projects", []string{"Projects", "tide", "loupe", "quay", "inkwell", "★ 1.2k · since 2022", "markdown"}, []string{"Recent writing"}},
-		{"blog", []string{"Writing", "Sep 12, 2026", "Feb 14, 2026", "Notes from a year of on-call", "A quieter shell"}, []string{"loupe"}},
-		{"post", []string{"‹ All posts", "A quieter shell", "Jul 3, 2026", "min read", "shell", "habits", "Every character in it is a tax", "What stayed", "bash"}, []string{"Writing"}},
-		{"post-end", []string{"PROMPT_COMMAND=prompt", "What I learned", "‹ A diff renderer in one evening", "Small tools, kept small ›"}, []string{"‹ All posts"}},
-		{"back", []string{"Writing", "Notes from a year of on-call"}, []string{"What stayed"}},
-		{"contact", []string{"Say hello", "hello@noor.example", "social.example/@noor", "Copy", "Open to work"}, []string{"Writing"}},
+		{"home", []string{"open to work from November", "Software engineer. Terminals, tooling and quiet software.", "Read the blog →", "Get in touch", "@ Social", "projects kept alive"}, []string{"PROMPT_COMMAND"}},
+		{"projects", []string{"◆ PROJECTS", "tide", "loupe", "quay", "inkwell", "★ 1.2k", "since 2022", "repo ↗", "markdown"}, []string{"open to work"}},
+		{"blog", []string{"◆ WRITING", "12", "SEP", "A diff renderer in one evening", "A quieter shell", "min read"}, []string{"loupe"}},
+		{"post", []string{"← All posts", "A quieter shell", "Jul 3, 2026 · 1 min read", "habits", "Every character in it is a tax", "What stayed", "bash"}, []string{"◆ WRITING"}},
+		{"post-end", []string{"PROMPT_COMMAND=prompt", "What I learned", "← Newer", "Older →", "Small tools, kept small"}, []string{"← All posts"}},
+		{"back", []string{"◆ WRITING", "A quieter shell"}, []string{"What stayed"}},
+		{"contact", []string{"◆ CONTACT", "Let's make something quiet.", "hello@noor.example", "Copy", "social.example/@noor", "Copy link"}, []string{"◆ WRITING"}},
+		{"palette", []string{"⌕ shell", "Posts", "A quieter shell"}, []string{"Pages"}},
+		{"palette-post", []string{"← All posts", "A quieter shell", "What stayed"}, []string{"Jump to a page or a post"}},
 	} {
 		b, err := os.ReadFile(filepath.Join(out, c.frame+".txt"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		text := string(b)
-		t.Logf("frame %s:\n%s", c.frame, text)
-		for _, s := range append([]string{"Home", "Projects", "Blog", "Contact", "made with Twind"}, c.shown...) {
+		t.Logf("frame %s:\n%s", c.frame, b)
+		text := strings.ReplaceAll(string(b), "▀", " ")
+		for _, s := range append([]string{"Noor Valenko", "Home", "Projects", "Blog", "Contact", "built with Twind"}, c.shown...) {
 			if !strings.Contains(text, s) {
 				t.Errorf("frame %s: no %q", c.frame, s)
 			}

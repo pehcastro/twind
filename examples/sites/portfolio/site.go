@@ -9,7 +9,6 @@ import (
 	"github.com/twind-dev/twind/twi/highlight"
 	"github.com/twind-dev/twind/twi/icon"
 	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/markdown"
 	"github.com/twind-dev/twind/twi/theme"
 	"github.com/twind-dev/twind/twi/ui"
 )
@@ -34,28 +33,10 @@ const (
 	wordsPerMinute = 200
 	dateLayout     = "2006-01-02"
 	shownDate      = "Jan 2, 2006"
-	recentPosts    = 3
+	recentPosts    = 2
+	featured       = 2
+	flipScheme     = "Switch light and dark"
 )
-
-type link struct{ label, url string }
-
-func links() []link {
-	return []link{{"Code", "git.example/noorv"}, {"Social", "social.example/@noor"}, {"Feed", "noor.example/feed.xml"}}
-}
-
-type project struct {
-	name, about, meta string
-	tags              []string
-}
-
-func work() []project {
-	return []project{
-		{"tide", "A terminal dashboard for long-running jobs. Redraws only what changed.", "★ 1.2k · since 2022", []string{"go", "tui"}},
-		{"loupe", "Search structured logs with a query language that fits on one line.", "★ 640 · since 2023", []string{"go", "cli", "logs"}},
-		{"quay", "A tiny deploy tool for teams with one server and no patience.", "★ 310 · since 2024", []string{"shell", "ops"}},
-		{"inkwell", "This website. Posts in Markdown, rendered in your terminal.", "since 2026", []string{"markdown", "twind"}},
-	}
-}
 
 type site struct {
 	rt      *twi.Runtime
@@ -65,13 +46,23 @@ type site struct {
 	reading int
 	last    int
 	toaster *ui.Toaster
+	palette *ui.CommandDialog
 	syntax  map[string]*highlight.Grammar
 }
 
 func newSite(rt *twi.Runtime, t theme.Theme, posts []post) *site {
 	rt.SetTheme(t)
-	return &site{rt: rt, theme: t, posts: posts, reading: -1, last: -1, toaster: ui.NewToaster(rt),
+	s := &site{rt: rt, theme: t, posts: posts, reading: -1, last: -1, toaster: ui.NewToaster(rt), palette: ui.NewCommandDialog(rt),
 		syntax: map[string]*highlight.Grammar{"go": highlight.Go(), "bash": highlight.Bash()}}
+	s.palette.Key = "palette"
+	s.palette.OnSelect = func(value string) {
+		if value == flipScheme {
+			s.flip()
+		} else if !s.open(value) {
+			s.read(slices.IndexFunc(posts, func(p post) bool { return p.title == value }))
+		}
+	}
+	return s
 }
 
 func el(class string, children ...twi.NodeOption) twi.Node {
@@ -88,6 +79,20 @@ func (s *site) show(p page) {
 	s.rt.Invalidate()
 }
 
+func (s *site) open(name string) bool {
+	for p := range contact + 1 {
+		if strings.EqualFold(p.String(), name) {
+			s.show(p)
+			return true
+		}
+	}
+	i := slices.IndexFunc(s.posts, func(p post) bool { return p.file == name || p.file == name+".md" })
+	if i >= 0 {
+		s.read(i)
+	}
+	return i >= 0
+}
+
 func (s *site) read(i int) {
 	s.at, s.reading = blog, i
 	s.rt.Invalidate()
@@ -101,13 +106,13 @@ func (s *site) flip() {
 
 func (s *site) copy(what, value string) {
 	if s.rt.Copy(value) == nil {
-		s.toaster.Show(what+" copied", value, ui.ToastAction{})
+		s.toaster.Success(what+" copied", value, ui.ToastAction{})
 	}
 }
 
 func (s *site) keys(e *twi.Event) {
 	k := e.Key
-	if k.Release || k.Modifiers != 0 {
+	if k.Release || k.Modifiers != 0 || s.palette.Open {
 		return
 	}
 	switch {
@@ -128,36 +133,57 @@ func (s *site) keys(e *twi.Event) {
 }
 
 func (s *site) view() twi.Node {
-	nav := []twi.NodeOption{twi.Class("flex flex-row items-center gap-1")}
+	nav := []twi.NodeOption{twi.Class("hidden sm:flex flex-row items-center gap-1 rounded-full bg-muted/60 px-1 py-0.5 shadow-[0_0_0_1px_var(--color-border)]")}
 	for p := range contact + 1 {
-		class := "text-muted-foreground"
+		class := "rounded-full px-2 text-muted-foreground transition-colors duration-200 hover:bg-background/70 hover:text-foreground focus-visible:shadow-[0_0_0_1px_var(--color-ring)]"
 		if p == s.at {
-			class = "text-foreground underline"
+			class = "rounded-full px-2 bg-primary/15 text-primary font-medium transition-colors duration-200"
 		}
-		nav = append(nav, ui.Button(ui.Ghost, ui.SizeSM, twi.Key("nav-"+p.String()), twi.Class(class), twi.OnClick(func(*twi.Event) { s.show(p) }), twi.Text(p.String())))
+		nav = append(nav, el(class, twi.Text(p.String()), twi.Key("nav-"+p.String()), twi.Focusable(), twi.OnClick(func(*twi.Event) { s.show(p) })))
 	}
-	area := []twi.NodeOption{twi.Key(s.at.String()), twi.Class("flex-1 min-h-0 items-center px-2 py-1 focus-visible:shadow-none"), el("flex flex-col shrink-0 w-full max-w-84 gap-1", s.page())}
+	key := s.at.String()
 	if s.reading >= 0 {
-		area = append(area, twi.Key("post-"+s.posts[s.reading].file), twi.AutoFocus())
+		key = "post-" + s.posts[s.reading].file
+	}
+	area := []twi.NodeOption{twi.Key(key), twi.Class("flex-1 min-h-0 items-center px-2 focus-visible:shadow-none"),
+		el("flex flex-col shrink-0 w-full max-w-88 gap-1.5 py-1.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300", s.page())}
+	if s.reading >= 0 {
+		area = append(area, twi.AutoFocus())
 	}
 	return el("flex flex-col h-full bg-background text-foreground", twi.OnKeyDown(s.keys),
-		el("flex flex-row shrink-0 items-center justify-center border-b px-2",
-			el("flex flex-row grow items-center gap-2 max-w-84",
-				el("flex flex-row items-center gap-1", twi.OnClick(func(*twi.Event) { s.show(home) }),
-					txt("px-1 rounded-md bg-primary text-primary-foreground font-bold", "nv"), txt("font-semibold", name)),
+		el("flex flex-row shrink-0 justify-center border-b bg-card/60 shadow-md px-2 py-0.5",
+			el("flex flex-row grow items-center gap-2 max-w-88",
+				el("flex flex-row shrink-0 items-center gap-1 whitespace-nowrap", twi.OnClick(func(*twi.Event) { s.show(home) }),
+					txt("rounded-lg bg-linear-to-br from-lime-300 to-emerald-500 px-1 py-0.5 font-bold text-zinc-950 shadow-md", "nv"),
+					txt("py-0.5 font-semibold", name)),
 				el("grow"),
 				twi.Element(nav...),
-				ui.Button(ui.Ghost, ui.SizeSM, twi.Key("scheme"), twi.OnClick(func(*twi.Event) { s.flip() }),
+				s.palette.Trigger(ui.Outline, ui.SizeSM, twi.Key("search"), twi.Class("rounded-full py-0.5 text-muted-foreground"),
+					twi.Text(string(icon.Search.Glyph())), txt("hidden lg:flex", "Search"), ui.Kbd(twi.Class("hidden md:flex"), twi.Text("Ctrl K"))),
+				ui.Button(ui.Ghost, ui.SizeIcon, twi.Key("scheme"), twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.flip() }),
 					twi.Text(string(map[theme.Scheme]icon.Name{theme.Light: icon.Sun, theme.Dark: icon.Moon}[s.theme.Scheme].Glyph()))),
 			),
 		),
 		ui.ScrollArea(area...),
-		el("flex flex-row shrink-0 justify-center border-t px-2 text-muted-foreground",
-			el("flex flex-row grow max-w-84 justify-between gap-2",
-				txt("shrink-0 whitespace-nowrap", "© 2026 "+name+" · made with Twind"),
-				txt("hidden md:flex truncate", "1-4 pages · esc back · m scheme · q quit"))),
+		el("flex flex-row shrink-0 justify-center border-t bg-card/60 px-2 py-0.5 text-muted-foreground",
+			el("flex flex-row grow max-w-88 items-center justify-between gap-2",
+				el("flex flex-row items-center gap-1 shrink-0", txt("rounded-full bg-linear-to-r from-lime-300 to-emerald-500 w-2", " "), twi.Text("© 2026 "+name+" · built with Twind")),
+				txt("hidden md:flex truncate", "Ctrl K search · 1-4 pages · m theme · q quit"))),
+		s.search(),
 		s.toaster.Node(),
 	)
+}
+
+func (s *site) search() twi.Node {
+	p := s.palette
+	var pages, posts []ui.CommandItem
+	for pg := range contact + 1 {
+		pages = append(pages, p.Item(pg.String()))
+	}
+	for _, post := range s.posts {
+		posts = append(posts, p.Item(post.title))
+	}
+	return p.Node(p.Input("Jump to a page or a post..."), p.List(p.Group("Pages", pages...), p.Group("Posts", posts...), p.Group("Theme", p.Item(flipScheme))))
 }
 
 func (s *site) page() twi.Node {
@@ -167,146 +193,11 @@ func (s *site) page() twi.Node {
 	case s.at == home:
 		return s.home()
 	case s.at == projects:
-		return s.projects()
+		return section("Projects", "Things I made and still look after. All open source, all small on purpose.", s.cards(len(work())))
 	case s.at == blog:
-		return intro("Writing", "Notes on terminals, tools and the work around them. Newest first.", s.list(len(s.posts)))
+		return section("Writing", "Notes on terminals, tools and the work around them. Newest first.", s.list(len(s.posts)))
 	case s.at == contact:
 		return s.contact()
 	}
 	panic("portfolio: unknown page " + strconv.Itoa(int(s.at)))
-}
-
-func heading(s string) twi.Node { return txt("font-semibold", s) }
-
-func intro(title, about string, body ...twi.NodeOption) twi.Node {
-	return el("flex flex-col gap-1", append([]twi.NodeOption{txt("font-bold", title), txt("text-muted-foreground", about)}, body...)...)
-}
-
-func (s *site) home() twi.Node {
-	social := []twi.NodeOption{twi.Class("flex flex-row flex-wrap gap-1")}
-	for _, l := range links() {
-		social = append(social, ui.Button(ui.Outline, ui.SizeSM, twi.OnClick(func(*twi.Event) { s.copy(l.label+" link", l.url) }), twi.Text(l.label+" ↗")))
-	}
-	return el("flex flex-col gap-1",
-		el("flex flex-row items-center gap-2",
-			ui.Avatar(ui.SizeDefault, ui.AvatarFallback(twi.Text("NV"))),
-			el("flex flex-col", txt("font-bold", name), txt("text-muted-foreground", "Software engineer. Terminals, tooling and quiet software."))),
-		txt("", "I build small tools for people who live in the terminal, and I write about how they work. Right now I am on the platform team at a logistics company, keeping deploys boring."),
-		twi.Element(social...),
-		heading("Now"),
-		el("flex flex-col",
-			txt("", "• Writing a renderer that sends fewer bytes than it has to."),
-			txt("", "• Reading about text layout, slowly."),
-			txt("", "• Learning to bake bread that is not a brick.")),
-		heading("Recent writing"),
-		s.list(recentPosts),
-		el("flex flex-row", ui.Button(ui.Link, ui.SizeXS, twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("All posts ›"))),
-	)
-}
-
-func (s *site) list(n int) twi.Node {
-	shown := s.posts[:min(n, len(s.posts))]
-	rows := []twi.NodeOption{twi.Class("flex flex-col")}
-	for i, p := range shown {
-		row := []twi.NodeOption{twi.Key("row-" + p.file), twi.Focusable(), twi.OnClick(func(*twi.Event) { s.read(i) }), twi.OnKeyDown(func(e *twi.Event) {
-			step := map[input.Key]int{input.KeyArrowDown: 1, input.KeyArrowUp: -1}[e.Key.Key]
-			if j := i + step; step != 0 && !e.Key.Release && j >= 0 && j < len(shown) && s.rt.Focus("row-"+shown[j].file) {
-				e.PreventDefault()
-				e.StopPropagation()
-			}
-		}),
-			txt("w-12 shrink-0 text-muted-foreground", p.date),
-			el("flex flex-col min-w-0", txt("font-medium", p.title), txt("text-muted-foreground truncate", p.summary)),
-		}
-		if i == s.last {
-			row = append(row, twi.AutoFocus())
-		}
-		rows = append(rows, el("flex flex-row gap-2 rounded-md px-1 hover:bg-accent focus-visible:bg-accent", row...))
-	}
-	return twi.Element(rows...)
-}
-
-func (s *site) article(i int) twi.Node {
-	p := s.posts[i]
-	pager := []twi.NodeOption{twi.Class("flex flex-row justify-between pt-1 border-t"), el("")}
-	if i > 0 {
-		pager[1] = ui.Button(ui.Ghost, ui.SizeSM, twi.OnClick(func(*twi.Event) { s.read(i - 1) }), twi.Text("‹ "+s.posts[i-1].title))
-	}
-	if i+1 < len(s.posts) {
-		pager = append(pager, ui.Button(ui.Ghost, ui.SizeSM, twi.OnClick(func(*twi.Event) { s.read(i + 1) }), twi.Text(s.posts[i+1].title+" ›")))
-	}
-	return el("flex flex-col gap-1",
-		el("flex flex-row", ui.Button(ui.Ghost, ui.SizeXS, twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("‹ All posts"))),
-		markdown.Render(p.page, markdown.Options{Highlight: s.code, Follow: s.follow}),
-		twi.Element(pager...),
-	)
-}
-
-func (s *site) follow(target string) {
-	if i := slices.IndexFunc(s.posts, func(p post) bool { return p.file == target }); i >= 0 {
-		s.read(i)
-	}
-}
-
-func (s *site) code(language, src string) twi.Node {
-	colour := map[highlight.Kind]string{
-		highlight.Keyword: "text-syntax-keyword", highlight.String: "text-syntax-string", highlight.Escape: "text-syntax-constant",
-		highlight.Number: "text-syntax-number", highlight.Comment: "text-syntax-comment italic", highlight.Function: "text-syntax-function",
-		highlight.Builtin: "text-syntax-constant", highlight.Variable: "text-syntax-parameter", highlight.Punctuation: "text-syntax-punctuation",
-	}
-	lines := [][]twi.NodeOption{nil}
-	emit := func(kind highlight.Kind, text string) {
-		for i, piece := range strings.Split(text, "\n") {
-			if i > 0 {
-				lines = append(lines, nil)
-			}
-			if piece != "" {
-				lines[len(lines)-1] = append(lines[len(lines)-1], txt(colour[kind], strings.ReplaceAll(piece, "\t", tabCell)))
-			}
-		}
-	}
-	src = strings.TrimSuffix(src, "\n")
-	if g := s.syntax[language]; g != nil {
-		for span := range highlight.Tokens(src, g) {
-			emit(span.Kind, src[span.Start:span.End])
-		}
-	} else {
-		emit(highlight.Text, src)
-	}
-	rows := make([]twi.NodeOption, len(lines))
-	for i, line := range lines {
-		rows[i] = el("flex flex-row h-1 shrink-0", line...)
-	}
-	return el("flex flex-col pb-1", rows...)
-}
-
-func (s *site) projects() twi.Node {
-	cards := []twi.NodeOption{twi.Class("grid grid-cols-1 sm:grid-cols-2 gap-2")}
-	for _, p := range work() {
-		tags := []twi.NodeOption{twi.Class("flex flex-row flex-wrap gap-1")}
-		for _, t := range p.tags {
-			tags = append(tags, ui.Badge(ui.Outline, twi.Text(t)))
-		}
-		cards = append(cards, ui.Card(twi.Class("py-1"),
-			ui.CardHeader(ui.CardTitle(twi.Text(p.name)), ui.CardDescription(twi.Text(p.about))),
-			ui.CardContent(twi.Element(tags...)),
-			ui.CardFooter(txt("text-muted-foreground", p.meta)),
-		))
-	}
-	return intro("Projects", "Things I made and still look after. All open source.", twi.Element(cards...))
-}
-
-func (s *site) contact() twi.Node {
-	rows := []twi.NodeOption{twi.Class("flex flex-col")}
-	for _, l := range append([]link{{"Email", email}}, links()...) {
-		rows = append(rows, el("flex flex-row items-center gap-2",
-			txt("w-8 shrink-0 text-muted-foreground", l.label), txt("grow min-w-0 truncate", l.url),
-			ui.Button(ui.Outline, ui.SizeXS, twi.OnClick(func(*twi.Event) { s.copy(l.label, l.url) }), twi.Text("Copy"))))
-	}
-	return intro("Contact", "The fastest way to reach me is email. I answer within a few days.",
-		ui.Card(twi.Class("py-1"),
-			ui.CardHeader(ui.CardTitle(twi.Text("Say hello")), ui.CardDescription(twi.Text("Questions about a project, a post, or a job. Short is fine."))),
-			ui.CardContent(twi.Element(rows...))),
-		ui.Alert(ui.Default, twi.Class("px-2 py-1"), ui.AlertTitle(twi.Text("Open to work")), ui.AlertDescription(twi.Text("Part time, remote, from November. Tooling or platform teams."))),
-	)
 }

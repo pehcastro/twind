@@ -17,14 +17,15 @@ var postFiles embed.FS
 
 func main() {
 	themeName := flag.String("theme", "twind-dark", "built-in theme, name-scheme: twind-dark, dream-light, and so on")
+	pageName := flag.String("page", "home", "page open at start: home, projects, blog, contact, or a post's file name")
 	flag.Parse()
-	if err := run(*themeName); err != nil {
+	if err := run(*themeName, *pageName); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(themeName string) error {
+func run(themeName, pageName string) error {
 	t, ok := builtin(themeName)
 	if !ok {
 		return fmt.Errorf("-theme %q: not a built-in theme", themeName)
@@ -38,7 +39,11 @@ func run(themeName string) error {
 		return err
 	}
 	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
-	return rt.Run(newSite(rt, t, posts).view)
+	s := newSite(rt, t, posts)
+	if !s.open(pageName) {
+		return fmt.Errorf("-page %q: not a page or a post", pageName)
+	}
+	return rt.Run(s.view)
 }
 
 func builtin(name string) (theme.Theme, bool) {
