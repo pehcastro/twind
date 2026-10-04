@@ -123,6 +123,8 @@ type Screen struct {
 	runs         []buffer.Run
 	reach        [][2]int
 	over         []image.Point
+	bars         []bar
+	walker       scene.Walker
 	painting     terminal.Pixels
 	gdiPix       []byte
 	strip        []byte
@@ -140,6 +142,11 @@ type cached struct {
 }
 
 type run = graphics.Run
+
+type bar struct {
+	at   image.Point
+	cell buffer.Cell
+}
 
 type twin struct {
 	hash uint64
@@ -445,7 +452,7 @@ func (s *Screen) compose() {
 				if c.Bg.RGBA.A != math.MaxUint8 {
 					c.Bg = s.pageBg
 				}
-			case blank(*c) && (s.bridged[x] || s.Graphics == terminal.GraphicsSixel && s.besideSymbol(text, x, y)):
+			case blank(*c) && s.written(text, x, y):
 				c.Fg, c.Bg, c.Attr, c.Width = color.Color{}, s.behind(x, y), 0, buffer.Narrow
 			case blank(*c) && shown[x].Grapheme == "":
 				c.Grapheme, c.Fg, c.Bg, c.Attr, c.Width = "", shown[x].Fg, shown[x].Bg, shown[x].Attr, shown[x].Width
@@ -462,6 +469,10 @@ func symbol(c buffer.Cell) bool { return len(c.Grapheme) > 1 && c.Width == buffe
 
 func (s *Screen) besideSymbol(text []buffer.Cell, x, y int) bool {
 	return (x > 0 && symbol(text[x-1]) || x+1 < len(text) && symbol(text[x+1])) && s.flat(x, y, s.inset())
+}
+
+func (s *Screen) written(text []buffer.Cell, x, y int) bool {
+	return s.bridged[x] || s.Graphics == terminal.GraphicsSixel && s.besideSymbol(text, x, y)
 }
 
 func (s *Screen) bridge(text []buffer.Cell, y int, span [2]int) {
@@ -622,7 +633,7 @@ func (s *Screen) transmit() {
 			shown, text := s.shown.Row(y), s.text.Row(y)
 			s.bridge(text, y, span)
 			for x := span[0]; x < span[1]; x++ {
-				if t := s.tileAt(x, y); shown[x].Grapheme != "" && blank(text[x]) && !s.bridged[x] && !s.send[t] && !s.plain[t] && !s.flat(x, y, 0) {
+				if t := s.tileAt(x, y); shown[x].Grapheme != "" && blank(text[x]) && !s.send[t] && !s.plain[t] && !s.flat(x, y, 0) && !s.written(text, x, y) {
 					s.send[t] = true
 				}
 			}

@@ -3,6 +3,7 @@ package present
 import (
 	"fmt"
 	"image"
+	"math"
 	"slices"
 
 	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
@@ -198,10 +199,27 @@ func slide(lo, hi, by int, move func(dst, src int), blank func(dst int)) {
 	}
 }
 
-func (s *Screen) scrollbars(n *scene.Node) {
-	for i := range n.Children {
-		s.scrollbars(&n.Children[i])
+func (s *Screen) scrollbars(root *scene.Node) {
+	s.bars = s.bars[:0]
+	s.walker.Walk(root, s.cover, func(n *scene.Node, inside func()) {
+		inside()
+		s.place(n)
+	})
+	for _, b := range s.bars {
+		s.overlay(b.at.X, b.at.Y, b.cell)
 	}
+}
+
+func (s *Screen) cover(n *scene.Node) {
+	if len(s.bars) == 0 || n.Background.Kind != color.Literal || n.Background.RGBA.A != math.MaxUint8 {
+		return
+	}
+	b, c := n.Bounds, n.Clip
+	r := image.Rect(b.X, b.Y, b.X+b.W, b.Y+b.H).Intersect(image.Rect(c.X, c.Y, c.X+c.W, c.Y+c.H))
+	s.bars = slices.DeleteFunc(s.bars, func(under bar) bool { return under.at.In(r) })
+}
+
+func (s *Screen) place(n *scene.Node) {
 	from, to, ok := n.Thumb(konst.ThumbEighths)
 	if !ok {
 		return
@@ -218,7 +236,7 @@ func (s *Screen) scrollbars(n *scene.Node) {
 		if bottom < konst.ThumbEighths {
 			c.Grapheme, c.Attr = block(konst.ThumbEighths-bottom), buffer.Inverse
 		}
-		s.overlay(x, y, c)
+		s.bars = append(s.bars, bar{image.Pt(x, y), c})
 	}
 }
 
