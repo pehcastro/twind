@@ -116,4 +116,17 @@ Done, each checked live in Alacritty, WT and the PowerShell window:
 - 00cf027: `twind doctor` tells users of the inbox ConPTY how to get mouse and images back.
 - Docs: sidebar follows the palette (62fb85c), previews stay in their frame (e5f6288), card header grid (a14b1e7), header fits narrow windows (33dd3f7).
 
-Not started, needs your go-ahead: drawing rounded rings with pixels where the terminal has none (GDI on the conhost window, an overlay window for Alacritty and Zed on Windows). Both are Windows-only and fragile (see the probe results above).
+Since then (2026-10-02 to 10-04) the overlay window draws the look in the PowerShell window, Zed, Alacritty and Rio; see the Verdict table.
+
+## Linux (not on a real desktop yet)
+
+Measured under WSL Ubuntu 24.04 with a virtual display at b6944b5 (2026-09-30), an older build; details in `.local/planning/linux.md`. Driven frames match Windows byte for byte.
+
+| Terminal | Seen | Open |
+|---|---|---|
+| xterm 390 | 16 colours though it accepts 24-bit | colour depth from TERM and COLORTERM only; the DECRQSS answer is ignored |
+| kitty 0.32 | truecolor, kitty images | logs an unknown mode 2027 query (harmless) |
+| alacritty 0.13 | truecolor, cells look | none |
+| foot 1.16 | truecolor, sixel | one cold start laid out at the requested size instead of the window's |
+
+Not tried: ghostty, wezterm, Hyprland. Input and exit restore not exercised.
