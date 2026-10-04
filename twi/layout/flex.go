@@ -16,6 +16,7 @@ type arena struct {
 	tracks []track
 	cells  []gridItem
 	screen container
+	port   Rect
 	reuse  bool
 }
 
@@ -63,7 +64,7 @@ func Layout(root *Box, width int, height Length) {
 		viewport.H = viewHeight
 	}
 	screen := container{viewport, viewport}
-	a.screen, a.reuse = screen, a.screen == screen
+	a.screen, a.reuse, a.port = screen, a.screen == screen, viewport
 	a.place(root, Rect{0, 0, w, h}, mode, &viewport, &screen)
 }
 
@@ -91,9 +92,12 @@ func (a *arena) place(b *Box, border Rect, mode heightMode, outer *Rect, absolut
 	if !m.framesKnown || m.framesW != content.W || m.framesH != content.H || m.framesMode != mode {
 		a.arrange(b, content.W, content.H, mode)
 	}
+	bound, port := content, a.port
 	if s.Overflow == OverflowScroll {
 		moved = b.scroll() || moved
 		content.X, content.Y, padding.X, padding.Y = content.X-b.ScrollX, content.Y-b.ScrollY, padding.X-b.ScrollX, padding.Y-b.ScrollY
+		bound = Rect{content.X, content.Y, max(content.W, b.ScrollWidth-s.Padding.Left-s.Padding.Right), max(content.H, b.ScrollHeight-s.Padding.Top-s.Padding.Bottom)}
+		a.port = b.PaddingBox
 	}
 	if s.Position != PositionStatic {
 		absolute = &container{padding, clip}
@@ -119,11 +123,27 @@ func (a *arena) place(b *Box, border Rect, mode heightMode, outer *Rect, absolut
 				f.Y += shift(cs.Inset.Top, cs.Inset.Bottom, content.H)
 			}
 			f.X, f.Y = f.X+content.X, f.Y+content.Y
+			if cs.Position == PositionSticky {
+				m := cs.Margin
+				f.X = stick(f.X, f.W, cs.Inset.Left, cs.Inset.Right, a.port.X, a.port.W, bound.X+m.Left, bound.X+bound.W-m.Right)
+				f.Y = stick(f.Y, f.H, cs.Inset.Top, cs.Inset.Bottom, a.port.Y, a.port.H, bound.Y+m.Top, bound.Y+bound.H-m.Bottom)
+			}
 			moved = a.place(c, f, childMode, &clip, absolute) || moved
 		}
 	}
+	a.port = port
 	b.Moved, b.stale = b.Moved || moved, false
 	return moved
+}
+
+func stick(at, size int, near, far Length, view, span, low, high int) int {
+	if v, ok := resolve(near, span, true); ok {
+		at = max(at, min(view+v, high-size))
+	}
+	if v, ok := resolve(far, span, true); ok {
+		at = min(at, max(view+span-v-size, low))
+	}
+	return at
 }
 
 func (b *Box) scroll() bool {

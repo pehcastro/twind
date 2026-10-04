@@ -52,6 +52,7 @@ const (
 	PositionRelative
 	PositionAbsolute
 	PositionFixed
+	PositionSticky
 )
 
 type Overflow uint8
@@ -238,7 +239,7 @@ func refresh(b *Box) {
 		panic(fmt.Sprintf("layout: unknown display %d", s.Display))
 	case s.Direction > Column:
 		panic(fmt.Sprintf("layout: unknown direction %d", s.Direction))
-	case s.Position > PositionFixed:
+	case s.Position > PositionSticky:
 		panic(fmt.Sprintf("layout: unknown position %d", s.Position))
 	case s.Overflow > OverflowScroll:
 		panic(fmt.Sprintf("layout: unknown overflow %d", s.Overflow))
@@ -311,7 +312,7 @@ func visible(b *Box) bool {
 }
 
 func flowing(p Position) bool {
-	return p == PositionStatic || p == PositionRelative
+	return p == PositionStatic || p == PositionRelative || p == PositionSticky
 }
 
 func clips(o Overflow) bool {

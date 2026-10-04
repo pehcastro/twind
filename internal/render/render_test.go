@@ -2,13 +2,16 @@ package render_test
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
 	konst "github.com/twind-dev/twind/internal/konst/style"
 	"github.com/twind-dev/twind/internal/render"
+	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/layout"
+	"github.com/twind-dev/twind/twi/paint"
 	"github.com/twind-dev/twind/twi/scene"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/testdata/hello"
@@ -57,6 +60,8 @@ func positionSheet(t *testing.T) style.Sheet {
 		}},
 		{Class: "fixed", Decls: []style.Declaration{{Property: style.PropPosition, Position: style.PositionFixed}}},
 		{Class: "sticky", Decls: []style.Declaration{{Property: style.PropPosition, Position: style.PositionSticky}}},
+		{Class: "top-0", Decls: []style.Declaration{{Property: style.PropTop, Length: cells(0)}}},
+		{Class: "scroll", Decls: []style.Declaration{{Property: style.PropHeight, Length: style.Length{Unit: style.Percent, Value: 100}}, {Property: style.PropOverflowY, Overflow: style.OverflowAuto}}},
 		{Class: "inset-0", Decls: []style.Declaration{
 			{Property: style.PropTop, Length: cells(0)}, {Property: style.PropRight, Length: cells(0)},
 			{Property: style.PropBottom, Length: cells(0)}, {Property: style.PropLeft, Length: cells(0)},
@@ -109,9 +114,38 @@ func TestPositionOverflowAndZ(t *testing.T) {
 }
 
 func TestPositionSticky(t *testing.T) {
-	_, err := render.Render(render.Node{Classes: []string{"sticky"}}, render.Frame{Sheet: positionSheet(t), Width: 4})
-	if err == nil || !strings.Contains(err.Error(), "position sticky") {
-		t.Errorf("sticky gave %v, want an unsupported error", err)
+	var rows []render.Node
+	for i := range 12 {
+		rows = append(rows, render.Node{Text: "row " + strconv.Itoa(i)})
+	}
+	nav := render.Node{Classes: []string{"sticky", "top-0", "bg-blue"}, Text: "nav"}
+	page := render.Node{Classes: []string{"page"}, Children: []render.Node{{Classes: []string{"scroll"}, Children: append([]render.Node{nav}, rows...)}}}
+	var tree render.Tree
+	frame := render.Frame{Sheet: positionSheet(t), Width: 8, Height: layout.Length{Unit: layout.Cells, Value: 4}}
+	for _, c := range []struct {
+		by   int
+		want []string
+	}{{0, []string{"nav", "row 0", "row 1", "row 2"}}, {5, []string{"nav", "row 5", "row 6", "row 7"}}} {
+		if c.by > 0 && !tree.ScrollBy([]int{0}, 0, c.by) {
+			t.Fatal("the scroller did not scroll")
+		}
+		root, err := tree.Scene(page, frame)
+		if err != nil {
+			t.Fatal(err)
+		}
+		buf := buffer.New(8, 4)
+		paint.Paint(buf, root, paint.Composited)
+		var got []string
+		for y := range buf.Height() {
+			var row string
+			for _, cell := range buf.Row(y) {
+				row += cell.Grapheme
+			}
+			got = append(got, strings.TrimSpace(row))
+		}
+		if !slices.Equal(got, c.want) {
+			t.Errorf("scrolled %d: rows %q, want %q", c.by, got, c.want)
+		}
 	}
 }
 

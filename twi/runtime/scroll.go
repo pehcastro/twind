@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/internal/render"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/layout"
 	"github.com/twind-dev/twind/twi/scene"
@@ -33,28 +32,23 @@ func (r *Runtime) wheel(ev input.MouseEvent) {
 		panic("runtime: unknown mouse button")
 	}
 	if r.pointer.hovered != nil {
-		around, _ := r.scrollers(r.pointer.hovered)
-		r.scrollFirst(around, func(*scene.Node) (int, int) { return dx, dy })
+		r.scrollFirst(r.scrollers(r.pointer.hovered), func(*scene.Node) (int, int) { return dx, dy })
 	}
 }
 
-func (r *Runtime) scrollers(path []int) (innermostFirst []scroller, target *scene.Node) {
+func (r *Runtime) scrollers(path []int) (innermostFirst []scroller) {
 	n := &r.scene
 	for i := 0; ; i++ {
 		if n.Scroll {
 			innermostFirst = append(innermostFirst, scroller{path[:i], n})
 		}
-		if i == len(path) {
-			target = n
-			break
-		}
-		if path[i] >= len(n.Children) {
+		if i == len(path) || path[i] >= len(n.Children) {
 			break
 		}
 		n = &n.Children[path[i]]
 	}
 	slices.Reverse(innermostFirst)
-	return innermostFirst, target
+	return innermostFirst
 }
 
 func (r *Runtime) ScrollIntoView(key string) {
@@ -64,30 +58,7 @@ func (r *Runtime) ScrollIntoView(key string) {
 func (r *Runtime) scrollIntoView() bool {
 	e := r.doc.root.keyed(r.intoView)
 	r.intoView = ""
-	if e == nil {
-		return false
-	}
-	path := e.path()
-	around, target := r.scrollers(path)
-	if target == nil {
-		return false
-	}
-	at, moved, aligned := target.Bounds, false, false
-	for _, s := range around {
-		if len(s.path) == len(path) {
-			continue
-		}
-		view, content := s.node.Padding, s.node.ScrollContent
-		x, y := view.X-content.X, view.Y-content.Y
-		nx, ny := x+render.Reveal(at.X, at.W, view.X, view.W), y+render.Reveal(at.Y, at.H, view.Y, view.H)
-		if !aligned {
-			ny, aligned = y+at.Y-view.Y, true
-		}
-		nx, ny = max(min(nx, content.W-view.W), 0), max(min(ny, content.H-view.H), 0)
-		moved = r.tree.ScrollTo(s.path, nx, ny) || moved
-		at.X, at.Y = at.X-(nx-x), at.Y-(ny-y)
-	}
-	return moved
+	return e != nil && r.tree.ScrollToAnchor(e.path())
 }
 
 type Ref struct {
@@ -158,13 +129,15 @@ func contains(r layout.Rect, x, y int) bool {
 }
 
 func (r *Runtime) scrollKey(ev input.KeyEvent) {
-	current, focused := r.focus.Current()
-	if !focused || ev.Modifiers != 0 || ev.Release {
+	if ev.Modifiers != 0 || ev.Release {
 		return
 	}
-	path := current.path()
-	around, _ := r.scrollers(path)
-	arrows := len(around) > 0 && len(around[0].path) == len(path)
+	var path []int
+	current, focused := r.focus.Current()
+	if focused {
+		path = current.path()
+	}
+	around := r.scrollers(path)
 	var delta func(*scene.Node) (int, int)
 	switch ev.Key {
 	case input.KeyPageUp:
@@ -176,7 +149,7 @@ func (r *Runtime) scrollKey(ev input.KeyEvent) {
 	case input.KeyEnd:
 		delta = func(s *scene.Node) (int, int) { return 0, s.ScrollContent.H }
 	case input.KeyArrowUp, input.KeyArrowDown, input.KeyArrowLeft, input.KeyArrowRight:
-		if !arrows {
+		if !focused || len(around) == 0 || len(around[0].path) != len(path) {
 			return
 		}
 		dx, dy := 0, konst.ArrowLines
@@ -188,21 +161,41 @@ func (r *Runtime) scrollKey(ev input.KeyEvent) {
 		case input.KeyArrowRight:
 			dx, dy = konst.ArrowLines, 0
 		}
-		delta = func(*scene.Node) (int, int) { return dx, dy }
+		r.scrollFirst(around, func(*scene.Node) (int, int) { return dx, dy })
+		return
 	default:
 		return
 	}
-	r.scrollFirst(around, delta)
+	if !r.scrollFirst(around, delta) {
+		r.scrollFirst(r.page(), delta)
+	}
 }
 
-func (r *Runtime) scrollFirst(innermostFirst []scroller, delta func(*scene.Node) (int, int)) {
+func (r *Runtime) page() []scroller {
+	var page []scroller
+	area := 0
+	var walk func(n *scene.Node, path []int)
+	walk = func(n *scene.Node, path []int) {
+		if a := n.Padding.W * n.Padding.H; n.Scroll && a > area {
+			page, area = []scroller{{slices.Clone(path), n}}, a
+		}
+		for i := range n.Children {
+			walk(&n.Children[i], append(path, i))
+		}
+	}
+	walk(&r.scene, nil)
+	return page
+}
+
+func (r *Runtime) scrollFirst(innermostFirst []scroller, delta func(*scene.Node) (int, int)) bool {
 	for _, s := range innermostFirst {
 		dx, dy := delta(s.node)
 		if r.tree.ScrollBy(s.path, dx, dy) {
 			r.dirty = true
-			return
+			return true
 		}
 	}
+	return false
 }
 
 func (e *Elem) path() []int {

@@ -98,6 +98,9 @@ func edit(r *rand.Rand, root *Box) string {
 	case 4:
 		s, from := &b.Style, randomTree(r, 0).Style
 		s.Position, s.Inset, s.Column, s.Row, s.Margin = from.Position, from.Inset, from.Column, from.Row, from.Margin
+		if r.IntN(3) == 0 {
+			s.Position, s.Inset = PositionSticky, Insets{randomLength(r, 6), randomLength(r, 6), randomLength(r, 6), randomLength(r, 6)}
+		}
 		b.ScrollX, b.ScrollY = r.IntN(20), r.IntN(20)
 		b.Invalidate()
 		return "place"

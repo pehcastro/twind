@@ -234,21 +234,29 @@ func (t *Tree) ScrollTo(path []int, x, y int) bool {
 	return b != nil && t.scrollTo(b, x, y*t.rows)
 }
 
-func (t *Tree) ScrollIntoView(path []int) bool {
+func (t *Tree) ScrollIntoView(path []int) bool { return t.intoView(path, false) }
+
+func (t *Tree) ScrollToAnchor(path []int) bool { return t.intoView(path, true) }
+
+func (t *Tree) intoView(path []int, anchor bool) bool {
 	s, scrollers := t.find(path)
 	if s == nil {
 		return false
 	}
 	target, moved := s.box.BorderBox, false
-	for _, b := range slices.Backward(scrollers) {
+	for i, b := range slices.Backward(scrollers) {
 		view, x, y := b.PaddingBox, b.ScrollX, b.ScrollY
-		moved = t.scrollTo(b, x+Reveal(target.X, target.W, view.X, view.W), y+Reveal(target.Y, target.H, view.Y, view.H)) || moved
+		dy := reveal(target.Y, target.H, view.Y, view.H)
+		if anchor && i == len(scrollers)-1 {
+			dy = down(target.Y-view.Y, t.rows) * t.rows
+		}
+		moved = t.scrollTo(b, x+reveal(target.X, target.W, view.X, view.W), y+dy) || moved
 		target.X, target.Y = target.X-(b.ScrollX-x), target.Y-(b.ScrollY-y)
 	}
 	return moved
 }
 
-func Reveal(at, size, view, span int) int {
+func reveal(at, size, view, span int) int {
 	switch {
 	case at < view:
 		return at - view
@@ -345,7 +353,7 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 		for _, c := range list {
 			inner := r
 			switch c.box.Style.Position {
-			case layout.PositionStatic, layout.PositionRelative:
+			case layout.PositionStatic, layout.PositionRelative, layout.PositionSticky:
 			case layout.PositionAbsolute:
 				inner.flow = r.absolute
 			case layout.PositionFixed:
@@ -779,7 +787,7 @@ func boxStyle(parent, s *style.ComputedStyle, cell image.Point, rows int) (layou
 	case style.PositionFixed:
 		out.Position = layout.PositionFixed
 	case style.PositionSticky:
-		unsupported = append(unsupported, "position sticky")
+		out.Position = layout.PositionSticky
 	default:
 		panic(fmt.Sprintf("render: unknown position %d", s.Position))
 	}

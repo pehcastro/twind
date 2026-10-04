@@ -38,7 +38,7 @@ func retainedSheet(t *testing.T) style.Sheet {
 		{Class: "p-1", Decls: padding(1)},
 		{Class: "p-2", Decls: padding(2)},
 		{Class: "w-6", Decls: []style.Declaration{{Property: style.PropWidth, Length: cells(6)}}},
-		{Class: "sticky", Decls: []style.Declaration{{Property: style.PropPosition, Position: style.PositionSticky}}},
+		{Class: "inline", Decls: []style.Declaration{{Property: style.PropDisplay, Display: style.DisplayInline}}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -151,13 +151,13 @@ func TestRetainedStartsCleanAfterAnError(t *testing.T) {
 	sheet := retainedSheet(t)
 	f := render.Frame{Sheet: sheet, Width: 10}
 	ok := render.Node{Classes: []string{"page"}, Children: []render.Node{{Text: "a"}, {Classes: []string{"p-1"}, Text: "b"}}}
-	bad := render.Node{Classes: []string{"page"}, Children: []render.Node{{Text: "a"}, {Classes: []string{"sticky"}, Text: "b"}}}
+	bad := render.Node{Classes: []string{"page"}, Children: []render.Node{{Text: "a"}, {Classes: []string{"inline"}, Text: "b"}}}
 	var tree render.Tree
 	for i, n := range []render.Node{ok, bad, ok} {
 		g, err := tree.Scene(n, f)
 		if i == 1 {
-			if err == nil || !strings.Contains(err.Error(), "position sticky") {
-				t.Fatalf("sticky gave %v, want an unsupported error", err)
+			if err == nil || !strings.Contains(err.Error(), "display") {
+				t.Fatalf("display inline gave %v, want an unsupported error", err)
 			}
 			continue
 		}

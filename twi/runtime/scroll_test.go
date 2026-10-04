@@ -53,6 +53,7 @@ func (g grid) apply(t *testing.T, frame string) {
 			y, x = n(0)-1, n(1)-1
 		case 'C':
 			x += n(0)
+		case 'm':
 		default:
 			t.Fatalf("frame has %q", rest[:end+1])
 		}
@@ -112,6 +113,7 @@ func scrollSheet(t testing.TB) style.Sheet {
 		{Class: "h-20", Decls: []style.Declaration{cells(style.PropHeight, 20)}},
 		{Class: "w-12", Decls: []style.Declaration{cells(style.PropWidth, listWidth)}},
 		{Class: "shrink-0", Decls: []style.Declaration{{Property: style.PropShrink}}},
+		{Class: "pt-h", Decls: []style.Declaration{cells(style.PropPaddingTop, 0.5)}},
 		{Class: "overflow-y-auto", Decls: []style.Declaration{{Property: style.PropOverflowY, Overflow: style.OverflowAuto}}},
 	})
 	if err != nil {
