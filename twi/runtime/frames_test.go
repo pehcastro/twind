@@ -162,6 +162,30 @@ func TestMotionWakesAtItsPaceAndStops(t *testing.T) {
 	}
 }
 
+func TestMotionKeepsItsPaceAfterAChange(t *testing.T) {
+	r := pulsing(t, newBackend(20, 3))
+	r.count(100 * time.Millisecond)
+	early := 0
+	for i := range 6 {
+		r.next(t)
+		r.b.events <- key('x')
+		r.next(t)
+		changed := time.Now()
+		r.next(t)
+		gap := time.Since(changed)
+		t.Logf("key %d: the next motion frame %v after the key's frame", i, gap)
+		if gap < konst.MotionInterval*3/4 {
+			early++
+		}
+	}
+	if early > 0 {
+		t.Errorf("%d of 6 motion frames came sooner than %v after a key's frame: the motion pace restarts at the frame pace after every change", early, konst.MotionInterval*3/4)
+	}
+	if err := r.stop(t); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestSlowTerminalKeepsTheMotionPace(t *testing.T) {
 	b := newBackend(20, 3)
 	b.blocked = 20 * time.Millisecond

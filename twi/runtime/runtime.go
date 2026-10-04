@@ -103,7 +103,7 @@ type Runtime struct {
 	start         time.Time
 	motionAt      time.Time
 	moving        bool
-	lastMoved     bool
+	animating     bool
 	zoomed        image.Point
 	dev           devState
 	phases        phases
@@ -259,7 +259,7 @@ func (r *Runtime) loop(b Backend) error {
 
 func (r *Runtime) motionDue() time.Time {
 	interval := konst.FrameInterval
-	if r.lastMoved {
+	if r.animating {
 		interval = konst.MotionInterval
 	}
 	if paced := r.lastFrame.Add(interval); paced.After(r.motionAt) {
@@ -435,7 +435,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 			return err
 		}
 	}
-	r.motionAt = time.Time{}
+	r.animating, r.motionAt = !r.motionAt.IsZero(), time.Time{}
 	if at, moving := r.tree.Wake(); moving {
 		r.motionAt = r.start.Add(at)
 	}
@@ -463,7 +463,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	if err := r.screen.Frame(r.highlight(r.scene), r.width, r.height); err != nil {
 		return err
 	}
-	r.lastFrame, r.lastMoved = now, r.moving
+	r.lastFrame = now
 	if r.capabilities(b) != r.caps {
 		r.Invalidate()
 	}
