@@ -9,14 +9,12 @@ import (
 
 	"github.com/twind-dev/twind/apps/documentation/components"
 	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/highlight"
 	"github.com/twind-dev/twind/twi/markdown"
 	"github.com/twind-dev/twind/twi/ui"
 )
 
 const (
 	titleBytes = 128
-	tabCells   = "  "
 	copiedFor  = 2 * time.Second
 )
 
@@ -71,42 +69,10 @@ func (s *site) previewNode(name string) twi.Node {
 		t.List(t.Trigger("preview", twi.Text("Preview")), t.Trigger("code", twi.Text("Code"))),
 		t.Content("preview", el("flex flex-row min-h-9 min-w-0 items-center justify-center overflow-hidden rounded-lg border px-2 py-1", p.view())),
 		t.Content("code", el("relative flex flex-col rounded-lg border bg-muted py-1",
-			el("px-2 whitespace-pre overflow-x-auto", s.code("go", p.source)),
+			el("px-2 whitespace-pre overflow-x-auto", s.highlighter.Code("go", p.source)),
 			ui.Button(ui.Ghost, ui.SizeXS, twi.Key("copy-"+name), twi.Class("absolute top-0 right-1"), twi.OnClick(func(*twi.Event) { s.copy(p.source) }), twi.Text(label)),
 		)),
 	)
-}
-
-func (s *site) code(language, src string) twi.Node {
-	src = strings.TrimSuffix(src, "\n")
-	lines := [][]twi.NodeOption{nil}
-	emit := func(kind highlight.Kind, text string) {
-		for i, piece := range strings.Split(text, "\n") {
-			if i > 0 {
-				lines = append(lines, nil)
-			}
-			if piece != "" {
-				lines[len(lines)-1] = append(lines[len(lines)-1], txt(s.colours[kind], strings.ReplaceAll(piece, "\t", tabCells)))
-			}
-		}
-	}
-	g, compiled := s.grammars[language]
-	if build, known := map[string]func() *highlight.Grammar{"go": highlight.Go, "bash": highlight.Bash}[language]; known && !compiled {
-		g = build()
-		s.grammars[language] = g
-	}
-	if g != nil {
-		for span := range highlight.Tokens(src, g) {
-			emit(span.Kind, src[span.Start:span.End])
-		}
-	} else {
-		emit(highlight.Text, src)
-	}
-	rows := make([]twi.NodeOption, len(lines))
-	for i, line := range lines {
-		rows[i] = el("flex flex-row h-1 shrink-0", line...)
-	}
-	return el("flex flex-col", rows...)
 }
 
 func (s *site) propsTable(of string) twi.Node {

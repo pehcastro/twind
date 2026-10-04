@@ -13,7 +13,6 @@ import (
 	"github.com/twind-dev/twind/apps/documentation/components"
 	"github.com/twind-dev/twind/docs"
 	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/highlight"
 	"github.com/twind-dev/twind/twi/icon"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/markdown"
@@ -40,8 +39,7 @@ type site struct {
 	folds               map[string]*ui.Collapsible
 	previews            map[string]*preview
 	props               map[string][]prop
-	grammars            map[string]*highlight.Grammar
-	colours             map[highlight.Kind]string
+	highlighter         markdown.Highlighter
 	themes              []theme.Theme
 	palette             *ui.CommandDialog
 	sidebar             *ui.Sidebar
@@ -61,7 +59,7 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 	folds := map[string]*ui.Collapsible{}
 	for _, group := range [][]string{
 		{"Getting started", "introduction", "installation", "theming", "cli"},
-		{"Guides", "layout", "text", "motion", "events", "driving"},
+		{"Guides", "layout", "text", "code-blocks", "motion", "events", "driving"},
 		{"Components", "accordion", "alert", "alert-dialog", "aspect-ratio", "attachment", "avatar", "badge", "breadcrumb", "bubble", "button", "button-group",
 			"calendar", "card", "carousel", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "drawer", "dropdown-menu",
 			"field", "hover-card", "input", "input-group", "input-otp", "item", "kbd", "label", "marker", "menubar", "message", "message-scroller", "native-select",
@@ -77,16 +75,6 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 	}
 	return &site{
 		rt: rt, catalogs: catalogs, entries: entries, folds: folds, previews: map[string]*preview{}, props: props(),
-		grammars: map[string]*highlight.Grammar{},
-		colours: map[highlight.Kind]string{
-			highlight.Keyword: "text-violet-700 dark:text-violet-400", highlight.String: "text-green-700 dark:text-green-400",
-			highlight.Escape: "text-amber-700 dark:text-amber-300", highlight.Number: "text-orange-700 dark:text-orange-300",
-			highlight.Comment: "text-muted-foreground italic", highlight.Function: "text-blue-700 dark:text-blue-400",
-			highlight.Punctuation: "text-muted-foreground", highlight.Property: "text-sky-700 dark:text-sky-300",
-			highlight.Boolean: "text-orange-700 dark:text-orange-300", highlight.Variable: "text-amber-700 dark:text-amber-300",
-			highlight.Builtin: "text-blue-700 dark:text-blue-400", highlight.Regex: "text-amber-700 dark:text-amber-300",
-			highlight.Datetime: "text-orange-700 dark:text-orange-300", highlight.TableHeader: "text-primary",
-		},
 		themes:  slices.DeleteFunc(theme.Builtin(), func(t theme.Theme) bool { return t.Scheme == theme.Dark }),
 		palette: ui.NewCommandDialog(rt),
 		sidebar: ui.NewSidebar(rt),
@@ -386,7 +374,7 @@ func (s *site) follow(target string) {
 }
 
 func (s *site) sections(e entry) twi.Node {
-	options := markdown.Options{Highlight: s.code, Follow: s.follow, Copy: s.copy, Copied: s.copied}
+	options := markdown.Options{Highlight: s.highlighter.Code, Follow: s.follow, Copy: s.copy, Copied: s.copied}
 	var out []twi.NodeOption
 	for blocks := e.page.Blocks; len(blocks) > 0; {
 		end := 1 + slices.IndexFunc(blocks[1:], func(b markdown.Block) bool { return b.Kind == markdown.Heading && outlined(b.Level) })

@@ -287,7 +287,7 @@ func TestSidebarScrolls(t *testing.T) {
 	if strings.Contains(d.Frame().Text(), "Accordion") {
 		t.Fatalf("the Components group starts open on the Introduction:\n%s", d.Frame().Text())
 	}
-	toComponents := 3 + 1 + 4 + 1 + 5 + 1
+	toComponents := 3 + 1 + 4 + 1 + 6 + 1
 	for range toComponents {
 		d.Press("tab")
 	}

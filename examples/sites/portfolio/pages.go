@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/highlight"
 	"github.com/twind-dev/twind/twi/input"
 	"github.com/twind-dev/twind/twi/markdown"
 	"github.com/twind-dev/twind/twi/ui"
@@ -184,35 +183,7 @@ func (s *site) follow(target string) {
 }
 
 func (s *site) code(language, src string) twi.Node {
-	colour := map[highlight.Kind]string{
-		highlight.Keyword: "text-syntax-keyword", highlight.String: "text-syntax-string", highlight.Escape: "text-syntax-constant",
-		highlight.Number: "text-syntax-number", highlight.Comment: "text-syntax-comment italic", highlight.Function: "text-syntax-function",
-		highlight.Builtin: "text-syntax-constant", highlight.Variable: "text-syntax-parameter", highlight.Punctuation: "text-syntax-punctuation",
-	}
-	lines := [][]twi.NodeOption{nil}
-	emit := func(kind highlight.Kind, text string) {
-		for i, piece := range strings.Split(text, "\n") {
-			if i > 0 {
-				lines = append(lines, nil)
-			}
-			if piece != "" {
-				lines[len(lines)-1] = append(lines[len(lines)-1], txt(colour[kind], strings.ReplaceAll(piece, "\t", tabCell)))
-			}
-		}
-	}
-	src = strings.TrimSuffix(src, "\n")
-	if g := s.syntax[language]; g != nil {
-		for span := range highlight.Tokens(src, g) {
-			emit(span.Kind, src[span.Start:span.End])
-		}
-	} else {
-		emit(highlight.Text, src)
-	}
-	rows := make([]twi.NodeOption, len(lines))
-	for i, line := range lines {
-		rows[i] = el("flex flex-row h-1 shrink-0", line...)
-	}
-	return el("flex flex-col pb-0.5", rows...)
+	return el("flex flex-col pb-0.5", s.highlighter.Code(language, src))
 }
 
 func (s *site) contact() twi.Node {

@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/highlight"
 	"github.com/twind-dev/twind/twi/icon"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/markdown"
 	"github.com/twind-dev/twind/twi/theme"
 	"github.com/twind-dev/twind/twi/ui"
 )
@@ -29,7 +29,6 @@ func (p page) String() string {
 const (
 	name           = "Noor Valenko"
 	email          = "hello@noor.example"
-	tabCell        = "    "
 	wordsPerMinute = 200
 	dateLayout     = "2006-01-02"
 	shownDate      = "Jan 2, 2006"
@@ -39,21 +38,20 @@ const (
 )
 
 type site struct {
-	rt      *twi.Runtime
-	theme   theme.Theme
-	posts   []post
-	at      page
-	reading int
-	last    int
-	toaster *ui.Toaster
-	palette *ui.CommandDialog
-	syntax  map[string]*highlight.Grammar
+	rt          *twi.Runtime
+	theme       theme.Theme
+	posts       []post
+	at          page
+	reading     int
+	last        int
+	toaster     *ui.Toaster
+	palette     *ui.CommandDialog
+	highlighter markdown.Highlighter
 }
 
 func newSite(rt *twi.Runtime, t theme.Theme, posts []post) *site {
 	rt.SetTheme(t)
-	s := &site{rt: rt, theme: t, posts: posts, reading: -1, last: -1, toaster: ui.NewToaster(rt), palette: ui.NewCommandDialog(rt),
-		syntax: map[string]*highlight.Grammar{"go": highlight.Go(), "bash": highlight.Bash()}}
+	s := &site{rt: rt, theme: t, posts: posts, reading: -1, last: -1, toaster: ui.NewToaster(rt), palette: ui.NewCommandDialog(rt)}
 	s.palette.Key = "palette"
 	s.palette.OnSelect = func(value string) {
 		if value == flipScheme {
