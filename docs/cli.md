@@ -49,6 +49,23 @@ twind drive -out frames tour.twd ./myapp
 
 The package declares `func App(rt *twi.Runtime) func() twi.Node` and has its `Styles` function. See [Driving](driving.md) for the script verbs.
 
+## twind dev
+
+Builds a package, runs it, and swaps the running program for a new build on every save:
+
+```bash
+twind dev ./myapp
+twind dev -log .twind/cache/dev.log ./myapp -theme dream-light
+```
+
+It watches every Go and embedded file the package imports from your module. A save rebuilds in the background and regenerates any stale Style IR first; the new build then replaces the old program in the same terminal. A build that fails leaves the old program running and shows the first compiler error on the last row. Arguments after the package go to the program.
+
+The swap keeps where you were. The focused element, every scroll offset and each value the app saves with `rt.Remember(key, save, restore)` are written before the old program stops and read back by the new one. The docs app remembers its page and theme this way.
+
+`-log` appends a timed line for each step to a file: the saves, whether each IR was stale, the build and how long it took, the state carried across, and the swap. Read it when a swap feels slow.
+
+From a clone of Twind, `pnpm run docs:dev` runs these docs under `twind dev`, logging to `.twind/cache/dev.log`, so a save in `docs/` or `apps/documentation/` shows on screen.
+
 ## twind docs
 
 Opens this documentation:

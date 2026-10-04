@@ -94,6 +94,15 @@ func props() map[string][]prop {
 			{"CardAction", "twi.Node", "a control in the header's top right corner"},
 			{"CardContent, CardFooter", "twi.Node", "the body and the bottom row"},
 		},
+		"Chart": {
+			{"Kind", "chart.Kind", "Bar, Line or Area"},
+			{"Stacked", "bool", "stacks the series of a bar or area chart on each other"},
+			{"Labels", "[]string", "one label per point, under the x axis"},
+			{"Series", "[]chart.Series", "a Label, a Color from theme.Chart1 to theme.Chart5 and one value per label"},
+			{"Width, Height", "int", "the size in cells, axis and legend included"},
+			{"Node(options...)", "twi.Node", "the chart; the pointer over a point shows its values"},
+			{"Draw(dst, cell, token)", "func(*image.RGBA, image.Point, func(theme.Token) color.RGBA)", "paints the chart into an image at cell pixel size, with token giving each colour"},
+		},
 		"Checkbox": {
 			{"Checked", "bool", "whether it is ticked"},
 			{"OnChange", "func(bool)", "called when it flips"},

@@ -266,7 +266,7 @@ func TestEveryPage(t *testing.T) {
 	if err := s.load(docs.Pages); err != nil {
 		t.Fatal(err)
 	}
-	logged := map[string]string{"layout": "", "motion": "", "card": "", "calendar": "", "dropdown-menu": "Open menu"}
+	logged := map[string]string{"layout": "", "motion": "", "card": "", "calendar": "", "dropdown-menu": "Open menu", "chart": "", "api-twi": "", "api-ui": ""}
 	for _, e := range s.entries {
 		jump(t, d, e.title)
 		press, ok := logged[e.slug]
@@ -292,7 +292,7 @@ func TestSidebarScrolls(t *testing.T) {
 		d.Press("tab")
 	}
 	d.Press("enter")
-	for range 57 {
+	for range 58 {
 		d.Press("tab")
 	}
 	d.Press("enter")

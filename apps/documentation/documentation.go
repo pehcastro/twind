@@ -61,11 +61,12 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 		{"Getting started", "introduction", "installation", "theming", "cli"},
 		{"Guides", "layout", "text", "code-blocks", "motion", "events", "driving"},
 		{"Components", "accordion", "alert", "alert-dialog", "aspect-ratio", "attachment", "avatar", "badge", "breadcrumb", "bubble", "button", "button-group",
-			"calendar", "card", "carousel", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "drawer", "dropdown-menu",
+			"calendar", "card", "carousel", "chart", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "drawer", "dropdown-menu",
 			"field", "hover-card", "input", "input-group", "input-otp", "item", "kbd", "label", "marker", "menubar", "message", "message-scroller", "native-select",
 			"navigation-menu", "pagination", "popover", "progress", "radio-group", "resizable", "scroll-area", "select", "separator", "sheet",
 			"sidebar", "skeleton", "slider", "spinner", "switch", "table", "tabs", "textarea", "toaster", "toggle", "toggle-group", "tooltip"},
 		{"Examples", "blocks"},
+		{"Reference", "api-twi", "api-ui", "api-drive", "api-theme", "api-markdown", "api-chart", "api-fix"},
 	} {
 		for _, slug := range group[1:] {
 			entries = append(entries, entry{group: group[0], slug: slug})
@@ -432,7 +433,7 @@ func (s *site) outline(e entry) twi.Node {
 			s.rt.Invalidate()
 		})))
 	}
-	return el("hidden md:flex flex-col w-24 shrink-0 px-2 py-1", items...)
+	return el("hidden md:flex flex-col w-24 shrink-0 overflow-y-auto px-2 py-1", items...)
 }
 
 func (s *site) search() twi.Node {
