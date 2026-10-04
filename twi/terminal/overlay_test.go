@@ -166,6 +166,36 @@ func zedScreen(marks []Mark) []byte {
 	return pix
 }
 
+func TestConhostOverlayCalibratesFromTheConsoleGeometry(t *testing.T) {
+	h := &fakeHost{at: hostPlace{origin: image.Pt(40, 30), client: image.Pt(967, 485), shown: true, front: true}}
+	o := &overlay{win: h, cells: image.Pt(8, 16), geometric: true}
+	grid, cell, now := image.Pt(120, 30), image.Pt(8, 16), time.Now()
+	ev, ok := o.tick(grid, now)
+	if !ok || ev.Cell != cell {
+		t.Fatalf("first tick reported %+v %v, want a resize to cell %v from the client over the grid", ev, ok, cell)
+	}
+	if graphics, got := o.surface(); graphics != GraphicsGDI || got != cell {
+		t.Errorf("surface %d %v, want GDI %v without marks", graphics, got, cell)
+	}
+	if marks := o.marks(zedPage, now); marks != nil {
+		t.Errorf("a console overlay asked for %d marks, want none", len(marks))
+	}
+	tile := image.Rect(1, 1, 3, 2)
+	if !o.paint(Pixels{Cell: cell, Grid: grid, Clear: true, Tiles: []Tile{{Cells: tile, Pix: opaque(tile, cell)}}}) {
+		t.Fatal("the calibrated console overlay refused a paint")
+	}
+	if o.size != image.Pt(960, 480) || h.drawnAt != h.at.origin {
+		t.Errorf("overlay %v at %v, want 960x480 at the client origin %v", o.size, h.drawnAt, h.at.origin)
+	}
+	at := (cell.Y*o.size.X + cell.X) * 4
+	if got := h.pix[at : at+4]; !slices.Equal(got, []byte{9, 8, 7, 255}) {
+		t.Errorf("overlay pixel at cell 1,1 is %v, want the tile's", got)
+	}
+	if again := (&overlay{win: h, cells: cell, geometric: true}); again.paint(Pixels{Cell: cell, Grid: grid, Clear: true}) {
+		t.Errorf("an overlay that has not ticked accepted a paint")
+	}
+}
+
 func zedHost() *fakeHost {
 	return &fakeHost{at: hostPlace{origin: zedOrigin, client: zedClient, shown: true, front: true}}
 }
@@ -607,7 +637,9 @@ func TestOverlayChosenForZedAlacrittyAndRio(t *testing.T) {
 		{"zed forced none", zed, false, true, "Zed.exe", "Zed::Window", offer{zed: true, forced: true}, false},
 		{"windows terminal", windowsTerminal, false, true, "WindowsTerminal.exe", "CASCADIA_HOSTING_WINDOW_CLASS", offer{}, false},
 		{"windows terminal under an alacritty window", windowsTerminal, false, true, "alacritty.exe", konst.WinitClass, offer{}, false},
-		{"conhost", conPTY, true, true, "alacritty.exe", konst.WinitClass, offer{}, false},
+		{"conhost under a window of another class", conPTY, true, true, "alacritty.exe", konst.WinitClass, offer{}, false},
+		{"conhost over its console window", conPTY, true, true, "", konst.ConhostWindowClass, offer{}, true},
+		{"conhost forced none", conPTY, true, true, "", konst.ConhostWindowClass, offer{forced: true}, false},
 		{"inbox conpty in mintty", conPTY, false, true, "mintty.exe", "mintty", offer{}, false},
 		{"inbox conpty in another winit program", conPTY, false, true, "foo.exe", konst.WinitClass, offer{}, false},
 		{"inbox conpty in alacritty with another class", conPTY, false, true, "alacritty.exe", "Alacritty", offer{}, false},

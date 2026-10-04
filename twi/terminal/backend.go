@@ -245,14 +245,19 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	}
 	b.Capabilities = b.detect(raw, replies, o)
 	b.rightPastes.Store(b.Capabilities.Identity == IdentityVSCode)
-	if b.Capabilities.Identity == IdentityConhost && !o.forced {
-		if c, err := openCanvas(t, b.trace); err == nil {
+	conhost := b.Capabilities.Identity == IdentityConhost && !o.forced
+	if conhost {
+		if win, err := t.overlay(b.trace, IdentityConhost); err == nil {
+			b.trace.log("overlay: opened over the console window, calibrated from its client")
+			b.overlay.Store(&overlay{win: win, cells: b.Capabilities.CellPixels, trace: b.trace, geometric: true})
+		} else if c, err := openCanvas(t, b.trace); err == nil {
 			b.Capabilities.Graphics, b.Capabilities.CellPixels = GraphicsGDI, c.cell
 			b.canvas.Store(c)
 		}
 	}
 	b.trace.log("terminal: detected identity %d in %v", b.Capabilities.Identity, time.Since(detecting).Round(time.Microsecond))
 	switch {
+	case conhost:
 	case o.forced:
 		b.trace.log("overlay: none, TWIND_GRAPHICS forced")
 	case b.Capabilities.Graphics != GraphicsNone:

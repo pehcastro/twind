@@ -77,7 +77,12 @@ func (k win32) overlay(tr *trace, id Identity) (host, error) {
 			return nil, err
 		}
 	}
-	term, exe := k.ancestor(tr)
+	term, exe := uintptr(0), ""
+	if id == IdentityConhost {
+		term, _, _ = k.consoleWindow.Call()
+	} else {
+		term, exe = k.ancestor(tr)
+	}
 	if term == 0 {
 		return nil, errors.New("no host window")
 	}

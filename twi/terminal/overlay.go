@@ -59,7 +59,9 @@ func drawsOver(id Identity, exe, class string) bool {
 	case IdentityInboxConPTY, IdentityOther:
 		exe = strings.ToLower(exe)
 		return class == konst.WinitClass && (exe == konst.AlacrittyExe || exe == konst.RioExe)
-	case IdentityConhost, IdentityVSCode:
+	case IdentityConhost:
+		return class == konst.ConhostWindowClass
+	case IdentityVSCode:
 		return false
 	}
 	panic(fmt.Sprintf("terminal: unknown identity %d", id))
@@ -216,6 +218,7 @@ type overlay struct {
 	fresh          bool
 	refused        bool
 	broken         bool
+	geometric      bool
 	trace          *trace
 	origin         image.Point
 	cell           image.Point
@@ -342,7 +345,20 @@ func (o *overlay) tick(grid image.Point, now time.Time) (input.ResizeEvent, bool
 		o.reads++
 		o.measure(at)
 	}
-	if want := able && o.cell == (image.Point{}) && !o.broken && o.reads < konst.OverlayReads; want != o.marking {
+	if o.geometric && err == nil && o.cell == (image.Point{}) && !o.broken && at.client.X >= grid.X && at.client.Y >= grid.Y && grid.X > 0 && grid.Y > 0 {
+		o.cell, o.base, o.fresh = image.Pt(at.client.X/grid.X, at.client.Y/grid.Y), image.Point{}, true
+		o.size = image.Pt(o.cell.X*grid.X, o.cell.Y*grid.Y)
+		edges := func(n, step int) []int {
+			e := make([]int, n+1)
+			for i := range e {
+				e[i] = i * step
+			}
+			return e
+		}
+		o.columns, o.lines = remap(edges(grid.X, o.cell.X), o.cell.X), remap(edges(grid.Y, o.cell.Y), o.cell.Y)
+		o.trace.log("calibrated from the console: cell %v, overlay %v", o.cell, o.size)
+	}
+	if want := able && o.cell == (image.Point{}) && !o.broken && !o.geometric && o.reads < konst.OverlayReads; want != o.marking {
 		o.marking, o.marked, o.painted, asked = want, nil, time.Time{}, true
 		o.trace.log("marks: wanted %t after %d reads, able %t; the page must be one opaque colour and the profile truecolor for them to be painted", want, o.reads, able)
 	}
