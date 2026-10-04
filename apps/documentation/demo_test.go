@@ -182,6 +182,21 @@ func TestDrawerDemoFitsAndDrags(t *testing.T) {
 	}
 }
 
+func TestDirectionDemoReadsRightToLeft(t *testing.T) {
+	d, _, f := framed(t, "direction")
+	t.Logf("direction, 120x36:\n%s", d.Frame().Text())
+	title, _ := spot(t, d, "ןובשחל תורבחתה")
+	enter, _ := spot(t, d, "הסינכ")
+	cancel, _ := spot(t, d, "לוטיב")
+	ltr, _ := spot(t, d, "dir ltr inside")
+	if enter < cancel {
+		t.Errorf("the first button at column %d, left of the second at %d; a right-to-left row starts at the right", enter, cancel)
+	}
+	if ltr > title || ltr-f[1] > title-f[1] {
+		t.Errorf("the ltr line at column %d and the rtl title at %d: want the title against the right and the ltr line against the left", ltr, title)
+	}
+}
+
 func TestCardDemoButtonsHaveRowsAboveAndBelow(t *testing.T) {
 	d, _, _ := framed(t, "card")
 	cells := d.Frame().Cells()

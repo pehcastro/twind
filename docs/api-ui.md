@@ -227,6 +227,10 @@ Dialog.OnOpenChange func(bool)\
 Dialog.Disabled bool\
 Dialog.Invalid bool
 
+## Direction
+
+func Direction(dir text.Direction, children ...twi.NodeOption) twi.Node
+
 ## Empty
 
 func Empty(children ...twi.NodeOption) twi.Node\

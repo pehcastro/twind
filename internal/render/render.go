@@ -162,7 +162,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	if fresh {
 		styled = new(styledBox)
 	}
-	err := t.build(&f, styled, fresh, &t.blank, false, root, style.PlaceOf(0, 1), nil)
+	err := t.build(&f, styled, fresh, &t.blank, text.DirLTR, false, root, style.PlaceOf(0, 1), nil)
 	clear(t.styles)
 	t.root, t.cell, t.band, t.restyle = styled, f.Cell, band, false
 	if err != nil {
@@ -180,7 +180,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	return t.drawn, nil
 }
 
-func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, n *Node, state *style.NodeState, related []int, placed bool, at image.Point) (*style.ComputedStyle, layout.Style, error) {
+func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, dir text.Direction, n *Node, state *style.NodeState, related []int, placed bool, at image.Point) (*style.ComputedStyle, layout.Style, error) {
 	var h maphash.Hash
 	h.SetSeed(t.seed)
 	for _, c := range n.Classes {
@@ -220,7 +220,7 @@ func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, n *N
 		auto := style.Length{Unit: style.Auto}
 		computed.Inset = style.Edges{Top: style.Length{Value: float64(at.Y)}, Left: style.Length{Value: float64(at.X)}, Right: auto, Bottom: auto}
 	}
-	ls, err := boxStyle(parent, computed, f.Cell, t.rows)
+	ls, err := boxStyle(parent, computed, dir, f.Cell, t.rows)
 	return computed, ls, err
 }
 
@@ -318,6 +318,7 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 		st = m.shown
 	}
 	n := scene.New(&s.box, *st, s.text)
+	n.Direct(s.wrapping.Dir)
 	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
 	n.Bounds, n.Halves.Bounds = t.outer(n.Bounds)
 	n.Padding, n.Halves.Padding = t.outer(n.Padding)
@@ -417,7 +418,17 @@ func overlap(a, b layout.Rect) layout.Rect {
 	return layout.Rect{X: x, Y: y, W: max(min(a.X+a.W, b.X+b.W)-x, 0), H: max(min(a.Y+a.H, b.Y+b.H)-y, 0)}
 }
 
-func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedStyle, parentChanged bool, n Node, place style.Place, siblings []*styledBox) error {
+func Dir(d text.Direction) style.Attr {
+	switch d {
+	case text.DirLTR:
+		return style.Attr{Name: "dir", Value: "ltr"}
+	case text.DirRTL:
+		return style.Attr{Name: "dir", Value: "rtl"}
+	}
+	panic(fmt.Sprintf("render: no dir attribute for direction %d", d))
+}
+
+func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedStyle, dir text.Direction, parentChanged bool, n Node, place style.Place, siblings []*styledBox) error {
 	if fresh {
 		s.key, s.born, s.rows = t.key(), t.now, t.rows
 	}
@@ -428,6 +439,14 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		state = *n.State
 	}
 	state.Places = place
+	for _, a := range state.Attrs {
+		switch a {
+		case Dir(text.DirLTR):
+			dir = text.DirLTR
+		case Dir(text.DirRTL):
+			dir = text.DirRTL
+		}
+	}
 	reclassed := fresh || !slices.Equal(s.classes, n.Classes)
 	if reclassed {
 		s.marks, s.near = f.Sheet.Marks(n.Classes), f.Sheet.Near(n.Classes, s.near[:0])
@@ -438,11 +457,11 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		at = *n.At
 	}
 	related := t.relate(f.Sheet, s, n, state, siblings)
-	restate := s.state.States != state.States || s.state.Places != state.Places || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related) || placed != s.placed || at != s.at
+	restate := s.state.States != state.States || s.state.Places != state.Places || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related) || placed != s.placed || at != s.at || dir != s.wrapping.Dir
 	crossed := t.crossed && f.Sheet.Responsive(n.Classes)
 	if reclassed || t.restyle || parentChanged || restate || crossed {
 		t.cascades++
-		computed, ls, err := t.cascade(f, s, parent, &n, &state, related, placed, at)
+		computed, ls, err := t.cascade(f, s, parent, dir, &n, &state, related, placed, at)
 		if err != nil {
 			return err
 		}
@@ -452,20 +471,20 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		}
 		s.related = append(s.related[:0], related...)
 		s.hands = f.Sheet.Hands(n.Classes, state, s.hands[:0])
-		if reverse := reversed(computed); reverse != s.reverse {
+		if reverse := reversed(computed) != mirrored(computed, dir); reverse != s.reverse {
 			s.reverse = reverse
 			s.box.Invalidate()
 		}
 		if animating = moves(computed) || s.animated || t.motion.Holds(s.key); animating {
 			t.animate(s, s.computed, computed)
 		}
-		if changed = fresh || t.restyle || !computed.Equal(s.computed); changed {
+		if changed = fresh || t.restyle || !computed.Equal(s.computed) || dir != s.wrapping.Dir; changed {
 			s.painted = false
 		}
 		s.computed = computed
 		nowrap := unwrapped(computed.WhiteSpace)
 		wrapping := scene.Wrapping(computed)
-		wrapping.Widths = s.wrapping.Widths
+		wrapping.Widths, wrapping.Dir = s.wrapping.Widths, dir
 		if nowrap != s.nowrap || wrapping != s.wrapping {
 			s.nowrap, s.wrapping = nowrap, wrapping
 			s.sizes = s.sizes[:0]
@@ -532,7 +551,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 			place, index = placeOf(index, i == last), index+1
 		}
 		child := s.children[i]
-		if err := t.build(f, child, child.computed == nil, s.computed, changed, c, place, s.children[:i]); err != nil {
+		if err := t.build(f, child, child.computed == nil, s.computed, dir, changed, c, place, s.children[:i]); err != nil {
 			return err
 		}
 		at := i
@@ -672,7 +691,7 @@ func (s *styledBox) measure(availableWidth int) (int, int) {
 	return size[0], size[1]
 }
 
-func boxStyle(parent, s *style.ComputedStyle, cell image.Point, rows int) (layout.Style, error) {
+func boxStyle(parent, s *style.ComputedStyle, dir text.Direction, cell image.Point, rows int) (layout.Style, error) {
 	var unsupported []string
 	cells := func(name string, l style.Length, unit int) int {
 		if l.Unit != style.Cells {
@@ -828,10 +847,10 @@ func boxStyle(parent, s *style.ComputedStyle, cell image.Point, rows int) (layou
 	if s.Display == style.DisplayFlex && s.Wrap != style.NoWrap && s.AlignContent != style.JustifyStretch {
 		unsupported = append(unsupported, "align-content in a wrapping flex container")
 	}
-	if reversed(s) {
-		if s.Wrap != style.NoWrap {
-			unsupported = append(unsupported, "flex-wrap in a reversed direction")
-		}
+	if reversed(s) && s.Wrap != style.NoWrap {
+		unsupported = append(unsupported, "flex-wrap in a reversed direction")
+	}
+	if reversed(s) != mirrored(s, dir) {
 		switch out.Justify {
 		case layout.JustifyStart, layout.JustifyStretch:
 			out.Justify = layout.JustifyEnd
@@ -875,6 +894,10 @@ func tracks(ts []style.Track, unit int) []layout.Track {
 
 func reversed(s *style.ComputedStyle) bool {
 	return s.Display == style.DisplayFlex && (s.Direction == style.RowReverse || s.Direction == style.ColumnReverse)
+}
+
+func mirrored(s *style.ComputedStyle, dir text.Direction) bool {
+	return dir == text.DirRTL && s.Display == style.DisplayFlex && s.Wrap == style.NoWrap && (s.Direction == style.Row || s.Direction == style.RowReverse)
 }
 
 func scrolls(o style.Overflow) bool {

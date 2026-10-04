@@ -61,7 +61,7 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 		{"Getting started", "introduction", "installation", "theming", "cli"},
 		{"Guides", "layout", "text", "code-blocks", "motion", "events", "driving"},
 		{"Components", "accordion", "alert", "alert-dialog", "aspect-ratio", "attachment", "avatar", "badge", "breadcrumb", "bubble", "button", "button-group",
-			"calendar", "card", "carousel", "chart", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "drawer", "dropdown-menu",
+			"calendar", "card", "carousel", "chart", "checkbox", "collapsible", "combobox", "command", "context-menu", "dialog", "direction", "drawer", "dropdown-menu",
 			"field", "form", "hover-card", "input", "input-group", "input-otp", "item", "kbd", "label", "marker", "menubar", "message", "message-scroller", "native-select",
 			"navigation-menu", "pagination", "popover", "progress", "radio-group", "resizable", "scroll-area", "select", "separator", "sheet",
 			"sidebar", "skeleton", "slider", "spinner", "switch", "table", "tabs", "textarea", "toaster", "toggle", "toggle-group", "tooltip"},

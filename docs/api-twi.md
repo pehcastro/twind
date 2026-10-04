@@ -74,6 +74,7 @@ func AutoFocus() NodeOption\
 func Class(classes ...string) NodeOption\
 func Classes(options \[\]NodeOption) (classes \[\]string, rest \[\]NodeOption)\
 func Data(name, value string) NodeOption\
+func Dir(d text.Direction) NodeOption\
 func Disabled() NodeOption\
 func FocusScope() NodeOption\
 func Focusable() NodeOption\

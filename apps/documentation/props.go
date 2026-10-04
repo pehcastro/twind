@@ -210,6 +210,10 @@ func props() map[string][]prop {
 			{"ItemContent, ItemTitle, ItemDescription, ItemActions", "twi.Node", "the parts of the row"},
 			{"ItemGroup, ItemSeparator", "twi.Node", "a list of items and a line between them"},
 		},
+		"Direction": {
+			{"dir", "text.Direction", "text.DirRTL or text.DirLTR; descendants inherit it until one sets its own"},
+			children,
+		},
 		"Kbd": {
 			{"Kbd(children...)", "twi.Node", "one key"},
 			{"KbdGroup(children...)", "twi.Node", "keys pressed together"},

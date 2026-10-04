@@ -162,6 +162,7 @@ func components() []page {
 		{"command dialog", commandDialogPage, nil},
 		{"context menu", contextMenuPage, nil},
 		{"dialog", dialogPage, nil},
+		{"direction", directionPage, nil},
 		{"drawer", drawerPage, nil},
 		{"dropdown menu", dropdownMenuPage, nil},
 		{"empty", emptyPage, nil},

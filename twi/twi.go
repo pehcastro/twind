@@ -20,6 +20,7 @@ import (
 	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/style"
 	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/twind-dev/twind/twi/text"
 	"github.com/twind-dev/twind/twi/theme"
 )
 
@@ -169,6 +170,8 @@ func (p at) apply(n *node) {
 func At(x, y int) NodeOption { return at{X: x, Y: y} }
 
 func Data(name, value string) NodeOption { return attribute{Name: "data-" + name, Value: value} }
+
+func Dir(d text.Direction) NodeOption { return attribute(render.Dir(d)) }
 
 func Element(options ...NodeOption) Node {
 	children := 0

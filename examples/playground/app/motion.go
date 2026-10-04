@@ -94,7 +94,7 @@ func (c controls) springMenu() twi.Node {
 	label := map[bool]string{false: "Open menu", true: "Close menu"}[m.open]
 	trigger := []twi.Node{c.uiButton("open menu", ui.Outline, label, func(*state) { m.toggle() })}
 	if shown := min(m.cell(m.menu), len(m.items)); shown > 0 {
-		menu := []twi.NodeOption{twi.Class("absolute top-1 right-0 z-50 w-20 flex flex-col p-1 bg-muted")}
+		menu := []twi.NodeOption{twi.Class("absolute top-1 right-0 z-50 w-20 flex flex-col p-1 rounded-md border bg-popover text-popover-foreground shadow-md")}
 		for _, item := range m.items[:shown] {
 			menu = append(menu, twi.Element(twi.Class("px-1 rounded-sm hover:bg-accent hover:text-accent-foreground"), twi.Text(item), c.clicked(m.toggle)))
 		}

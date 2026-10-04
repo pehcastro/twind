@@ -203,6 +203,13 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	return n
 }
 
+func (n *Node) Direct(d text.Direction) {
+	n.wrapping.Dir = d
+	if d == text.DirRTL && (n.TextAlign == style.TextLeft || n.TextAlign == style.TextJustify) {
+		n.TextAlign = style.TextRight
+	}
+}
+
 func (n Node) Lines(w text.Widths) []string {
 	if n.text.clean == "" {
 		return nil

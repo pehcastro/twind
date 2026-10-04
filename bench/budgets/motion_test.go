@@ -35,6 +35,9 @@ const (
 	pixelBytes        = 4
 	blinkStep         = 16
 	blinkReturn       = 4
+	edgeReach         = 4
+	edgeFirst         = '─'
+	edgeLast          = '▟'
 )
 
 type motionEvent struct {
@@ -501,11 +504,34 @@ func (m *motionModel) apply(t testing.TB, frames []motionFrame, r *motionResult)
 			case !a[c].far(now[c], blinkReturn) && a[c].far(b[c], blinkStep) && now[c].far(b[c], blinkStep):
 				kind = "colour"
 			}
-			if kind != "" {
+			if kind != "" && !m.swept(a, b, now, c) {
 				r.blinks = append(r.blinks, motionBlink{frame: i, x: c % m.size.X, y: c / m.size.X, kind: kind, seen: [3]motionLook{a[c], b[c], now[c]}})
 			}
 		}
 	}
+}
+
+func (m *motionModel) swept(a, b, now []motionLook, c int) bool {
+	l := b[c]
+	r := []rune(l.text)
+	fill := l.glyph == "" && a[c].glyph == "" && now[c].glyph == ""
+	if !fill && (len(r) != 1 || r[0] < edgeFirst || r[0] > edgeLast) {
+		return false
+	}
+	same := func(o motionLook) bool { return o.text == l.text && (!fill || !o.far(l, blinkReturn)) }
+	for _, d := range []image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		for k := 1; k <= edgeReach; k++ {
+			p := image.Pt(c%m.size.X+d.X*k, c/m.size.X+d.Y*k)
+			if !p.In(image.Rect(0, 0, m.size.X, m.size.Y)) {
+				break
+			}
+			n := p.Y*m.size.X + p.X
+			if !same(b[n]) && same(now[n]) != same(a[n]) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func painted(p *terminal.Pixels, x, y int) bool {
@@ -737,6 +763,43 @@ func TestMotionHasNoBlinks(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBlinkTellsAMovingEdge(t *testing.T) {
+	at := func(row int, s string) string { return termkonst.CSI + strconv.Itoa(row+1) + ";1H" + s }
+	red, dim := termkonst.CSI+"48;2;200;0;0m  "+termkonst.CSI+"0m", termkonst.CSI+"48;2;100;0;0m  "+termkonst.CSI+"0m"
+	for _, c := range []struct {
+		name   string
+		frames []string
+		want   []image.Point
+	}{
+		{"edge moves down", []string{at(1, "──"), at(1, "  ") + at(3, "──")}, nil},
+		{"edge moves up over a border", []string{at(2, "──") + at(4, "──"), at(2, "▀▀"), at(2, "──") + at(1, "▀▀")}, nil},
+		{"edge moves up and the box closes", []string{at(2, "──"), at(2, "  ") + at(1, "──"), at(1, "  ")}, nil},
+		{"edge shows once", []string{at(1, "──"), at(1, "  ")}, []image.Point{{0, 1}, {1, 1}}},
+		{"edge shows once beside one that stays", []string{at(1, "──") + at(2, "──"), at(1, "  ")}, []image.Point{{0, 1}, {1, 1}}},
+		{"edge bounces", []string{at(2, "──"), at(2, "  ") + at(1, "──"), at(1, "  ") + at(2, "──")}, []image.Point{{0, 1}, {1, 1}, {0, 2}, {1, 2}}},
+		{"text blinks while the row below clears", []string{at(1, "ab") + at(2, "ab"), "", at(1, "  "), at(1, "ab") + at(2, "  ")}, []image.Point{{0, 1}, {1, 1}}},
+		{"fill moves down", []string{at(1, red), at(1, "  ") + at(2, red)}, nil},
+		{"fill flashes", []string{at(1, red), at(1, "  ")}, []image.Point{{0, 1}, {1, 1}}},
+		{"fill flashes as a dimmer one moves in", []string{at(1, red), at(1, "  ") + at(2, dim)}, []image.Point{{0, 1}, {1, 1}}},
+		{"text jumps", []string{at(1, "ab"), at(1, "  ") + at(3, "ab")}, []image.Point{{0, 1}, {1, 1}}},
+	} {
+		m := newMotionModel(motionPath{"cells", 4, 6, terminal.Capabilities{Sync: true}})
+		var frames []motionFrame
+		for _, f := range c.frames {
+			frames = append(frames, motionFrame{synced: true, write: []byte(f)})
+		}
+		var r motionResult
+		m.apply(t, frames, &r)
+		var got []image.Point
+		for _, k := range r.blinks {
+			got = append(got, image.Pt(k.x, k.y))
+		}
+		if !slices.Equal(got, c.want) {
+			t.Errorf("%s: blinks at %v, want %v", c.name, got, c.want)
+		}
 	}
 }
 

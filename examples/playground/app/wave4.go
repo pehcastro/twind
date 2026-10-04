@@ -5,8 +5,26 @@ import (
 	"unicode/utf8"
 
 	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/text"
 	"github.com/twind-dev/twind/twi/ui"
 )
+
+func directionPage(controls) twi.Node {
+	return show("Direction", "dir rtl on a subtree; a nested dir ltr reads left to right again",
+		ui.Direction(text.DirRTL, twi.Class("flex flex-col w-full max-w-56 gap-1"),
+			ui.Card(twi.Class("gap-0.5 py-0.5"),
+				ui.CardHeader(
+					ui.CardTitle(twi.Text("התחברות לחשבון")),
+					ui.CardDescription(twi.Text("הזינו את כתובת ה-email שלכם")),
+				),
+				ui.CardFooter(twi.Class("gap-1"),
+					ui.Button(ui.Default, ui.SizeSM, twi.Text("כניסה")),
+					ui.Button(ui.Outline, ui.SizeSM, twi.Text("ביטול")),
+				),
+			),
+			ui.Direction(text.DirLTR, twi.Class("text-muted-foreground"), twi.Text("dir ltr inside: left to right again")),
+		))
+}
 
 func spinnerPage(c controls) twi.Node {
 	k := c.kit
