@@ -8,8 +8,10 @@ import (
 	"go/format"
 	"io"
 	"log"
+	"maps"
 	"net/http"
 	"os"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -32,11 +34,14 @@ func main() {
 		"H2": "ID", "H3": "ID", "JL": "ID", "JV": "ID", "JT": "ID", "EB": "ID", "EM": "ID", "RI": "ID", "CB": "ID",
 		"CJ": "NS", "HH": "HY",
 	}
+	bidiNames := []string{"L", "R", "AL", "EN", "ES", "ET", "AN", "CS", "NSM", "BN", "B", "S", "WS", "ON", "LRE", "LRO", "RLE", "RLO", "PDF", "LRI", "RLI", "FSI", "PDI"}
+	bidiAliases := map[string]string{"Left_To_Right": "L", "Right_To_Left": "R", "Arabic_Letter": "AL", "European_Terminator": "ET"}
 	count := int(unicode.MaxRune) + 1
 	class := make([]byte, count)
 	line := make([]byte, count)
 	conjunct := make([]byte, count)
 	word := make([]byte, count)
+	bidi := make([]byte, count)
 	wide := make([]bool, count)
 	presentation := make([]bool, count)
 	modifier := make([]bool, count)
@@ -76,6 +81,38 @@ func main() {
 			pictographic[r] = true
 		}
 	})
+	each(fetch(base+"extracted/DerivedBidiClass.txt"), func(r rune, fields []string) {
+		name := fields[0]
+		if alias, ok := bidiAliases[name]; ok {
+			name = alias
+		}
+		bidi[r] = index(bidiNames, name)
+	})
+	canonical := map[rune]rune{}
+	each(fetch(base+"UnicodeData.txt"), func(r rune, fields []string) {
+		if d := fields[4]; d != "" && !strings.ContainsAny(d, "< ") {
+			canonical[r] = hex(d)
+		}
+	})
+	mirrors := map[rune]rune{}
+	each(fetch(base+"BidiMirroring.txt"), func(r rune, fields []string) {
+		if fields[0] != "<none>" {
+			mirrors[r] = hex(fields[0])
+			bidi[r] |= konst.BidiMirrorBit
+		}
+	})
+	brackets := map[rune]rune{}
+	each(fetch(base+"BidiBrackets.txt"), func(r rune, fields []string) {
+		opener, bit := r, byte(konst.BidiOpenBit)
+		if fields[1] == "c" {
+			opener, bit = hex(fields[0]), konst.BidiCloseBit
+		}
+		if c, ok := canonical[opener]; ok {
+			opener = c
+		}
+		brackets[r] = opener
+		bidi[r] |= bit
+	})
 
 	records := make([][konst.RecordSize]byte, count)
 	for r := range records {
@@ -98,44 +135,31 @@ func main() {
 		if emoji[r] {
 			flags |= konst.EmojiBit
 		}
+		switch bidiNames[bidi[r]&konst.BidiClassMask] {
+		case "R", "AL", "AN", "RLE", "RLO", "RLI":
+			flags |= konst.RTLBit
+		}
 		records[r] = [konst.RecordSize]byte{class[r], flags, line[r], word[r]}
 	}
 
 	ids := map[[konst.RecordSize]byte]int{}
-	blockIDs := map[string]int{}
-	var recordTable, blockIndex, blocks []byte
-	for lo := 0; lo < count; lo += konst.BlockSize {
-		block := make([]byte, konst.BlockSize)
-		for i := range block {
-			id, ok := ids[records[lo+i]]
-			if !ok {
-				id = len(ids)
-				ids[records[lo+i]] = id
-				recordTable = append(recordTable, records[lo+i][:]...)
-			}
-			block[i] = byte(id)
-		}
-		id, ok := blockIDs[string(block)]
+	recordIDs := make([]byte, count)
+	var recordTable []byte
+	for r, rec := range records {
+		id, ok := ids[rec]
 		if !ok {
-			id = len(blockIDs)
-			blockIDs[string(block)] = id
-			blocks = append(blocks, block...)
+			id = len(ids)
+			ids[rec] = id
+			recordTable = append(recordTable, rec[:]...)
 		}
-		blockIndex = append(blockIndex, byte(id))
+		recordIDs[r] = byte(id)
 	}
-	if len(ids) > 256 || len(blockIDs) > 256 {
-		log.Fatalf("%d records and %d blocks do not fit a byte", len(ids), len(blockIDs))
+	if len(ids) > 256 {
+		log.Fatalf("%d records do not fit a byte", len(ids))
 	}
 	var out strings.Builder
-	fmt.Fprintf(&out, "package text\n\nconst UnicodeVersion = %q\n\nconst records = %q\n\nconst blockIndex = \"\" +\n", *version, recordTable)
-	for chunk := range slices.Chunk(blockIndex, konst.BlockSize) {
-		fmt.Fprintf(&out, "\t%q +\n", chunk)
-	}
-	out.WriteString("\t\"\"\n\nconst blocks = \"\" +\n")
-	for chunk := range slices.Chunk(blocks, konst.BlockSize) {
-		fmt.Fprintf(&out, "\t%q +\n", chunk)
-	}
-	out.WriteString("\t\"\"\n")
+	fmt.Fprintf(&out, "package text\n\nconst UnicodeVersion = %q\n\nconst records = %q\n", *version, recordTable)
+	stage(&out, "blockIndex", "blocks", recordIDs)
 	printable := make([]byte, 256)
 	for b := range printable {
 		printable[b] = konst.Unprintable
@@ -144,12 +168,51 @@ func main() {
 		}
 	}
 	fmt.Fprintf(&out, "\nconst printableLines = %q\n", printable)
+	stage(&out, "bidiIndex", "bidiBlocks", bidi)
+	fmt.Fprintf(&out, "\nconst mirrors = %q\n\nconst brackets = %q\n", pairs(mirrors), pairs(brackets))
 	src, err := format.Source([]byte(out.String()))
 	must(err)
 	must(os.WriteFile("tables.go", src, 0o644))
-	for _, name := range []string{"GraphemeBreakTest.txt", "WordBreakTest.txt"} {
-		must(os.WriteFile("testdata/"+name, []byte(fetch(base+"auxiliary/"+name)), 0o644))
+	for _, name := range []string{"auxiliary/GraphemeBreakTest.txt", "auxiliary/WordBreakTest.txt", "BidiCharacterTest.txt"} {
+		must(os.WriteFile("testdata/"+path.Base(name), []byte(fetch(base+name)), 0o644))
 	}
+}
+
+func stage(out *strings.Builder, indexName, blocksName string, values []byte) {
+	blockIDs := map[string]int{}
+	var index, blocks []byte
+	for block := range slices.Chunk(values, konst.BlockSize) {
+		id, ok := blockIDs[string(block)]
+		if !ok {
+			id = len(blockIDs)
+			blockIDs[string(block)] = id
+			blocks = append(blocks, block...)
+		}
+		index = append(index, byte(id))
+	}
+	if len(blockIDs) > 256 {
+		log.Fatalf("%s: %d blocks do not fit a byte", blocksName, len(blockIDs))
+	}
+	chunked(out, indexName, index)
+	chunked(out, blocksName, blocks)
+}
+
+func chunked(out *strings.Builder, name string, data []byte) {
+	fmt.Fprintf(out, "\nconst %s = \"\" +\n", name)
+	for chunk := range slices.Chunk(data, konst.BlockSize) {
+		fmt.Fprintf(out, "\t%q +\n", chunk)
+	}
+	out.WriteString("\t\"\"\n")
+}
+
+func pairs(m map[rune]rune) []byte {
+	var table []byte
+	for _, r := range slices.Sorted(maps.Keys(m)) {
+		for _, v := range []rune{r, m[r]} {
+			table = append(table, byte(v>>16), byte(v>>8), byte(v))
+		}
+	}
+	return table
 }
 
 func fetch(url string) string {

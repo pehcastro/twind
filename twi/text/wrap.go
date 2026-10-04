@@ -117,6 +117,7 @@ type Wrapping struct {
 	Word     WordBreak
 	Overflow OverflowWrap
 	Space    Space
+	Dir      Direction
 }
 
 func Wrap(s string, width int) []string {
@@ -131,8 +132,12 @@ func (b Wrapping) Wrap(s string, width int) []string {
 	out := wrapper{w: b.Widths, s: s, width: width, keep: b.Space == SpacePreserve, lines: make([]string, 0, len(s)/max(width, 1)+1)}
 	from := 0
 	for paragraph := range strings.SplitSeq(s, "\n") {
-		b.segments(s, from, from+len(paragraph), out.place)
+		first := len(out.lines)
+		bidi := b.segments(s, from, from+len(paragraph), out.place)
 		out.flush()
+		if bidi || b.Dir == DirRTL {
+			b.visual(out.lines[first:], paragraph)
+		}
 		from += len(paragraph) + 1
 	}
 	return out.lines
@@ -207,9 +212,9 @@ func (b Wrapping) MinContent(s string) int {
 	return widest
 }
 
-func (b Wrapping) segments(s string, from, to int, emit func(segment) int) {
-	if b.Word > WordBreakKeepAll || b.Overflow > OverflowWrapAnywhere || b.Space > SpacePreserve {
-		panic(fmt.Sprintf("text: unknown word-break %d, overflow-wrap %d or white-space %d", b.Word, b.Overflow, b.Space))
+func (b Wrapping) segments(s string, from, to int, emit func(segment) int) (bidi bool) {
+	if b.Word > WordBreakKeepAll || b.Overflow > OverflowWrapAnywhere || b.Space > SpacePreserve || b.Dir > DirAuto {
+		panic(fmt.Sprintf("text: unknown word-break %d, overflow-wrap %d, white-space %d or direction %d", b.Word, b.Overflow, b.Space, b.Dir))
 	}
 	keep := b.Space == SpacePreserve
 	s = s[:to]
@@ -220,7 +225,9 @@ func (b Wrapping) segments(s string, from, to int, emit func(segment) int) {
 	for pos := from; pos < len(s); {
 		n, width, after := 1, 1, printable(s, pos)
 		if after == konst.Unprintable {
-			n, width, after = b.Widths.cluster(s[pos:])
+			var rtl bool
+			n, width, after, rtl = b.Widths.cluster(s[pos:])
+			bidi = bidi || rtl
 		}
 		if n == 1 && s[pos] == ' ' {
 			spaced = true
@@ -299,6 +306,7 @@ func (b Wrapping) segments(s string, from, to int, emit func(segment) int) {
 	seg.end = end
 	out.push(seg)
 	out.flush()
+	return bidi
 }
 
 func (b Wrapping) leap(s string, from, spare int) (end, width int, before lineClass) {
@@ -337,7 +345,7 @@ func (b Wrapping) leap(s string, from, spare int) (end, width int, before lineCl
 		if !ascii {
 			r, n := utf8.DecodeRuneInString(s[pos:])
 			head := record(r)
-			if breakClass(head[0]) != other {
+			if breakClass(head[0]) != other || head[1]&konst.RTLBit != 0 {
 				break
 			}
 			class, size, cells = lineClass(head[2]), n, int(head[1]&konst.WidthMask)

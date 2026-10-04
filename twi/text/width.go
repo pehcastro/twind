@@ -72,6 +72,7 @@ type props struct {
 	conjunct     conjunct
 	pictographic bool
 	emoji        bool
+	rtl          bool
 	width        int
 	line         lineClass
 }
@@ -89,6 +90,7 @@ func lookup(r rune) props {
 		conjunct:     conjunct(flags >> konst.ConjunctShift & konst.ConjunctMask),
 		pictographic: flags&konst.PictographicBit != 0,
 		emoji:        flags&konst.EmojiBit != 0,
+		rtl:          flags&konst.RTLBit != 0,
 		width:        int(flags & konst.WidthMask),
 		line:         lineClass(record[2]),
 	}
@@ -111,7 +113,7 @@ func (w *Widths) next(s string) (n, width int) {
 	if printable(s, 0) != konst.Unprintable {
 		return 1, 1
 	}
-	n, width, _ = w.cluster(s)
+	n, width, _, _ = w.cluster(s)
 	return n, width
 }
 
@@ -122,10 +124,10 @@ func printable(s string, pos int) lineClass {
 	return lineClass(printableLines[s[pos]])
 }
 
-func (w *Widths) cluster(s string) (n, width int, line lineClass) {
+func (w *Widths) cluster(s string) (n, width int, line lineClass, rtl bool) {
 	r, size := utf8.DecodeRuneInString(s)
 	if head := record(r); breakClass(head[0]) == other && !attaches(s[size:]) {
-		return size, int(head[1] & konst.WidthMask), lineClass(head[2])
+		return size, int(head[1] & konst.WidthMask), lineClass(head[2]), head[1]&konst.RTLBit != 0
 	}
 	var first, prev props
 	var runes, regionals int
@@ -141,6 +143,7 @@ func (w *Widths) cluster(s string) (n, width int, line lineClass) {
 			first = cur
 		}
 		width = max(width, cur.width)
+		rtl = rtl || cur.rtl
 		switch r {
 		case textPresentation:
 			vs15 = true
@@ -202,7 +205,7 @@ func (w *Widths) cluster(s string) (n, width int, line lineClass) {
 	if c != Classes && w[c] > 0 {
 		width = w[c]
 	}
-	return n, width, first.line
+	return n, width, first.line, rtl
 }
 
 func attaches(s string) bool {
