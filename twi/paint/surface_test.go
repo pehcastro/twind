@@ -97,6 +97,31 @@ func TestBorderRounded(t *testing.T) {
 	}
 }
 
+func TestFilledBorderedBoxWithNoInsideKeepsItsFill(t *testing.T) {
+	one := layout.Edges{Top: 1, Right: 1, Bottom: 1, Left: 1}
+	for _, c := range []struct {
+		box  layout.Rect
+		want []string
+	}{
+		{layout.Rect{X: 1, Y: 1, W: 5, H: 2}, []string{"       ", " ╭───╮ ", " ╰───╯ ", "       "}},
+		{layout.Rect{X: 1, Y: 1, W: 2, H: 3}, []string{"       ", " ╭╮    ", " ││    ", " ╰╯    "}},
+	} {
+		buf := painted(7, 4, page(7, 4, "", card(place(c.box.X, c.box.Y, c.box.W, c.box.H, one), style.RadiusLg)), Composited)
+		expect(t, buf, c.want...)
+		for y := range 4 {
+			for x := range 7 {
+				want := literal(zinc100)
+				if x >= c.box.X && x < c.box.X+c.box.W && y >= c.box.Y && y < c.box.Y+c.box.H {
+					want = literal(white)
+				}
+				if got := buf.At(x, y).Bg; got != want {
+					t.Errorf("box %+v cell %d,%d: bg %+v, want %+v; a box with no inside shows its fill under the line and nowhere else", c.box, x, y, got, want)
+				}
+			}
+		}
+	}
+}
+
 func TestBorderOneEdge(t *testing.T) {
 	buf := painted(6, 3, page(6, 3, "", card(place(1, 0, 4, 2, layout.Edges{Bottom: 1}), style.RadiusLg)), Composited)
 	expect(t, buf, "      ", " ──── ", "      ")

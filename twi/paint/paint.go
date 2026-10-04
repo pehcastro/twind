@@ -60,7 +60,7 @@ func (p *Painter) draw(buf *buffer.Buffer, n *scene.Node, look Look, clip layout
 	if sides && !shape {
 		line = b.Color
 	}
-	if look == Composited && filled && b.Style == style.BorderSingle && b.Top && b.Right && b.Bottom && b.Left {
+	if look == Composited && filled && b.Style == style.BorderSingle && b.Top && b.Right && b.Bottom && b.Left && n.Padding.W > 0 && n.Padding.H > 0 {
 		fill = n.Padding
 	}
 	if filled {
