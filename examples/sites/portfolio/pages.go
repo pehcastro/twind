@@ -25,10 +25,10 @@ type project struct {
 
 func work() []project {
 	return []project{
-		{"tide", "≋", "A terminal dashboard for long-running jobs. Redraws only what changed.", "1.2k", "2022", "bg-linear-to-br from-lime-300 via-emerald-400 to-teal-600", []string{"go", "tui"}},
-		{"loupe", "⌕", "Search structured logs with a query language that fits on one line.", "640", "2023", "bg-linear-to-br from-sky-300 via-blue-500 to-indigo-700", []string{"go", "cli", "logs"}},
-		{"quay", "⇡", "A tiny deploy tool for teams with one server and no patience.", "310", "2024", "bg-linear-to-br from-amber-200 via-orange-400 to-rose-600", []string{"shell", "ops"}},
-		{"inkwell", "✎", "This website. Posts in Markdown, drawn in your terminal.", "new", "2026", "bg-linear-to-br from-fuchsia-300 via-violet-500 to-indigo-800", []string{"markdown", "twind"}},
+		{"tide", "≋", "A terminal dashboard for long-running jobs. Redraws only what changed.", "1.2k", "2022", "bg-linear-to-br from-primary-300 via-primary-500 to-primary-700", []string{"go", "tui"}},
+		{"loupe", "⌕", "Search structured logs with a query language that fits on one line.", "640", "2023", "bg-linear-to-br from-chart-1 via-chart-2 to-chart-3", []string{"go", "cli", "logs"}},
+		{"quay", "⇡", "A tiny deploy tool for teams with one server and no patience.", "310", "2024", "bg-linear-to-br from-primary-200 via-chart-2 to-primary-800", []string{"shell", "ops"}},
+		{"inkwell", "✎", "This website. Posts in Markdown, drawn in your terminal.", "new", "2026", "bg-linear-to-br from-chart-2 via-primary-600 to-chart-5", []string{"markdown", "twind"}},
 	}
 }
 
@@ -81,7 +81,7 @@ func (s *site) home() twi.Node {
 		return el("flex flex-col grow rounded-xl bg-background/60 px-2 py-0.5 shadow-md", txt("font-bold text-foreground", value), txt("text-muted-foreground", label))
 	}
 	return el("flex flex-col gap-1.5",
-		el("flex flex-col gap-1 rounded-2xl border bg-linear-to-br from-primary/15 via-card to-sky-500/15 px-4 py-1.5 shadow-xl",
+		el("flex flex-col gap-1 rounded-2xl border bg-linear-to-br from-primary/15 via-card to-chart-2/15 px-4 py-1.5 shadow-xl",
 			el("flex flex-row", txt("rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-500 shadow-[0_0_0_1px_var(--color-emerald-500)]", "● open to work from November")),
 			el("hidden sm:flex", wordmark("NOOR VALENKO")),
 			txt("sm:hidden font-bold text-primary", strings.ToUpper(name)),
@@ -168,7 +168,7 @@ func (s *site) article(i int) twi.Node {
 	return el("flex flex-col items-center",
 		el("flex flex-col w-full max-w-76 gap-1",
 			el("flex flex-row", ui.Button(ui.Ghost, ui.SizeSM, twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("← All posts"))),
-			el("flex flex-col gap-0.5 rounded-2xl border bg-linear-to-br from-primary/15 via-card to-sky-500/10 px-3 py-1 shadow-lg",
+			el("flex flex-col gap-0.5 rounded-2xl border bg-linear-to-br from-primary/15 via-card to-chart-2/10 px-3 py-1 shadow-lg",
 				twi.Element(tags...),
 				txt("font-bold text-primary", p.title),
 				txt("", p.summary)),
@@ -225,7 +225,7 @@ func (s *site) contact() twi.Node {
 			txt("text-primary group-hover:underline", "Copy link")))
 	}
 	return section("Contact", "The fastest way to reach me is email. I answer within a few days.",
-		el("flex flex-col items-center gap-1 rounded-2xl border bg-linear-to-br from-primary/20 via-card to-sky-500/20 px-4 py-1.5 shadow-xl",
+		el("flex flex-col items-center gap-1 rounded-2xl border bg-linear-to-br from-primary/20 via-card to-chart-2/20 px-4 py-1.5 shadow-xl",
 			txt("font-bold text-primary", "Let's make something quiet."),
 			txt("text-muted-foreground text-center", "Questions about a project, a post, or a job. Short is fine."),
 			el("flex flex-row items-center gap-1 rounded-full bg-background/70 pl-2 pr-0.5 py-0.5 shadow-md",
