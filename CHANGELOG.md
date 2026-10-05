@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (prepared as v0.6.0)
+## v0.6.0 (2026-10-05)
 
 A smaller, harder public API: the pipeline is internal, every component and option says what it takes, and lists fit the room they have.
 
@@ -11,7 +11,9 @@ A smaller, harder public API: the pipeline is internal, every component and opti
 - Charts: labelled bars leave no empty rows; value labels on a grid row read whole in sixel terminals.
 - Fades: a fading border over the same glyph no longer dips for a frame.
 - `twind doctor` no longer stops on the GDI path and accepts `y`; `twind new` writes only the template and a README for the published version.
-- Speed: key press back to v0.4.0 speed (B/op too); paint up to 1.24x; render of the docs 1.5x, docs first frame 1.14x.
+- Speed: key press faster than v0.4.0 again, with 6% less memory; hover 1.7x and scrolling 1.6x (tiles kept across frames, scrolled cells shifted instead of repainted); paint up to 1.24x; docs first frame 1.18x; the view runs once on a first frame unless it reads a moved ref.
+- The docs open with every sidebar group expanded.
+- Known: two Twind apps in two tabs of one Zed window can still draw over each other.
 - CI runs on Windows, Linux and macOS.
 
 ### Breaking
