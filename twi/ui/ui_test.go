@@ -151,31 +151,31 @@ func TestParts(t *testing.T) {
 		CardFooter(twi.Text("Footer")),
 	)
 	checkParts(t, []partCase{
-		{"button default: bg-primary text-primary-foreground rounded-md", light, Button(Default, SizeDefault, twi.Text("Button")), nil, func(s style.ComputedStyle) bool {
+		{"button default: bg-primary text-primary-foreground rounded-md", light, Button(ButtonDefault, ButtonSizeDefault, twi.Text("Button")), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Primary] && s.Color == light.Tokens[theme.PrimaryForeground] && s.Radius == style.RadiusMd && s.Padding.Left == cells(2)
 		}},
-		{"button destructive: bg-destructive text-white", light, Button(Destructive, SizeDefault), nil, func(s style.ComputedStyle) bool {
+		{"button destructive: bg-destructive text-white", light, Button(ButtonDestructive, ButtonSizeDefault), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Destructive] && s.Color == white
 		}},
-		{"button destructive, dark: bg-destructive/60", dark, Button(Destructive, SizeDefault), nil, func(s style.ComputedStyle) bool {
+		{"button destructive, dark: bg-destructive/60", dark, Button(ButtonDestructive, ButtonSizeDefault), nil, func(s style.ComputedStyle) bool {
 			return s.Background == token(dark, theme.Destructive, 153)
 		}},
-		{"button outline: a one pixel ring outside the text cells, no layout border", light, Button(Outline, SizeDefault), nil, func(s style.ComputedStyle) bool {
+		{"button outline: a one pixel ring outside the text cells, no layout border", light, Button(ButtonOutline, ButtonSizeDefault), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Background] && ring(s, light.Tokens[theme.Border]) && s.BorderWidth == style.Edges{}
 		}},
-		{"button outline, dark: bg-input/30 and the dark border ring", dark, Button(Outline, SizeDefault), nil, func(s style.ComputedStyle) bool {
+		{"button outline, dark: bg-input/30 and the dark border ring", dark, Button(ButtonOutline, ButtonSizeDefault), nil, func(s style.ComputedStyle) bool {
 			return s.Background == token(dark, theme.Input, uint8(math.Round(float64(dark.Tokens[theme.Input].RGBA.A)*0.3))) && ring(s, dark.Tokens[theme.Border])
 		}},
-		{"button secondary", light, Button(Secondary, SizeSM), nil, func(s style.ComputedStyle) bool {
+		{"button secondary", light, Button(ButtonSecondary, ButtonSizeSM), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Secondary] && s.Color == light.Tokens[theme.SecondaryForeground]
 		}},
-		{"button ghost: no background", light, Button(Ghost, SizeXS), nil, func(s style.ComputedStyle) bool {
+		{"button ghost: no background", light, Button(ButtonGhost, ButtonSizeXS), nil, func(s style.ComputedStyle) bool {
 			return s.Background.Kind == color.Unset && s.Padding.Left == cells(1)
 		}},
-		{"button link: text-primary", light, Button(Link, SizeLG), nil, func(s style.ComputedStyle) bool {
+		{"button link: text-primary", light, Button(ButtonLink, ButtonSizeLG), nil, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.Primary] && s.Padding.Left == cells(3)
 		}},
-		{"button icon: three cells wide", light, Button(Default, SizeIcon), nil, func(s style.ComputedStyle) bool {
+		{"button icon: three cells wide", light, Button(ButtonDefault, ButtonSizeIcon), nil, func(s style.ComputedStyle) bool {
 			return s.Width == cells(3)
 		}},
 		{"card: bg-card rounded-xl border shadow-sm", light, card, nil, func(s style.ComputedStyle) bool {
@@ -191,10 +191,10 @@ func TestParts(t *testing.T) {
 		{"card footer: flex row", light, card, []int{2}, func(s style.ComputedStyle) bool {
 			return s.Display == style.DisplayFlex && s.Direction == style.Row && s.Padding.Left == cells(2)
 		}},
-		{"badge default: bg-primary rounded-full", light, Badge(Default, twi.Text("Badge")), nil, func(s style.ComputedStyle) bool {
+		{"badge default: bg-primary rounded-full", light, Badge(BadgeDefault, twi.Text("Badge")), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Primary] && s.Radius == style.RadiusFull && s.Padding.Left == cells(1)
 		}},
-		{"badge outline: a one pixel ring", light, Badge(Outline), nil, func(s style.ComputedStyle) bool {
+		{"badge outline: a one pixel ring", light, Badge(BadgeOutline), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Border]) && s.Color == light.Tokens[theme.Foreground] && s.BorderWidth == style.Edges{}
 		}},
 		{"separator horizontal: a top hairline across", light, Separator(Horizontal), nil, func(s style.ComputedStyle) bool {
@@ -215,19 +215,19 @@ func TestParts(t *testing.T) {
 		{"skeleton: bg-accent rounded-md", light, Skeleton(), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Accent] && s.Radius == style.RadiusMd
 		}},
-		{"alert default: bg-card border rounded-lg", light, Alert(Default, AlertTitle(twi.Text("Heads up!"))), nil, func(s style.ComputedStyle) bool {
+		{"alert default: bg-card border rounded-lg", light, Alert(AlertDefault, AlertTitle(twi.Text("Heads up!"))), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Card] && s.Color == light.Tokens[theme.CardForeground] && s.Radius == style.RadiusLg && s.BorderWidth.Top == cells(1)
 		}},
-		{"alert destructive: the title takes text-destructive", light, Alert(Destructive, AlertTitle(twi.Text("Error")), AlertDescription(twi.Text("Try again."))), []int{0}, func(s style.ComputedStyle) bool {
+		{"alert destructive: the title takes text-destructive", light, Alert(AlertDestructive, AlertTitle(twi.Text("Error")), AlertDescription(twi.Text("Try again."))), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.Destructive]
 		}},
-		{"alert description: text-muted-foreground", light, Alert(Default, AlertDescription(twi.Text("Body"))), []int{0}, func(s style.ComputedStyle) bool {
+		{"alert description: text-muted-foreground", light, Alert(AlertDefault, AlertDescription(twi.Text("Body"))), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Color == light.Tokens[theme.MutedForeground]
 		}},
-		{"empty: centred column", light, Empty(EmptyHeader(EmptyMedia(Icon, twi.Text("?")), EmptyTitle(twi.Text("No projects")), EmptyDescription(twi.Text("None yet."))), EmptyContent(Button(Default, SizeSM, twi.Text("Create")))), nil, func(s style.ComputedStyle) bool {
+		{"empty: centred column", light, Empty(EmptyHeader(EmptyMedia(EmptyMediaIcon, twi.Text("?")), EmptyTitle(twi.Text("No projects")), EmptyDescription(twi.Text("None yet."))), EmptyContent(Button(ButtonDefault, ButtonSizeSM, twi.Text("Create")))), nil, func(s style.ComputedStyle) bool {
 			return s.Direction == style.Column && s.AlignItems == style.AlignCenter && s.Justify == style.JustifyCenter && s.TextAlign == style.TextCenter
 		}},
-		{"empty media icon: bg-muted rounded-lg", light, EmptyMedia(Icon, twi.Text("?")), nil, func(s style.ComputedStyle) bool {
+		{"empty media icon: bg-muted rounded-lg", light, EmptyMedia(EmptyMediaIcon, twi.Text("?")), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Muted] && s.Radius == style.RadiusLg && s.Height == cells(3)
 		}},
 		{"empty description: text-muted-foreground", light, EmptyDescription(twi.Text("None yet.")), nil, func(s style.ComputedStyle) bool {
@@ -241,10 +241,10 @@ func TestParts(t *testing.T) {
 		}},
 		{"progress below 0 clamps to 0", light, Progress(-5), []int{0}, func(s style.ComputedStyle) bool { return s.Width == percent(0) }},
 		{"progress above 100 clamps to 100", light, Progress(140), []int{0}, func(s style.ComputedStyle) bool { return s.Width == percent(100) }},
-		{"avatar: a circle of six by three cells", light, Avatar(SizeDefault, AvatarFallback(twi.Text("CN"))), nil, func(s style.ComputedStyle) bool {
+		{"avatar: a circle of six by three cells", light, Avatar(AvatarSizeDefault, AvatarFallback(twi.Text("CN"))), nil, func(s style.ComputedStyle) bool {
 			return s.Radius == style.RadiusFull && s.Width == cells(6) && s.Height == cells(3)
 		}},
-		{"avatar fallback: bg-muted text-muted-foreground", light, Avatar(SizeSM, AvatarFallback(twi.Text("CN"))), []int{0}, func(s style.ComputedStyle) bool {
+		{"avatar fallback: bg-muted text-muted-foreground", light, Avatar(AvatarSizeSM, AvatarFallback(twi.Text("CN"))), []int{0}, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Muted] && s.Color == light.Tokens[theme.MutedForeground] && s.AlignItems == style.AlignCenter
 		}},
 	})
@@ -268,15 +268,15 @@ func TestPartsWave1b(t *testing.T) {
 	))
 	pages := Pagination(PaginationContent(
 		PaginationItem(PaginationPrevious()),
-		PaginationItem(PaginationLink(false, text("1"))),
-		PaginationItem(PaginationLink(true, text("2"))),
+		PaginationItem(PaginationLink(text("1"))),
+		PaginationItem(PaginationLink(Active(true), text("2"))),
 		PaginationItem(PaginationEllipsis()),
 		PaginationItem(PaginationNext()),
 	))
-	item := Item(Outline, SizeDefault,
-		ItemMedia(Icon, text("◆")),
+	item := Item(ItemOutline, ItemSizeDefault,
+		ItemMedia(ItemMediaIcon, text("◆")),
 		ItemContent(ItemTitle(text("Basic Item")), ItemDescription(text("A simple item with title and description."))),
-		ItemActions(Button(Outline, SizeSM, text("Action"))),
+		ItemActions(Button(ButtonOutline, ButtonSizeSM, text("Action"))),
 	)
 	field := FieldSet(
 		FieldLegend(text("Payment Method")),
@@ -347,17 +347,17 @@ func TestPartsWave1b(t *testing.T) {
 		{"item outline: rounded-md border-border, p-4 as the border row and one cell", light, item, nil, func(s style.ComputedStyle) bool {
 			return s.Direction == style.Row && s.AlignItems == style.AlignCenter && s.Radius == style.RadiusMd && s.BorderWidth.Top == cells(1) && s.BorderColor == light.Tokens[theme.Border] && s.Padding.Left == cells(1) && s.ColumnGap == cells(2)
 		}},
-		{"item default: a transparent border of the same size", light, Item(Default, SizeDefault), nil, func(s style.ComputedStyle) bool {
+		{"item default: a transparent border of the same size", light, Item(ItemDefault, ItemSizeDefault), nil, func(s style.ComputedStyle) bool {
 			return s.BorderWidth.Top == cells(1) && s.BorderColor.RGBA.A == 0 && s.Background.RGBA.A == 0
 		}},
-		{"item muted: bg-muted/50", light, Item(Muted, SizeDefault), nil, func(s style.ComputedStyle) bool {
+		{"item muted: bg-muted/50", light, Item(ItemMuted, ItemSizeDefault), nil, func(s style.ComputedStyle) bool {
 			return s.Background == token(light, theme.Muted, 128) && s.BorderColor.RGBA.A == 0
 		}},
-		{"item sm: a ten pixel gap as one cell", light, Item(Default, SizeSM), nil, func(s style.ComputedStyle) bool { return s.ColumnGap == cells(1) }},
+		{"item sm: a ten pixel gap as one cell", light, Item(ItemDefault, ItemSizeSM), nil, func(s style.ComputedStyle) bool { return s.ColumnGap == cells(1) }},
 		{"item media icon: a one-row muted tile with a ring, no layout border", light, item, []int{0}, func(s style.ComputedStyle) bool {
 			return s.Height == cells(1) && s.Width == cells(3) && s.Background == light.Tokens[theme.Muted] && s.Radius == style.RadiusSm && ring(s, light.Tokens[theme.Border]) && s.BorderWidth == style.Edges{} && s.Shrink == 0
 		}},
-		{"item media image: size-10 overflow-hidden rounded-sm", light, ItemMedia(Image), nil, func(s style.ComputedStyle) bool {
+		{"item media image: size-10 overflow-hidden rounded-sm", light, ItemMedia(ItemMediaImage), nil, func(s style.ComputedStyle) bool {
 			return s.Height == cells(3) && s.Width == cells(5) && s.OverflowX == style.OverflowHidden && s.Radius == style.RadiusSm
 		}},
 		{"item content: flex-1 column", light, item, []int{1}, func(s style.ComputedStyle) bool {
@@ -376,7 +376,7 @@ func TestPartsWave1b(t *testing.T) {
 		{"item separator: a horizontal hairline", light, ItemSeparator(), nil, func(s style.ComputedStyle) bool {
 			return s.BorderWidth.Top == cells(1) && s.Width == percent(100)
 		}},
-		{"button group horizontal: a row, no gap, stretched", light, ButtonGroup(Horizontal, Button(Outline, SizeDefault)), nil, func(s style.ComputedStyle) bool {
+		{"button group horizontal: a row, no gap, stretched", light, ButtonGroup(Horizontal, Button(ButtonOutline, ButtonSizeDefault)), nil, func(s style.ComputedStyle) bool {
 			return s.Direction == style.Row && s.ColumnGap == cells(0) && s.AlignItems == style.AlignStretch
 		}},
 		{"button group vertical: a column", light, ButtonGroup(Vertical), nil, func(s style.ComputedStyle) bool { return s.Direction == style.Column }},
@@ -423,41 +423,19 @@ func TestPartsWave1b(t *testing.T) {
 	})
 }
 
-func TestUnknownVariantPanics(t *testing.T) {
-	for name, build := range map[string]func(){
-		"alert outline":      func() { Alert(Outline) },
-		"badge icon":         func() { Badge(Icon) },
-		"button size icon":   func() { Button(Icon, SizeDefault) },
-		"avatar size icon":   func() { Avatar(SizeIcon) },
-		"empty media link":   func() { EmptyMedia(Link) },
-		"item destructive":   func() { Item(Destructive, SizeDefault) },
-		"item size lg":       func() { Item(Default, SizeLG) },
-		"item media outline": func() { ItemMedia(Outline) },
-	} {
-		func() {
-			defer func() {
-				if recover() == nil {
-					t.Errorf("%s: no panic", name)
-				}
-			}()
-			build()
-		}()
-	}
-}
-
 func TestRendersEveryComponent(t *testing.T) {
 	sheet, err := styles()
 	if err != nil {
 		t.Fatal(err)
 	}
 	every := twi.Element(twi.Class("flex flex-col gap-1 w-60"),
-		twi.Element(twi.Class("flex flex-row gap-1"), Button(Default, SizeDefault, twi.Text("Save")), Badge(Secondary, twi.Text("New")), KbdGroup(Kbd(twi.Text("Ctrl")), Kbd(twi.Text("K"))), Label(twi.Text("Email"))),
+		twi.Element(twi.Class("flex flex-row gap-1"), Button(ButtonDefault, ButtonSizeDefault, twi.Text("Save")), Badge(BadgeSecondary, twi.Text("New")), KbdGroup(Kbd(twi.Text("Ctrl")), Kbd(twi.Text("K"))), Label(twi.Text("Email"))),
 		Separator(Horizontal),
 		Card(CardHeader(CardTitle(twi.Text("Card title")), CardDescription(twi.Text("Card description")), CardAction(twi.Text("Act"))), CardContent(twi.Text("Card content")), CardFooter(twi.Text("Card footer"))),
-		Alert(Destructive, AlertTitle(twi.Text("Alert title")), AlertDescription(twi.Text("Alert description"))),
-		Empty(EmptyHeader(EmptyMedia(Icon, twi.Text("?")), EmptyTitle(twi.Text("Empty title")), EmptyDescription(twi.Text("Empty description"))), EmptyContent(Button(Outline, SizeSM, twi.Text("Create")))),
+		Alert(AlertDestructive, AlertTitle(twi.Text("Alert title")), AlertDescription(twi.Text("Alert description"))),
+		Empty(EmptyHeader(EmptyMedia(EmptyMediaIcon, twi.Text("?")), EmptyTitle(twi.Text("Empty title")), EmptyDescription(twi.Text("Empty description"))), EmptyContent(Button(ButtonOutline, ButtonSizeSM, twi.Text("Create")))),
 		Progress(50),
-		twi.Element(twi.Class("flex flex-row gap-1"), Avatar(SizeDefault, AvatarFallback(twi.Text("CN"))), Skeleton(twi.Class("h-1 w-10"))),
+		twi.Element(twi.Class("flex flex-row gap-1"), Avatar(AvatarSizeDefault, AvatarFallback(twi.Text("CN"))), Skeleton(twi.Class("h-1 w-10"))),
 	)
 	labels := []string{"Save", "New", "Ctrl", "Email", "Card title", "Card description", "Act", "Card content", "Card footer", "Alert title", "Alert description", "Empty title", "Empty description", "Create", "CN"}
 	static, err := twi.RenderString(every, twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(60), twi.ColorProfile(color.None))
@@ -485,8 +463,8 @@ func TestRendersOneRowControls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range []Variant{Default, Destructive, Outline, Secondary, Ghost, Link} {
-		out, err := twi.RenderString(twi.Element(twi.Class("flex flex-row"), Button(v, SizeDefault, twi.Text("Button")), Badge(Default, twi.Text("Badge"))),
+	for v := ButtonDefault; v <= ButtonLink; v++ {
+		out, err := twi.RenderString(twi.Element(twi.Class("flex flex-row"), Button(v, ButtonSizeDefault, twi.Text("Button")), Badge(BadgeDefault, twi.Text("Badge"))),
 			twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(30), twi.ColorProfile(color.TrueColor))
 		if err != nil {
 			t.Fatal(err)
@@ -499,8 +477,8 @@ func TestRendersOneRowControls(t *testing.T) {
 		node twi.Node
 		rows int
 	}{
-		"button group with text":  {ButtonGroup(Horizontal, ButtonGroupText(twi.Text("https://")), Button(Outline, SizeDefault, twi.Text("Go"))), 1},
-		"item with a description": {Item(Outline, SizeDefault, ItemMedia(Icon, twi.Text("◆")), ItemContent(ItemTitle(twi.Text("Title")), ItemDescription(twi.Text("Body")))), 4},
+		"button group with text":  {ButtonGroup(Horizontal, ButtonGroupText(twi.Text("https://")), Button(ButtonOutline, ButtonSizeDefault, twi.Text("Go"))), 1},
+		"item with a description": {Item(ItemOutline, ItemSizeDefault, ItemMedia(ItemMediaIcon, twi.Text("◆")), ItemContent(ItemTitle(twi.Text("Title")), ItemDescription(twi.Text("Body")))), 4},
 	} {
 		out, err := twi.RenderString(c.node, twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(30), twi.ColorProfile(color.None))
 		if err != nil {
@@ -534,7 +512,7 @@ func TestRendersWave1b(t *testing.T) {
 			BreadcrumbItem(BreadcrumbPage(text("Breadcrumb"))),
 		)),
 		Pagination(PaginationContent(
-			PaginationItem(PaginationPrevious()), PaginationItem(PaginationLink(false, text("1"))), PaginationItem(PaginationLink(true, text("2"))),
+			PaginationItem(PaginationPrevious()), PaginationItem(PaginationLink(text("1"))), PaginationItem(PaginationLink(Active(true), text("2"))),
 			PaginationItem(PaginationEllipsis()), PaginationItem(PaginationNext()),
 		)),
 		FieldSeparator(text("Or continue with")),

@@ -7,7 +7,7 @@ A circle with a user's initials.
 ## Usage
 
 ```go
-ui.Avatar(ui.SizeDefault, ui.AvatarFallback(twi.Text("CN")))
+ui.Avatar(ui.AvatarSizeDefault, ui.AvatarFallback(twi.Text("CN")))
 ```
 
 ## API reference

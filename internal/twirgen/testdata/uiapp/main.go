@@ -14,7 +14,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	out, err := twi.RenderString(ui.Button(ui.Destructive, ui.SizeDefault, twi.Text("Delete")), twi.Styles(sheet))
+	out, err := twi.RenderString(ui.Button(ui.ButtonDestructive, ui.ButtonSizeDefault, twi.Text("Delete")), twi.Styles(sheet))
 	if err != nil {
 		panic(err)
 	}

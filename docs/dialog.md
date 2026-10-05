@@ -11,13 +11,13 @@ dialog := ui.NewDialog(rt)
 ```
 
 ```go
-dialog.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open")),
+dialog.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Open")),
 dialog.Content(
 	dialog.Header(
 		dialog.Title(twi.Text("Are you sure?")),
 		dialog.Description(twi.Text("This cannot be undone.")),
 	),
-	dialog.Footer(dialog.Close(ui.Default, ui.SizeDefault, twi.Text("Confirm"))),
+	dialog.Footer(dialog.Close(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Confirm"))),
 ),
 ```
 

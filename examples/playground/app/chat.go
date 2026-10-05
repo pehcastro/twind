@@ -23,12 +23,12 @@ func chatLines() []string {
 }
 
 func chatMessage(i int, text string, extra ...twi.NodeOption) twi.Node {
-	a, v, who, name := ui.Start, ui.Muted, "AI", "Assistant"
+	a, v, who, name := ui.AlignStart, ui.BubbleMuted, "AI", "Assistant"
 	if i%2 == 0 {
-		a, v, who, name = ui.End, ui.Default, "PD", "Pedro"
+		a, v, who, name = ui.AlignEnd, ui.BubbleDefault, "PD", "Pedro"
 	}
 	return ui.Message(a,
-		ui.MessageAvatar(ui.Avatar(ui.SizeSM, ui.AvatarFallback(twi.Text(who)))),
+		ui.MessageAvatar(ui.Avatar(ui.AvatarSizeSM, ui.AvatarFallback(twi.Text(who)))),
 		ui.MessageContent(append([]twi.NodeOption{ui.MessageHeader(twi.Text(name)), ui.Bubble(v, a, ui.BubbleContent(twi.Text(text)))}, extra...)...),
 	)
 }
@@ -43,11 +43,11 @@ func messagePage(controls) twi.Node {
 
 func bubblePage(controls) twi.Node {
 	var bubbles []twi.NodeOption
-	for i, v := range []ui.Variant{ui.Default, ui.Secondary, ui.Muted, ui.Tinted, ui.Outline, ui.Ghost, ui.Destructive} {
+	for i, v := range []ui.BubbleVariant{ui.BubbleDefault, ui.BubbleSecondary, ui.BubbleMuted, ui.BubbleTinted, ui.BubbleOutline, ui.BubbleGhost, ui.BubbleDestructive} {
 		label := []string{"default", "secondary", "muted", "tinted", "outline", "ghost", "destructive"}[i]
-		bubbles = append(bubbles, ui.Bubble(v, map[bool]ui.Alignment{true: ui.End, false: ui.Start}[i%2 == 1], ui.BubbleContent(twi.Text(label+" bubble"))))
+		bubbles = append(bubbles, ui.Bubble(v, map[bool]ui.Align{true: ui.AlignEnd, false: ui.AlignStart}[i%2 == 1], ui.BubbleContent(twi.Text(label+" bubble"))))
 	}
-	bubbles = append(bubbles, ui.Bubble(ui.Secondary, ui.Start, ui.BubbleContent(twi.Text("with reactions")), ui.BubbleReactions(ui.Bottom, ui.End, twi.Text("✓ 2"))))
+	bubbles = append(bubbles, ui.Bubble(ui.BubbleSecondary, ui.AlignStart, ui.BubbleContent(twi.Text("with reactions")), ui.BubbleReactions(ui.SideBottom, ui.AlignEnd, twi.Text("✓ 2"))))
 	return show("Bubble", "seven variants, either side, and reactions under a corner",
 		ui.BubbleGroup(append([]twi.NodeOption{twi.Class("w-60")}, bubbles...)...))
 }
@@ -55,7 +55,7 @@ func bubblePage(controls) twi.Node {
 func messageScrollerPage(c controls) twi.Node {
 	k := c.kit
 	lines := chatLines()
-	items := []twi.NodeOption{twi.Class("px-1"), k.scroller.Item(ui.Marker(ui.Ruled, ui.MarkerContent(twi.Text("Today"))))}
+	items := []twi.NodeOption{twi.Class("px-1"), k.scroller.Item(ui.Marker(ui.MarkerSeparator, ui.MarkerContent(twi.Text("Today"))))}
 	for i := range k.sent {
 		text := lines[i%len(lines)]
 		if i >= len(lines) {
@@ -63,7 +63,7 @@ func messageScrollerPage(c controls) twi.Node {
 		}
 		var extra []twi.NodeOption
 		if i == len(lines)-1 {
-			extra = append(extra, ui.Attachment(ui.Done, ui.Horizontal, ui.AttachmentMedia(ui.Icon, twi.Text("▤")), ui.AttachmentContent(ui.AttachmentTitle(twi.Text("build-times.md")), ui.AttachmentDescription(twi.Text("2 KB")))))
+			extra = append(extra, ui.Attachment(ui.UploadDone, ui.Horizontal, ui.AttachmentMedia(ui.AttachmentMediaIcon, twi.Text("▤")), ui.AttachmentContent(ui.AttachmentTitle(twi.Text("build-times.md")), ui.AttachmentDescription(twi.Text("2 KB")))))
 		}
 		items = append(items, k.scroller.Item(chatMessage(i+1, text, extra...)))
 	}
@@ -74,18 +74,18 @@ func messageScrollerPage(c controls) twi.Node {
 
 func attachmentPage(controls) twi.Node {
 	file := func(u ui.Upload, o ui.Orientation, glyph, name, about string) twi.Node {
-		return ui.Attachment(u, o, ui.AttachmentMedia(ui.Icon, twi.Text(glyph)), ui.AttachmentContent(ui.AttachmentTitle(twi.Text(name)), ui.AttachmentDescription(twi.Text(about))),
+		return ui.Attachment(u, o, ui.AttachmentMedia(ui.AttachmentMediaIcon, twi.Text(glyph)), ui.AttachmentContent(ui.AttachmentTitle(twi.Text(name)), ui.AttachmentDescription(twi.Text(about))),
 			ui.AttachmentActions(ui.AttachmentAction(twi.Text("✕"))))
 	}
 	return show("Attachment", "done, uploading, failed and idle; in a row and stacked",
 		ui.AttachmentGroup(twi.Class("w-80"),
-			file(ui.Done, ui.Horizontal, "▤", "report.pdf", "1.2 MB"),
-			file(ui.Uploading, ui.Horizontal, "▣", "photo.png", "uploading 40%"),
-			file(ui.Failed, ui.Horizontal, "▣", "video.mp4", "too large"),
+			file(ui.UploadDone, ui.Horizontal, "▤", "report.pdf", "1.2 MB"),
+			file(ui.UploadUploading, ui.Horizontal, "▣", "photo.png", "uploading 40%"),
+			file(ui.UploadFailed, ui.Horizontal, "▣", "video.mp4", "too large"),
 		),
 		row(
-			ui.Attachment(ui.Idle, ui.Horizontal, ui.AttachmentContent(ui.AttachmentTitle(twi.Text("Drop a file")), ui.AttachmentDescription(twi.Text("or click to browse"))), ui.AttachmentTrigger()),
-			file(ui.Done, ui.Vertical, "▤", "notes.txt", "3 KB"),
+			ui.Attachment(ui.UploadIdle, ui.Horizontal, ui.AttachmentContent(ui.AttachmentTitle(twi.Text("Drop a file")), ui.AttachmentDescription(twi.Text("or click to browse"))), ui.AttachmentTrigger()),
+			file(ui.UploadDone, ui.Vertical, "▤", "notes.txt", "3 KB"),
 		),
 	)
 }
@@ -93,9 +93,9 @@ func attachmentPage(controls) twi.Node {
 func markerPage(controls) twi.Node {
 	return show("Marker", "a quiet line between messages: plain, ruled and bordered",
 		el("w-60 flex flex-col gap-1",
-			ui.Marker(ui.Default, ui.MarkerIcon(twi.Text("•")), ui.MarkerContent(twi.Text("Pedro joined the conversation"))),
-			ui.Marker(ui.Ruled, ui.MarkerContent(twi.Text("Yesterday"))),
-			ui.Marker(ui.Bordered, ui.MarkerContent(twi.Text("Earlier messages"))),
+			ui.Marker(ui.MarkerDefault, ui.MarkerIcon(twi.Text("•")), ui.MarkerContent(twi.Text("Pedro joined the conversation"))),
+			ui.Marker(ui.MarkerSeparator, ui.MarkerContent(twi.Text("Yesterday"))),
+			ui.Marker(ui.MarkerBorder, ui.MarkerContent(twi.Text("Earlier messages"))),
 		))
 }
 
@@ -116,8 +116,8 @@ func resizablePage(c controls) twi.Node {
 		el("h-14 w-[70%] flex rounded-lg border",
 			k.panes.Node(
 				k.panes.Panel(center("One")),
-				k.panes.Handle(true),
-				k.panes.Panel(k.stack.Node(k.stack.Panel(center("Two")), k.stack.Handle(true), k.stack.Panel(center("Three")))),
+				k.panes.Handle(),
+				k.panes.Panel(k.stack.Node(k.stack.Panel(center("Two")), k.stack.Handle(), k.stack.Panel(center("Three")))),
 			)),
 		txt("text-muted-foreground", "across "+percents(k.panes.Sizes)+", down "+percents(k.stack.Sizes)),
 	)

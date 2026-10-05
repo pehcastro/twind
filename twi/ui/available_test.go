@@ -11,14 +11,14 @@ import (
 
 func longMenu(rt *twi.Runtime, page string, count int) func() twi.Node {
 	m := NewDropdownMenu(rt)
-	m.Align = Start
+	m.Align = AlignStart
 	return func() twi.Node {
 		items := make([]twi.NodeOption, count)
 		for i := range items {
 			items[i] = m.Item(fmt.Sprintf("Item %02d", i+1))
 		}
 		return twi.Element(twi.Class(page+" flex flex-col p-1 h-full bg-background text-foreground"),
-			m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Open")), m.Content(items...)))
+			m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open")), m.Content(items...)))
 	}
 }
 

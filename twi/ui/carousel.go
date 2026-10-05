@@ -81,7 +81,7 @@ func (c *Carousel) arrow(by int, slot, at, glyph string, children []twi.NodeOpti
 	if len(children) == 0 {
 		children = []twi.NodeOption{icon(glyph, "")}
 	}
-	return part("absolute flex items-center justify-center "+at, []twi.NodeOption{part(button(Outline, SizeIcon, idleRing(Outline)+" "+focusRing)+" rounded-full", append([]twi.NodeOption{
+	return part("absolute flex items-center justify-center "+at, []twi.NodeOption{part(button(ButtonOutline, ButtonSizeIcon, idleRing(ButtonOutline)+" "+focusRing)+" rounded-full", append([]twi.NodeOption{
 		twi.Data("slot", slot), twi.Focusable(), c.click(func() { c.step(by) }),
 	}, children...))})
 }

@@ -36,8 +36,8 @@ func FormDemo(rt *twi.Runtime) func() twi.Node {
 			form.Item("email", form.Label("email", twi.Text("Email")), form.Control("email")),
 			form.Item("terms", ui.Field(ui.Horizontal, form.Control("terms"), form.Label("terms", twi.Text("Accept the terms")))),
 			twi.Element(twi.Class("flex flex-row items-center gap-2"),
-				ui.Button(ui.Default, ui.SizeDefault, twi.Focusable(), twi.OnClick(func(*twi.Event) { form.Submit() }), twi.Text("Submit")),
-				ui.Button(ui.Outline, ui.SizeDefault, twi.Focusable(), twi.OnClick(func(*twi.Event) { form.Reset() }), twi.Text("Reset")),
+				ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Focusable(), twi.OnClick(func(*twi.Event) { form.Submit() }), twi.Text("Submit")),
+				ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Focusable(), twi.OnClick(func(*twi.Event) { form.Reset() }), twi.Text("Reset")),
 			),
 			twi.Element(twi.Class("text-muted-foreground"), twi.Text(joined)),
 		)

@@ -68,7 +68,7 @@ func (o Options) block(b Block, depth int) twi.Node {
 			if o.Copied == source {
 				label = "Copied"
 			}
-			head = append(head, ui.Button(ui.Ghost, ui.SizeXS, twi.OnClick(func(*twi.Event) { o.Copy(source) }), twi.Text(label)))
+			head = append(head, ui.Button(ui.ButtonGhost, ui.ButtonSizeXS, twi.OnClick(func(*twi.Event) { o.Copy(source) }), twi.Text(label)))
 		}
 		return twi.Element(box, twi.Element(head...), code)
 	case Table:

@@ -12,8 +12,8 @@ func props() map[string][]prop {
 		{"OnOpenChange", "func(bool)", "called on every open and close"},
 	}
 	anchored := slices.Clip(append(open,
-		prop{"Side", "ui.Side", "Bottom, Top, Right or Left of the trigger"},
-		prop{"Align", "ui.Alignment", "Center, Start or End along that side"},
+		prop{"Side", "ui.Side", "SideBottom, SideTop, SideRight or SideLeft of the trigger"},
+		prop{"Align", "ui.Align", "AlignCenter, AlignStart or AlignEnd along that side"},
 		prop{"Node(children...)", "twi.Node", "wraps the trigger and the content; a press outside closes it"},
 		prop{"Trigger(v, s, children...)", "twi.Node", "a button that opens it"},
 	))
@@ -34,7 +34,7 @@ func props() map[string][]prop {
 			{"Content(value, children...)", "twi.Node", "shown while its section is open"},
 		},
 		"Alert": {
-			{"v", "ui.Variant", "Default or Destructive"},
+			{"v", "ui.AlertVariant", "AlertDefault or AlertDestructive"},
 			{"AlertTitle, AlertDescription", "twi.Node", "the parts"},
 			children,
 		},
@@ -43,11 +43,11 @@ func props() map[string][]prop {
 			{"children", "...twi.NodeOption", "an aspect-* class sets the ratio; aspect-square by default"},
 		},
 		"Avatar": {
-			{"s", "ui.Size", "SizeSM, SizeDefault or SizeLG"},
+			{"s", "ui.AvatarSize", "AvatarSizeSM, AvatarSizeDefault or AvatarSizeLG"},
 			{"AvatarFallback(children...)", "twi.Node", "the initials shown in the circle"},
 		},
 		"Badge": {
-			{"v", "ui.Variant", "Default, Secondary, Destructive, Outline, Ghost or Link"},
+			{"v", "ui.BadgeVariant", "BadgeDefault, BadgeSecondary, BadgeDestructive, BadgeOutline, BadgeGhost or BadgeLink"},
 			children,
 		},
 		"Breadcrumb": {
@@ -57,8 +57,8 @@ func props() map[string][]prop {
 			{"BreadcrumbSeparator, BreadcrumbEllipsis", "twi.Node", "a chevron, or … for collapsed steps"},
 		},
 		"Button": {
-			{"v", "ui.Variant", "Default, Secondary, Destructive, Outline, Ghost or Link"},
-			{"s", "ui.Size", "SizeDefault, SizeXS, SizeSM, SizeLG or SizeIcon"},
+			{"v", "ui.ButtonVariant", "ButtonDefault, ButtonSecondary, ButtonDestructive, ButtonOutline, ButtonGhost or ButtonLink"},
+			{"s", "ui.ButtonSize", "ButtonSizeDefault, ButtonSizeXS, ButtonSizeSM, ButtonSizeLG or ButtonSizeIcon"},
 			children,
 		},
 		"ButtonGroup": {
@@ -67,19 +67,19 @@ func props() map[string][]prop {
 			{"ButtonGroupText(children...)", "twi.Node", "text that sits in the group like a button"},
 		},
 		"Attachment": {
-			{"u", "ui.Upload", "Done, Idle (a dashed border), Uploading, Processing or Failed (destructive)"},
+			{"u", "ui.Upload", "UploadDone, UploadIdle (a dashed border), UploadUploading, UploadProcessing or UploadFailed (destructive)"},
 			{"o", "ui.Orientation", "Horizontal, media beside the text, or Vertical, media above it"},
-			{"AttachmentMedia(v, children...)", "twi.Node", "an Icon or an Image tile"},
+			{"AttachmentMedia(v, children...)", "twi.Node", "an AttachmentMediaIcon or an AttachmentMediaImage tile"},
 			{"AttachmentContent, AttachmentTitle, AttachmentDescription", "twi.Node", "the text; title and description truncate"},
 			{"AttachmentActions, AttachmentAction", "twi.Node", "small ghost buttons at the end, or the top right when vertical"},
 			{"AttachmentTrigger(children...)", "twi.Node", "a focusable layer over the whole attachment; give it twi.OnClick"},
 			{"AttachmentGroup(children...)", "twi.Node", "a row of attachments that scrolls sideways"},
 		},
 		"Bubble": {
-			{"v", "ui.Variant", "Default, Secondary, Muted, Tinted, Outline, Ghost or Destructive"},
-			{"a", "ui.Alignment", "Start or End; End also comes from an end-aligned Message"},
+			{"v", "ui.BubbleVariant", "BubbleDefault, BubbleSecondary, BubbleMuted, BubbleTinted, BubbleOutline, BubbleGhost or BubbleDestructive"},
+			{"a", "ui.Align", "AlignStart, AlignCenter or AlignEnd; end also comes from an end-aligned Message"},
 			{"BubbleContent(children...)", "twi.Node", "the coloured box; at most four fifths of the message wide, wraps"},
-			{"BubbleReactions(side, a, children...)", "twi.Node", "a chip under (Bottom) or over (Top) a corner"},
+			{"BubbleReactions(side, a, children...)", "twi.Node", "a chip under (SideBottom) or over (SideTop) a corner, or beside it (SideLeft, SideRight)"},
 			{"BubbleGroup(children...)", "twi.Node", "consecutive bubbles from one sender"},
 		},
 		"Calendar": {
@@ -183,14 +183,14 @@ func props() map[string][]prop {
 			{"Placeholder", "string", "shown while it is empty"},
 			{"Value()", "string", "what it holds"},
 			{"Insert(s)", "func(string)", "types text at the cursor"},
-			{"Submit", "func(string)", "called by Enter with the trimmed text, which then clears and joins the Up history"},
+			{"OnSubmit", "func(string)", "called by Enter with the trimmed text, which then clears and joins the Up history"},
 			{"Invalid", "bool", "draws a destructive ring"},
 			disabled,
 			{"Node(options...)", "twi.Node", "the field"},
 		},
 		"InputGroup": {
 			{"Group(addons...)", "twi.Node", "an Input or Textarea with addons inside its border"},
-			{"InputGroupAddon(align, children...)", "ui.Addon", "InlineStart, InlineEnd, BlockStart or BlockEnd"},
+			{"InputGroupAddon(side, children...)", "ui.Addon", "SideLeft, SideRight, SideTop or SideBottom of the field"},
 			{"InputGroupText, InputGroupButton", "twi.Node", "text or a small button inside an addon"},
 		},
 		"InputOTP": {
@@ -209,9 +209,9 @@ func props() map[string][]prop {
 			{"Previous(children...), Next(children...)", "twi.Node", "round buttons outside its sides"},
 		},
 		"Item": {
-			{"v", "ui.Variant", "Default, Outline or Muted"},
-			{"s", "ui.Size", "SizeDefault or SizeSM"},
-			{"ItemMedia(v, children...)", "twi.Node", "an icon or image; v is Default, Icon or Image"},
+			{"v", "ui.ItemVariant", "ItemDefault, ItemOutline or ItemMuted"},
+			{"s", "ui.ItemSize", "ItemSizeDefault or ItemSizeSM"},
+			{"ItemMedia(v, children...)", "twi.Node", "an icon or image; v is ItemMediaDefault, ItemMediaIcon or ItemMediaImage"},
 			{"ItemContent, ItemTitle, ItemDescription, ItemActions", "twi.Node", "the parts of the row"},
 			{"ItemGroup, ItemSeparator", "twi.Node", "a list of items and a line between them"},
 		},
@@ -225,12 +225,12 @@ func props() map[string][]prop {
 		},
 		"Label": {children},
 		"Marker": {
-			{"v", "ui.Variant", "Default, Ruled (a line either side) or Bordered (a line under)"},
+			{"v", "ui.MarkerVariant", "MarkerDefault, MarkerSeparator (a line either side) or MarkerBorder (a line under)"},
 			{"MarkerIcon, MarkerContent", "twi.Node", "a leading glyph and the text"},
 			children,
 		},
 		"Message": {
-			{"a", "ui.Alignment", "Start, or End for the sender: the avatar moves right and the content aligns right"},
+			{"a", "ui.Align", "AlignStart, AlignCenter, or AlignEnd for the sender: the avatar moves right and the content aligns right"},
 			{"MessageAvatar(children...)", "twi.Node", "at the bottom of the message; put a ui.Avatar in it"},
 			{"MessageContent(children...)", "twi.Node", "the column of header, bubbles and footer"},
 			{"MessageHeader, MessageFooter", "twi.Node", "muted lines above and below"},
@@ -261,7 +261,7 @@ func props() map[string][]prop {
 		},
 		"Pagination": {
 			{"Pagination, PaginationContent, PaginationItem", "twi.Node", "the row and its slots"},
-			{"PaginationLink(isActive, children...)", "twi.Node", "a page number; the active one is outlined"},
+			{"PaginationLink(children...)", "twi.Node", "a page number; ui.Active(true) outlines the current one"},
 			{"PaginationPrevious, PaginationNext, PaginationEllipsis", "twi.Node", "the ends and a gap"},
 		},
 		"Popover": append(anchored, prop{"Content(children...)", "twi.Node", "the panel; Escape or a press outside closes it"}),
@@ -278,9 +278,10 @@ func props() map[string][]prop {
 		"Resizable": {
 			{"Orientation", "ui.Orientation", "Horizontal, panels side by side, or Vertical, stacked"},
 			{"Sizes", "[]int", "each panel's percent of the group; even when left empty"},
+			{"WithHandle", "bool", "draws a grip on every handle"},
 			{"OnResize", "func([]int)", "called with the new sizes on every move"},
 			{"Node(children...), Panel(children...)", "twi.Node", "the group and one panel"},
-			{"Handle(withHandle, children...)", "twi.Node", "the line between two panels; drag it, or focus it and use the arrows, Home and End"},
+			{"Handle(children...)", "twi.Node", "the line between two panels; drag it, or focus it and use the arrows, Home and End"},
 		},
 		"ScrollArea": {
 			{"children", "...twi.NodeOption", "give it a height; the wheel, arrows and PageDown scroll it"},
@@ -304,7 +305,7 @@ func props() map[string][]prop {
 			{"Node(children...), Trigger()", "twi.Node", "the sidebar and a button that toggles it"},
 			{"SidebarHeader, SidebarContent, SidebarFooter", "twi.Node", "its top, scrolling middle and bottom"},
 			{"SidebarGroup, SidebarGroupLabel, SidebarGroupContent", "twi.Node", "a titled group"},
-			{"SidebarMenu, SidebarMenuItem, SidebarMenuButton(s, active, ...)", "twi.Node", "the entries"},
+			{"SidebarMenu, SidebarMenuItem, SidebarMenuButton(s, ...)", "twi.Node", "the entries; ui.Active(true) marks the current one"},
 			{"SidebarMenuBadge, SidebarMenuSub...", "twi.Node", "a count and nested entries"},
 			{"SidebarInset(children...)", "twi.Node", "the main area beside it"},
 		},
@@ -338,24 +339,24 @@ func props() map[string][]prop {
 		"Textarea": {
 			{"Placeholder", "string", "shown while it is empty"},
 			{"Value(), Insert(s)", "string", "what it holds, and typing at the cursor"},
-			{"Submit", "func(string)", "called by Enter with the trimmed text, which then clears and joins the Up history; Shift+Enter breaks the line"},
+			{"OnSubmit", "func(string)", "called by Enter with the trimmed text, which then clears and joins the Up history; Shift+Enter breaks the line"},
 			{"Invalid", "bool", "draws a destructive ring"},
 			disabled,
 		},
 		"Toaster": {
 			{"Duration", "time.Duration", "how long a toast stays"},
-			{"Show, Success, Error", "func(title, description, ui.ToastAction)", "adds a toast"},
+			{"Show, Success, Error", "func(title, description, ...ui.ToastAction)", "adds a toast, with a button per action"},
 			{"Avoid(panels...)", "func(...*ui.Dialog)", "sheets and drawers the stack moves beside or above while open"},
 			{"Node()", "twi.Node", "the stack in the corner; render it once"},
 		},
 		"Toggle": {
-			{"Variant", "ui.Variant", "Default or Outline"},
-			{"Size", "ui.Size", "SizeDefault, SizeSM or SizeLG"},
+			{"Variant", "ui.ToggleVariant", "ToggleDefault or ToggleOutline"},
+			{"Size", "ui.ToggleSize", "ToggleSizeDefault, ToggleSizeSM or ToggleSizeLG"},
 			{"Pressed", "bool", "on or off"},
 			{"OnChange", "func(bool)", "called when it flips"},
 		},
 		"ToggleGroup": {
-			{"Variant, Size", "ui.Variant, ui.Size", "as on a toggle"},
+			{"Variant, Size", "ui.ToggleVariant, ui.ToggleSize", "as on a toggle"},
 			{"Multiple", "bool", "lets more than one item be on"},
 			{"Value", "[]string", "the items that are on"},
 			{"OnChange", "func([]string)", "called on every change"},

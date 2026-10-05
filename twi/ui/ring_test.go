@@ -19,8 +19,8 @@ func ringApp(t *testing.T, hidden bool) *drive.Driver {
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
 				tabs.Node(tabs.List(tabs.Trigger("account", twi.Text("Account")), tabs.Trigger("password", twi.Text("Password")))),
-				twi.Element(twi.Class("flex flex-row gap-2"), Button(Outline, SizeDefault, twi.Text("Press")), sw.Node(twi.Text("S")), cb.Node(twi.Text("C")), tg.Node(twi.Text("Tg"))),
-				menu.Node(menu.Trigger(Outline, SizeDefault, twi.Text("Menu")), menu.Content(menu.Item("Profile"), menu.Item("Billing"))),
+				twi.Element(twi.Class("flex flex-row gap-2"), Button(ButtonOutline, ButtonSizeDefault, twi.Text("Press")), sw.Node(twi.Text("S")), cb.Node(twi.Text("C")), tg.Node(twi.Text("Tg"))),
+				menu.Node(menu.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Menu")), menu.Content(menu.Item("Profile"), menu.Item("Billing"))),
 				twi.Element(twi.Class("flex flex-row gap-2"), radio.Node(radio.Item("r", twi.Text("Radio"))), group.Node(group.Item("g", twi.Text("Group"))), twi.Element(twi.Class("w-10"), slider.Node(twi.Text("Slide")))),
 				twi.Element(twi.Class("flex flex-row gap-2"), twi.Element(twi.Class("w-20"), field.Node()), twi.Element(twi.Class("w-20"), search.Group())),
 				twi.Text("plain"),

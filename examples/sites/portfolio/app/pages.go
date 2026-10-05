@@ -74,7 +74,7 @@ func pill(s string) twi.Node {
 func (s *site) home() twi.Node {
 	social := []twi.NodeOption{twi.Class("flex flex-row flex-wrap items-center gap-1")}
 	for _, l := range links() {
-		social = append(social, ui.Button(ui.Ghost, ui.SizeSM, twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.copy(l.label+" link", l.url) }), twi.Text(l.glyph+" "+l.label)))
+		social = append(social, ui.Button(ui.ButtonGhost, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.copy(l.label+" link", l.url) }), twi.Text(l.glyph+" "+l.label)))
 	}
 	stat := func(value, label string) twi.Node {
 		return el("flex flex-col grow rounded-xl bg-background/60 px-2 py-0.5 shadow-md", txt("font-bold text-foreground", value), txt("text-muted-foreground", label))
@@ -87,15 +87,15 @@ func (s *site) home() twi.Node {
 			txt("font-semibold", "Software engineer. Terminals, tooling and quiet software."),
 			txt("text-muted-foreground", "I build small tools for people who live in the terminal, and I write about how they work. Right now I keep deploys boring on the platform team of a logistics company."),
 			el("flex flex-row flex-wrap items-center gap-1",
-				ui.Button(ui.Default, ui.SizeLG, twi.Class("rounded-full py-0.5 shadow-lg"), twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("Read the blog →")),
-				ui.Button(ui.Outline, ui.SizeLG, twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.show(contact) }), twi.Text("Get in touch")),
+				ui.Button(ui.ButtonDefault, ui.ButtonSizeLG, twi.Class("rounded-full py-0.5 shadow-lg"), twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("Read the blog →")),
+				ui.Button(ui.ButtonOutline, ui.ButtonSizeLG, twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.show(contact) }), twi.Text("Get in touch")),
 				twi.Element(social...)),
 			el("flex flex-row gap-1", stat("4", "projects kept alive"), stat("2.1k", "stars, give or take"), stat(strconv.Itoa(len(s.posts)), "posts written")),
 		),
 		section("Selected work", "Two of the tools I spend my evenings on.", s.cards(featured),
-			el("flex flex-row", ui.Button(ui.Link, ui.SizeXS, twi.OnClick(func(*twi.Event) { s.show(projects) }), twi.Text("All projects →")))),
+			el("flex flex-row", ui.Button(ui.ButtonLink, ui.ButtonSizeXS, twi.OnClick(func(*twi.Event) { s.show(projects) }), twi.Text("All projects →")))),
 		section("Latest writing", "Short posts, mostly about terminals.", s.list(recentPosts),
-			el("flex flex-row", ui.Button(ui.Link, ui.SizeXS, twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("All posts →")))),
+			el("flex flex-row", ui.Button(ui.ButtonLink, ui.ButtonSizeXS, twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("All posts →")))),
 	)
 }
 
@@ -167,7 +167,7 @@ func (s *site) article(i int) twi.Node {
 	}
 	return el("flex flex-col items-center",
 		el("flex flex-col w-full max-w-76 gap-1",
-			el("flex flex-row", ui.Button(ui.Ghost, ui.SizeSM, twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("← All posts"))),
+			el("flex flex-row", ui.Button(ui.ButtonGhost, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.show(blog) }), twi.Text("← All posts"))),
 			el("flex flex-col gap-0.5 rounded-2xl border bg-linear-to-br from-primary/15 via-card to-chart-2/10 px-3 py-1 shadow-lg",
 				twi.Element(tags...),
 				txt("font-bold text-primary", p.title),
@@ -202,7 +202,7 @@ func (s *site) contact() twi.Node {
 			txt("text-muted-foreground text-center", "Questions about a project, a post, or a job. Short is fine."),
 			el("flex flex-row items-center gap-1 rounded-full bg-background/70 pl-2 pr-0.5 py-0.5 shadow-md",
 				txt("py-0.5 font-medium", email),
-				ui.Button(ui.Default, ui.SizeSM, twi.Key("copy-email"), twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.copy("Email", email) }), twi.Text("Copy")))),
+				ui.Button(ui.ButtonDefault, ui.ButtonSizeSM, twi.Key("copy-email"), twi.Class("rounded-full py-0.5"), twi.OnClick(func(*twi.Event) { s.copy("Email", email) }), twi.Text("Copy")))),
 		twi.Element(cards...),
 	)
 }

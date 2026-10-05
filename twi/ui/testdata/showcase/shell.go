@@ -35,15 +35,15 @@ func shell(rt *twi.Runtime, open string) func() twi.Node {
 		}
 		var subs []twi.NodeOption
 		for _, s := range items {
-			subs = append(subs, ui.SidebarMenuSubItem(ui.SidebarMenuSubButton(false, label(s))))
+			subs = append(subs, ui.SidebarMenuSubItem(ui.SidebarMenuSubButton(label(s))))
 		}
 		return section.Node(ui.SidebarMenuItem(
-			ui.SidebarMenuButton(ui.SizeDefault, false, section.AsTrigger(), text("shrink-0", glyph), el("flex-1", label(title)), text("text-muted-foreground", chevron)),
+			ui.SidebarMenuButton(ui.SidebarMenuButtonSizeDefault, section.AsTrigger(), text("shrink-0", glyph), el("flex-1", label(title)), text("text-muted-foreground", chevron)),
 			section.Content(ui.SidebarMenuSub(subs...)),
 		))
 	}
 	project := func(glyph, name string, badge ...twi.NodeOption) twi.Node {
-		return ui.SidebarMenuItem(append([]twi.NodeOption{ui.SidebarMenuButton(ui.SizeDefault, false, text("shrink-0", glyph), label(name))}, badge...)...)
+		return ui.SidebarMenuItem(append([]twi.NodeOption{ui.SidebarMenuButton(ui.SidebarMenuButtonSizeDefault, text("shrink-0", glyph), label(name))}, badge...)...)
 	}
 	titled := func(title, detail string) twi.Node {
 		return el("flex flex-col flex-1 min-w-0", text("font-medium truncate", title), text("truncate text-muted-foreground", detail))
@@ -55,7 +55,7 @@ func shell(rt *twi.Runtime, open string) func() twi.Node {
 	return func() twi.Node {
 		return el("flex flex-row flex-1 -mx-3 -my-1", side.Provider(
 			side.Node(
-				ui.SidebarHeader(ui.SidebarMenu(ui.SidebarMenuItem(ui.SidebarMenuButton(ui.SizeLG, false,
+				ui.SidebarHeader(ui.SidebarMenu(ui.SidebarMenuItem(ui.SidebarMenuButton(ui.SidebarMenuButtonSizeLG,
 					text("flex h-2 w-3 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground", "▣"),
 					titled("Acme Inc", "Enterprise"), label("⇅"),
 				)))),
@@ -73,8 +73,8 @@ func shell(rt *twi.Runtime, open string) func() twi.Node {
 						project("…", "More"),
 					)),
 				),
-				ui.SidebarFooter(ui.SidebarMenu(ui.SidebarMenuItem(ui.SidebarMenuButton(ui.SizeLG, false,
-					ui.Avatar(ui.SizeSM, twi.Class("h-2 w-3 rounded-lg"), ui.AvatarFallback(twi.Class("rounded-lg"), label("CN"))),
+				ui.SidebarFooter(ui.SidebarMenu(ui.SidebarMenuItem(ui.SidebarMenuButton(ui.SidebarMenuButtonSizeLG,
+					ui.Avatar(ui.AvatarSizeSM, twi.Class("h-2 w-3 rounded-lg"), ui.AvatarFallback(twi.Class("rounded-lg"), label("CN"))),
 					titled("shadcn", "m@example.com"), label("⇅"),
 				)))),
 			),

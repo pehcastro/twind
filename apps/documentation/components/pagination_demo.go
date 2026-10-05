@@ -18,7 +18,7 @@ func PaginationDemo(rt *twi.Runtime) func() twi.Node {
 	return func() twi.Node {
 		links := []twi.NodeOption{ui.PaginationItem(ui.PaginationPrevious(turn(func() int { return page - 1 })))}
 		for i := range 3 {
-			links = append(links, ui.PaginationItem(ui.PaginationLink(i == page, turn(func() int { return i }), twi.Text(strconv.Itoa(i+1)))))
+			links = append(links, ui.PaginationItem(ui.PaginationLink(ui.Active(i == page), turn(func() int { return i }), twi.Text(strconv.Itoa(i+1)))))
 		}
 		links = append(links, ui.PaginationItem(ui.PaginationEllipsis()), ui.PaginationItem(ui.PaginationNext(turn(func() int { return page + 1 }))))
 		return twi.Element(twi.Class("flex flex-col w-56 items-center gap-1"),

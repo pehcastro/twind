@@ -15,7 +15,7 @@ sidebar.Provider(
 	sidebar.Node(ui.SidebarContent(ui.SidebarGroup(
 		ui.SidebarGroupLabel(twi.Text("Application")),
 		ui.SidebarGroupContent(ui.SidebarMenu(
-			ui.SidebarMenuItem(ui.SidebarMenuButton(ui.SizeDefault, true, twi.Text("Home"))),
+			ui.SidebarMenuItem(ui.SidebarMenuButton(ui.SidebarMenuButtonSizeDefault, ui.Active(true), twi.Text("Home"))),
 		)),
 	))),
 	ui.SidebarInset(page),

@@ -98,7 +98,7 @@ func TestTabsKeysAndClicks(t *testing.T) {
 					tabs.Content("password", twi.Text("Password panel")),
 					tabs.Content("team", twi.Text("Team panel")),
 				),
-				Button(Outline, SizeDefault, twi.OnClick(func(*twi.Event) { after++ }), twi.Text("After")),
+				Button(ButtonOutline, ButtonSizeDefault, twi.OnClick(func(*twi.Event) { after++ }), twi.Text("After")),
 				side.Node(
 					side.List(side.Trigger("general", twi.Text("General")), side.Trigger("billing", twi.Text("Billing"))),
 					side.Content("general", twi.Text("General panel")),

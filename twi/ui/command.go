@@ -273,7 +273,7 @@ type CommandDialog struct {
 }
 
 func NewCommandDialog(rt *twi.Runtime) *CommandDialog {
-	d := &CommandDialog{Dialog: newDialog(rt, palette, Bottom), Command: NewCommand(rt), Hotkey: 'k'}
+	d := &CommandDialog{Dialog: newDialog(rt, palette, SideBottom), Command: NewCommand(rt), Hotkey: 'k'}
 	d.chosen = func() { d.set(false) }
 	return d
 }

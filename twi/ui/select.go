@@ -19,7 +19,7 @@ type Select struct {
 }
 
 func NewSelect(rt *twi.Runtime) *Select {
-	s := &Select{anchored: newAnchored(rt, Bottom, Start)}
+	s := &Select{anchored: newAnchored(rt, SideBottom, AlignStart)}
 	s.sizing = triggerWidth
 	return s
 }
@@ -121,8 +121,8 @@ func SelectLabel(children ...twi.NodeOption) twi.Node {
 	return part("px-1 text-muted-foreground", children)
 }
 
-func SelectSeparator() twi.Node {
-	return DropdownMenuSeparator()
+func SelectSeparator(children ...twi.NodeOption) twi.Node {
+	return DropdownMenuSeparator(children...)
 }
 
 func (s *Select) open() {

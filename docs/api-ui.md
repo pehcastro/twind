@@ -24,7 +24,7 @@ func NewCollapsible(rt \*twi.Runtime) \*Collapsible\
 func (\*Collapsible) AsTrigger() twi.NodeOption\
 func (\*Collapsible) Content(children ...twi.NodeOption) twi.Node\
 func (\*Collapsible) Node(children ...twi.NodeOption) twi.Node\
-func (\*Collapsible) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*Collapsible) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 Collapsible.Key string\
 Collapsible.Open bool\
 Collapsible.OnOpenChange func(bool)\
@@ -33,7 +33,10 @@ Collapsible.Invalid bool
 
 ## Alert
 
-func Alert(v Variant, children ...twi.NodeOption) twi.Node\
+type AlertVariant uint8\
+const AlertDefault AlertVariant\
+const AlertDestructive AlertVariant\
+func Alert(v AlertVariant, children ...twi.NodeOption) twi.Node\
 func AlertTitle(children ...twi.NodeOption) twi.Node\
 func AlertDescription(children ...twi.NodeOption) twi.Node
 
@@ -44,13 +47,16 @@ func AspectRatio(children ...twi.NodeOption) twi.Node
 ## Attachment
 
 type Upload uint8\
-const Done Upload\
-const Idle Upload\
-const Uploading Upload\
-const Processing Upload\
-const Failed Upload\
+const UploadDone Upload\
+const UploadIdle Upload\
+const UploadUploading Upload\
+const UploadProcessing Upload\
+const UploadFailed Upload\
 func Attachment(u Upload, o Orientation, children ...twi.NodeOption) twi.Node\
-func AttachmentMedia(v Variant, children ...twi.NodeOption) twi.Node\
+type AttachmentMediaVariant uint8\
+const AttachmentMediaIcon AttachmentMediaVariant\
+const AttachmentMediaImage AttachmentMediaVariant\
+func AttachmentMedia(v AttachmentMediaVariant, children ...twi.NodeOption) twi.Node\
 func AttachmentContent(children ...twi.NodeOption) twi.Node\
 func AttachmentTitle(children ...twi.NodeOption) twi.Node\
 func AttachmentDescription(children ...twi.NodeOption) twi.Node\
@@ -61,12 +67,23 @@ func AttachmentGroup(children ...twi.NodeOption) twi.Node
 
 ## Avatar
 
-func Avatar(s Size, children ...twi.NodeOption) twi.Node\
+type AvatarSize uint8\
+const AvatarSizeDefault AvatarSize\
+const AvatarSizeSM AvatarSize\
+const AvatarSizeLG AvatarSize\
+func Avatar(s AvatarSize, children ...twi.NodeOption) twi.Node\
 func AvatarFallback(children ...twi.NodeOption) twi.Node
 
 ## Badge
 
-func Badge(v Variant, children ...twi.NodeOption) twi.Node
+type BadgeVariant uint8\
+const BadgeDefault BadgeVariant\
+const BadgeSecondary BadgeVariant\
+const BadgeDestructive BadgeVariant\
+const BadgeOutline BadgeVariant\
+const BadgeGhost BadgeVariant\
+const BadgeLink BadgeVariant\
+func Badge(v BadgeVariant, children ...twi.NodeOption) twi.Node
 
 ## Breadcrumb
 
@@ -80,14 +97,35 @@ func BreadcrumbEllipsis(children ...twi.NodeOption) twi.Node
 
 ## Bubble
 
+type BubbleVariant uint8\
+const BubbleDefault BubbleVariant\
+const BubbleSecondary BubbleVariant\
+const BubbleMuted BubbleVariant\
+const BubbleTinted BubbleVariant\
+const BubbleOutline BubbleVariant\
+const BubbleGhost BubbleVariant\
+const BubbleDestructive BubbleVariant\
 func BubbleGroup(children ...twi.NodeOption) twi.Node\
-func Bubble(v Variant, a Alignment, children ...twi.NodeOption) twi.Node\
+func Bubble(v BubbleVariant, a Align, children ...twi.NodeOption) twi.Node\
 func BubbleContent(children ...twi.NodeOption) twi.Node\
-func BubbleReactions(s Side, a Alignment, children ...twi.NodeOption) twi.Node
+func BubbleReactions(s Side, a Align, children ...twi.NodeOption) twi.Node
 
 ## Button
 
-func Button(v Variant, s Size, children ...twi.NodeOption) twi.Node
+type ButtonVariant uint8\
+const ButtonDefault ButtonVariant\
+const ButtonDestructive ButtonVariant\
+const ButtonOutline ButtonVariant\
+const ButtonSecondary ButtonVariant\
+const ButtonGhost ButtonVariant\
+const ButtonLink ButtonVariant\
+type ButtonSize uint8\
+const ButtonSizeDefault ButtonSize\
+const ButtonSizeXS ButtonSize\
+const ButtonSizeSM ButtonSize\
+const ButtonSizeLG ButtonSize\
+const ButtonSizeIcon ButtonSize\
+func Button(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node
 
 ## ButtonGroup
 
@@ -155,9 +193,9 @@ func (\*Combobox) Content(children ...twi.NodeOption) twi.Node\
 func (\*Combobox) Input(options ...twi.NodeOption) twi.Node\
 func (\*Combobox) Item(value, label string, children ...twi.NodeOption) twi.Node\
 func (\*Combobox) Node(children ...twi.NodeOption) twi.Node\
-func (\*Combobox) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*Combobox) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 Combobox.Side Side\
-Combobox.Align Alignment\
+Combobox.Align Align\
 Combobox.Key string\
 Combobox.Open bool\
 Combobox.OnOpenChange func(bool)\
@@ -186,8 +224,8 @@ CommandDialog embeds \*Dialog\
 CommandDialog embeds \*Command\
 CommandDialog.Hotkey rune\
 func (\*CommandDialog) Node(children ...twi.NodeOption) twi.Node\
-func (CommandDialog) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
-func (\*CommandDialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (CommandDialog) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
+func (\*CommandDialog) Close(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 func (\*CommandDialog) Content(children ...twi.NodeOption) twi.Node\
 func (\*CommandDialog) Description(children ...twi.NodeOption) twi.Node\
 func (\*CommandDialog) Footer(children ...twi.NodeOption) twi.Node\
@@ -214,13 +252,13 @@ func NewAlertDialog(rt \*twi.Runtime) \*Dialog\
 func NewDialog(rt \*twi.Runtime) \*Dialog\
 func NewDrawer(rt \*twi.Runtime, side Side) \*Dialog\
 func NewSheet(rt \*twi.Runtime, side Side) \*Dialog\
-func (\*Dialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*Dialog) Close(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 func (\*Dialog) Content(children ...twi.NodeOption) twi.Node\
 func (\*Dialog) Description(children ...twi.NodeOption) twi.Node\
 func (\*Dialog) Footer(children ...twi.NodeOption) twi.Node\
 func (\*Dialog) Header(children ...twi.NodeOption) twi.Node\
 func (\*Dialog) Title(children ...twi.NodeOption) twi.Node\
-func (\*Dialog) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*Dialog) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 Dialog.Key string\
 Dialog.Open bool\
 Dialog.OnOpenChange func(bool)\
@@ -235,7 +273,10 @@ func Direction(dir text.Direction, children ...twi.NodeOption) twi.Node
 
 func Empty(children ...twi.NodeOption) twi.Node\
 func EmptyHeader(children ...twi.NodeOption) twi.Node\
-func EmptyMedia(v Variant, children ...twi.NodeOption) twi.Node\
+type EmptyMediaVariant uint8\
+const EmptyMediaDefault EmptyMediaVariant\
+const EmptyMediaIcon EmptyMediaVariant\
+func EmptyMedia(v EmptyMediaVariant, children ...twi.NodeOption) twi.Node\
 func EmptyTitle(children ...twi.NodeOption) twi.Node\
 func EmptyDescription(children ...twi.NodeOption) twi.Node\
 func EmptyContent(children ...twi.NodeOption) twi.Node
@@ -278,7 +319,7 @@ func (\*Input) Node(options ...twi.NodeOption) twi.Node\
 Input embeds edit.Buffer\
 Input.Key string\
 Input.Placeholder string\
-Input.Submit func(string)\
+Input.OnSubmit func(string)\
 Input.Mode edit.Mode\
 Input.Wrap int\
 Input.Widths text.Widths\
@@ -304,7 +345,7 @@ func (\*Textarea) Node(options ...twi.NodeOption) twi.Node\
 Textarea embeds edit.Buffer\
 Textarea.Key string\
 Textarea.Placeholder string\
-Textarea.Submit func(string)\
+Textarea.OnSubmit func(string)\
 Textarea.Mode edit.Mode\
 Textarea.Wrap int\
 Textarea.Widths text.Widths\
@@ -323,13 +364,8 @@ func (\*Textarea) Set(s string)\
 func (\*Textarea) Value() string\
 Textarea.Disabled bool\
 Textarea.Invalid bool\
-type Align uint8\
-const InlineStart Align\
-const InlineEnd Align\
-const BlockStart Align\
-const BlockEnd Align\
 type Addon struct\
-func InputGroupAddon(a Align, children ...twi.NodeOption) Addon\
+func InputGroupAddon(s Side, children ...twi.NodeOption) Addon\
 func InputGroupText(children ...twi.NodeOption) twi.Node\
 func InputGroupButton(children ...twi.NodeOption) twi.Node
 
@@ -345,12 +381,23 @@ func (\*InputOTP) Slot(i int) twi.Node\
 InputOTP.Disabled bool\
 InputOTP.Invalid bool\
 func InputOTPGroup(children ...twi.NodeOption) twi.Node\
-func InputOTPSeparator() twi.Node
+func InputOTPSeparator(children ...twi.NodeOption) twi.Node
 
 ## Item
 
-func Item(v Variant, s Size, children ...twi.NodeOption) twi.Node\
-func ItemMedia(v Variant, children ...twi.NodeOption) twi.Node\
+type ItemVariant uint8\
+const ItemDefault ItemVariant\
+const ItemOutline ItemVariant\
+const ItemMuted ItemVariant\
+type ItemSize uint8\
+const ItemSizeDefault ItemSize\
+const ItemSizeSM ItemSize\
+func Item(v ItemVariant, s ItemSize, children ...twi.NodeOption) twi.Node\
+type ItemMediaVariant uint8\
+const ItemMediaDefault ItemMediaVariant\
+const ItemMediaIcon ItemMediaVariant\
+const ItemMediaImage ItemMediaVariant\
+func ItemMedia(v ItemMediaVariant, children ...twi.NodeOption) twi.Node\
 func ItemContent(children ...twi.NodeOption) twi.Node\
 func ItemTitle(children ...twi.NodeOption) twi.Node\
 func ItemDescription(children ...twi.NodeOption) twi.Node\
@@ -369,7 +416,11 @@ func Label(children ...twi.NodeOption) twi.Node
 
 ## Marker
 
-func Marker(v Variant, children ...twi.NodeOption) twi.Node\
+type MarkerVariant uint8\
+const MarkerDefault MarkerVariant\
+const MarkerSeparator MarkerVariant\
+const MarkerBorder MarkerVariant\
+func Marker(v MarkerVariant, children ...twi.NodeOption) twi.Node\
 func MarkerIcon(children ...twi.NodeOption) twi.Node\
 func MarkerContent(children ...twi.NodeOption) twi.Node
 
@@ -384,9 +435,9 @@ func (\*DropdownMenu) Item(text string, children ...twi.NodeOption) twi.Node\
 func (\*DropdownMenu) Node(children ...twi.NodeOption) twi.Node\
 func (\*DropdownMenu) RadioItem(text string, value \*string, children ...twi.NodeOption) twi.Node\
 func (\*DropdownMenu) Sub() \*DropdownMenuSub\
-func (\*DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*DropdownMenu) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 DropdownMenu.Side Side\
-DropdownMenu.Align Alignment\
+DropdownMenu.Align Align\
 DropdownMenu.Key string\
 DropdownMenu.Open bool\
 DropdownMenu.OnOpenChange func(bool)\
@@ -404,7 +455,7 @@ func (\*ContextMenu) Sub() \*DropdownMenuSub\
 func (\*ContextMenu) Trigger(children ...twi.NodeOption) twi.Node\
 ContextMenu.OnSelect func(string)\
 ContextMenu.Side Side\
-ContextMenu.Align Alignment\
+ContextMenu.Align Align\
 ContextMenu.Key string\
 ContextMenu.Open bool\
 ContextMenu.OnOpenChange func(bool)\
@@ -420,7 +471,7 @@ func (\*DropdownMenuSub) RadioItem(text string, value \*string, children ...twi.
 func (\*DropdownMenuSub) Sub() \*DropdownMenuSub\
 func (\*DropdownMenuSub) Trigger(text string, children ...twi.NodeOption) twi.Node\
 func DropdownMenuLabel(children ...twi.NodeOption) twi.Node\
-func DropdownMenuSeparator() twi.Node\
+func DropdownMenuSeparator(children ...twi.NodeOption) twi.Node\
 func DropdownMenuShortcut(children ...twi.NodeOption) twi.Node
 
 ## Menubar
@@ -442,7 +493,7 @@ func (\*MenubarMenu) Trigger(children ...twi.NodeOption) twi.Node\
 MenubarMenu.OnSelect func(string)\
 func (\*MenubarMenu) Node(children ...twi.NodeOption) twi.Node\
 MenubarMenu.Side Side\
-MenubarMenu.Align Alignment\
+MenubarMenu.Align Align\
 MenubarMenu.Key string\
 MenubarMenu.Open bool\
 MenubarMenu.OnOpenChange func(bool)\
@@ -456,7 +507,7 @@ func Merge(classes ...string) string
 ## Message
 
 func MessageGroup(children ...twi.NodeOption) twi.Node\
-func Message(a Alignment, children ...twi.NodeOption) twi.Node\
+func Message(a Align, children ...twi.NodeOption) twi.Node\
 func MessageAvatar(children ...twi.NodeOption) twi.Node\
 func MessageContent(children ...twi.NodeOption) twi.Node\
 func MessageHeader(children ...twi.NodeOption) twi.Node\
@@ -470,9 +521,9 @@ NativeSelect.Options \[\]string\
 NativeSelect.Value string\
 NativeSelect.OnChange func(string)\
 func (\*NativeSelect) Node(options ...twi.NodeOption) twi.Node\
-func (\*NativeSelect) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*NativeSelect) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 NativeSelect.Side Side\
-NativeSelect.Align Alignment\
+NativeSelect.Align Align\
 NativeSelect.Key string\
 NativeSelect.Open bool\
 NativeSelect.OnOpenChange func(bool)\
@@ -498,22 +549,13 @@ func (\*NavigationMenuItem) Trigger(children ...twi.NodeOption) twi.Node
 
 ## overlay.go
 
-type Side uint8\
-const Bottom Side\
-const Top Side\
-const Right Side\
-const Left Side\
-type Alignment uint8\
-const Center Alignment\
-const Start Alignment\
-const End Alignment\
 type Popover struct\
 func NewPopover(rt \*twi.Runtime) \*Popover\
 func (\*Popover) Content(children ...twi.NodeOption) twi.Node\
 func (\*Popover) Node(children ...twi.NodeOption) twi.Node\
-func (\*Popover) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*Popover) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 Popover.Side Side\
-Popover.Align Alignment\
+Popover.Align Align\
 Popover.Key string\
 Popover.Open bool\
 Popover.OnOpenChange func(bool)\
@@ -523,9 +565,9 @@ type Tooltip struct\
 func NewTooltip(rt \*twi.Runtime) \*Tooltip\
 func (\*Tooltip) Content(children ...twi.NodeOption) twi.Node\
 func (\*Tooltip) Node(children ...twi.NodeOption) twi.Node\
-func (\*Tooltip) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*Tooltip) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 Tooltip.Side Side\
-Tooltip.Align Alignment\
+Tooltip.Align Align\
 Tooltip.Key string\
 Tooltip.Open bool\
 Tooltip.OnOpenChange func(bool)\
@@ -535,9 +577,9 @@ type HoverCard struct\
 func NewHoverCard(rt \*twi.Runtime) \*HoverCard\
 func (\*HoverCard) Content(children ...twi.NodeOption) twi.Node\
 func (\*HoverCard) Node(children ...twi.NodeOption) twi.Node\
-func (\*HoverCard) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node\
+func (\*HoverCard) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 HoverCard.Side Side\
-HoverCard.Align Alignment\
+HoverCard.Align Align\
 HoverCard.Key string\
 HoverCard.Open bool\
 HoverCard.OnOpenChange func(bool)\
@@ -549,7 +591,7 @@ HoverCard.Invalid bool
 func Pagination(children ...twi.NodeOption) twi.Node\
 func PaginationContent(children ...twi.NodeOption) twi.Node\
 func PaginationItem(children ...twi.NodeOption) twi.Node\
-func PaginationLink(isActive bool, children ...twi.NodeOption) twi.Node\
+func PaginationLink(children ...twi.NodeOption) twi.Node\
 func PaginationPrevious(children ...twi.NodeOption) twi.Node\
 func PaginationNext(children ...twi.NodeOption) twi.Node\
 func PaginationEllipsis(children ...twi.NodeOption) twi.Node
@@ -575,8 +617,9 @@ type Resizable struct\
 func NewResizable(rt \*twi.Runtime) \*Resizable\
 Resizable.Orientation Orientation\
 Resizable.Sizes \[\]int\
+Resizable.WithHandle bool\
 Resizable.OnResize func(\[\]int)\
-func (\*Resizable) Handle(withHandle bool, children ...twi.NodeOption) twi.Node\
+func (\*Resizable) Handle(children ...twi.NodeOption) twi.Node\
 func (\*Resizable) Node(children ...twi.NodeOption) twi.Node\
 func (\*Resizable) Panel(children ...twi.NodeOption) twi.Node\
 Resizable.Disabled bool\
@@ -603,14 +646,14 @@ func (\*Select) Item(value, label string, children ...twi.NodeOption) twi.Node\
 func (\*Select) Node(children ...twi.NodeOption) twi.Node\
 func (\*Select) Trigger(children ...twi.NodeOption) twi.Node\
 Select.Side Side\
-Select.Align Alignment\
+Select.Align Align\
 Select.Key string\
 Select.Open bool\
 Select.OnOpenChange func(bool)\
 Select.Disabled bool\
 Select.Invalid bool\
 func SelectLabel(children ...twi.NodeOption) twi.Node\
-func SelectSeparator() twi.Node
+func SelectSeparator(children ...twi.NodeOption) twi.Node
 
 ## Separator
 
@@ -632,18 +675,22 @@ Sidebar.Invalid bool\
 func SidebarInset(children ...twi.NodeOption) twi.Node\
 func SidebarHeader(children ...twi.NodeOption) twi.Node\
 func SidebarFooter(children ...twi.NodeOption) twi.Node\
-func SidebarSeparator() twi.Node\
+func SidebarSeparator(children ...twi.NodeOption) twi.Node\
 func SidebarContent(children ...twi.NodeOption) twi.Node\
 func SidebarGroup(children ...twi.NodeOption) twi.Node\
 func SidebarGroupLabel(children ...twi.NodeOption) twi.Node\
 func SidebarGroupContent(children ...twi.NodeOption) twi.Node\
 func SidebarMenu(children ...twi.NodeOption) twi.Node\
 func SidebarMenuItem(children ...twi.NodeOption) twi.Node\
-func SidebarMenuButton(s Size, active bool, children ...twi.NodeOption) twi.Node\
+type SidebarMenuButtonSize uint8\
+const SidebarMenuButtonSizeDefault SidebarMenuButtonSize\
+const SidebarMenuButtonSizeSM SidebarMenuButtonSize\
+const SidebarMenuButtonSizeLG SidebarMenuButtonSize\
+func SidebarMenuButton(s SidebarMenuButtonSize, children ...twi.NodeOption) twi.Node\
 func SidebarMenuBadge(children ...twi.NodeOption) twi.Node\
 func SidebarMenuSub(children ...twi.NodeOption) twi.Node\
 func SidebarMenuSubItem(children ...twi.NodeOption) twi.Node\
-func SidebarMenuSubButton(active bool, children ...twi.NodeOption) twi.Node\
+func SidebarMenuSubButton(children ...twi.NodeOption) twi.Node\
 func ScrollArea(children ...twi.NodeOption) twi.Node
 
 ## Skeleton
@@ -706,10 +753,6 @@ Tabs.Invalid bool
 
 ## toast.go
 
-type ToastKind uint8\
-const ToastDefault ToastKind\
-const ToastSuccess ToastKind\
-const ToastError ToastKind\
 type ToastAction struct\
 ToastAction.Label string\
 ToastAction.OnClick func()\
@@ -717,17 +760,24 @@ type Toaster struct\
 func NewToaster(rt \*twi.Runtime) \*Toaster\
 Toaster.Duration time.Duration\
 func (\*Toaster) Avoid(panels ...\*Dialog)\
-func (\*Toaster) Error(title, description string, action ToastAction)\
+func (\*Toaster) Error(title, description string, actions ...ToastAction)\
 func (\*Toaster) Node() twi.Node\
-func (\*Toaster) Show(title, description string, action ToastAction)\
-func (\*Toaster) Success(title, description string, action ToastAction)
+func (\*Toaster) Show(title, description string, actions ...ToastAction)\
+func (\*Toaster) Success(title, description string, actions ...ToastAction)
 
 ## Toggle
 
+type ToggleVariant uint8\
+const ToggleDefault ToggleVariant\
+const ToggleOutline ToggleVariant\
+type ToggleSize uint8\
+const ToggleSizeDefault ToggleSize\
+const ToggleSizeSM ToggleSize\
+const ToggleSizeLG ToggleSize\
 type Toggle struct\
 func NewToggle(rt \*twi.Runtime) \*Toggle\
-Toggle.Variant Variant\
-Toggle.Size Size\
+Toggle.Variant ToggleVariant\
+Toggle.Size ToggleSize\
 Toggle.Pressed bool\
 Toggle.OnChange func(bool)\
 func (\*Toggle) Node(options ...twi.NodeOption) twi.Node\
@@ -735,8 +785,8 @@ Toggle.Disabled bool\
 Toggle.Invalid bool\
 type ToggleGroup struct\
 func NewToggleGroup(rt \*twi.Runtime) \*ToggleGroup\
-ToggleGroup.Variant Variant\
-ToggleGroup.Size Size\
+ToggleGroup.Variant ToggleVariant\
+ToggleGroup.Size ToggleSize\
 ToggleGroup.Multiple bool\
 ToggleGroup.Value \[\]string\
 ToggleGroup.OnChange func(\[\]string)\
@@ -747,27 +797,18 @@ ToggleGroup.Invalid bool
 
 ## ui.go
 
-type Variant uint8\
-const Default Variant\
-const Destructive Variant\
-const Outline Variant\
-const Secondary Variant\
-const Ghost Variant\
-const Link Variant\
-const Icon Variant\
-const Muted Variant\
-const Image Variant\
-const Tinted Variant\
-const Ruled Variant\
-const Bordered Variant\
-type Size uint8\
-const SizeDefault Size\
-const SizeXS Size\
-const SizeSM Size\
-const SizeLG Size\
-const SizeIcon Size\
 type Orientation uint8\
 const Horizontal Orientation\
 const Vertical Orientation\
+type Side uint8\
+const SideBottom Side\
+const SideTop Side\
+const SideRight Side\
+const SideLeft Side\
+type Align uint8\
+const AlignCenter Align\
+const AlignStart Align\
+const AlignEnd Align\
+func Active(on bool) twi.NodeOption\
 type ItemIcon struct\
 ItemIcon embeds twi.Node

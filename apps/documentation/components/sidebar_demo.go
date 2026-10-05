@@ -15,10 +15,10 @@ func SidebarDemo(rt *twi.Runtime) func() twi.Node {
 		})
 	}
 	button := func(glyph, name string) twi.Node {
-		return ui.SidebarMenuButton(ui.SizeDefault, opened == name, open(name), twi.Element(twi.Class("w-1"), twi.Text(glyph)), twi.Text(name))
+		return ui.SidebarMenuButton(ui.SidebarMenuButtonSizeDefault, ui.Active(opened == name), open(name), twi.Element(twi.Class("w-1"), twi.Text(glyph)), twi.Text(name))
 	}
 	sub := func(name string) twi.Node {
-		return ui.SidebarMenuSubItem(ui.SidebarMenuSubButton(opened == name, open(name), twi.Text(name)))
+		return ui.SidebarMenuSubItem(ui.SidebarMenuSubButton(ui.Active(opened == name), open(name), twi.Text(name)))
 	}
 	return func() twi.Node {
 		return twi.Element(twi.Class("flex flex-row h-14 w-60 overflow-hidden rounded-lg border"),

@@ -13,7 +13,7 @@ menu.OnSelect = func(item string) { run(item) }
 
 ```go
 menu.Node(
-	menu.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open")),
+	menu.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Open")),
 	menu.Content(
 		ui.DropdownMenuLabel(twi.Text("My Account")),
 		menu.Item("Profile", ui.DropdownMenuShortcut(twi.Text("⇧⌘P"))),

@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"strconv"
-
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/input"
 )
@@ -45,7 +43,7 @@ func (s *Sidebar) Node(children ...twi.NodeOption) twi.Node {
 }
 
 func (s *Sidebar) Trigger(children ...twi.NodeOption) twi.Node {
-	return Button(Ghost, SizeIcon, append([]twi.NodeOption{twi.OnClick(func(*twi.Event) { s.Toggle() }), icon("◧", "")}, children...)...)
+	return Button(ButtonGhost, ButtonSizeIcon, append([]twi.NodeOption{twi.OnClick(func(*twi.Event) { s.Toggle() }), icon("◧", "")}, children...)...)
 }
 
 func SidebarInset(children ...twi.NodeOption) twi.Node {
@@ -60,8 +58,8 @@ func SidebarFooter(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-col px-1 py-1", children)
 }
 
-func SidebarSeparator() twi.Node {
-	return part("mx-1 shrink-0 border-t border-sidebar-border", nil)
+func SidebarSeparator(children ...twi.NodeOption) twi.Node {
+	return part("mx-1 shrink-0 border-t border-sidebar-border", children)
 }
 
 func SidebarContent(children ...twi.NodeOption) twi.Node {
@@ -88,14 +86,22 @@ func SidebarMenuItem(children ...twi.NodeOption) twi.Node {
 	return part("group/menu-item relative flex flex-col", children)
 }
 
-func SidebarMenuButton(s Size, active bool, children ...twi.NodeOption) twi.Node {
+type SidebarMenuButtonSize uint8
+
+const (
+	SidebarMenuButtonSizeDefault SidebarMenuButtonSize = iota
+	SidebarMenuButtonSizeSM
+	SidebarMenuButtonSizeLG
+)
+
+func SidebarMenuButton(s SidebarMenuButtonSize, children ...twi.NodeOption) twi.Node {
 	return part("peer/menu-button flex flex-row w-full items-center gap-1 overflow-hidden rounded-md px-1 text-left whitespace-nowrap select-none hover:bg-sidebar-accent/50 focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:w-3! [&_svg]:shrink-0 "+
-		pick("sidebar menu button", s, map[Size]string{
-			SizeDefault: "h-1 group-data-[collapsible=icon]:px-1!",
-			SizeSM:      "h-1 group-data-[collapsible=icon]:px-1!",
-			SizeLG:      "h-2 group-data-[collapsible=icon]:px-0!",
+		pick("sidebar menu button", s, map[SidebarMenuButtonSize]string{
+			SidebarMenuButtonSizeDefault: "h-1 group-data-[collapsible=icon]:px-1!",
+			SidebarMenuButtonSizeSM:      "h-1 group-data-[collapsible=icon]:px-1!",
+			SidebarMenuButtonSizeLG:      "h-2 group-data-[collapsible=icon]:px-0!",
 		}),
-		append([]twi.NodeOption{twi.Focusable(), twi.Data("active", strconv.FormatBool(active))}, children...))
+		append([]twi.NodeOption{twi.Focusable()}, children...))
 }
 
 func SidebarMenuBadge(children ...twi.NodeOption) twi.Node {
@@ -110,9 +116,9 @@ func SidebarMenuSubItem(children ...twi.NodeOption) twi.Node {
 	return part("group/menu-sub-item relative flex flex-col", children)
 }
 
-func SidebarMenuSubButton(active bool, children ...twi.NodeOption) twi.Node {
+func SidebarMenuSubButton(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-row h-1 min-w-0 items-center gap-1 overflow-hidden rounded-md px-1 whitespace-nowrap text-sidebar-foreground select-none hover:bg-sidebar-accent/50 focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden",
-		append([]twi.NodeOption{twi.Focusable(), twi.Data("active", strconv.FormatBool(active))}, children...))
+		append([]twi.NodeOption{twi.Focusable()}, children...))
 }
 
 func ScrollArea(children ...twi.NodeOption) twi.Node {

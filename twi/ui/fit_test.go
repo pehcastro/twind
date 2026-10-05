@@ -66,9 +66,9 @@ func TestSidebarHoverIsLighterThanActive(t *testing.T) {
 		s := NewSidebar(rt)
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"), s.Provider(s.Node(SidebarContent(SidebarGroup(SidebarMenu(
-				SidebarMenuItem(SidebarMenuButton(SizeDefault, false, twi.Text("Home"))),
-				SidebarMenuItem(SidebarMenuButton(SizeDefault, true, twi.Text("Inbox"))),
-				SidebarMenuItem(SidebarMenuButton(SizeDefault, false, twi.Text("Drafts"))),
+				SidebarMenuItem(SidebarMenuButton(SidebarMenuButtonSizeDefault, twi.Text("Home"))),
+				SidebarMenuItem(SidebarMenuButton(SidebarMenuButtonSizeDefault, Active(true), twi.Text("Inbox"))),
+				SidebarMenuItem(SidebarMenuButton(SidebarMenuButtonSizeDefault, twi.Text("Drafts"))),
 			))))))
 		}
 	})

@@ -27,7 +27,7 @@ type editor struct {
 	edit.Buffer
 	control
 	Key, Placeholder   string
-	Submit             func(string)
+	OnSubmit           func(string)
 	width, scroll, top int
 	dragging           bool
 	listeners          []twi.NodeOption
@@ -150,12 +150,12 @@ func (e *editor) key(ev *twi.Event) {
 		return
 	}
 	switch {
-	case k.Key == input.KeyEnter && k.Modifiers == 0 && e.Submit != nil:
+	case k.Key == input.KeyEnter && k.Modifiers == 0 && e.OnSubmit != nil:
 		if sent := strings.TrimSpace(e.Value()); sent != "" {
 			whole := e.Expand(sent)
 			e.Remember(sent)
 			e.Set("")
-			e.Submit(whole)
+			e.OnSubmit(whole)
 		}
 	case k.Key == input.KeyRune && k.Modifiers == input.ModCtrl|input.ModShift && unicode.ToLower(k.Rune) == 'c':
 		start, end := e.Selection()
@@ -210,26 +210,17 @@ func (e *editor) resize(width int) {
 	}
 }
 
-type Align uint8
-
-const (
-	InlineStart Align = iota
-	InlineEnd
-	BlockStart
-	BlockEnd
-)
-
 type Addon struct {
-	align Align
-	node  twi.Node
+	side Side
+	node twi.Node
 }
 
-func InputGroupAddon(a Align, children ...twi.NodeOption) Addon {
-	return Addon{a, part("flex flex-row items-center gap-1 font-medium text-muted-foreground select-none "+pick("input group addon", a, map[Align]string{
-		InlineStart: "pl-1",
-		InlineEnd:   "pr-1",
-		BlockStart:  "w-full px-1",
-		BlockEnd:    "w-full px-1",
+func InputGroupAddon(s Side, children ...twi.NodeOption) Addon {
+	return Addon{s, part("flex flex-row items-center gap-1 font-medium text-muted-foreground select-none "+pick("input group addon", s, map[Side]string{
+		SideLeft:   "pl-1",
+		SideRight:  "pr-1",
+		SideTop:    "w-full px-1",
+		SideBottom: "w-full px-1",
 	}), children)}
 }
 
@@ -238,14 +229,14 @@ func InputGroupText(children ...twi.NodeOption) twi.Node {
 }
 
 func InputGroupButton(children ...twi.NodeOption) twi.Node {
-	return Button(Ghost, SizeXS, children...)
+	return Button(ButtonGhost, ButtonSizeXS, children...)
 }
 
 func group(c *control, field twi.Node, addons []Addon, options ...twi.NodeOption) twi.Node {
-	var at [BlockEnd + 1][]twi.NodeOption
+	var at [SideLeft + 1][]twi.NodeOption
 	for _, a := range addons {
-		at[a.align] = append(at[a.align], a.node)
+		at[a.side] = append(at[a.side], a.node)
 	}
-	middle := part("flex flex-row items-center w-full", slices.Concat(at[InlineStart], []twi.NodeOption{field}, at[InlineEnd]))
-	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.edge(groupEdge), slices.Concat(options, at[BlockStart], []twi.NodeOption{middle}, at[BlockEnd]))
+	middle := part("flex flex-row items-center w-full", slices.Concat(at[SideLeft], []twi.NodeOption{field}, at[SideRight]))
+	return part("flex flex-col w-full min-w-0 rounded-md dark:bg-input/30 "+c.edge(groupEdge), slices.Concat(options, at[SideTop], []twi.NodeOption{middle}, at[SideBottom]))
 }

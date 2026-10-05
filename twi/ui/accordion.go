@@ -139,7 +139,7 @@ func (c *Collapsible) Node(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-col", append([]twi.NodeOption{openState(c.Open)}, children...))
 }
 
-func (c *Collapsible) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
+func (c *Collapsible) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node {
 	toggle := func() { c.set(!c.Open) }
 	return c.trigger(v, s, func(k input.KeyEvent) bool {
 		if press(k) {

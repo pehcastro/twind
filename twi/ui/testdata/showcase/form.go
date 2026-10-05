@@ -28,9 +28,9 @@ func form(rt *twi.Runtime, focus string) func() twi.Node {
 	spacing := ui.NewRadioGroup(rt)
 	spacing.Value = "comfortable"
 	bookmark := ui.NewToggle(rt)
-	bookmark.Variant, bookmark.Size = ui.Outline, ui.SizeSM
+	bookmark.Variant, bookmark.Size = ui.ToggleOutline, ui.ToggleSizeSM
 	marks := ui.NewToggleGroup(rt)
-	marks.Variant, marks.Multiple, marks.Value = ui.Outline, true, []string{"b"}
+	marks.Variant, marks.Multiple, marks.Value = ui.ToggleOutline, true, []string{"b"}
 	volume := ui.NewSlider(rt)
 	volume.Value = 50
 	code := ui.NewInputOTP(rt, 6)
@@ -47,7 +47,7 @@ func form(rt *twi.Runtime, focus string) func() twi.Node {
 				field("Email", email.Node(auto("email")...)),
 				field("Username", username.Node(), ui.FieldError(label("Only letters and digits."))),
 				field("Your message", message.Node(auto("textarea")...)),
-				field("Website", site.Group(ui.InputGroupAddon(ui.InlineStart, ui.InputGroupText(label("https://"))), ui.InputGroupAddon(ui.InlineEnd, ui.InputGroupText(label(".com"))))),
+				field("Website", site.Group(ui.InputGroupAddon(ui.SideLeft, ui.InputGroupText(label("https://"))), ui.InputGroupAddon(ui.SideRight, ui.InputGroupText(label(".com"))))),
 				field("Status", status.Node()),
 			),
 			el("flex flex-col gap-2 shrink-0",

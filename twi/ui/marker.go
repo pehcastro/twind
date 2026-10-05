@@ -7,16 +7,24 @@ import (
 	"github.com/pehcastro/twind/twi/style"
 )
 
-func Marker(v Variant, children ...twi.NodeOption) twi.Node {
-	options := append([]twi.NodeOption{twi.Data("slot", "marker"), twi.Data("variant", pick("marker", v, map[Variant]string{Default: "default", Ruled: "separator", Bordered: "border"}))}, children...)
-	if v == Ruled {
+type MarkerVariant uint8
+
+const (
+	MarkerDefault MarkerVariant = iota
+	MarkerSeparator
+	MarkerBorder
+)
+
+func Marker(v MarkerVariant, children ...twi.NodeOption) twi.Node {
+	options := append([]twi.NodeOption{twi.Data("slot", "marker"), twi.Data("variant", pick("marker", v, map[MarkerVariant]string{MarkerDefault: "default", MarkerSeparator: "separator", MarkerBorder: "border"}))}, children...)
+	if v == MarkerSeparator {
 		rule := part("h-1 min-w-0 flex-1 border-t border-border", nil)
 		options = slices.Concat([]twi.NodeOption{rule}, options, []twi.NodeOption{rule})
 	}
-	return part("group/marker relative flex flex-row min-h-1 w-full items-center gap-1 text-left text-muted-foreground "+pick("marker", v, map[Variant]string{
-		Default:  "",
-		Ruled:    "",
-		Bordered: "border-b border-border",
+	return part("group/marker relative flex flex-row min-h-1 w-full items-center gap-1 text-left text-muted-foreground "+pick("marker", v, map[MarkerVariant]string{
+		MarkerDefault:   "",
+		MarkerSeparator: "",
+		MarkerBorder:    "border-b border-border",
 	}), options)
 }
 

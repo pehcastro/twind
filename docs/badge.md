@@ -7,7 +7,7 @@ Displays a badge or a component that looks like a badge.
 ## Usage
 
 ```go
-ui.Badge(ui.Secondary, twi.Text("Badge"))
+ui.Badge(ui.BadgeSecondary, twi.Text("Badge"))
 ```
 
 A class after the variant changes the colours, as the Verified badge above does with `bg-blue-500 text-white`.

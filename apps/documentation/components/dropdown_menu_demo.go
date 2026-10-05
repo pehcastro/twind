@@ -7,12 +7,12 @@ import (
 
 func DropdownMenuDemo(rt *twi.Runtime) func() twi.Node {
 	menu, statusBar, panel := ui.NewDropdownMenu(rt), true, "Bottom"
-	menu.Align = ui.Start
+	menu.Align = ui.AlignStart
 	invite := menu.Sub()
 	return func() twi.Node {
 		return twi.Element(twi.Class("flex flex-col h-16"),
 			menu.Node(
-				menu.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open menu ⌄")),
+				menu.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Open menu ⌄")),
 				menu.Content(
 					ui.DropdownMenuLabel(twi.Text("My Account")),
 					menu.Item("Profile", ui.DropdownMenuShortcut(twi.Text("⇧⌘P"))),

@@ -7,8 +7,8 @@ import (
 
 func ToasterDemo(rt *twi.Runtime) func() twi.Node {
 	toaster := ui.NewToaster(rt)
-	button := func(label string, show func(title, description string, action ui.ToastAction)) twi.Node {
-		return ui.Button(ui.Outline, ui.SizeDefault, twi.OnClick(func(*twi.Event) {
+	button := func(label string, show func(title, description string, actions ...ui.ToastAction)) twi.Node {
+		return ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.OnClick(func(*twi.Event) {
 			show("Event has been created", "Sunday, December 03 at 9:00", ui.ToastAction{Label: "Undo"})
 		}), twi.Text(label))
 	}

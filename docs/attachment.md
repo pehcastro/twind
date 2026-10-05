@@ -7,8 +7,8 @@ A file in a message or a composer: its media, name, size and state.
 ## Usage
 
 ```go
-ui.Attachment(ui.Failed, ui.Horizontal,
-	ui.AttachmentMedia(ui.Icon, twi.Text("▣")),
+ui.Attachment(ui.UploadFailed, ui.Horizontal,
+	ui.AttachmentMedia(ui.AttachmentMediaIcon, twi.Text("▣")),
 	ui.AttachmentContent(
 		ui.AttachmentTitle(twi.Text("video.mp4")),
 		ui.AttachmentDescription(twi.Text("too large")),

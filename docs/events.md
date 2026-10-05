@@ -32,7 +32,7 @@ A handler changes your own state, then calls `rt.Invalidate()`. The runtime call
 
 ```go
 count := 0
-button := ui.Button(ui.Default, ui.SizeDefault, twi.OnClick(func(*twi.Event) {
+button := ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, twi.OnClick(func(*twi.Event) {
 	count++
 	rt.Invalidate()
 }), twi.Text("Add one"))

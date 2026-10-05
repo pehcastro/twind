@@ -69,7 +69,7 @@ func newStore(k kit) page {
 	}
 	var cart []line
 	picked, sized, shown, qty := 0, 1, 0, 1
-	drawer := ui.NewSheet(k.rt, ui.Right)
+	drawer := ui.NewSheet(k.rt, ui.SideRight)
 	k.toast.Avoid(drawer)
 	pick := func(set func()) twi.NodeOption {
 		return twi.OnClick(func(*twi.Event) {
@@ -88,7 +88,7 @@ func newStore(k kit) page {
 		return navbar("bg-background shadow-sm",
 			el("flex flex-row items-center gap-1", txt("flex flex-row w-4 justify-center rounded-full bg-linear-to-br from-primary-300 to-primary-700 py-0.5 font-bold text-white", "◡"), txt("font-bold py-0.5", "Hearth")),
 			k.links("text-muted-foreground", "Details", "Reviews"), el("grow"),
-			ui.Button(ui.Outline, ui.SizeSM, twi.Class("rounded-full py-0.5"), pick(func() { drawer.Open = true }),
+			ui.Button(ui.ButtonOutline, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5"), pick(func() { drawer.Open = true }),
 				twi.Text("◫ Cart"), txt("rounded-full bg-primary px-1 text-primary-foreground", strconv.Itoa(items()))),
 		)
 	}
@@ -161,7 +161,7 @@ func newStore(k kit) page {
 							el("px-2 py-0.5 rounded-l-lg hover:bg-accent", twi.Text("−"), twi.Focusable(), pick(func() { qty = max(qty-1, 1) })),
 							el("px-1 py-0.5 font-medium", twi.Text(strconv.Itoa(qty))),
 							el("px-2 py-0.5 rounded-r-lg hover:bg-accent", twi.Text("+"), twi.Focusable(), pick(func() { qty = min(qty+1, 9) }))),
-						ui.Button(ui.Default, ui.SizeLG, twi.Class("grow rounded-lg py-0.5 shadow-lg"), twi.OnClick(func(*twi.Event) {
+						ui.Button(ui.ButtonDefault, ui.ButtonSizeLG, twi.Class("grow rounded-lg py-0.5 shadow-lg"), twi.OnClick(func(*twi.Event) {
 							cart = append(cart, line{picked, sized, qty, s.price})
 							drawer.Open = true
 							k.toast.Success("Added to cart", fmt.Sprintf("Hearth mug, %s, %s", c.name, s.name), ui.ToastAction{})
@@ -190,8 +190,8 @@ func newStore(k kit) page {
 				el("flex flex-col", lines...),
 				drawer.Footer(
 					el("flex flex-row justify-between font-semibold", twi.Text("Subtotal"), twi.Text(fmt.Sprintf("$%d", total))),
-					ui.Button(ui.Default, ui.SizeDefault, twi.Class("rounded-lg py-0.5"), twi.Text("Checkout →")),
-					drawer.Close(ui.Outline, ui.SizeDefault, twi.Class("rounded-lg py-0.5"), twi.Text("Keep shopping")),
+					ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Class("rounded-lg py-0.5"), twi.Text("Checkout →")),
+					drawer.Close(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Class("rounded-lg py-0.5"), twi.Text("Keep shopping")),
 				),
 			),
 		)

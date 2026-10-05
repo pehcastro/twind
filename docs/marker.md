@@ -7,7 +7,7 @@ A quiet line between messages: a date, a join, an event.
 ## Usage
 
 ```go
-ui.Marker(ui.Ruled, ui.MarkerContent(twi.Text("Yesterday")))
+ui.Marker(ui.MarkerSeparator, ui.MarkerContent(twi.Text("Yesterday")))
 ```
 
 `Ruled` draws a line either side of the content, `Bordered` a line under it.

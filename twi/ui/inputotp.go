@@ -62,6 +62,6 @@ func InputOTPGroup(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-row items-center gap-1", children)
 }
 
-func InputOTPSeparator() twi.Node {
-	return part("flex flex-row w-2 justify-center text-muted-foreground", []twi.NodeOption{icon("-", "")})
+func InputOTPSeparator(children ...twi.NodeOption) twi.Node {
+	return part("flex flex-row w-2 justify-center text-muted-foreground", append([]twi.NodeOption{icon("-", "")}, children...))
 }

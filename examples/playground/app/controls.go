@@ -33,7 +33,7 @@ func collapsiblePage(c controls) twi.Node {
 	repo := func(name string) twi.Node { return txt("px-2 rounded-md border", name) }
 	return show("Collapsible", "the trigger shows and hides the rest",
 		cl.Node(twi.Class("w-50 gap-1"),
-			el("flex flex-row items-center justify-between", txt("font-semibold", "@peduarte starred 3 repositories"), cl.Trigger(ui.Ghost, ui.SizeIcon, twi.Text("⇅"))),
+			el("flex flex-row items-center justify-between", txt("font-semibold", "@peduarte starred 3 repositories"), cl.Trigger(ui.ButtonGhost, ui.ButtonSizeIcon, twi.Text("⇅"))),
 			repo("@radix-ui/primitives"),
 			cl.Content(twi.Class("gap-1"), repo("@radix-ui/colors"), repo("@stitches/react")),
 		))
@@ -65,8 +65,8 @@ func inputPage(c controls) twi.Node {
 			ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Disabled")), k.off.Node()),
 			ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Invalid")), k.bad.Node()),
 			ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Website")), k.site.Group(
-				ui.InputGroupAddon(ui.InlineStart, ui.InputGroupText(twi.Text("https://"))),
-				ui.InputGroupAddon(ui.InlineEnd, twi.Text(".com")),
+				ui.InputGroupAddon(ui.SideLeft, ui.InputGroupText(twi.Text("https://"))),
+				ui.InputGroupAddon(ui.SideRight, twi.Text(".com")),
 			)),
 		))
 }

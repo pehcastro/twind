@@ -37,10 +37,10 @@ func TestButtonKeys(t *testing.T) {
 		})
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-row items-start gap-2 p-1 h-full bg-background text-foreground"), listen(&heard), bubbled,
-				Button(Default, SizeDefault, count(&one), twi.Text("One")),
-				Button(Outline, SizeDefault, twi.Disabled(), count(&two), twi.Text("Two")),
-				Button(Ghost, SizeDefault, twi.Text("Three")),
-				PaginationLink(false, count(&link), twi.Text("4")),
+				Button(ButtonDefault, ButtonSizeDefault, count(&one), twi.Text("One")),
+				Button(ButtonOutline, ButtonSizeDefault, twi.Disabled(), count(&two), twi.Text("Two")),
+				Button(ButtonGhost, ButtonSizeDefault, twi.Text("Three")),
+				PaginationLink(count(&link), twi.Text("4")),
 			)
 		}
 	})

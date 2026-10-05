@@ -24,10 +24,10 @@ func TestCellLookOneRowControlsDriven(t *testing.T) {
 			in.Placeholder, invalid.Placeholder, invalid.Invalid = "m@example.com", "not an email", true
 			return func() twi.Node {
 				return twi.Element(twi.Class("flex flex-col items-start gap-1 p-2 w-full h-full bg-background text-foreground"),
-					Button(Outline, SizeDefault, twi.Text("Login with Google")),
+					Button(ButtonOutline, ButtonSizeDefault, twi.Text("Login with Google")),
 					twi.Element(twi.Class("w-20"), in.Node()),
 					twi.Element(twi.Class("w-20"), invalid.Node()),
-					Badge(Outline, twi.Text("Outline")),
+					Badge(BadgeOutline, twi.Text("Outline")),
 				)
 			}
 		}, drive.Size(80, 24), drive.With(twi.Styles(sheet)))

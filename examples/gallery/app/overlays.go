@@ -10,10 +10,10 @@ func openable() []string {
 }
 
 func newOverlays(rt *twi.Runtime, open string) (view func() twi.Node, modal func() bool) {
-	dialog, alert, sheet := ui.NewDialog(rt), ui.NewAlertDialog(rt), ui.NewSheet(rt, ui.Right)
+	dialog, alert, sheet := ui.NewDialog(rt), ui.NewAlertDialog(rt), ui.NewSheet(rt, ui.SideRight)
 	menu, pop, tip := ui.NewDropdownMenu(rt), ui.NewPopover(rt), ui.NewTooltip(rt)
 	invite := menu.Sub()
-	menu.Align, pop.Align = ui.Start, ui.Start
+	menu.Align, pop.Align = ui.AlignStart, ui.AlignStart
 	chosen, statusBar, panel := "nothing yet", true, "Bottom"
 	menu.OnSelect = func(item string) { chosen = item }
 	name, username, width, height := ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt)
@@ -36,7 +36,7 @@ func newOverlays(rt *twi.Runtime, open string) (view func() twi.Node, modal func
 	case "tooltip":
 		tip.Open = true
 	}
-	outline, solid, size := ui.Outline, ui.Default, ui.SizeDefault
+	outline, solid, size := ui.ButtonOutline, ui.ButtonDefault, ui.ButtonSizeDefault
 	demo := func(title, about string, trigger twi.Node) twi.Node {
 		return ui.Card(twi.Class("min-w-0 py-1"),
 			ui.CardHeader(ui.CardTitle(twi.Text(title)), ui.CardDescription(twi.Text(about))),
@@ -73,9 +73,9 @@ func newOverlays(rt *twi.Runtime, open string) (view func() twi.Node, modal func
 				))),
 				demo("Sheet", "A panel that slides in from an edge.", sheet.Trigger(outline, size, twi.Text("Open sheet"))),
 				demo("Tooltip", "A hint on focus, gone on blur.", tip.Node(tip.Trigger(outline, size, twi.Text("Focus me")), tip.Content(twi.Text("Add to library")))),
-				demo("Alert dialog", "Asks before anything destructive.", alert.Trigger(ui.Destructive, size, twi.Text("Delete account"))),
+				demo("Alert dialog", "Asks before anything destructive.", alert.Trigger(ui.ButtonDestructive, size, twi.Text("Delete account"))),
 			),
-			ui.Alert(ui.Default, ui.AlertTitle(twi.Text("Overlays sit above the page")), ui.AlertDescription(twi.Text("Dialogs dim the page; menus and popovers float over it with soft shadows. Escape closes each one."))),
+			ui.Alert(ui.AlertDefault, ui.AlertTitle(twi.Text("Overlays sit above the page")), ui.AlertDescription(twi.Text("Dialogs dim the page; menus and popovers float over it with soft shadows. Escape closes each one."))),
 			dialog.Content(
 				dialog.Header(dialog.Title(twi.Text("Edit profile")), dialog.Description(twi.Text("Make changes to your profile here. Click save when you're done."))),
 				el("flex flex-col gap-1", field("Name", name), field("Username", username)),
@@ -88,7 +88,7 @@ func newOverlays(rt *twi.Runtime, open string) (view func() twi.Node, modal func
 			),
 			alert.Content(
 				alert.Header(alert.Title(twi.Text("Are you absolutely sure?")), alert.Description(twi.Text("This action cannot be undone. This will permanently delete your account."))),
-				alert.Footer(alert.Close(outline, size, twi.Text("Cancel")), alert.Close(ui.Destructive, size, twi.Text("Delete"))),
+				alert.Footer(alert.Close(outline, size, twi.Text("Cancel")), alert.Close(ui.ButtonDestructive, size, twi.Text("Delete"))),
 			),
 		)
 	}

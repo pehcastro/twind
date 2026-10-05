@@ -27,8 +27,8 @@ func promptDriver(t *testing.T, width string, submits bool) *prompt {
 	p.Driver = overlayDriver(t, 40, 16, func(rt *twi.Runtime) func() twi.Node {
 		p.area, p.line = NewTextarea(rt), NewInput(rt)
 		if submits {
-			p.area.Submit = func(s string) { p.sent = append(p.sent, s) }
-			p.line.Submit = p.area.Submit
+			p.area.OnSubmit = func(s string) { p.sent = append(p.sent, s) }
+			p.line.OnSubmit = p.area.OnSubmit
 		}
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),

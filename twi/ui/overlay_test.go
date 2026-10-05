@@ -99,11 +99,11 @@ func TestDialogKeys(t *testing.T) {
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"), listen(&heard),
 				before.Node(twi.Text("before")),
-				dlg.Trigger(Outline, SizeDefault, twi.Text("Edit Profile")),
+				dlg.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Edit Profile")),
 				dlg.Content(
 					dlg.Header(dlg.Title(twi.Text("Edit profile")), dlg.Description(twi.Text("Make changes here."))),
 					name.Node(), user.Node(),
-					dlg.Footer(dlg.Close(Outline, SizeDefault, twi.Text("Cancel")), dlg.Close(Default, SizeDefault, twi.Text("Save"))),
+					dlg.Footer(dlg.Close(ButtonOutline, ButtonSizeDefault, twi.Text("Cancel")), dlg.Close(ButtonDefault, ButtonSizeDefault, twi.Text("Save"))),
 				),
 			)
 		}
@@ -161,7 +161,7 @@ func TestDialogFooterFollowsSm(t *testing.T) {
 				return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
 					dlg.Content(
 						dlg.Header(dlg.Title(twi.Text("Edit profile")), dlg.Description(twi.Text("Make changes here."))),
-						dlg.Footer(dlg.Close(Outline, SizeDefault, twi.Text("Cancel")), dlg.Close(Default, SizeDefault, twi.Text("Save"))),
+						dlg.Footer(dlg.Close(ButtonOutline, ButtonSizeDefault, twi.Text("Cancel")), dlg.Close(ButtonDefault, ButtonSizeDefault, twi.Text("Save"))),
 					),
 				)
 			}
@@ -190,10 +190,10 @@ func TestDialogKinds(t *testing.T) {
 	}{
 		{"dialog, 64 columns centred with an X", NewDialog, func(x, y int) bool { return x == (80-64)/2+1+3 && y > 4 && y < 16 }, true},
 		{"alert dialog, centred, no X", NewAlertDialog, func(x, y int) bool { return x == (80-64)/2+1+3 && y > 4 && y < 16 }, false},
-		{"sheet from the right", func(rt *twi.Runtime) *Dialog { return NewSheet(rt, Right) }, func(x, _ int) bool { return x > 30 }, true},
-		{"sheet from the left", func(rt *twi.Runtime) *Dialog { return NewSheet(rt, Left) }, func(x, _ int) bool { return x < 20 }, true},
-		{"sheet from the top", func(rt *twi.Runtime) *Dialog { return NewSheet(rt, Top) }, func(_, y int) bool { return y < 6 }, true},
-		{"drawer from the bottom", func(rt *twi.Runtime) *Dialog { return NewDrawer(rt, Bottom) }, func(_, y int) bool { return y >= 12 }, false},
+		{"sheet from the right", func(rt *twi.Runtime) *Dialog { return NewSheet(rt, SideRight) }, func(x, _ int) bool { return x > 30 }, true},
+		{"sheet from the left", func(rt *twi.Runtime) *Dialog { return NewSheet(rt, SideLeft) }, func(x, _ int) bool { return x < 20 }, true},
+		{"sheet from the top", func(rt *twi.Runtime) *Dialog { return NewSheet(rt, SideTop) }, func(_, y int) bool { return y < 6 }, true},
+		{"drawer from the bottom", func(rt *twi.Runtime) *Dialog { return NewDrawer(rt, SideBottom) }, func(_, y int) bool { return y >= 12 }, false},
 	} {
 		var dlg *Dialog
 		d := overlayDriver(t, 80, 24, func(rt *twi.Runtime) func() twi.Node {
@@ -201,8 +201,8 @@ func TestDialogKinds(t *testing.T) {
 			dlg.Open = true
 			return func() twi.Node {
 				return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
-					dlg.Trigger(Ghost, SizeDefault, twi.Text("open")),
-					dlg.Content(dlg.Header(dlg.Title(twi.Text("Title"))), dlg.Footer(dlg.Close(Ghost, SizeDefault, twi.Text("Done")))),
+					dlg.Trigger(ButtonGhost, ButtonSizeDefault, twi.Text("open")),
+					dlg.Content(dlg.Header(dlg.Title(twi.Text("Title"))), dlg.Footer(dlg.Close(ButtonGhost, ButtonSizeDefault, twi.Text("Done")))),
 				)
 			}
 		})
@@ -224,12 +224,12 @@ func TestDialogKinds(t *testing.T) {
 func TestDrawerHandleDragsItClosed(t *testing.T) {
 	var dlg *Dialog
 	d := overlayDriver(t, 80, 24, func(rt *twi.Runtime) func() twi.Node {
-		dlg = NewDrawer(rt, Bottom)
+		dlg = NewDrawer(rt, SideBottom)
 		dlg.Open = true
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
-				dlg.Trigger(Ghost, SizeDefault, twi.Text("open")),
-				dlg.Content(dlg.Header(dlg.Title(twi.Text("Title")), dlg.Description(twi.Text("Words"))), dlg.Footer(dlg.Close(Ghost, SizeDefault, twi.Text("Done")))),
+				dlg.Trigger(ButtonGhost, ButtonSizeDefault, twi.Text("open")),
+				dlg.Content(dlg.Header(dlg.Title(twi.Text("Title")), dlg.Description(twi.Text("Words"))), dlg.Footer(dlg.Close(ButtonGhost, ButtonSizeDefault, twi.Text("Done")))),
 			)
 		}
 	})
@@ -283,12 +283,12 @@ func TestMenuKeys(t *testing.T) {
 	d := overlayDriver(t, 80, 30, func(rt *twi.Runtime) func() twi.Node {
 		m, empty = NewDropdownMenu(rt), NewDropdownMenu(rt)
 		invite, share = m.Sub(), m.Sub()
-		m.Align = Start
+		m.Align = AlignStart
 		m.OnSelect = func(s string) { chosen = append(chosen, s) }
 		m.OnOpenChange = func(open bool) { changes = append(changes, open) }
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-row gap-4 p-1 h-full bg-background text-foreground"), listen(&heard),
-				m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Open")), m.Content(
+				m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open")), m.Content(
 					DropdownMenuLabel(twi.Text("My Account")),
 					m.Item("Profile", DropdownMenuShortcut(twi.Text("⇧⌘P"))),
 					m.Item("Billing"),
@@ -299,7 +299,7 @@ func TestMenuKeys(t *testing.T) {
 					m.RadioItem("Top", &panel), m.RadioItem("Bottom", &panel),
 					m.Item("Log out"),
 				)),
-				empty.Node(empty.Trigger(Ghost, SizeDefault, twi.Text("Empty")), empty.Content()),
+				empty.Node(empty.Trigger(ButtonGhost, ButtonSizeDefault, twi.Text("Empty")), empty.Content()),
 			)
 		}
 	})
@@ -389,9 +389,9 @@ func TestOverlayKeys(t *testing.T) {
 		pop.OnOpenChange = func(open bool) { popped = append(popped, open) }
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col items-center gap-6 pt-4 h-full bg-background text-foreground"),
-				tip.Node(tip.Trigger(Outline, SizeDefault, twi.Text("Hover")), tip.Content(twi.Text("Add to library"))),
-				pop.Node(pop.Trigger(Outline, SizeDefault, twi.Text("Open popover")), pop.Content(twi.Text("Dimensions"), width.Node())),
-				card.Node(card.Trigger(Link, SizeDefault, twi.Text("@nextjs")), card.Content(twi.Text("The React Framework"))),
+				tip.Node(tip.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Hover")), tip.Content(twi.Text("Add to library"))),
+				pop.Node(pop.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open popover")), pop.Content(twi.Text("Dimensions"), width.Node())),
+				card.Node(card.Trigger(ButtonLink, ButtonSizeDefault, twi.Text("@nextjs")), card.Content(twi.Text("The React Framework"))),
 			)
 		}
 	})
@@ -433,23 +433,23 @@ func TestOverlayKeys(t *testing.T) {
 }
 
 func TestOverlayPlacement(t *testing.T) {
-	spot := func(side Side, align Alignment) (ax, ay, cx, cy int) {
+	spot := func(side Side, align Align) (ax, ay, cx, cy int) {
 		var pop *Popover
 		d := overlayDriver(t, 100, 30, func(rt *twi.Runtime) func() twi.Node {
 			pop = NewPopover(rt)
 			pop.Side, pop.Align, pop.Open = side, align, true
 			return func() twi.Node {
 				return twi.Element(twi.Class("flex flex-col items-center justify-center h-full"),
-					pop.Node(pop.Trigger(Ghost, SizeXS, twi.Text("anchor")), pop.Content(twi.Text("CONTENT"))))
+					pop.Node(pop.Trigger(ButtonGhost, ButtonSizeXS, twi.Text("anchor")), pop.Content(twi.Text("CONTENT"))))
 			}
 		})
 		ax, ay, _ = at(d.Frame(), "anchor")
 		cx, cy, _ = at(d.Frame(), "CONTENT")
 		return ax, ay, cx, cy
 	}
-	ax, ay, sx, sy := spot(Bottom, Start)
-	_, _, mx, my := spot(Bottom, Center)
-	_, _, ex, ey := spot(Bottom, End)
+	ax, ay, sx, sy := spot(SideBottom, AlignStart)
+	_, _, mx, my := spot(SideBottom, AlignCenter)
+	_, _, ex, ey := spot(SideBottom, AlignEnd)
 	if sy <= ay || my != sy || ey != sy {
 		t.Errorf("bottom: content rows %d %d %d, anchor row %d", sy, my, ey, ay)
 	}
@@ -457,13 +457,13 @@ func TestOverlayPlacement(t *testing.T) {
 	if sx-mx != (content-anchor)/2 || sx-ex != content-anchor {
 		t.Errorf("bottom start, centre, end at columns %d %d %d; want shifts of %d and %d", sx, mx, ex, (content-anchor)/2, content-anchor)
 	}
-	if _, _, _, y := spot(Top, Center); y >= ay {
+	if _, _, _, y := spot(SideTop, AlignCenter); y >= ay {
 		t.Errorf("top: content row %d, anchor row %d", y, ay)
 	}
-	if _, _, x, _ := spot(Right, Start); x <= ax+len("anchor") {
+	if _, _, x, _ := spot(SideRight, AlignStart); x <= ax+len("anchor") {
 		t.Errorf("right: content column %d, anchor ends at %d", x, ax+len("anchor"))
 	}
-	if _, _, x, _ := spot(Left, End); x+len("CONTENT") >= ax {
+	if _, _, x, _ := spot(SideLeft, AlignEnd); x+len("CONTENT") >= ax {
 		t.Errorf("left: content ends at %d, anchor starts at %d", x+len("CONTENT"), ax)
 	}
 }
@@ -477,24 +477,24 @@ func TestOverlayStates(t *testing.T) {
 		d.Open = open
 		return d.Content(d.Header(d.Title(twi.Text("T"))))
 	}
-	sheet := func(rt *twi.Runtime) *Dialog { return NewSheet(rt, Right) }
+	sheet := func(rt *twi.Runtime) *Dialog { return NewSheet(rt, SideRight) }
 	menu := func(active int, sub bool) twi.Node {
 		m := NewDropdownMenu(rt)
 		s := m.Sub()
 		m.Open, m.active, s.Open = true, active, sub
 		a, b := m.Item("A"), s.Node(s.Trigger("B"), s.Content(s.Item("C")))
-		return m.Node(m.Trigger(Ghost, SizeDefault, twi.Text("open")), m.Content(a, b))
+		return m.Node(m.Trigger(ButtonGhost, ButtonSizeDefault, twi.Text("open")), m.Content(a, b))
 	}
-	trigger := NewPopover(rt).Trigger(Outline, SizeDefault, twi.Text("open"))
+	trigger := NewPopover(rt).Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("open"))
 	closes := func() twi.Node {
 		d := NewDialog(rt)
 		d.Open = true
-		return d.Content(d.Footer(d.Close(Outline, SizeDefault, twi.Text("Cancel")), d.Close(Default, SizeDefault, twi.Text("Save"))))
+		return d.Content(d.Footer(d.Close(ButtonOutline, ButtonSizeDefault, twi.Text("Cancel")), d.Close(ButtonDefault, ButtonSizeDefault, twi.Text("Save"))))
 	}
 	tip := func() twi.Node {
 		tt := NewTooltip(rt)
 		tt.Open = true
-		return tt.Node(tt.Trigger(Ghost, SizeDefault, twi.Text("t")), tt.Content(twi.Text("tip")))
+		return tt.Node(tt.Trigger(ButtonGhost, ButtonSizeDefault, twi.Text("t")), tt.Content(twi.Text("tip")))
 	}
 	checkParts(t, []partCase{
 		{"dialog layer: fixed inset-0 z-50, no colour of its own", light, dialog(NewDialog, true), []int{0}, func(s style.ComputedStyle) bool {

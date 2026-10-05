@@ -7,7 +7,7 @@ import (
 
 func PopoverDemo(rt *twi.Runtime) func() twi.Node {
 	popover, width, height := ui.NewPopover(rt), ui.NewInput(rt), ui.NewInput(rt)
-	popover.Align = ui.Start
+	popover.Align = ui.AlignStart
 	width.Insert("100%")
 	height.Insert("25px")
 	size := func(label string, in *ui.Input) twi.Node {
@@ -19,7 +19,7 @@ func PopoverDemo(rt *twi.Runtime) func() twi.Node {
 	return func() twi.Node {
 		return twi.Element(twi.Class("flex flex-col h-9"),
 			popover.Node(
-				popover.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open popover")),
+				popover.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Open popover")),
 				popover.Content(
 					twi.Element(twi.Class("font-medium"), twi.Text("Dimensions")),
 					twi.Element(twi.Class("text-muted-foreground"), twi.Text("Set the size of the layer.")),

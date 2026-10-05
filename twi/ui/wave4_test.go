@@ -105,10 +105,10 @@ func TestInputGroupButtonInsideTheBorder(t *testing.T) {
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
 				twi.Element(twi.Class("flex flex-row w-30"), in.Group(
-					InputGroupAddon(InlineStart, InputGroupText(twi.Text("https://"))),
-					InputGroupAddon(InlineEnd, InputGroupButton(twi.OnClick(func(*twi.Event) { copies++ }), twi.Text("Copy"))),
+					InputGroupAddon(SideLeft, InputGroupText(twi.Text("https://"))),
+					InputGroupAddon(SideRight, InputGroupButton(twi.OnClick(func(*twi.Event) { copies++ }), twi.Text("Copy"))),
 				)),
-				Button(Outline, SizeDefault, twi.Text("After")),
+				Button(ButtonOutline, ButtonSizeDefault, twi.Text("After")),
 			)
 		}
 	})
@@ -180,7 +180,7 @@ func TestComboboxKeysAndPointer(t *testing.T) {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"), escapes(&escaped),
 				box.Node(twi.Class("w-30"), box.Input(), box.Content(items...)),
 				twi.Element(twi.Text("Elsewhere")),
-				Button(Outline, SizeDefault, twi.Text("After")),
+				Button(ButtonOutline, ButtonSizeDefault, twi.Text("After")),
 			)
 		}
 	})

@@ -39,8 +39,8 @@ func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster, dark *
 	swatch := func(class, label string) twi.Node {
 		return el("flex flex-col items-center gap-0", el("w-6 h-2 rounded-md shadow-[0_0_0_1px_var(--color-border)] "+class), txt("text-muted-foreground", label))
 	}
-	sample := func(v ui.Variant, label string) twi.Node {
-		return ui.Button(v, ui.SizeDefault, clicked(rt, func() { toaster.Show(label+" pressed", "A sample of the "+label+" button.", ui.ToastAction{}) }), twi.Text(label))
+	sample := func(v ui.ButtonVariant, label string) twi.Node {
+		return ui.Button(v, ui.ButtonSizeDefault, clicked(rt, func() { toaster.Show(label+" pressed", "A sample of the "+label+" button.") }), twi.Text(label))
 	}
 	return func() twi.Node {
 		items := []twi.NodeOption{twi.Class("grid grid-cols-2 gap-x-1"), twi.OnFocus(func(*twi.Event) { opened = palette.Value }), twi.OnPointerLeave(func(*twi.Event) { apply() }), restore}
@@ -64,11 +64,11 @@ func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster, dark *
 						swatch("bg-muted", "muted"), swatch("bg-destructive", "danger"), swatch("bg-card", "card"),
 					),
 					el("flex flex-row flex-wrap items-center gap-2",
-						sample(ui.Default, "Primary"), sample(ui.Secondary, "Secondary"), sample(ui.Outline, "Outline"),
-						ui.Badge(ui.Default, twi.Text("Badge")),
-						ui.Badge(ui.Destructive, twi.Text("Error")),
+						sample(ui.ButtonDefault, "Primary"), sample(ui.ButtonSecondary, "Secondary"), sample(ui.ButtonOutline, "Outline"),
+						ui.Badge(ui.BadgeDefault, twi.Text("Badge")),
+						ui.Badge(ui.BadgeDestructive, twi.Text("Error")),
 					),
-					ui.Alert(ui.Default, ui.AlertTitle(twi.Text("Themes switch at runtime")), ui.AlertDescription(twi.Text("The Style IR is compiled once; a theme only swaps the token values."))),
+					ui.Alert(ui.AlertDefault, ui.AlertTitle(twi.Text("Themes switch at runtime")), ui.AlertDescription(twi.Text("The Style IR is compiled once; a theme only swaps the token values."))),
 				),
 			)),
 		)

@@ -49,7 +49,7 @@ func (s *MessageScroller) Button(children ...twi.NodeOption) twi.Node {
 	if len(children) == 0 {
 		children = []twi.NodeOption{icon("↓", "")}
 	}
-	return part(button(Secondary, SizeIcon, idleRing(Outline)+" "+focusRing)+" absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full animate-in fade-in-0 zoom-in-95 duration-200", append([]twi.NodeOption{
+	return part(button(ButtonSecondary, ButtonSizeIcon, idleRing(ButtonOutline)+" "+focusRing)+" absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full animate-in fade-in-0 zoom-in-95 duration-200", append([]twi.NodeOption{
 		twi.Data("slot", "message-scroller-button"), twi.Focusable(), twi.OnClick(func(*twi.Event) { s.latest() }),
 	}, children...))
 }

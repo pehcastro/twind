@@ -12,7 +12,7 @@ card := ui.NewHoverCard(rt)
 
 ```go
 card.Node(
-	card.Trigger(ui.Link, ui.SizeDefault, twi.Text("@nextjs")),
+	card.Trigger(ui.ButtonLink, ui.ButtonSizeDefault, twi.Text("@nextjs")),
 	card.Content(twi.Text("The React Framework.")),
 )
 ```

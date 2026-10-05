@@ -39,7 +39,7 @@ func TestContextMenuKeysAndPointer(t *testing.T) {
 		menu.OnOpenChange = func(open bool) { changes = append(changes, open) }
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"), listen(&heard),
-				Button(Outline, SizeDefault, twi.Text("before")),
+				Button(ButtonOutline, ButtonSizeDefault, twi.Text("before")),
 				twi.Element(twi.Class("flex flex-row pl-10"), menu.Node(twi.Class("w-40 h-7"),
 					menu.Trigger(twi.Class("flex-1 items-center justify-center rounded-md border border-dashed"), twi.Text("Right click here")),
 					menu.Content(twi.Class("w-26"),
@@ -309,13 +309,13 @@ func TestSidebarCollapse(t *testing.T) {
 			return func() twi.Node {
 				return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"), side.Provider(
 					side.Node(
-						SidebarHeader(SidebarMenu(SidebarMenuItem(SidebarMenuButton(SizeDefault, false, twi.Text("▣"), twi.Text("Acme Inc"))))),
+						SidebarHeader(SidebarMenu(SidebarMenuItem(SidebarMenuButton(SidebarMenuButtonSizeDefault, twi.Text("▣"), twi.Text("Acme Inc"))))),
 						SidebarContent(SidebarGroup(SidebarGroupLabel(twi.Text("Platform")), SidebarMenu(
 							group.Node(SidebarMenuItem(
-								SidebarMenuButton(SizeDefault, true, group.AsTrigger(), twi.Text("▸"), twi.Text("Playground")),
-								group.Content(SidebarMenuSub(SidebarMenuSubItem(SidebarMenuSubButton(false, twi.Text("History"))))),
+								SidebarMenuButton(SidebarMenuButtonSizeDefault, Active(true), group.AsTrigger(), twi.Text("▸"), twi.Text("Playground")),
+								group.Content(SidebarMenuSub(SidebarMenuSubItem(SidebarMenuSubButton(twi.Text("History"))))),
 							)),
-							SidebarMenuItem(SidebarMenuButton(SizeDefault, false, twi.Text("◔"), twi.Text("Sales")), SidebarMenuBadge(twi.Text("12"))),
+							SidebarMenuItem(SidebarMenuButton(SidebarMenuButtonSizeDefault, twi.Text("◔"), twi.Text("Sales")), SidebarMenuBadge(twi.Text("12"))),
 						))),
 					),
 					SidebarInset(twi.Element(twi.Class("flex flex-row gap-1 px-2"), side.Trigger(), field.Node())),
@@ -464,7 +464,7 @@ func TestOverlayClosingFrame(t *testing.T) {
 		return func() twi.Node {
 			refocus := twi.OnFocus(func(*twi.Event) { focuses.Set(focuses.Get() + 1) })
 			n := twi.Element(twi.Class("flex flex-col py-1 pl-20 h-full bg-background text-foreground"),
-				pop.Node(pop.Trigger(Outline, SizeDefault, refocus, twi.Text("open")), pop.Content(twi.Element(twi.Text("Dimensions")))))
+				pop.Node(pop.Trigger(ButtonOutline, ButtonSizeDefault, refocus, twi.Text("open")), pop.Content(twi.Element(twi.Text("Dimensions")))))
 			state := "removed"
 			if rendered(n).FieldByName("Children").Index(0).FieldByName("Children").Index(1).FieldByName("Children").Len() == 1 {
 				state = dataState(n, []int{0, 1, 0, 0})

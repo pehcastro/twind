@@ -14,11 +14,11 @@ func newProduct(k kit) page {
 		return faq.Item(value, faq.Trigger(value, twi.Text(q)), faq.Content(value, txt("text-muted-foreground", a)))
 	}
 	tier := func(name, monthly, yearly, blurb string, popular bool, perks ...string) twi.Node {
-		class, cta := "flex-1 py-1 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg", ui.Outline
+		class, cta := "flex-1 py-1 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg", ui.ButtonOutline
 		badge := el("")
 		if popular {
-			class, cta = "flex-1 py-1 border-primary shadow-xl -translate-y-0.5 bg-linear-to-b from-primary/10 to-card", ui.Default
-			badge = ui.Badge(ui.Default, twi.Class("py-0.5"), twi.Text("Most popular"))
+			class, cta = "flex-1 py-1 border-primary shadow-xl -translate-y-0.5 bg-linear-to-b from-primary/10 to-card", ui.ButtonDefault
+			badge = ui.Badge(ui.BadgeDefault, twi.Class("py-0.5"), twi.Text("Most popular"))
 		}
 		price := monthly
 		if billing.Value == "Yearly" {
@@ -34,7 +34,7 @@ func newProduct(k kit) page {
 				el("flex flex-row items-end gap-1", txt("font-bold", price), txt("text-muted-foreground", "per seat / month")),
 				el("flex flex-col", list...),
 			)),
-			ui.CardFooter(twi.Class("pt-0.5"), ui.Button(cta, ui.SizeDefault, twi.Class("grow py-0.5"), twi.Text("Choose "+name))),
+			ui.CardFooter(twi.Class("pt-0.5"), ui.Button(cta, ui.ButtonSizeDefault, twi.Class("grow py-0.5"), twi.Text("Choose "+name))),
 		)
 	}
 	task := func(name, owner, pad, bar, span string) twi.Node {
@@ -54,8 +54,8 @@ func newProduct(k kit) page {
 		return navbar("bg-background shadow-sm",
 			el("flex flex-row items-center gap-1", txt("flex flex-row w-4 justify-center rounded-md bg-linear-to-br from-primary-400 to-primary-700 py-0.5 font-bold text-white", "◧"), txt("font-bold py-0.5", "Plainsheet")),
 			k.links("text-muted-foreground", "Features", "Pricing", "FAQ"), el("grow"),
-			ui.Button(ui.Ghost, ui.SizeSM, twi.Class("rounded-lg py-0.5"), twi.Text("Sign in")),
-			ui.Button(ui.Default, ui.SizeSM, twi.Class("rounded-lg py-0.5 shadow-md"), twi.Text("Try it free →")),
+			ui.Button(ui.ButtonGhost, ui.ButtonSizeSM, twi.Class("rounded-lg py-0.5"), twi.Text("Sign in")),
+			ui.Button(ui.ButtonDefault, ui.ButtonSizeSM, twi.Class("rounded-lg py-0.5 shadow-md"), twi.Text("Try it free →")),
 		)
 	}
 	body := func() twi.Node {
@@ -67,8 +67,8 @@ func newProduct(k kit) page {
 					el("flex flex-row", txt("rounded-md bg-linear-to-r from-primary/30 to-primary/5 px-1 py-0.5 -ml-1 font-bold", "Skip the busywork.")),
 					txt("text-muted-foreground", "Plainsheet keeps projects, owners and deadlines on one calm page, so the team always knows what is next."),
 					el("flex flex-row items-center gap-1 pt-1",
-						ui.Button(ui.Default, ui.SizeLG, twi.Class("rounded-lg py-0.5 shadow-lg"), twi.Text("Start a free trial")),
-						ui.Button(ui.Ghost, ui.SizeLG, twi.Class("rounded-lg py-0.5"), twi.Text("▶ Watch the tour")),
+						ui.Button(ui.ButtonDefault, ui.ButtonSizeLG, twi.Class("rounded-lg py-0.5 shadow-lg"), twi.Text("Start a free trial")),
+						ui.Button(ui.ButtonGhost, ui.ButtonSizeLG, twi.Class("rounded-lg py-0.5"), twi.Text("▶ Watch the tour")),
 					),
 					el("flex flex-row items-center gap-1 pt-1",
 						el("flex flex-row", avatar("bg-primary-400", "RK"), avatar("bg-primary-500", "AM"), avatar("bg-primary-700", "TS"), avatar("bg-primary-900", "+9")),
@@ -138,7 +138,7 @@ func newProduct(k kit) page {
 			),
 			section("items-center gap-1",
 				txt("font-bold", "Give your team one calm page."),
-				ui.Button(ui.Default, ui.SizeLG, twi.Class("rounded-lg py-0.5 shadow-lg"), twi.Text("Start a free trial")),
+				ui.Button(ui.ButtonDefault, ui.ButtonSizeLG, twi.Class("rounded-lg py-0.5 shadow-lg"), twi.Text("Start a free trial")),
 			),
 			footer("◧ Plainsheet", "Calm planning for small teams.",
 				[]string{"Product", "Features", "Pricing", "Changelog"},

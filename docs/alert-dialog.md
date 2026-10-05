@@ -11,12 +11,12 @@ confirm := ui.NewAlertDialog(rt)
 ```
 
 ```go
-confirm.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Delete account")),
+confirm.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Delete account")),
 confirm.Content(
 	confirm.Header(confirm.Title(twi.Text("Are you absolutely sure?"))),
 	confirm.Footer(
-		confirm.Close(ui.Outline, ui.SizeDefault, twi.Text("Cancel")),
-		confirm.Close(ui.Destructive, ui.SizeDefault, twi.OnClick(deleteAccount), twi.Text("Delete")),
+		confirm.Close(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Cancel")),
+		confirm.Close(ui.ButtonDestructive, ui.ButtonSizeDefault, twi.OnClick(deleteAccount), twi.Text("Delete")),
 	),
 ),
 ```

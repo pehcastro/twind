@@ -8,13 +8,13 @@ Panels that share a space, with handles to move the line between them.
 
 ```go
 panes := ui.NewResizable(rt)
-panes.Sizes = []int{40, 60}
+panes.Sizes, panes.WithHandle = []int{40, 60}, true
 ```
 
 ```go
 panes.Node(
 	panes.Panel(twi.Text("One")),
-	panes.Handle(true),
+	panes.Handle(),
 	panes.Panel(twi.Text("Two")),
 )
 ```

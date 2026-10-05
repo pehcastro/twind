@@ -11,7 +11,7 @@ ui.Card(
 	ui.CardHeader(
 		ui.CardTitle(twi.Text("Card Title")),
 		ui.CardDescription(twi.Text("Card Description")),
-		ui.CardAction(ui.Button(ui.Link, ui.SizeXS, twi.Text("Card Action"))),
+		ui.CardAction(ui.Button(ui.ButtonLink, ui.ButtonSizeXS, twi.Text("Card Action"))),
 	),
 	ui.CardContent(twi.Text("Card Content")),
 	ui.CardFooter(twi.Text("Card Footer")),

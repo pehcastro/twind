@@ -20,7 +20,7 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 	density := ui.NewRadioGroup(rt)
 	density.Value = "Comfortable"
 	marks := ui.NewToggleGroup(rt)
-	marks.Variant, marks.Multiple, marks.Value = ui.Outline, true, []string{"B"}
+	marks.Variant, marks.Multiple, marks.Value = ui.ToggleOutline, true, []string{"B"}
 	volume := ui.NewSlider(rt)
 	volume.Value = 50
 	code := ui.NewInputOTP(rt, 6)
@@ -34,7 +34,7 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 	return func() twi.Node {
 		status := txt("text-muted-foreground", "Changes are kept until you leave.")
 		if saved {
-			status = el("flex flex-row items-center gap-1", ui.Badge(ui.Secondary, twi.Text("✓ Saved")), txt("text-muted-foreground", "Profile updated."))
+			status = el("flex flex-row items-center gap-1", ui.Badge(ui.BadgeSecondary, twi.Text("✓ Saved")), txt("text-muted-foreground", "Profile updated."))
 		}
 		return ui.Card(
 			ui.CardHeader(
@@ -68,8 +68,8 @@ func newForms(rt *twi.Runtime) func() twi.Node {
 			ui.CardFooter(twi.Class("gap-2 pt-1 border-t"),
 				status,
 				el("grow"),
-				ui.Button(ui.Outline, ui.SizeDefault, clicked(rt, func() { saved = false }), twi.Text("Cancel")),
-				ui.Button(ui.Default, ui.SizeDefault, clicked(rt, func() { saved = true }), twi.Text("Save changes")),
+				ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, clicked(rt, func() { saved = false }), twi.Text("Cancel")),
+				ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, clicked(rt, func() { saved = true }), twi.Text("Save changes")),
 			),
 		)
 	}

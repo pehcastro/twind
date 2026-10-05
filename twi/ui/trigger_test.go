@@ -136,7 +136,7 @@ func TestDropdownMenuOpensFromTheWholeTrigger(t *testing.T) {
 		m = NewDropdownMenu(rt)
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
-				m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Open menu"), icon("⌄", "")), m.Content(m.Item("Profile"), m.Item("Settings"))))
+				m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open menu"), icon("⌄", "")), m.Content(m.Item("Profile"), m.Item("Settings"))))
 		}
 	})
 	opens := func() bool { return m.Open && strings.Contains(d.Frame().Text(), "Settings") }
@@ -233,11 +233,11 @@ func TestDatePickerOpensFromTheWholeTrigger(t *testing.T) {
 	d := overlayDriver(t, 60, 40, func(rt *twi.Runtime) func() twi.Node {
 		cal := NewCalendar(rt)
 		pop = NewPopover(rt)
-		pop.Align = Start
+		pop.Align = AlignStart
 		cal.Today = time.Date(2026, time.October, 4, 0, 0, 0, 0, time.UTC)
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
-				pop.Node(pop.Trigger(Outline, SizeDefault, twi.Text("Pick a date"), icon("⌄", "")), pop.Content(cal.Node())))
+				pop.Node(pop.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Pick a date"), icon("⌄", "")), pop.Content(cal.Node())))
 		}
 	})
 	opens := func() bool { return pop.Open && strings.Contains(d.Frame().Text(), "October 2026") }

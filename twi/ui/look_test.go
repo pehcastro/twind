@@ -72,11 +72,11 @@ func TestCellLookPageMatchesPixels(t *testing.T) {
 		Card(twi.Class("py-1"),
 			CardHeader(CardTitle(twi.Text("Card")), CardDescription(twi.Text("A description"))),
 			CardContent(twi.Text("Content inside the card")),
-			CardFooter(Button(Default, SizeSM, twi.Text("Save")), Button(Outline, SizeSM, twi.Text("Cancel"))),
+			CardFooter(Button(ButtonDefault, ButtonSizeSM, twi.Text("Save")), Button(ButtonOutline, ButtonSizeSM, twi.Text("Cancel"))),
 		),
-		twi.Element(twi.Class("flex flex-row gap-2 items-center"), Badge(Secondary, twi.Text("Badge")), Kbd(twi.Text("Ctrl")), on.Node()),
+		twi.Element(twi.Class("flex flex-row gap-2 items-center"), Badge(BadgeSecondary, twi.Text("Badge")), Kbd(twi.Text("Ctrl")), on.Node()),
 		input.Node(),
-		Alert(Default, AlertTitle(twi.Text("Heads up")), AlertDescription(twi.Text("An alert with a border"))),
+		Alert(AlertDefault, AlertTitle(twi.Text("Heads up")), AlertDescription(twi.Text("An alert with a border"))),
 	)
 	tree := rendered(page)
 	built := reflect.NewAt(tree.Type(), unsafe.Pointer(tree.UnsafeAddr())).Elem().Interface().(render.Node)
@@ -205,7 +205,7 @@ func TestCellLookCardAndBadgeDriven(t *testing.T) {
 			return func() twi.Node {
 				return twi.Element(twi.Class("flex flex-col items-start gap-1 p-2 w-full h-full bg-background text-foreground"),
 					Card(twi.Class("w-20"), CardContent(twi.Text("text"))),
-					Badge(Secondary, twi.Text("Badge")),
+					Badge(BadgeSecondary, twi.Text("Badge")),
 				)
 			}
 		}, drive.Size(80, 24), drive.With(twi.Styles(sheet)))

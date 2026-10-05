@@ -132,7 +132,7 @@ func TestToastStack(t *testing.T) {
 	d.Press("escape")
 	expect("escape closes the dialog first and leaves the toasts", !dlg.Open && len(toaster.toasts) == 2)
 	d.Press("escape")
-	expect("the next escape dismisses the newest toast", len(toaster.toasts) == 1 && toaster.toasts[0].kind == ToastError)
+	expect("the next escape dismisses the newest toast", len(toaster.toasts) == 1 && toaster.toasts[0].kind == toastError)
 	d.Press("escape")
 	expect("and the next the last one", len(toaster.toasts) == 0 && !has("has not been created"))
 	d.Press("x")
@@ -146,10 +146,10 @@ func TestToastClearsOpenPanels(t *testing.T) {
 		right, left, drawer *Dialog
 	)
 	d := overlayDriver(t, 100, 30, func(rt *twi.Runtime) func() twi.Node {
-		toaster, right, left, drawer = NewToaster(rt), NewSheet(rt, Right), NewSheet(rt, Left), NewDrawer(rt, Bottom)
+		toaster, right, left, drawer = NewToaster(rt), NewSheet(rt, SideRight), NewSheet(rt, SideLeft), NewDrawer(rt, SideBottom)
 		toaster.Avoid(right, left, drawer)
 		panel := func(p *Dialog, title, action string) twi.Node {
-			return p.Content(p.Header(p.Title(twi.Text(title))), p.Footer(Button(Default, SizeDefault, twi.Text(action))))
+			return p.Content(p.Header(p.Title(twi.Text(title))), p.Footer(Button(ButtonDefault, ButtonSizeDefault, twi.Text(action))))
 		}
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col p-1 h-full bg-background text-foreground"),

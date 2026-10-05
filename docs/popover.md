@@ -12,7 +12,7 @@ popover := ui.NewPopover(rt)
 
 ```go
 popover.Node(
-	popover.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open popover")),
+	popover.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Open popover")),
 	popover.Content(twi.Text("Place content for the popover here.")),
 )
 ```

@@ -7,9 +7,9 @@ The coloured box around a message, in seven variants, with optional reactions.
 ## Usage
 
 ```go
-ui.Bubble(ui.Secondary, ui.Start,
+ui.Bubble(ui.BubbleSecondary, ui.AlignStart,
 	ui.BubbleContent(twi.Text("See you at three.")),
-	ui.BubbleReactions(ui.Bottom, ui.End, twi.Text("✓ 2")),
+	ui.BubbleReactions(ui.SideBottom, ui.AlignEnd, twi.Text("✓ 2")),
 )
 ```
 

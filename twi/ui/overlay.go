@@ -10,23 +10,6 @@ import (
 	"github.com/pehcastro/twind/twi/input"
 )
 
-type Side uint8
-
-const (
-	Bottom Side = iota
-	Top
-	Right
-	Left
-)
-
-type Alignment uint8
-
-const (
-	Center Alignment = iota
-	Start
-	End
-)
-
 const (
 	fadeMotion = "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
 	popMotion  = fadeMotion + " data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
@@ -113,7 +96,7 @@ func (o *overlay) set(open bool) {
 	}
 }
 
-func (o *overlay) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
+func (o *overlay) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node {
 	return o.trigger(v, s, func(k input.KeyEvent) bool {
 		if press(k) {
 			o.set(true)
@@ -122,7 +105,7 @@ func (o *overlay) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Nod
 	}, func() { o.set(!o.Open) }, children)
 }
 
-func (o *overlay) trigger(v Variant, s Size, keys func(input.KeyEvent) bool, click func(), children []twi.NodeOption) twi.Node {
+func (o *overlay) trigger(v ButtonVariant, s ButtonSize, keys func(input.KeyEvent) bool, click func(), children []twi.NodeOption) twi.Node {
 	return part(button(v, s, o.ring(idleRing(v), onSelf)), slices.Concat(o.behave(keys), []twi.NodeOption{o.click(click)}, children))
 }
 
@@ -196,7 +179,7 @@ func (f *floating) marker(rt *twi.Runtime) twi.Node {
 	return part("", []twi.NodeOption{twi.Key(f.markKey), twi.Measure(f.mark), twi.At(0, f.markAt)})
 }
 
-func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align Alignment, at phase, content func(placed, last []twi.NodeOption) twi.Node) twi.Node {
+func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align Align, at phase, content func(placed, last []twi.NodeOption) twi.Node) twi.Node {
 	var children []twi.NodeOption
 	if at == gone {
 		f.scrolled, f.markAt = 0, 0
@@ -207,8 +190,8 @@ func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align
 		}
 		f.at, side = f.spot(rt.Viewport(), from, side, align)
 		placed := []twi.NodeOption{
-			twi.Data("side", pick("side", side, map[Side]string{Bottom: "bottom", Top: "top", Right: "right", Left: "left"})),
-			twi.Data("align", pick("align", align, map[Alignment]string{Start: "start", Center: "center", End: "end"})),
+			twi.Data("side", pick("side", side, map[Side]string{SideBottom: "bottom", SideTop: "top", SideRight: "right", SideLeft: "left"})),
+			aligned(align),
 		}
 		var last []twi.NodeOption
 		switch f.sizing {
@@ -227,7 +210,7 @@ func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align
 	return part("fixed z-50 flex", append([]twi.NodeOption{twi.At(f.at.X, f.at.Y)}, children...))
 }
 
-func (f *floating) spot(view, anchor image.Rectangle, side Side, align Alignment) (image.Point, Side) {
+func (f *floating) spot(view, anchor image.Rectangle, side Side, align Align) (image.Point, Side) {
 	size := f.box.Bounds().Size()
 	switch {
 	case f.sizing == naturalSize:
@@ -240,46 +223,46 @@ func (f *floating) spot(view, anchor image.Rectangle, side Side, align Alignment
 	}
 	room := image.Rect(view.Min.X+konst.CollisionPadX, view.Min.Y+konst.CollisionPadY, view.Max.X-konst.CollisionPadX, view.Max.Y-konst.CollisionPadY)
 	gap := func(s Side) int {
-		if s == Right || s == Left {
+		if s == SideRight || s == SideLeft {
 			return f.sideOffset + 1
 		}
 		return f.sideOffset
 	}
 	spare := func(s Side) int {
 		switch s {
-		case Bottom:
+		case SideBottom:
 			return room.Max.Y - anchor.Max.Y - gap(s) - size.Y
-		case Top:
+		case SideTop:
 			return anchor.Min.Y - gap(s) - size.Y - room.Min.Y
-		case Right:
+		case SideRight:
 			return room.Max.X - anchor.Max.X - gap(s) - size.X
-		case Left:
+		case SideLeft:
 		}
 		return anchor.Min.X - gap(s) - size.X - room.Min.X
 	}
-	if opposite := map[Side]Side{Bottom: Top, Top: Bottom, Right: Left, Left: Right}[side]; spare(side) < 0 && spare(opposite) > spare(side) {
+	if opposite := map[Side]Side{SideBottom: SideTop, SideTop: SideBottom, SideRight: SideLeft, SideLeft: SideRight}[side]; spare(side) < 0 && spare(opposite) > spare(side) {
 		side = opposite
 	}
 	if f.sizing != naturalSize {
 		height := room.Dy()
-		if side == Bottom || side == Top {
+		if side == SideBottom || side == SideTop {
 			height = spare(side) + size.Y
 		}
 		f.height = max(height, 1)
 		size.Y = min(size.Y, f.height)
 	}
 	across := func(start, length, size int) int {
-		return f.alignOffset + start + map[Alignment]int{Start: 0, Center: (length - size) / 2, End: length - size}[align]
+		return f.alignOffset + start + map[Align]int{AlignStart: 0, AlignCenter: (length - size) / 2, AlignEnd: length - size}[align]
 	}
 	var at image.Point
 	switch side {
-	case Bottom:
+	case SideBottom:
 		at = image.Pt(across(anchor.Min.X, anchor.Dx(), size.X), anchor.Max.Y+gap(side))
-	case Top:
+	case SideTop:
 		at = image.Pt(across(anchor.Min.X, anchor.Dx(), size.X), anchor.Min.Y-gap(side)-size.Y)
-	case Right:
+	case SideRight:
 		at = image.Pt(anchor.Max.X+gap(side), across(anchor.Min.Y, anchor.Dy(), size.Y))
-	case Left:
+	case SideLeft:
 		at = image.Pt(anchor.Min.X-gap(side)-size.X, across(anchor.Min.Y, anchor.Dy(), size.Y))
 	}
 	return image.Pt(max(min(at.X, room.Max.X-size.X), room.Min.X), max(min(at.Y, room.Max.Y-size.Y), room.Min.Y)), side
@@ -289,10 +272,10 @@ type anchored struct {
 	overlay
 	floating
 	Side  Side
-	Align Alignment
+	Align Align
 }
 
-func newAnchored(rt *twi.Runtime, side Side, align Alignment) anchored {
+func newAnchored(rt *twi.Runtime, side Side, align Align) anchored {
 	return anchored{overlay: overlay{control: control{rt: rt}}, floating: newFloating(), Side: side, Align: align}
 }
 
@@ -317,7 +300,7 @@ func (a *anchored) place(at phase, content func(placed, last []twi.NodeOption) t
 type Popover struct{ anchored }
 
 func NewPopover(rt *twi.Runtime) *Popover {
-	return &Popover{newAnchored(rt, Bottom, Center)}
+	return &Popover{newAnchored(rt, SideBottom, AlignCenter)}
 }
 
 func (p *Popover) Content(children ...twi.NodeOption) twi.Node {
@@ -333,7 +316,7 @@ func (h *hint) Node(children ...twi.NodeOption) twi.Node {
 	return h.anchored.Node(append([]twi.NodeOption{twi.OnPointerEnter(func(*twi.Event) { h.set(true) }), twi.OnPointerLeave(func(*twi.Event) { h.set(false) })}, children...)...)
 }
 
-func (h *hint) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
+func (h *hint) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node {
 	show := func(on bool) func(*twi.Event) {
 		return func(*twi.Event) {
 			h.focused = on
@@ -363,7 +346,7 @@ func (h *hint) content(classes string, children []twi.NodeOption) twi.Node {
 type Tooltip struct{ hint }
 
 func NewTooltip(rt *twi.Runtime) *Tooltip {
-	return &Tooltip{hint{newAnchored(rt, Top, Center)}}
+	return &Tooltip{hint{newAnchored(rt, SideTop, AlignCenter)}}
 }
 
 func (t *Tooltip) Content(children ...twi.NodeOption) twi.Node {
@@ -373,7 +356,7 @@ func (t *Tooltip) Content(children ...twi.NodeOption) twi.Node {
 type HoverCard struct{ hint }
 
 func NewHoverCard(rt *twi.Runtime) *HoverCard {
-	return &HoverCard{hint{newAnchored(rt, Bottom, Center)}}
+	return &HoverCard{hint{newAnchored(rt, SideBottom, AlignCenter)}}
 }
 
 func (c *HoverCard) Content(children ...twi.NodeOption) twi.Node {

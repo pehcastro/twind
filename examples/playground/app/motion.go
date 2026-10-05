@@ -92,7 +92,7 @@ func (m *moves) reorder() {
 func (c controls) springMenu() twi.Node {
 	m := c.kit.moves
 	label := map[bool]string{false: "Open menu", true: "Close menu"}[m.open]
-	trigger := []twi.Node{c.uiButton("open menu", ui.Outline, label, func(*state) { m.toggle() })}
+	trigger := []twi.Node{c.uiButton("open menu", ui.ButtonOutline, label, func(*state) { m.toggle() })}
 	if shown := min(m.cell(m.menu), len(m.items)); shown > 0 {
 		menu := []twi.NodeOption{twi.Class("absolute top-1 right-0 z-50 w-20 flex flex-col p-1 rounded-md border bg-popover text-popover-foreground shadow-md")}
 		for _, item := range m.items[:shown] {

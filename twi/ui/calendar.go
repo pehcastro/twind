@@ -46,7 +46,7 @@ func (c *Calendar) Node(options ...twi.NodeOption) twi.Node {
 		}
 	}
 	turn := func(glyph string, months int) twi.Node {
-		return Button(Ghost, SizeIcon, twi.OnClick(func(*twi.Event) {
+		return Button(ButtonGhost, ButtonSizeIcon, twi.OnClick(func(*twi.Event) {
 			c.focus = addMonths(c.focus, months)
 			c.Month = monthOf(c.focus)
 			c.rt.Invalidate()

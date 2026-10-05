@@ -117,7 +117,7 @@ func TestCollapsibleKeysAndClicks(t *testing.T) {
 		c.OnOpenChange = func(open bool) { changes = append(changes, open) }
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col p-1 h-full bg-background text-foreground"), c.Node(twi.Class("gap-1"),
-				twi.Element(twi.Class("flex flex-row gap-2"), twi.Text("@peduarte starred 3 repositories"), c.Trigger(Ghost, SizeIcon, twi.Text("↕"))),
+				twi.Element(twi.Class("flex flex-row gap-2"), twi.Text("@peduarte starred 3 repositories"), c.Trigger(ButtonGhost, ButtonSizeIcon, twi.Text("↕"))),
 				twi.Text("@radix-ui/primitives"),
 				c.Content(twi.Text("@radix-ui/colors"), twi.Text("@stitches/react")),
 			))
@@ -140,7 +140,7 @@ func TestCollapsibleKeysAndClicks(t *testing.T) {
 	x, y, _ := at(d.Frame(), "↕")
 	d.Click(x, y)
 	expect("a click opens it", c.Open && has("@radix-ui/colors"))
-	n := c.Node(c.Trigger(Ghost, SizeIcon), c.Content())
+	n := c.Node(c.Trigger(ButtonGhost, ButtonSizeIcon), c.Content())
 	if got := []string{dataState(n, nil), dataState(n, []int{0}), dataState(n, []int{1})}; !slices.Equal(got, []string{"open", "open", "open"}) {
 		t.Errorf("open root, trigger and content data-state %v", got)
 	}

@@ -2,11 +2,19 @@ package ui
 
 import "github.com/pehcastro/twind/twi"
 
-func Avatar(s Size, children ...twi.NodeOption) twi.Node {
-	return part("relative flex shrink-0 overflow-hidden rounded-full select-none "+pick("avatar", s, map[Size]string{
-		SizeSM:      "h-1 w-2 mx-1 bg-muted shadow-[0_0_0_4px_var(--color-muted)]",
-		SizeDefault: "h-3 w-6",
-		SizeLG:      "h-5 w-10",
+type AvatarSize uint8
+
+const (
+	AvatarSizeDefault AvatarSize = iota
+	AvatarSizeSM
+	AvatarSizeLG
+)
+
+func Avatar(s AvatarSize, children ...twi.NodeOption) twi.Node {
+	return part("relative flex shrink-0 overflow-hidden rounded-full select-none "+pick("avatar", s, map[AvatarSize]string{
+		AvatarSizeSM:      "h-1 w-2 mx-1 bg-muted shadow-[0_0_0_4px_var(--color-muted)]",
+		AvatarSizeDefault: "h-3 w-6",
+		AvatarSizeLG:      "h-5 w-10",
 	}), children)
 }
 

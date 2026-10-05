@@ -5,25 +5,32 @@ import "github.com/pehcastro/twind/twi"
 type Upload uint8
 
 const (
-	Done Upload = iota
-	Idle
-	Uploading
-	Processing
-	Failed
+	UploadDone Upload = iota
+	UploadIdle
+	UploadUploading
+	UploadProcessing
+	UploadFailed
 )
 
 func Attachment(u Upload, o Orientation, children ...twi.NodeOption) twi.Node {
-	state := pick("attachment", u, map[Upload]string{Done: "done", Idle: "idle", Uploading: "uploading", Processing: "processing", Failed: "error"})
+	state := pick("attachment", u, map[Upload]string{UploadDone: "done", UploadIdle: "idle", UploadUploading: "uploading", UploadProcessing: "processing", UploadFailed: "error"})
 	return part("group/attachment relative flex w-fit max-w-full min-w-0 shrink-0 gap-1 rounded-xl border bg-card px-1 text-card-foreground has-focus-visible:border-ring data-[state=error]:border-destructive/30 data-[state=idle]:border-dashed "+pick("attachment", o, map[Orientation]string{
 		Horizontal: "flex-row min-w-20 items-start",
 		Vertical:   "flex-col w-15",
 	}), append([]twi.NodeOption{twi.Data("slot", "attachment"), twi.Data("state", state), twi.Data("orientation", pick("attachment", o, map[Orientation]string{Horizontal: "horizontal", Vertical: "vertical"}))}, children...))
 }
 
-func AttachmentMedia(v Variant, children ...twi.NodeOption) twi.Node {
-	return part("relative flex shrink-0 items-center justify-center overflow-hidden bg-muted text-foreground group-data-[orientation=vertical]/attachment:w-full group-data-[orientation=vertical]/attachment:h-3 group-data-[state=error]/attachment:bg-destructive/10 group-data-[state=error]/attachment:text-destructive "+pick("attachment media", v, map[Variant]string{
-		Icon:  "h-1 w-3 rounded-sm",
-		Image: "h-2 w-4 rounded-lg opacity-60 group-data-[state=done]/attachment:opacity-100 group-data-[state=idle]/attachment:opacity-100",
+type AttachmentMediaVariant uint8
+
+const (
+	AttachmentMediaIcon AttachmentMediaVariant = iota
+	AttachmentMediaImage
+)
+
+func AttachmentMedia(v AttachmentMediaVariant, children ...twi.NodeOption) twi.Node {
+	return part("relative flex shrink-0 items-center justify-center overflow-hidden bg-muted text-foreground group-data-[orientation=vertical]/attachment:w-full group-data-[orientation=vertical]/attachment:h-3 group-data-[state=error]/attachment:bg-destructive/10 group-data-[state=error]/attachment:text-destructive "+pick("attachment media", v, map[AttachmentMediaVariant]string{
+		AttachmentMediaIcon:  "h-1 w-3 rounded-sm",
+		AttachmentMediaImage: "h-2 w-4 rounded-lg opacity-60 group-data-[state=done]/attachment:opacity-100 group-data-[state=idle]/attachment:opacity-100",
 	}), append([]twi.NodeOption{twi.Data("slot", "attachment-media")}, children...))
 }
 
@@ -44,7 +51,7 @@ func AttachmentActions(children ...twi.NodeOption) twi.Node {
 }
 
 func AttachmentAction(children ...twi.NodeOption) twi.Node {
-	return Button(Ghost, SizeXS, children...)
+	return Button(ButtonGhost, ButtonSizeXS, children...)
 }
 
 func AttachmentTrigger(children ...twi.NodeOption) twi.Node {

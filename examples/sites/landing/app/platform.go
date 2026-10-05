@@ -42,8 +42,8 @@ func newPlatform(k kit) page {
 		return navbar("bg-background/80 shadow-md",
 			el("flex flex-row items-center gap-1", txt("flex flex-row w-4 justify-center rounded-md bg-linear-to-br from-primary-300 to-primary-600 py-0.5 font-bold text-zinc-950", "▲"), txt("font-bold py-0.5", "Quarry")),
 			k.links("text-muted-foreground", "Features", "Code", "Pricing"), el("grow"),
-			ui.Button(ui.Ghost, ui.SizeSM, twi.Class("rounded-full py-0.5"), twi.Text("Log in")),
-			ui.Button(ui.Default, ui.SizeSM, twi.Class("rounded-full py-0.5 shadow-md"), twi.Text("Sign up")),
+			ui.Button(ui.ButtonGhost, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5"), twi.Text("Log in")),
+			ui.Button(ui.ButtonDefault, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5 shadow-md"), twi.Text("Sign up")),
 		)
 	}
 	body := func() twi.Node {
@@ -56,8 +56,8 @@ func newPlatform(k kit) page {
 					txt("font-bold text-center", "The whole stack, live from one git push."),
 					txt("text-muted-foreground text-center max-w-64", "Quarry builds, previews and deploys your app on every commit, then keeps it fast for people everywhere."),
 					el("flex flex-row items-center gap-2 pt-1",
-						ui.Button(ui.Default, ui.SizeLG, twi.Class("rounded-full py-0.5 shadow-lg"), twi.Text("▲ Start deploying")),
-						ui.Button(ui.Outline, ui.SizeLG, twi.Class("rounded-full py-0.5"), twi.Text("Get a demo")),
+						ui.Button(ui.ButtonDefault, ui.ButtonSizeLG, twi.Class("rounded-full py-0.5 shadow-lg"), twi.Text("▲ Start deploying")),
+						ui.Button(ui.ButtonOutline, ui.ButtonSizeLG, twi.Class("rounded-full py-0.5"), twi.Text("Get a demo")),
 					),
 					el("flex flex-row items-center gap-1 rounded-lg bg-muted/60 px-2 py-0.5 mt-0.5 shadow-[0_0_0_1px_var(--color-border)] transition-colors duration-200 hover:bg-muted",
 						twi.Focusable(), k.copy("npx quarry deploy"),
@@ -104,8 +104,8 @@ func newPlatform(k kit) page {
 					txt("font-bold", "Configure in code, not in a dashboard."),
 					txt("text-muted-foreground", "One typed file describes routes, caching and regions. Review it like any other change."),
 					el("flex flex-row items-center gap-1 pt-1",
-						ui.Button(ui.Secondary, ui.SizeDefault, twi.Class("rounded-full py-0.5"), twi.Text("Read the docs")),
-						ui.Button(ui.Link, ui.SizeDefault, twi.Class("py-0.5"), twi.Text("See examples →"))),
+						ui.Button(ui.ButtonSecondary, ui.ButtonSizeDefault, twi.Class("rounded-full py-0.5"), twi.Text("Read the docs")),
+						ui.Button(ui.ButtonLink, ui.ButtonSizeDefault, twi.Class("py-0.5"), twi.Text("See examples →"))),
 				),
 				el("flex flex-col flex-1", window("quarry.config.ts",
 					el("flex flex-col",

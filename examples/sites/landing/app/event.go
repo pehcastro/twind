@@ -52,7 +52,7 @@ func newEvent(k kit) page {
 		return navbar("bg-background/80 shadow-md",
 			el("flex flex-row items-center gap-1", txt("flex flex-row w-4 justify-center rounded-md bg-linear-to-br from-primary to-chart-2 py-0.5 font-bold text-white", "◆"), txt("font-bold py-0.5", "Fieldwork 26")),
 			k.links("text-muted-foreground", "Schedule", "Speakers", "Venue"), el("grow"),
-			ui.Button(ui.Default, ui.SizeSM, twi.Class("rounded-full py-0.5 shadow-md"), twi.OnClick(func(*twi.Event) { k.rt.ScrollIntoView(sectionKey + "Venue") }), twi.Text("Get tickets")),
+			ui.Button(ui.ButtonDefault, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5 shadow-md"), twi.OnClick(func(*twi.Event) { k.rt.ScrollIntoView(sectionKey + "Venue") }), twi.Text("Get tickets")),
 		)
 	}
 	body := func() twi.Node {
@@ -80,7 +80,7 @@ func newEvent(k kit) page {
 			grid = append(grid, el("flex flex-row items-center gap-2 rounded-xl border bg-card px-2 py-1 shadow-md transition duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:border-primary/60",
 				txt("flex flex-row w-6 h-3 shrink-0 items-center justify-center rounded-full bg-linear-to-br font-bold text-white "+s.avatar, s.initials),
 				el("flex flex-col min-w-0",
-					c.Node(c.Trigger(ui.Link, ui.SizeXS, twi.Class("px-0 font-semibold text-foreground"), twi.Text(s.name)),
+					c.Node(c.Trigger(ui.ButtonLink, ui.ButtonSizeXS, twi.Class("px-0 font-semibold text-foreground"), twi.Text(s.name)),
 						c.Content(txt("font-semibold", s.name), txt("text-primary", s.role), txt("text-muted-foreground", s.bio))),
 					txt("text-muted-foreground", s.role))))
 		}
@@ -116,7 +116,7 @@ func newEvent(k kit) page {
 				el("flex flex-col flex-1 gap-0.5 rounded-2xl border bg-card px-3 py-1.5 shadow-md",
 					txt("text-primary font-medium", "Tickets"), el("flex flex-row items-end gap-1", txt("font-bold", "€290"), txt("text-muted-foreground line-through", "€390")),
 					txt("text-muted-foreground", "Both days, lunch, the party and every recording."),
-					el("flex flex-row pt-0.5", ui.Button(ui.Default, ui.SizeSM, twi.Class("rounded-full py-0.5"), twi.Text("Reserve a seat")))),
+					el("flex flex-row pt-0.5", ui.Button(ui.ButtonDefault, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5"), twi.Text("Reserve a seat")))),
 			),
 			footer("◆ Fieldwork 26", "Interface engineering, in person.",
 				[]string{"Event", "Schedule", "Speakers", "Venue"},
@@ -129,7 +129,7 @@ func newEvent(k kit) page {
 			section("flex-row items-center gap-2 py-0.5",
 				txt("rounded-full bg-primary/20 px-2 py-0.5 font-medium text-primary", "Early bird"),
 				txt("py-0.5", "€290 until 15 October"), txt("py-0.5 text-muted-foreground", "· 184 seats left"), el("grow"),
-				ui.Button(ui.Default, ui.SizeSM, twi.Class("rounded-full py-0.5 shadow-md"), twi.Text("Get tickets →"))))
+				ui.Button(ui.ButtonDefault, ui.ButtonSizeSM, twi.Class("rounded-full py-0.5 shadow-md"), twi.Text("Get tickets →"))))
 	}
 	return page{nav, body, bar}
 }

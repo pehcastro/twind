@@ -12,8 +12,8 @@ url := ui.NewInput(rt)
 
 ```go
 url.Group(
-	ui.InputGroupAddon(ui.InlineStart, ui.InputGroupText(twi.Text("https://"))),
-	ui.InputGroupAddon(ui.InlineEnd, ui.InputGroupButton(twi.OnClick(copyURL), twi.Text("Copy"))),
+	ui.InputGroupAddon(ui.SideLeft, ui.InputGroupText(twi.Text("https://"))),
+	ui.InputGroupAddon(ui.SideRight, ui.InputGroupButton(twi.OnClick(copyURL), twi.Text("Copy"))),
 )
 ```
 

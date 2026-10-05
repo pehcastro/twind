@@ -13,7 +13,7 @@ func TabsDemo(rt *twi.Runtime) func() twi.Node {
 		return ui.Card(
 			ui.CardHeader(ui.CardTitle(twi.Text(title)), ui.CardDescription(twi.Text(about))),
 			ui.CardContent(field),
-			ui.CardFooter(ui.Button(ui.Default, ui.SizeDefault, twi.Text("Save"))),
+			ui.CardFooter(ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Save"))),
 		)
 	}
 	return func() twi.Node {

@@ -10,7 +10,7 @@ import (
 func ProgressDemo(rt *twi.Runtime) func() twi.Node {
 	done := 60
 	step := func(label string, by int) twi.Node {
-		return ui.Button(ui.Outline, ui.SizeSM, twi.OnClick(func(*twi.Event) {
+		return ui.Button(ui.ButtonOutline, ui.ButtonSizeSM, twi.OnClick(func(*twi.Event) {
 			done = min(max(done+by, 0), 100)
 			rt.Invalidate()
 		}), twi.Text(label))

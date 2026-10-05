@@ -62,8 +62,8 @@ func TestReferenceOutlineScrolls(t *testing.T) {
 	d.Click(spot(t, d, "Toggle"))
 	d.Advance(settle)
 	t.Logf("twi/ui, the outline wheeled to its end and Toggle clicked:\n%s", d.Frame().Text())
-	if _, row := spot(t, d, "type Toggle struct"); row > 6 {
-		t.Errorf("type Toggle struct on row %d, want it at the top of the page", row)
+	if _, row := spot(t, d, "type ToggleVariant uint8"); row > 6 {
+		t.Errorf("type ToggleVariant uint8, the first line of the Toggle section, on row %d, want it at the top of the page", row)
 	}
 }
 

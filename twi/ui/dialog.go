@@ -36,9 +36,9 @@ func newDialog(rt *twi.Runtime, kind dialogKind, side Side) *Dialog {
 	return &Dialog{overlay: overlay{control: control{rt: rt}}, kind: kind, side: side, box: &twi.Ref{}}
 }
 
-func NewDialog(rt *twi.Runtime) *Dialog { return newDialog(rt, modal, Bottom) }
+func NewDialog(rt *twi.Runtime) *Dialog { return newDialog(rt, modal, SideBottom) }
 
-func NewAlertDialog(rt *twi.Runtime) *Dialog { return newDialog(rt, alert, Bottom) }
+func NewAlertDialog(rt *twi.Runtime) *Dialog { return newDialog(rt, alert, SideBottom) }
 
 func NewSheet(rt *twi.Runtime, side Side) *Dialog { return newDialog(rt, sheet, side) }
 
@@ -56,10 +56,10 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	if d.kind != alert && at == opened {
 		children = append(children, twi.OnPointerDownOutside(func(*twi.Event) { d.set(false) }))
 	}
-	if d.side == Bottom && (d.kind == sheet || d.kind == drawer) {
+	if d.side == SideBottom && (d.kind == sheet || d.kind == drawer) {
 		children = append(children, twi.Measure(d.box))
 	}
-	if d.kind == drawer && d.side == Bottom {
+	if d.kind == drawer && d.side == SideBottom {
 		children = append([]twi.NodeOption{d.handle()}, children...)
 		if d.drag.moved > 0 {
 			children = append(children, twi.At(0, d.drag.top+d.drag.moved))
@@ -71,33 +71,33 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 		return part("absolute", nil)
 	}
 	edge := pick("sheet", d.side, map[Side]string{
-		Right:  "h-full border-l " + sideWidth,
-		Left:   "h-full border-r " + sideWidth,
-		Top:    "w-full border-b",
-		Bottom: "w-full border-t",
+		SideRight:  "h-full border-l " + sideWidth,
+		SideLeft:   "h-full border-r " + sideWidth,
+		SideTop:    "w-full border-b",
+		SideBottom: "w-full border-t",
 	})
 	centre := "flex-col items-center justify-center"
 	if d.kind == sheet || d.kind == drawer {
 		centre = pick("sheet", d.side, map[Side]string{
-			Right:  "flex-row justify-end",
-			Left:   "flex-row",
-			Top:    "flex-col",
-			Bottom: "flex-col justify-end",
+			SideRight:  "flex-row justify-end",
+			SideLeft:   "flex-row",
+			SideTop:    "flex-col",
+			SideBottom: "flex-col justify-end",
 		})
 	}
 	boxed := "w-full max-w-64 rounded-lg border shadow-lg duration-100 " + popMotion
 	slide := "transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500 " + pick("sheet", d.side, map[Side]string{
-		Right:  "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
-		Left:   "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
-		Top:    "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
-		Bottom: "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+		SideRight:  "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+		SideLeft:   "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+		SideTop:    "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+		SideBottom: "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
 	})
 	panel := pick("dialog", d.kind, map[dialogKind]string{
 		modal:   "gap-1 px-3 py-1 " + boxed,
 		alert:   "gap-1 px-3 py-1 " + boxed,
 		palette: "overflow-hidden " + boxed,
 		sheet:   "gap-1 shadow-lg " + edge + " " + slide,
-		drawer:  edge + " " + slide + pick("drawer", d.side, map[Side]string{Bottom: " max-h-[80%]", Top: " max-h-[80%]", Right: "", Left: ""}),
+		drawer:  edge + " " + slide + pick("drawer", d.side, map[Side]string{SideBottom: " max-h-[80%]", SideTop: " max-h-[80%]", SideRight: "", SideLeft: ""}),
 	})
 	return part("absolute", []twi.NodeOption{part("fixed inset-0 z-50", []twi.NodeOption{
 		part("absolute inset-0 bg-black/50 duration-100 "+fadeMotion, []twi.NodeOption{at.state()}),
@@ -133,7 +133,7 @@ func (d *Dialog) handle() twi.Node {
 	})
 }
 
-func (d *Dialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node {
+func (d *Dialog) Close(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node {
 	return d.close(button(v, s, ""), idleRing(v), children)
 }
 

@@ -3,37 +3,11 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/style"
-)
-
-type Variant uint8
-
-const (
-	Default Variant = iota
-	Destructive
-	Outline
-	Secondary
-	Ghost
-	Link
-	Icon
-	Muted
-	Image
-	Tinted
-	Ruled
-	Bordered
-)
-
-type Size uint8
-
-const (
-	SizeDefault Size = iota
-	SizeXS
-	SizeSM
-	SizeLG
-	SizeIcon
 )
 
 type Orientation uint8
@@ -43,7 +17,33 @@ const (
 	Vertical
 )
 
-func pick[K Variant | Size | Orientation | Align | Side | Alignment | dialogKind | ringAt | Upload](component string, key K, classes map[K]string) string {
+type Side uint8
+
+const (
+	SideBottom Side = iota
+	SideTop
+	SideRight
+	SideLeft
+)
+
+type Align uint8
+
+const (
+	AlignCenter Align = iota
+	AlignStart
+	AlignEnd
+)
+
+type active struct {
+	twi.NodeOption
+	on bool
+}
+
+func Active(on bool) twi.NodeOption {
+	return active{twi.Data("active", strconv.FormatBool(on)), on}
+}
+
+func pick[K ~uint8](component string, key K, classes map[K]string) string {
 	c, ok := classes[key]
 	if !ok {
 		panic(fmt.Sprintf("ui: %s has no %T %d", component, key, key))

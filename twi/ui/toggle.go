@@ -7,19 +7,34 @@ import (
 	"github.com/pehcastro/twind/twi/input"
 )
 
-func toggle(c *control, v Variant, s Size, on bool, at ringAt) string {
+type ToggleVariant uint8
+
+const (
+	ToggleDefault ToggleVariant = iota
+	ToggleOutline
+)
+
+type ToggleSize uint8
+
+const (
+	ToggleSizeDefault ToggleSize = iota
+	ToggleSizeSM
+	ToggleSizeLG
+)
+
+func toggle(c *control, v ToggleVariant, s ToggleSize, on bool, at ringAt) string {
 	classes := fade + "flex flex-row shrink-0 items-center justify-center gap-1 h-1 rounded-md font-medium select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none " +
-		pick("toggle", s, map[Size]string{SizeDefault: "min-w-5 px-1", SizeSM: "min-w-3 px-1", SizeLG: "min-w-5 px-2"})
+		pick("toggle", s, map[ToggleSize]string{ToggleSizeDefault: "min-w-5 px-1", ToggleSizeSM: "min-w-3 px-1", ToggleSizeLG: "min-w-5 px-2"})
 	if on {
 		classes += " bg-accent text-accent-foreground"
 	}
-	return classes + " " + c.ring(pick("toggle", v, map[Variant]string{Default: "", Outline: inputRing}), at)
+	return classes + " " + c.ring(pick("toggle", v, map[ToggleVariant]string{ToggleDefault: "", ToggleOutline: inputRing}), at)
 }
 
 type Toggle struct {
 	control
-	Variant  Variant
-	Size     Size
+	Variant  ToggleVariant
+	Size     ToggleSize
 	Pressed  bool
 	OnChange func(bool)
 }
@@ -32,8 +47,8 @@ func (t *Toggle) Node(options ...twi.NodeOption) twi.Node {
 
 type ToggleGroup struct {
 	control
-	Variant      Variant
-	Size         Size
+	Variant      ToggleVariant
+	Size         ToggleSize
 	Multiple     bool
 	Value        []string
 	OnChange     func([]string)

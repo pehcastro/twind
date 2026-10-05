@@ -11,7 +11,7 @@ spinner := ui.NewSpinner(rt)
 ```
 
 ```go
-ui.Button(ui.Secondary, ui.SizeSM, twi.Disabled(), spinner.Node(), twi.Text("Please wait"))
+ui.Button(ui.ButtonSecondary, ui.ButtonSizeSM, twi.Disabled(), spinner.Node(), twi.Text("Please wait"))
 ```
 
 Each spinner turns while it is drawn. Once it is no longer in the tree it stops asking for frames, so a hidden spinner costs nothing.

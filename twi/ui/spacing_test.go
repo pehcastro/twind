@@ -12,12 +12,12 @@ func TestSpacingIconSlot(t *testing.T) {
 	d := overlayDriver(t, 80, 30, func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(zinc(t, theme.Light))
 		m, s, p := NewDropdownMenu(rt), NewSelect(rt), NewCommand(rt)
-		m.Open, s.Open, m.Align = true, true, Start
+		m.Open, s.Open, m.Align = true, true, AlignStart
 		mark := func(glyph string) ItemIcon { return ItemIcon{Node: icon(glyph, "")} }
 		return func() twi.Node {
 			column := func(n twi.Node) twi.Node { return twi.Element(twi.Class("flex w-25 shrink-0"), n) }
 			return twi.Element(twi.Class("flex flex-row p-1 h-full bg-background text-foreground"),
-				column(m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Menu")), m.Content(m.Item("Profile", DropdownMenuShortcut(twi.Text("⌘P")), mark("◉"))))),
+				column(m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Menu")), m.Content(m.Item("Profile", DropdownMenuShortcut(twi.Text("⌘P")), mark("◉"))))),
 				column(s.Node(s.Trigger(), s.Content(s.Item("apple", "Apple", mark("◆"))))),
 				column(p.Node(p.List(p.Group("", p.Item("Calendar", mark("▦")), p.Item("Mail", twi.Text("Mail"), mark("✉")))))),
 			)
@@ -57,7 +57,7 @@ func TestSpacing(t *testing.T) {
 			m := NewDropdownMenu(rt)
 			m.Open = true
 			return func() twi.Node {
-				return page(m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Open")), m.Content(menu(&m.menuLevel)...)))
+				return page(m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open")), m.Content(menu(&m.menuLevel)...)))
 			}
 		}},
 		{"context menu", "Account", "Profile", "Billing", "Team", func(rt *twi.Runtime) func() twi.Node {
@@ -108,7 +108,7 @@ func TestSpacing(t *testing.T) {
 		{"sidebar", "Platform", "Home", "Inbox", "Projects", func(rt *twi.Runtime) func() twi.Node {
 			s := NewSidebar(rt)
 			button := func(text string) twi.Node {
-				return SidebarMenuItem(SidebarMenuButton(SizeDefault, false, twi.Text(text)))
+				return SidebarMenuItem(SidebarMenuButton(SidebarMenuButtonSizeDefault, twi.Text(text)))
 			}
 			return func() twi.Node {
 				return page(s.Provider(s.Node(SidebarContent(

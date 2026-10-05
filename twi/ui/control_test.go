@@ -55,14 +55,14 @@ func TestControlStates(t *testing.T) {
 		a, b, c := g.Item("a", twi.Text("A")), g.Item("b", twi.Text("B")), g.Item("c", twi.Text("C"))
 		return g.Node(a, b, c)
 	}
-	toggle := func(v Variant, pressed, disabled bool) twi.Node {
+	toggle := func(v ToggleVariant, pressed, disabled bool) twi.Node {
 		tg := NewToggle(rt)
 		tg.Variant, tg.Pressed, tg.Disabled = v, pressed, disabled
 		return tg.Node(twi.Text("B"))
 	}
 	group := func(value []string, focused bool) twi.Node {
 		g := NewToggleGroup(rt)
-		g.Variant, g.Value, g.focused = Outline, value, focused
+		g.Variant, g.Value, g.focused = ToggleOutline, value, focused
 		x, y := g.Item("x", twi.Text("X")), g.Item("y", twi.Text("Y"))
 		return g.Node(x, y)
 	}
@@ -89,7 +89,7 @@ func TestControlStates(t *testing.T) {
 	grouped := func(invalid bool) twi.Node {
 		in := NewInput(rt)
 		in.Invalid = invalid
-		return in.Group(InputGroupAddon(InlineStart, InputGroupText(twi.Text("https://"))), InputGroupAddon(InlineEnd, twi.Text(".com")))
+		return in.Group(InputGroupAddon(SideLeft, InputGroupText(twi.Text("https://"))), InputGroupAddon(SideRight, twi.Text(".com")))
 	}
 	checkParts(t, []partCase{
 		{"checkbox unchecked: a three-cell box in the input ring, no fill", light, checkbox(false, false, false, false), nil, func(s style.ComputedStyle) bool {
@@ -151,16 +151,16 @@ func TestControlStates(t *testing.T) {
 		}},
 		{"radio focused with no value, without the runtime's focus-visible: the first item keeps its idle ring", light, radio("", true, false), []int{0, 0}, inputRinged},
 		{"radio disabled", light, radio("b", false, true), nil, faded},
-		{"toggle off: no fill, rounded-md", light, toggle(Default, false, false), nil, func(s style.ComputedStyle) bool {
+		{"toggle off: no fill, rounded-md", light, toggle(ToggleDefault, false, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background.Kind == color.Unset && s.Radius == style.RadiusMd && len(s.Shadows) == 0 && s.Height == cells(1)
 		}},
-		{"toggle on: bg-accent text-accent-foreground", light, toggle(Default, true, false), nil, func(s style.ComputedStyle) bool {
+		{"toggle on: bg-accent text-accent-foreground", light, toggle(ToggleDefault, true, false), nil, func(s style.ComputedStyle) bool {
 			return s.Background == light.Tokens[theme.Accent] && s.Color == light.Tokens[theme.AccentForeground]
 		}},
-		{"toggle outline: the input ring", light, toggle(Outline, false, false), nil, func(s style.ComputedStyle) bool {
+		{"toggle outline: the input ring", light, toggle(ToggleOutline, false, false), nil, func(s style.ComputedStyle) bool {
 			return ring(s, light.Tokens[theme.Input])
 		}},
-		{"toggle disabled", light, toggle(Default, false, true), nil, faded},
+		{"toggle disabled", light, toggle(ToggleDefault, false, true), nil, faded},
 		{"toggle group: a row", light, group(nil, false), nil, func(s style.ComputedStyle) bool {
 			return s.Direction == style.Row && s.AlignItems == style.AlignCenter
 		}},
@@ -250,7 +250,7 @@ func TestControlStates(t *testing.T) {
 			return halo(s, dark.Tokens[theme.Destructive], scaled(dark, theme.Destructive, 0.4))
 		}},
 		{"switch focused", light, switcher(true, false), root, nil, lightFocus},
-		{"toggle focused", light, toggle(Default, true, false), root, nil, lightFocus},
+		{"toggle focused", light, toggle(ToggleDefault, true, false), root, nil, lightFocus},
 		{"native select focused", light, selector(false, false), []int{0}, []int{0}, lightFocus},
 		{"input focused: the border turns ring, no halo", light, field(false, false), root, nil, func(s style.ComputedStyle) bool {
 			return hairline(s, light.Tokens[theme.Ring])

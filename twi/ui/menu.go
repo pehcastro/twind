@@ -34,7 +34,7 @@ type DropdownMenu struct {
 }
 
 func NewDropdownMenu(rt *twi.Runtime) *DropdownMenu {
-	m := &DropdownMenu{anchored: newAnchored(rt, Bottom, Center)}
+	m := &DropdownMenu{anchored: newAnchored(rt, SideBottom, AlignCenter)}
 	m.root, m.popup, m.sizing = m, &m.floating, availableHeight
 	return m
 }
@@ -43,7 +43,7 @@ func (m *DropdownMenu) Node(children ...twi.NodeOption) twi.Node {
 	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(m.anchor), twi.OnPointerDownOutside(func(*twi.Event) { m.dismiss() })}, children...))
 }
 
-func (m *DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
+func (m *DropdownMenu) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node {
 	return m.trigger(v, s, func(k input.KeyEvent) bool {
 		opens := press(k) || k.Key == input.KeyArrowDown
 		if opens {
@@ -116,7 +116,7 @@ type ContextMenu struct {
 }
 
 func NewContextMenu(rt *twi.Runtime) *ContextMenu {
-	c := &ContextMenu{DropdownMenu: DropdownMenu{anchored: newAnchored(rt, Bottom, Start)}}
+	c := &ContextMenu{DropdownMenu: DropdownMenu{anchored: newAnchored(rt, SideBottom, AlignStart)}}
 	c.root, c.popup, c.sizing = &c.DropdownMenu, &c.floating, availableHeight
 	return c
 }
@@ -186,7 +186,7 @@ func (s *DropdownMenuSub) Trigger(text string, children ...twi.NodeOption) twi.N
 func (s *DropdownMenuSub) Content(children ...twi.NodeOption) twi.Node {
 	s.settle()
 	at := s.next(s.root.rt, s.Open)
-	return s.float(s.root.rt, s.anchor.Bounds(), Right, Start, at, func(placed, last []twi.NodeOption) twi.Node {
+	return s.float(s.root.rt, s.anchor.Bounds(), SideRight, AlignStart, at, func(placed, last []twi.NodeOption) twi.Node {
 		return s.content("relative flex flex-col min-w-16 overflow-x-hidden overflow-y-auto rounded-md whitespace-nowrap border bg-popover text-popover-foreground shadow-lg "+popMotion, at, func(k input.KeyEvent) bool {
 			if k.Key == input.KeyArrowLeft {
 				s.Open = false
@@ -310,8 +310,8 @@ func DropdownMenuLabel(children ...twi.NodeOption) twi.Node {
 	return part("px-1 text-muted-foreground", children)
 }
 
-func DropdownMenuSeparator() twi.Node {
-	return part(separator, nil)
+func DropdownMenuSeparator(children ...twi.NodeOption) twi.Node {
+	return part(separator, children)
 }
 
 func DropdownMenuShortcut(children ...twi.NodeOption) twi.Node {

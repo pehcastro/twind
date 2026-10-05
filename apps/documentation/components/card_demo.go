@@ -13,12 +13,12 @@ func CardDemo(rt *twi.Runtime) func() twi.Node {
 			ui.CardHeader(
 				ui.CardTitle(twi.Text("Login to your account")),
 				ui.CardDescription(twi.Text("Enter your email below to login")),
-				ui.CardAction(ui.Button(ui.Link, ui.SizeXS, twi.Text("Sign up"))),
+				ui.CardAction(ui.Button(ui.ButtonLink, ui.ButtonSizeXS, twi.Text("Sign up"))),
 			),
 			ui.CardContent(ui.Field(ui.Vertical, twi.Class("gap-0.5"), ui.FieldLabel(twi.Text("Email")), email.Node())),
 			ui.CardFooter(twi.Class("flex-col gap-0.5"),
-				ui.Button(ui.Default, ui.SizeDefault, twi.Class("w-full py-0.5"), twi.Text("Login")),
-				ui.Button(ui.Outline, ui.SizeDefault, twi.Class("w-full border-[0.5px] shadow-none"), twi.Text("Login with Google")),
+				ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Class("w-full py-0.5"), twi.Text("Login")),
+				ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Class("w-full border-[0.5px] shadow-none"), twi.Text("Login with Google")),
 			),
 		)
 	}

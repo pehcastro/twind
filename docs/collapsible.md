@@ -12,7 +12,7 @@ more := ui.NewCollapsible(rt)
 
 ```go
 more.Node(
-	more.Trigger(ui.Ghost, ui.SizeIcon, twi.Text("⇅")),
+	more.Trigger(ui.ButtonGhost, ui.ButtonSizeIcon, twi.Text("⇅")),
 	more.Content(twi.Text("Shown while open")),
 )
 ```

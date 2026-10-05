@@ -19,6 +19,8 @@ toaster.Success("Event has been created", "Sunday, December 03 at 9:00", ui.Toas
 })
 ```
 
+Actions are optional: `toaster.Show(title, description)` adds a toast with only its close button, and each action passed adds a button.
+
 The newest toast shows in full with the older ones as edges behind it. The pointer over the stack spreads it out and holds every toast until it leaves; Escape dismisses the newest.
 
 ## Beside a sheet or drawer

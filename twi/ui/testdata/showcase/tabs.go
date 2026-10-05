@@ -27,7 +27,7 @@ func tabsPage(rt *twi.Runtime, open string) func() twi.Node {
 		return ui.Card(twi.Class("py-1"),
 			ui.CardHeader(ui.CardTitle(twi.Text(title)), ui.CardDescription(twi.Text(description))),
 			ui.CardContent(el("flex flex-col gap-1", fields...)),
-			ui.CardFooter(ui.Button(ui.Default, ui.SizeDefault, save(button), twi.Text(button))),
+			ui.CardFooter(ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, save(button), twi.Text(button))),
 		)
 	}
 	return func() twi.Node {
@@ -54,7 +54,7 @@ func tabsPage(rt *twi.Runtime, open string) func() twi.Node {
 					ui.SelectLabel(twi.Text("Other")),
 					zone.Item("utc", "Coordinated Universal Time"), zone.Item("ist", "India Standard Time"),
 				))),
-				ui.Alert(ui.Default, ui.AlertTitle(twi.Text("Overlays sit above the page")), ui.AlertDescription(twi.Text("An open select draws over the text and cards under it."))),
+				ui.Alert(ui.AlertDefault, ui.AlertTitle(twi.Text("Overlays sit above the page")), ui.AlertDescription(twi.Text("An open select draws over the text and cards under it."))),
 			),
 		)
 	}

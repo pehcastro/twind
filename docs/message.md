@@ -7,11 +7,11 @@ One turn in a conversation: an avatar, a header, bubbles and a footer.
 ## Usage
 
 ```go
-ui.Message(ui.End,
-	ui.MessageAvatar(ui.Avatar(ui.SizeSM, ui.AvatarFallback(twi.Text("PD")))),
+ui.Message(ui.AlignEnd,
+	ui.MessageAvatar(ui.Avatar(ui.AvatarSizeSM, ui.AvatarFallback(twi.Text("PD")))),
 	ui.MessageContent(
 		ui.MessageHeader(twi.Text("Pedro")),
-		ui.Bubble(ui.Default, ui.End, ui.BubbleContent(twi.Text("Is the draft ready?"))),
+		ui.Bubble(ui.BubbleDefault, ui.AlignEnd, ui.BubbleContent(twi.Text("Is the draft ready?"))),
 		ui.MessageFooter(twi.Text("read 2:14 PM")),
 	),
 )

@@ -59,7 +59,7 @@ func TestOverlayPlacesWhereItFits(t *testing.T) {
 			tip := NewTooltip(rt)
 			tip.Open = true
 			return func() twi.Node {
-				return tip.Node(tip.Trigger(Outline, SizeDefault, twi.Text("Hover")), tip.Content(twi.Text(hint)))
+				return tip.Node(tip.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Hover")), tip.Content(twi.Text(hint)))
 			}
 		})
 	}
@@ -81,9 +81,9 @@ func TestOverlayPlacesWhereItFits(t *testing.T) {
 
 	bottom := run("flex flex-col justify-end", func(rt *twi.Runtime) func() twi.Node {
 		m := NewDropdownMenu(rt)
-		m.Align, m.Open = Start, true
+		m.Align, m.Open = AlignStart, true
 		return func() twi.Node {
-			return m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Open")), m.Content(m.Item("Profile"), m.Item("Billing"), m.Item("Team"), m.Item("Log out")))
+			return m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open")), m.Content(m.Item("Profile"), m.Item("Billing"), m.Item("Team"), m.Item("Log out")))
 		}
 	})
 	_, oy, _ := at(bottom.frame, "Open")
@@ -95,11 +95,11 @@ func TestOverlayPlacesWhereItFits(t *testing.T) {
 
 	right := run("flex flex-row justify-end", func(rt *twi.Runtime) func() twi.Node {
 		m := NewDropdownMenu(rt)
-		m.Align, m.Open = End, true
+		m.Align, m.Open = AlignEnd, true
 		invite := m.Sub()
 		invite.Open = true
 		return func() twi.Node {
-			return m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Open")), m.Content(
+			return m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open")), m.Content(
 				m.Item("Profile"),
 				invite.Node(invite.Trigger("Invite"), invite.Content(invite.Item("Email"), invite.Item("Message"))),
 				m.Item("Log out"),

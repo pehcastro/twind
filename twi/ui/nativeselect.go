@@ -16,7 +16,7 @@ type NativeSelect struct {
 }
 
 func NewNativeSelect(rt *twi.Runtime) *NativeSelect {
-	s := &NativeSelect{anchored: newAnchored(rt, Bottom, Start)}
+	s := &NativeSelect{anchored: newAnchored(rt, SideBottom, AlignStart)}
 	s.sizing = triggerWidth
 	return s
 }

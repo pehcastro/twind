@@ -93,8 +93,8 @@ func (c controls) button(name, class, label string, press func(*state), extra ..
 	return twi.Element(append(append(c.pressable(name, press), extra...), twi.Class(class+focusRing), twi.Text(label))...)
 }
 
-func (c controls) uiButton(name string, v ui.Variant, label string, press func(*state), extra ...twi.NodeOption) twi.Node {
-	return ui.Button(v, ui.SizeDefault, append(append(c.pressable(name, press), extra...), twi.Text(label))...)
+func (c controls) uiButton(name string, v ui.ButtonVariant, label string, press func(*state), extra ...twi.NodeOption) twi.Node {
+	return ui.Button(v, ui.ButtonSizeDefault, append(append(c.pressable(name, press), extra...), twi.Text(label))...)
 }
 
 func (c controls) clicked(change func()) twi.NodeOption {
@@ -293,7 +293,7 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			c.button("components", pill+activePill, "⌕ ui", func(*state) { k.palette.Open = true }, active(s.page >= bar)),
 			el("grow"),
 			k.tip.Node(twi.Class("shrink-0"),
-				k.tip.Trigger(ui.Ghost, ui.SizeXS, append(c.pressable("theme", openPicker), twi.Class("rounded-full text-muted-foreground"), twi.Text(name))...),
+				k.tip.Trigger(ui.ButtonGhost, ui.ButtonSizeXS, append(c.pressable("theme", openPicker), twi.Class("rounded-full text-muted-foreground"), twi.Text(name))...),
 				k.tip.Content(twi.Text("t or a click opens the picker")),
 			),
 			c.button("scheme", pill, string(map[theme.Scheme]icon.Name{theme.Light: icon.Sun, theme.Dark: icon.Moon}[s.scheme].Glyph()), flipScheme),
@@ -352,11 +352,11 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			),
 			k.dialog.Content(append(pace,
 				k.dialog.Header(k.dialog.Title(twi.Text("Motion")), k.dialog.Description(twi.Text("fade-in-0 and zoom-in-95 over 200 ms; Escape, a click outside or a button plays it back out"))),
-				k.dialog.Footer(k.dialog.Close(ui.Outline, ui.SizeDefault, twi.Text("Cancel")), k.dialog.Close(ui.Default, ui.SizeDefault, twi.Text("Done"))),
+				k.dialog.Footer(k.dialog.Close(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Cancel")), k.dialog.Close(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Done"))),
 			)...),
 			k.sheet.Content(
 				k.sheet.Header(k.sheet.Title(twi.Text("Sheet")), k.sheet.Description(twi.Text("slides in from the right over 500 ms and out over 300 ms"))),
-				k.sheet.Footer(k.sheet.Close(ui.Default, ui.SizeDefault, twi.Text("Close"))),
+				k.sheet.Footer(k.sheet.Close(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Close"))),
 			),
 			k.palette.Node(k.palette.Input("Search pages and components"), k.palette.List(k.palette.Group("Go to", goTo...))),
 			k.toaster.Node(),

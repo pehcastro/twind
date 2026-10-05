@@ -18,8 +18,8 @@ func directionPage(controls) twi.Node {
 					ui.CardDescription(twi.Text("הזינו את כתובת ה-email שלכם")),
 				),
 				ui.CardFooter(twi.Class("gap-1"),
-					ui.Button(ui.Default, ui.SizeSM, twi.Text("כניסה")),
-					ui.Button(ui.Outline, ui.SizeSM, twi.Text("ביטול")),
+					ui.Button(ui.ButtonDefault, ui.ButtonSizeSM, twi.Text("כניסה")),
+					ui.Button(ui.ButtonOutline, ui.ButtonSizeSM, twi.Text("ביטול")),
 				),
 			),
 			ui.Direction(text.DirLTR, twi.Class("text-muted-foreground"), twi.Text("dir ltr inside: left to right again")),
@@ -38,14 +38,14 @@ func spinnerPage(c controls) twi.Node {
 		return twi.Text(map[bool]string{true: busy, false: done}[k.spinning])
 	}
 	return show("Spinner", "turns while shown; hidden, it costs no frames. Enter or a click starts and stops it",
-		c.uiButton("loading", ui.Outline, map[bool]string{true: "Stop loading", false: "Start loading"}[k.spinning], func(*state) { k.spinning = !k.spinning }),
+		c.uiButton("loading", ui.ButtonOutline, map[bool]string{true: "Stop loading", false: "Start loading"}[k.spinning], func(*state) { k.spinning = !k.spinning }),
 		row(
 			spin(0, "✓"),
-			ui.Button(ui.Secondary, ui.SizeSM, spin(1, "✓"), says("Please wait", "Submitted")),
-			ui.Badge(ui.Outline, spin(2, "✓"), says("Syncing", "Synced")),
+			ui.Button(ui.ButtonSecondary, ui.ButtonSizeSM, spin(1, "✓"), says("Please wait", "Submitted")),
+			ui.Badge(ui.BadgeOutline, spin(2, "✓"), says("Syncing", "Synced")),
 			el("w-40 flex flex-row", k.lookup.Group(
-				ui.InputGroupAddon(ui.InlineStart, spin(3, "⌕")),
-				ui.InputGroupAddon(ui.InlineEnd, ui.InputGroupText(says("Searching...", "12 results"))),
+				ui.InputGroupAddon(ui.SideLeft, spin(3, "⌕")),
+				ui.InputGroupAddon(ui.SideRight, ui.InputGroupText(says("Searching...", "12 results"))),
 			)),
 		),
 	)
@@ -55,12 +55,12 @@ func inputGroupPage(c controls) twi.Node {
 	k := c.kit
 	return show("Input group", "addons, text and buttons inside the field's border; Tab reaches the buttons",
 		el("w-50 flex flex-col gap-1",
-			k.query.Group(ui.InputGroupAddon(ui.InlineStart, ui.InputGroupText(twi.Text("⌕"))), ui.InputGroupAddon(ui.InlineEnd, ui.InputGroupText(twi.Text("12 results")))),
+			k.query.Group(ui.InputGroupAddon(ui.SideLeft, ui.InputGroupText(twi.Text("⌕"))), ui.InputGroupAddon(ui.SideRight, ui.InputGroupText(twi.Text("12 results")))),
 			k.url.Group(
-				ui.InputGroupAddon(ui.InlineStart, ui.InputGroupText(twi.Text("https://"))),
-				ui.InputGroupAddon(ui.InlineEnd, ui.InputGroupButton(c.clicked(func() { k.pressed = "Copy" }), twi.Text("Copy"))),
+				ui.InputGroupAddon(ui.SideLeft, ui.InputGroupText(twi.Text("https://"))),
+				ui.InputGroupAddon(ui.SideRight, ui.InputGroupButton(c.clicked(func() { k.pressed = "Copy" }), twi.Text("Copy"))),
 			),
-			k.message.Group(ui.InputGroupAddon(ui.BlockEnd,
+			k.message.Group(ui.InputGroupAddon(ui.SideBottom,
 				ui.InputGroupText(twi.Text(strconv.Itoa(utf8.RuneCountInString(k.message.Value()))+"/280")),
 				el("grow"),
 				ui.InputGroupButton(twi.Class("bg-primary text-primary-foreground hover:bg-primary/90"), c.clicked(func() { k.pressed = "Send" }), twi.Text("Send")),
@@ -83,7 +83,7 @@ func aspectRatioPage(c controls) twi.Node {
 				txt("text-muted-foreground", "aspect-square"),
 			),
 		),
-		c.uiButton("wider", ui.Outline, map[bool]string{true: "Narrower", false: "Wider"}[k.wide], func(*state) { k.wide = !k.wide }),
+		c.uiButton("wider", ui.ButtonOutline, map[bool]string{true: "Narrower", false: "Wider"}[k.wide], func(*state) { k.wide = !k.wide }),
 	)
 }
 

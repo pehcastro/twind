@@ -6,10 +6,10 @@ import (
 )
 
 func overlays(rt *twi.Runtime, open string) func() twi.Node {
-	dialog, alert, sheet, drawer := ui.NewDialog(rt), ui.NewAlertDialog(rt), ui.NewSheet(rt, ui.Right), ui.NewDrawer(rt, ui.Bottom)
+	dialog, alert, sheet, drawer := ui.NewDialog(rt), ui.NewAlertDialog(rt), ui.NewSheet(rt, ui.SideRight), ui.NewDrawer(rt, ui.SideBottom)
 	menu, pop, tip, card := ui.NewDropdownMenu(rt), ui.NewPopover(rt), ui.NewTooltip(rt), ui.NewHoverCard(rt)
 	invite := menu.Sub()
-	menu.Align = ui.Start
+	menu.Align = ui.AlignStart
 	chosen, status, panel := "nothing yet", true, "Bottom"
 	menu.OnSelect = func(item string) { chosen = item }
 	name, username, sheetName, sheetUser, width, height := ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt)
@@ -36,7 +36,7 @@ func overlays(rt *twi.Runtime, open string) func() twi.Node {
 	case "hovercard":
 		card.Open = true
 	}
-	outline, solid, size := ui.Outline, ui.Default, ui.SizeDefault
+	outline, solid, size := ui.ButtonOutline, ui.ButtonDefault, ui.ButtonSizeDefault
 	field := func(name string, in *ui.Input) twi.Node {
 		return ui.Field(ui.Vertical, ui.FieldLabel(label(name)), in.Node())
 	}
@@ -91,7 +91,7 @@ func overlays(rt *twi.Runtime, open string) func() twi.Node {
 					),
 				))),
 				section("Tooltip", tip.Node(tip.Trigger(outline, size, label("Hover")), tip.Content(label("Add to library")))),
-				section("Hover card", card.Node(card.Trigger(ui.Link, size, label("@nextjs")), card.Content(
+				section("Hover card", card.Node(card.Trigger(ui.ButtonLink, size, label("@nextjs")), card.Content(
 					text("font-semibold", "@nextjs"),
 					label("The React Framework, created and maintained by @vercel."),
 					text("text-muted-foreground", "Joined December 2021"),
@@ -101,11 +101,11 @@ func overlays(rt *twi.Runtime, open string) func() twi.Node {
 				ui.Card(
 					ui.CardHeader(ui.CardTitle(label("Team Members")), ui.CardDescription(label("Invite your team members to collaborate."))),
 					ui.CardContent(el("flex flex-col gap-1",
-						el("flex flex-row items-center gap-2", ui.Avatar(ui.SizeSM, ui.AvatarFallback(label("OM"))), el("flex flex-col grow", text("font-medium", "Sofia Davis"), text("text-muted-foreground", "m@example.com")), ui.Badge(ui.Secondary, label("Owner"))),
-						el("flex flex-row items-center gap-2", ui.Avatar(ui.SizeSM, ui.AvatarFallback(label("JL"))), el("flex flex-col grow", text("font-medium", "Jackson Lee"), text("text-muted-foreground", "p@example.com")), ui.Badge(ui.Outline, label("Member"))),
+						el("flex flex-row items-center gap-2", ui.Avatar(ui.AvatarSizeSM, ui.AvatarFallback(label("OM"))), el("flex flex-col grow", text("font-medium", "Sofia Davis"), text("text-muted-foreground", "m@example.com")), ui.Badge(ui.BadgeSecondary, label("Owner"))),
+						el("flex flex-row items-center gap-2", ui.Avatar(ui.AvatarSizeSM, ui.AvatarFallback(label("JL"))), el("flex flex-col grow", text("font-medium", "Jackson Lee"), text("text-muted-foreground", "p@example.com")), ui.Badge(ui.BadgeOutline, label("Member"))),
 					)),
 				),
-				ui.Alert(ui.Default, ui.AlertTitle(label("Overlays sit above the page")), ui.AlertDescription(label("Dialogs dim the page, menus and popovers float over it with soft shadows."))),
+				ui.Alert(ui.AlertDefault, ui.AlertTitle(label("Overlays sit above the page")), ui.AlertDescription(label("Dialogs dim the page, menus and popovers float over it with soft shadows."))),
 			),
 		)
 	}

@@ -49,7 +49,7 @@ func txt(class, s string) twi.Node { return el(class, twi.Text(s)) }
 
 func app(rt *twi.Runtime, scheme string) func() twi.Node {
 	picker, dialog := ui.NewDropdownMenu(rt), ui.NewDialog(rt)
-	picker.Align = ui.End
+	picker.Align = ui.AlignEnd
 	picker.OnSelect = func(string) {
 		s, _ := parseScheme(scheme)
 		rt.SetTheme(theme.Default().WithScheme(s))
@@ -91,7 +91,7 @@ func app(rt *twi.Runtime, scheme string) func() twi.Node {
 			el("flex flex-col grow gap-2 px-4 py-1",
 				el("flex flex-row items-center gap-2",
 					el("flex flex-col grow", txt("font-bold", "Overview"), txt("text-muted-foreground", "Your new Twind app. Edit main.go, then go run . again.")),
-					picker.Node(picker.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Theme: "+scheme)), picker.Content(
+					picker.Node(picker.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Theme: "+scheme)), picker.Content(
 						ui.DropdownMenuLabel(twi.Text("Theme")),
 						ui.DropdownMenuSeparator(),
 						picker.RadioItem("Light", &scheme),
@@ -105,16 +105,16 @@ func app(rt *twi.Runtime, scheme string) func() twi.Node {
 				),
 				ui.Card(twi.Class("py-1"),
 					ui.CardHeader(ui.CardTitle(twi.Text("Start a project")), ui.CardDescription(twi.Text("A dialog traps focus, dims the page and closes on Escape."))),
-					ui.CardContent(el("flex flex-row items-center gap-1", ui.Badge(ui.Secondary, twi.Text("twi/ui")), ui.Badge(ui.Outline, twi.Text("Tailwind 4")))),
+					ui.CardContent(el("flex flex-row items-center gap-1", ui.Badge(ui.BadgeSecondary, twi.Text("twi/ui")), ui.Badge(ui.BadgeOutline, twi.Text("Tailwind 4")))),
 					ui.CardFooter(twi.Class("gap-2"),
-						dialog.Trigger(ui.Default, ui.SizeDefault, twi.Text("New project")),
+						dialog.Trigger(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("New project")),
 						txt("text-muted-foreground", "tab to focus, enter to open"),
 					),
 				),
 			),
 			dialog.Content(
 				dialog.Header(dialog.Title(twi.Text("Create project")), dialog.Description(twi.Text("Projects group your screens and styles. You can rename it later."))),
-				dialog.Footer(dialog.Close(ui.Outline, ui.SizeDefault, twi.Text("Cancel")), dialog.Close(ui.Default, ui.SizeDefault, twi.Text("Create"))),
+				dialog.Footer(dialog.Close(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Cancel")), dialog.Close(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Create"))),
 			),
 		)
 	}

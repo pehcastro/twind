@@ -9,22 +9,22 @@ A text field of several lines.
 ```go
 message := ui.NewTextarea(rt)
 message.Placeholder = "Type your message here."
-message.Submit = func(text string) { send(text) }
+message.OnSubmit = func(text string) { send(text) }
 ```
 
 ```go
 ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Your message")), message.Node())
 ```
 
-It edits like a chat prompt. Shift+Enter or Ctrl+J breaks a line, and Enter sends: with `Submit` set, Enter hands it the trimmed text, clears the field and keeps the text in the history; empty text sends nothing. Without `Submit`, Enter goes on to the page. Long lines wrap at word boundaries to the field's width, and rewrap when the terminal resizes; the field grows with its rows from four to eight, then scrolls with the caret. `message.Value()` returns the text.
+It edits like a chat prompt. Shift+Enter or Ctrl+J breaks a line, and Enter sends: with `OnSubmit` set, Enter hands it the trimmed text, clears the field and keeps the text in the history; empty text sends nothing. Without `OnSubmit`, Enter goes on to the page. Long lines wrap at word boundaries to the field's width, and rewrap when the terminal resizes; the field grows with its rows from four to eight, then scrolls with the caret. `message.Value()` returns the text.
 
-A paste keeps its line breaks, turns a tab into four spaces and is one undo step. A paste of 160 characters or more shows as a `[Text N characters]` chip; `Submit` gets the pasted text in its place, and the history keeps it.
+A paste keeps its line breaks, turns a tab into four spaces and is one undo step. A paste of 160 characters or more shows as a `[Text N characters]` chip; `OnSubmit` gets the pasted text in its place, and the history keeps it.
 
 ## Keys
 
 | key | does |
 |---|---|
-| Enter | sends the text to `Submit` |
+| Enter | sends the text to `OnSubmit` |
 | Shift+Enter, Ctrl+J | breaks the line |
 | Left, Ctrl+B / Right, Ctrl+F | move by a character, across lines |
 | Ctrl+Left, Ctrl+Right | move by a word; a word is a run of characters without spaces |

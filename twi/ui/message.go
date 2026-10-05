@@ -6,15 +6,16 @@ func MessageGroup(children ...twi.NodeOption) twi.Node {
 	return part("flex min-w-0 flex-col gap-1", children)
 }
 
-func Message(a Alignment, children ...twi.NodeOption) twi.Node {
-	return part("group/message relative flex w-full min-w-0 gap-1 "+pick("message", a, map[Alignment]string{
-		Start: "flex-row",
-		End:   "flex-row-reverse",
+func Message(a Align, children ...twi.NodeOption) twi.Node {
+	return part("group/message relative flex w-full min-w-0 gap-1 "+pick("message", a, map[Align]string{
+		AlignStart:  "flex-row",
+		AlignCenter: "flex-row justify-center",
+		AlignEnd:    "flex-row-reverse",
 	}), append([]twi.NodeOption{twi.Data("slot", "message"), aligned(a)}, children...))
 }
 
-func aligned(a Alignment) twi.NodeOption {
-	return twi.Data("align", pick("align", a, map[Alignment]string{Start: "start", End: "end"}))
+func aligned(a Align) twi.NodeOption {
+	return twi.Data("align", pick("align", a, map[Align]string{AlignStart: "start", AlignCenter: "center", AlignEnd: "end"}))
 }
 
 func MessageAvatar(children ...twi.NodeOption) twi.Node {

@@ -53,7 +53,7 @@ func staged(t *testing.T, width, height int, view func(rt *twi.Runtime) func() t
 }
 
 func TestGlyphsSitInTheMiddleOfTheirFill(t *testing.T) {
-	for name, s := range map[string]Size{"sm": SizeSM, "default": SizeDefault, "lg": SizeLG} {
+	for name, s := range map[string]ToggleSize{"sm": ToggleSizeSM, "default": ToggleSizeDefault, "lg": ToggleSizeLG} {
 		d := staged(t, 30, 5, func(rt *twi.Runtime) func() twi.Node {
 			g := NewToggleGroup(rt)
 			g.Size, g.Value = s, []string{"b"}
@@ -75,8 +75,8 @@ func TestGlyphsSitInTheMiddleOfTheirFill(t *testing.T) {
 	centred(t, "radio group", d, "●")
 	d = staged(t, 40, 6, func(*twi.Runtime) func() twi.Node {
 		return func() twi.Node {
-			return Attachment(Done, Horizontal,
-				AttachmentMedia(Icon, twi.Text("▤")),
+			return Attachment(UploadDone, Horizontal,
+				AttachmentMedia(AttachmentMediaIcon, twi.Text("▤")),
 				AttachmentContent(AttachmentTitle(twi.Text("report.pdf")), AttachmentDescription(twi.Text("1.2 MB"))),
 				AttachmentActions(AttachmentAction(twi.Text("✕"))),
 			)
@@ -136,7 +136,7 @@ func TestButtonGroupJoinsItsButtons(t *testing.T) {
 		t.Fatal(err)
 	}
 	light := zinc(t, theme.Light)
-	outline := func(label string) twi.Node { return Button(Outline, SizeDefault, twi.Text(label)) }
+	outline := func(label string) twi.Node { return Button(ButtonOutline, ButtonSizeDefault, twi.Text(label)) }
 	md, none := style.RadiusMd, style.RadiusNone
 	for _, c := range []struct {
 		name  string
@@ -176,7 +176,7 @@ func TestSmallAvatarIsRoundInPixels(t *testing.T) {
 		t.Fatal(err)
 	}
 	light, cell := zinc(t, theme.Light), image.Pt(8, 17)
-	tree := rendered(twi.Element(twi.Class("flex flex-row items-center p-2 bg-background"), Avatar(SizeSM, AvatarFallback(twi.Text("CN")))))
+	tree := rendered(twi.Element(twi.Class("flex flex-row items-center p-2 bg-background"), Avatar(AvatarSizeSM, AvatarFallback(twi.Text("CN")))))
 	built := reflect.NewAt(tree.Type(), unsafe.Pointer(tree.UnsafeAddr())).Elem().Interface().(render.Node)
 	root, err := render.Scene(built, render.Frame{Sheet: sheet.WithTheme(&light), Width: 12, Height: layout.Length{Unit: layout.Cells, Value: 5}, Graphics: true, Cell: cell})
 	if err != nil {
@@ -213,7 +213,7 @@ func TestSmallAvatarIsRoundInPixels(t *testing.T) {
 
 func TestSmallAvatarFillOutreachesItsLetters(t *testing.T) {
 	d := staged(t, 20, 5, func(*twi.Runtime) func() twi.Node {
-		return func() twi.Node { return Avatar(SizeSM, AvatarFallback(twi.Text("CN"))) }
+		return func() twi.Node { return Avatar(AvatarSizeSM, AvatarFallback(twi.Text("CN"))) }
 	})
 	x, y, _ := at(d.Frame(), "CN")
 	b := d.Frame()

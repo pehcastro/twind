@@ -11,10 +11,10 @@ import (
 )
 
 func BenchmarkMerge(b *testing.B) {
-	base := button(Default, SizeDefault, idleRing(Default)+" "+focusRing)
+	base := button(ButtonDefault, ButtonSizeDefault, idleRing(ButtonDefault)+" "+focusRing)
 	for name, build := range map[string]func(){
-		"button":         func() { Button(Ghost, SizeDefault, twi.Text("1")) },
-		"button-w-26":    func() { Button(Ghost, SizeDefault, twi.Class("w-26"), twi.Text("1")) },
+		"button":         func() { Button(ButtonGhost, ButtonSizeDefault, twi.Text("1")) },
+		"button-w-26":    func() { Button(ButtonGhost, ButtonSizeDefault, twi.Class("w-26"), twi.Text("1")) },
 		"skeleton":       func() { Skeleton() },
 		"skeleton-round": func() { Skeleton(twi.Class("rounded-full")) },
 		"field-group":    func() { FieldGroup() },
@@ -49,7 +49,7 @@ func TestOverride(t *testing.T) {
 		}},
 		{"a child's class stays its own", light, Skeleton(Skeleton(twi.Class("rounded-full"))), nil, radius(style.RadiusMd)},
 		{"the child gets it", light, Skeleton(Skeleton(twi.Class("rounded-full"))), []int{0}, radius(style.RadiusFull)},
-		{"through Button to the pagination link", light, PaginationLink(false, twi.Class("w-5")), nil, width(5)},
+		{"through Button to the pagination link", light, PaginationLink(twi.Class("w-5")), nil, width(5)},
 		{"a control's root", light, NewSwitch(twi.New()).Node(twi.Class("w-6")), nil, width(6)},
 		{"spaces only", light, Skeleton(twi.Class("   ")), nil, radius(style.RadiusMd)},
 	})

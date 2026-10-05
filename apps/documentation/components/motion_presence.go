@@ -18,11 +18,11 @@ func MotionPresence(rt *twi.Runtime) func() twi.Node {
 		}
 		return twi.Element(twi.Class("flex flex-row w-full h-9 items-start gap-2"),
 			popover.Node(
-				popover.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Fade and zoom")),
+				popover.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Fade and zoom")),
 				popover.Content(twi.Text("fade-in-0 zoom-in-95 on open, the same played back on close")),
 			),
 			twi.Element(twi.Class("flex flex-col flex-1 gap-1"),
-				ui.Button(ui.Outline, ui.SizeDefault, load, twi.Text("Toggle loading")),
+				ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, load, twi.Text("Toggle loading")),
 				rows,
 			),
 		)

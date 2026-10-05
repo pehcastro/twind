@@ -14,8 +14,8 @@ func TestAlertTextKeepsOffItsBorder(t *testing.T) {
 	d := overlayDriver(t, 50, 16, func(*twi.Runtime) func() twi.Node {
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
-				Alert(Default, AlertTitle(twi.Text("Heads up")), AlertDescription(twi.Text("Themes switch at runtime."))),
-				Alert(Destructive, AlertTitle(twi.Text("Payment failed")), AlertDescription(twi.Text("Check your card."))))
+				Alert(AlertDefault, AlertTitle(twi.Text("Heads up")), AlertDescription(twi.Text("Themes switch at runtime."))),
+				Alert(AlertDestructive, AlertTitle(twi.Text("Payment failed")), AlertDescription(twi.Text("Check your card."))))
 		}
 	})
 	lines := strings.Split(d.Frame().Text(), "\n")

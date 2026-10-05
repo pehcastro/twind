@@ -14,7 +14,7 @@ func CommandDialogDemo(rt *twi.Runtime) func() twi.Node {
 			twi.Element(twi.Class("flex flex-row items-center gap-2"),
 				ui.KbdGroup(ui.Kbd(twi.Text("Ctrl")), ui.Kbd(twi.Text("J"))),
 				twi.Element(twi.Class("text-muted-foreground"), twi.Text("or")),
-				palette.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open the palette")),
+				palette.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Open the palette")),
 			),
 			twi.Element(twi.Class("text-muted-foreground"), twi.Text("chosen: "+chosen)),
 			palette.Node(

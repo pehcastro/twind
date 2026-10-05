@@ -7,7 +7,7 @@ import (
 
 func ToggleGroupDemo(rt *twi.Runtime) func() twi.Node {
 	align, marks := ui.NewToggleGroup(rt), ui.NewToggleGroup(rt)
-	align.Variant, align.Value = ui.Outline, []string{"left"}
+	align.Variant, align.Value = ui.ToggleOutline, []string{"left"}
 	marks.Multiple, marks.Value = true, []string{"bold"}
 	return func() twi.Node {
 		return twi.Element(twi.Class("flex flex-row items-center gap-2"),

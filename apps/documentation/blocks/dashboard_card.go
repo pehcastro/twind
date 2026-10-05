@@ -23,7 +23,7 @@ func DashboardCard(rt *twi.Runtime) func() twi.Node {
 			ui.CardHeader(
 				ui.CardDescription(twi.Text(title)),
 				ui.CardTitle(twi.Text(value)),
-				ui.CardAction(ui.Badge(ui.Outline, twi.Text("↗"))),
+				ui.CardAction(ui.Badge(ui.BadgeOutline, twi.Text("↗"))),
 			),
 			ui.CardFooter(twi.Class("text-muted-foreground"), twi.Text(change)),
 		)

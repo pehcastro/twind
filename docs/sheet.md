@@ -7,14 +7,14 @@ A dialog that slides in from an edge of the screen, for content that goes with t
 ## Usage
 
 ```go
-sheet := ui.NewSheet(rt, ui.Right)
+sheet := ui.NewSheet(rt, ui.SideRight)
 ```
 
 ```go
-sheet.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Open")),
+sheet.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Open")),
 sheet.Content(
 	sheet.Header(sheet.Title(twi.Text("Edit profile"))),
-	sheet.Footer(sheet.Close(ui.Default, ui.SizeDefault, twi.Text("Save changes"))),
+	sheet.Footer(sheet.Close(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Save changes"))),
 ),
 ```
 

@@ -13,7 +13,7 @@ scroller := ui.NewMessageScroller(rt)
 ```go
 scroller.Node(twi.Class("h-12"),
 	scroller.Viewport(
-		scroller.Item(ui.Message(ui.Start, ui.MessageContent(twi.Text("Hello")))),
+		scroller.Item(ui.Message(ui.AlignStart, ui.MessageContent(twi.Text("Hello")))),
 	),
 	scroller.Button(),
 )

@@ -10,10 +10,17 @@ func EmptyHeader(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-col max-w-48 items-center text-center", children)
 }
 
-func EmptyMedia(v Variant, children ...twi.NodeOption) twi.Node {
-	return part("mb-1 flex shrink-0 items-center justify-center "+pick("empty media", v, map[Variant]string{
-		Default: "bg-transparent",
-		Icon:    "h-3 w-5 rounded-lg bg-muted text-foreground",
+type EmptyMediaVariant uint8
+
+const (
+	EmptyMediaDefault EmptyMediaVariant = iota
+	EmptyMediaIcon
+)
+
+func EmptyMedia(v EmptyMediaVariant, children ...twi.NodeOption) twi.Node {
+	return part("mb-1 flex shrink-0 items-center justify-center "+pick("empty media", v, map[EmptyMediaVariant]string{
+		EmptyMediaDefault: "bg-transparent",
+		EmptyMediaIcon:    "h-3 w-5 rounded-lg bg-muted text-foreground",
 	}), children)
 }
 

@@ -25,6 +25,7 @@ type Resizable struct {
 	control
 	Orientation Orientation
 	Sizes       []int
+	WithHandle  bool
 	OnResize    func([]int)
 	panels      []*twi.Ref
 	built       int
@@ -61,7 +62,7 @@ func (r *Resizable) Panel(children ...twi.NodeOption) twi.Node {
 	return part("relative flex flex-col min-w-0 min-h-0 overflow-hidden "+size, append([]twi.NodeOption{twi.Data("slot", "resizable-panel"), twi.Measure(r.panels[i])}, children...))
 }
 
-func (r *Resizable) Handle(withHandle bool, children ...twi.NodeOption) twi.Node {
+func (r *Resizable) Handle(children ...twi.NodeOption) twi.Node {
 	at := r.built - 1
 	keys := r.behave(func(k input.KeyEvent) bool {
 		less, more := input.KeyArrowLeft, input.KeyArrowRight
@@ -82,7 +83,7 @@ func (r *Resizable) Handle(withHandle bool, children ...twi.NodeOption) twi.Node
 		}
 		return true
 	})
-	if withHandle {
+	if r.WithHandle {
 		children = append([]twi.NodeOption{part("absolute z-10 rounded-lg bg-border "+pick("resizable grip", r.Orientation, map[Orientation]string{
 			Horizontal: "-left-1 top-1/2 h-2 w-2 -translate-y-1/2",
 			Vertical:   "-top-2 left-1/2 h-2 w-4 -translate-x-1/2",

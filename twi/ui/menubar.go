@@ -20,7 +20,7 @@ func NewMenubar(rt *twi.Runtime) *Menubar { return &Menubar{control: control{rt:
 type MenubarMenu struct{ DropdownMenu }
 
 func (b *Menubar) Menu() *MenubarMenu {
-	m := &MenubarMenu{DropdownMenu{anchored: newAnchored(b.rt, Bottom, Start), bar: b}}
+	m := &MenubarMenu{DropdownMenu{anchored: newAnchored(b.rt, SideBottom, AlignStart), bar: b}}
 	m.root, m.popup, m.sideOffset, m.alignOffset, m.sizing = &m.DropdownMenu, &m.floating, 1, -1, availableHeight
 	b.menus = append(b.menus, m)
 	return m

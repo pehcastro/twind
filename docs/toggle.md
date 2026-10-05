@@ -15,7 +15,7 @@ bold.OnChange = func(on bool) { setBold(on) }
 bold.Node(twi.Text("B"))
 ```
 
-A click, Space or Enter flips it. `Variant` is `ui.Default` or `ui.Outline`, `Size` is small, default or large.
+A click, Space or Enter flips it. `Variant` is `ui.ToggleDefault` or `ui.ToggleOutline`, `Size` is `ui.ToggleSizeSM`, `ui.ToggleSizeDefault` or `ui.ToggleSizeLG`.
 
 ## API reference
 

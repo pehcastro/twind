@@ -293,12 +293,12 @@ func (s *site) view() twi.Node {
 			txt("font-bold", "twind"),
 			txt("text-muted-foreground", "Docs"),
 			el("grow"),
-			s.palette.Trigger(ui.Outline, ui.SizeSM, twi.Key("search"), twi.Class("md:w-40 justify-between text-muted-foreground"),
+			s.palette.Trigger(ui.ButtonOutline, ui.ButtonSizeSM, twi.Key("search"), twi.Class("md:w-40 justify-between text-muted-foreground"),
 				txt("md:hidden", "Search"), txt("hidden md:flex", "Search documentation..."),
 				ui.KbdGroup(twi.Class("hidden md:flex"), ui.Kbd(twi.Text("Ctrl")), ui.Kbd(twi.Text("K")))),
-			ui.Button(ui.Ghost, ui.SizeSM, twi.Key("theme"), twi.OnClick(func(*twi.Event) { s.openPicker() }),
+			ui.Button(ui.ButtonGhost, ui.ButtonSizeSM, twi.Key("theme"), twi.OnClick(func(*twi.Event) { s.openPicker() }),
 				txt("hidden md:flex", "Theme: "), twi.Text(themeName(s.themes[s.theme].WithScheme(s.scheme)))),
-			ui.Button(ui.Ghost, ui.SizeSM, twi.Key("scheme"), twi.OnClick(func(*twi.Event) { s.flipScheme() }),
+			ui.Button(ui.ButtonGhost, ui.ButtonSizeSM, twi.Key("scheme"), twi.OnClick(func(*twi.Event) { s.flipScheme() }),
 				twi.Text(string(map[theme.Scheme]icon.Name{theme.Light: icon.Sun, theme.Dark: icon.Moon}[s.scheme].Glyph()))),
 		),
 		el("flex flex-row flex-1 min-h-0", s.sidebar.Provider(s.nav(), ui.SidebarInset(el("flex flex-row flex-1 min-h-0", s.content(e), s.outline(e))))),
@@ -315,7 +315,7 @@ func (s *site) nav() twi.Node {
 		for ; i < len(s.entries) && s.entries[i].group == group; i++ {
 			at, e := i, s.entries[i]
 			if fold.Open {
-				items = append(items, ui.SidebarMenuButton(ui.SizeDefault, i == s.page,
+				items = append(items, ui.SidebarMenuButton(ui.SidebarMenuButtonSizeDefault, ui.Active(i == s.page),
 					twi.Key("nav-"+e.slug), twi.OnClick(func(*twi.Event) { s.open(at) }), twi.Text(e.title),
 					twi.OnFocus(func(*twi.Event) { s.focusRow(at) }), twi.OnBlur(func(*twi.Event) {
 						if !s.palette.Open {
@@ -326,7 +326,7 @@ func (s *site) nav() twi.Node {
 		}
 		chevron := map[bool]string{true: "⌄", false: "›"}[fold.Open]
 		groups = append(groups, ui.SidebarGroup(
-			fold.Trigger(ui.Ghost, ui.SizeSM, twi.Key("group-"+group), twi.Class("justify-between px-1 text-sidebar-foreground/70"), twi.Text(group), twi.Text(chevron)),
+			fold.Trigger(ui.ButtonGhost, ui.ButtonSizeSM, twi.Key("group-"+group), twi.Class("justify-between px-1 text-sidebar-foreground/70"), twi.Text(group), twi.Text(chevron)),
 			fold.Content(ui.SidebarMenu(items...)),
 		))
 	}
@@ -346,7 +346,7 @@ func (s *site) focusRow(at int) {
 
 func (s *site) content(e entry) twi.Node {
 	step := func(to int, label string) twi.Node {
-		return ui.Button(ui.Secondary, ui.SizeSM, twi.Key("pager-"+s.entries[to].slug), twi.OnClick(func(*twi.Event) { s.open(to) }), twi.Text(label))
+		return ui.Button(ui.ButtonSecondary, ui.ButtonSizeSM, twi.Key("pager-"+s.entries[to].slug), twi.OnClick(func(*twi.Event) { s.open(to) }), twi.Text(label))
 	}
 	pager := []twi.NodeOption{el("")}
 	if s.page > 0 {

@@ -7,13 +7,13 @@ Displays a callout for the user's attention.
 ## Usage
 
 ```go
-ui.Alert(ui.Default,
+ui.Alert(ui.AlertDefault,
 	ui.AlertTitle(twi.Text("Heads up!")),
 	ui.AlertDescription(twi.Text("You can add components to your app with the CLI.")),
 )
 ```
 
-`ui.Destructive` colours the text for an error.
+`ui.AlertDestructive` colours the text for an error.
 
 ## API reference
 

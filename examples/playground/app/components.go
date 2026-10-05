@@ -65,7 +65,7 @@ type kit struct {
 
 func newKit(rt *twi.Runtime, today time.Time) *kit {
 	k := &kit{
-		dialog: ui.NewDialog(rt), sheet: ui.NewSheet(rt, ui.Right), alert: ui.NewAlertDialog(rt), drawer: ui.NewDrawer(rt, ui.Bottom),
+		dialog: ui.NewDialog(rt), sheet: ui.NewSheet(rt, ui.SideRight), alert: ui.NewAlertDialog(rt), drawer: ui.NewDrawer(rt, ui.SideBottom),
 		palette: ui.NewCommandDialog(rt), toaster: ui.NewToaster(rt), tip: ui.NewTooltip(rt), hint: ui.NewTooltip(rt),
 		accordion: ui.NewAccordion(rt), collapsible: ui.NewCollapsible(rt), command: ui.NewCommand(rt),
 		context: ui.NewContextMenu(rt), menu: ui.NewDropdownMenu(rt), hover: ui.NewHoverCard(rt),
@@ -75,7 +75,7 @@ func newKit(rt *twi.Runtime, today time.Time) *kit {
 		airplane: ui.NewSwitch(rt), tabs: ui.NewTabs(rt), align: ui.NewToggleGroup(rt), marks: ui.NewToggleGroup(rt), sidebar: ui.NewSidebar(rt),
 		chosen: "nothing yet", side: "Home", person: "Pedro Duarte", panel: "Bottom", statusBar: true, progress: 60, goal: 350, row: -1,
 	}
-	k.tip.Side, k.tip.Align = ui.Bottom, ui.End
+	k.tip.Side, k.tip.Align = ui.SideBottom, ui.AlignEnd
 	k.invite, k.moves = k.menu.Sub(), newMoves(rt)
 	k.file, k.edit, k.view = k.bar.Menu(), k.bar.Menu(), k.bar.Menu()
 	choose := func(item string) { k.chosen = item }
@@ -85,9 +85,9 @@ func newKit(rt *twi.Runtime, today time.Time) *kit {
 		k.checks[i] = ui.NewCheckbox(rt)
 	}
 	k.checks[1].Checked, k.checks[2].Invalid, k.checks[3].Disabled = true, true, true
-	for i, v := range []ui.Variant{ui.Default, ui.Outline, ui.Default} {
+	for i, v := range []ui.ToggleVariant{ui.ToggleDefault, ui.ToggleOutline, ui.ToggleDefault} {
 		k.toggles[i] = ui.NewToggle(rt)
-		k.toggles[i].Variant, k.toggles[i].Size = v, []ui.Size{ui.SizeDefault, ui.SizeSM, ui.SizeLG}[i]
+		k.toggles[i].Variant, k.toggles[i].Size = v, []ui.ToggleSize{ui.ToggleSizeDefault, ui.ToggleSizeSM, ui.ToggleSizeLG}[i]
 	}
 	k.email.Placeholder, k.off.Placeholder, k.site.Placeholder = "m@example.com", "Disabled", "example"
 	k.bad.Insert("not-an-email")
@@ -97,8 +97,8 @@ func newKit(rt *twi.Runtime, today time.Time) *kit {
 	k.area.Placeholder = "Type your message here."
 	k.native.Options, k.native.Value = []string{"Todo", "In Progress", "Done", "Cancelled"}, "Todo"
 	k.radio.Value, k.fruit.Placeholder, k.slider.Value = "comfortable", "Select a fruit", 33
-	k.popover.Align, k.menu.Align = ui.Start, ui.Start
-	k.align.Variant, k.align.Value = ui.Outline, []string{"left"}
+	k.popover.Align, k.menu.Align = ui.AlignStart, ui.AlignStart
+	k.align.Variant, k.align.Value = ui.ToggleOutline, []string{"left"}
 	k.marks.Multiple, k.marks.Value = true, []string{"bold"}
 	for i := range k.spinners {
 		k.spinners[i] = ui.NewSpinner(rt)
@@ -117,6 +117,7 @@ func newKit(rt *twi.Runtime, today time.Time) *kit {
 	k.scroller, k.sent = ui.NewMessageScroller(rt), len(chatLines())
 	k.panes, k.stack, k.carousel = ui.NewResizable(rt), ui.NewResizable(rt), ui.NewCarousel(rt)
 	k.panes.Sizes, k.stack.Orientation = []int{40, 60}, ui.Vertical
+	k.panes.WithHandle, k.stack.WithHandle = true, true
 	k.signup, k.handle, k.mail, k.secret = ui.NewForm(rt), ui.NewInput(rt), ui.NewInput(rt), ui.NewInput(rt)
 	k.plan, k.agree, k.bio, k.joined = ui.NewSelect(rt), ui.NewCheckbox(rt), ui.NewTextarea(rt), "not yet"
 	k.handle.Placeholder, k.mail.Placeholder, k.secret.Placeholder, k.plan.Placeholder = "shadcn", "m@example.com", "8 or more characters", "Select a plan"
@@ -214,23 +215,23 @@ func row(children ...twi.Node) twi.Node { return el("flex flex-row items-center 
 func alertPage(controls) twi.Node {
 	return show("Alert", "a callout that asks for attention, default and destructive",
 		el("w-60 flex flex-col gap-1",
-			ui.Alert(ui.Default, ui.AlertTitle(twi.Text("✓ Success! Your changes have been saved")), ui.AlertDescription(twi.Text("An alert with an icon, a title and a description."))),
-			ui.Alert(ui.Destructive, ui.AlertTitle(twi.Text("⊗ Unable to process your payment.")), ui.AlertDescription(twi.Text("Verify your billing information and try again."))),
+			ui.Alert(ui.AlertDefault, ui.AlertTitle(twi.Text("✓ Success! Your changes have been saved")), ui.AlertDescription(twi.Text("An alert with an icon, a title and a description."))),
+			ui.Alert(ui.AlertDestructive, ui.AlertTitle(twi.Text("⊗ Unable to process your payment.")), ui.AlertDescription(twi.Text("Verify your billing information and try again."))),
 		))
 }
 
 func avatarPage(controls) twi.Node {
 	return show("Avatar", "a user's image or initials in three sizes",
 		row(
-			ui.Avatar(ui.SizeSM, ui.AvatarFallback(twi.Text("CN"))),
-			ui.Avatar(ui.SizeDefault, ui.AvatarFallback(twi.Text("CN"))),
-			ui.Avatar(ui.SizeLG, ui.AvatarFallback(twi.Text("ER"))),
+			ui.Avatar(ui.AvatarSizeSM, ui.AvatarFallback(twi.Text("CN"))),
+			ui.Avatar(ui.AvatarSizeDefault, ui.AvatarFallback(twi.Text("CN"))),
+			ui.Avatar(ui.AvatarSizeLG, ui.AvatarFallback(twi.Text("ER"))),
 		))
 }
 
 func badgePage(controls) twi.Node {
 	var badges []twi.Node
-	for i, v := range []ui.Variant{ui.Default, ui.Secondary, ui.Destructive, ui.Outline, ui.Ghost, ui.Link} {
+	for i, v := range []ui.BadgeVariant{ui.BadgeDefault, ui.BadgeSecondary, ui.BadgeDestructive, ui.BadgeOutline, ui.BadgeGhost, ui.BadgeLink} {
 		badges = append(badges, ui.Badge(v, twi.Text([]string{"default", "secondary", "destructive", "outline", "ghost", "link"}[i])))
 	}
 	return show("Badge", "six variants", row(badges...))
@@ -251,25 +252,25 @@ func breadcrumbPage(c controls) twi.Node {
 
 func buttonPage(c controls) twi.Node {
 	k := c.kit
-	pressable := func(v ui.Variant, s ui.Size, label string, extra ...twi.NodeOption) twi.Node {
+	pressable := func(v ui.ButtonVariant, s ui.ButtonSize, label string, extra ...twi.NodeOption) twi.Node {
 		return ui.Button(v, s, append(extra, c.clicked(func() { k.pressed = label }), twi.Text(label))...)
 	}
 	var variants []twi.Node
-	for i, v := range []ui.Variant{ui.Default, ui.Secondary, ui.Destructive, ui.Outline, ui.Ghost, ui.Link} {
-		variants = append(variants, pressable(v, ui.SizeDefault, []string{"Default", "Secondary", "Destructive", "Outline", "Ghost", "Link"}[i]))
+	for i, v := range []ui.ButtonVariant{ui.ButtonDefault, ui.ButtonSecondary, ui.ButtonDestructive, ui.ButtonOutline, ui.ButtonGhost, ui.ButtonLink} {
+		variants = append(variants, pressable(v, ui.ButtonSizeDefault, []string{"Default", "Secondary", "Destructive", "Outline", "Ghost", "Link"}[i]))
 	}
 	return show("Button", "six variants, five sizes and disabled; a click or Enter presses",
 		row(variants...),
 		row(
-			pressable(ui.Outline, ui.SizeXS, "XS"), pressable(ui.Outline, ui.SizeSM, "Small"), pressable(ui.Outline, ui.SizeDefault, "Default size"),
-			pressable(ui.Outline, ui.SizeLG, "Large"), pressable(ui.Outline, ui.SizeIcon, "◆"), pressable(ui.Default, ui.SizeDefault, "Disabled", twi.Disabled()),
+			pressable(ui.ButtonOutline, ui.ButtonSizeXS, "XS"), pressable(ui.ButtonOutline, ui.ButtonSizeSM, "Small"), pressable(ui.ButtonOutline, ui.ButtonSizeDefault, "Default size"),
+			pressable(ui.ButtonOutline, ui.ButtonSizeLG, "Large"), pressable(ui.ButtonOutline, ui.ButtonSizeIcon, "◆"), pressable(ui.ButtonDefault, ui.ButtonSizeDefault, "Disabled", twi.Disabled()),
 		),
 		txt("text-muted-foreground", "pressed: "+k.pressed),
 	)
 }
 
 func buttonGroupPage(controls) twi.Node {
-	outline := func(s string) twi.Node { return ui.Button(ui.Outline, ui.SizeDefault, twi.Text(s)) }
+	outline := func(s string) twi.Node { return ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text(s)) }
 	return show("Button group", "buttons joined in a row or a column",
 		row(
 			ui.ButtonGroup(ui.Horizontal, outline("Archive"), outline("Report"), outline("Snooze")),
@@ -284,10 +285,10 @@ func cardPage(c controls) twi.Node {
 			ui.CardHeader(
 				ui.CardTitle(twi.Text("Login to your account")),
 				ui.CardDescription(twi.Text("Enter your email below to login")),
-				ui.CardAction(ui.Button(ui.Link, ui.SizeXS, twi.Text("Sign Up"))),
+				ui.CardAction(ui.Button(ui.ButtonLink, ui.ButtonSizeXS, twi.Text("Sign Up"))),
 			),
 			ui.CardContent(ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Email")), c.kit.email.Node())),
-			ui.CardFooter(twi.Class("gap-2"), ui.Button(ui.Default, ui.SizeDefault, twi.Text("Login")), ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Login with Google"))),
+			ui.CardFooter(twi.Class("gap-2"), ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Login")), ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Login with Google"))),
 		))
 }
 
@@ -295,11 +296,11 @@ func emptyPage(controls) twi.Node {
 	return show("Empty", "what a list shows before it has anything",
 		ui.Empty(twi.Class("w-60 border border-dashed"),
 			ui.EmptyHeader(
-				ui.EmptyMedia(ui.Icon, twi.Text("▣")),
+				ui.EmptyMedia(ui.EmptyMediaIcon, twi.Text("▣")),
 				ui.EmptyTitle(twi.Text("No projects yet")),
 				ui.EmptyDescription(twi.Text("You have not created a project yet. Start by creating your first one.")),
 			),
-			ui.EmptyContent(row(ui.Button(ui.Default, ui.SizeDefault, twi.Text("Create project")), ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Import project")))),
+			ui.EmptyContent(row(ui.Button(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Create project")), ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Import project")))),
 		))
 }
 
@@ -332,24 +333,24 @@ func formPage(c controls) twi.Node {
 			),
 			el("w-28 flex flex-col", text("bio", "Bio")),
 		),
-		row(c.uiButton("form-submit", ui.Default, "Create account", func(*state) { f.Submit() }), c.uiButton("form-reset", ui.Outline, "Reset", func(*state) { f.Reset() }), txt("text-muted-foreground", "joined: "+k.joined)))
+		row(c.uiButton("form-submit", ui.ButtonDefault, "Create account", func(*state) { f.Submit() }), c.uiButton("form-reset", ui.ButtonOutline, "Reset", func(*state) { f.Reset() }), txt("text-muted-foreground", "joined: "+k.joined)))
 }
 
 func itemPage(controls) twi.Node {
 	return show("Item", "media, content and actions in a row; outline, muted and small",
 		ui.ItemGroup(twi.Class("w-60 gap-1"),
-			ui.Item(ui.Outline, ui.SizeDefault,
+			ui.Item(ui.ItemOutline, ui.ItemSizeDefault,
 				ui.ItemContent(ui.ItemTitle(twi.Text("Basic item")), ui.ItemDescription(twi.Text("A title and a description."))),
-				ui.ItemActions(ui.Button(ui.Outline, ui.SizeSM, twi.Text("Action"))),
+				ui.ItemActions(ui.Button(ui.ButtonOutline, ui.ButtonSizeSM, twi.Text("Action"))),
 			),
 			ui.ItemSeparator(),
-			ui.Item(ui.Muted, ui.SizeSM,
-				ui.ItemMedia(ui.Icon, twi.Text("✓")),
+			ui.Item(ui.ItemMuted, ui.ItemSizeSM,
+				ui.ItemMedia(ui.ItemMediaIcon, twi.Text("✓")),
 				ui.ItemContent(ui.ItemTitle(twi.Text("Your profile has been verified."))),
 				ui.ItemActions(twi.Text("›")),
 			),
-			ui.Item(ui.Default, ui.SizeDefault,
-				ui.ItemMedia(ui.Default, ui.Avatar(ui.SizeSM, ui.AvatarFallback(twi.Text("ER")))),
+			ui.Item(ui.ItemDefault, ui.ItemSizeDefault,
+				ui.ItemMedia(ui.ItemMediaDefault, ui.Avatar(ui.AvatarSizeSM, ui.AvatarFallback(twi.Text("ER")))),
 				ui.ItemContent(ui.ItemTitle(twi.Text("evilrabbit")), ui.ItemDescription(twi.Text("Last seen 5 months ago"))),
 			),
 		))
@@ -372,7 +373,7 @@ func paginationPage(c controls) twi.Node {
 	k := c.kit
 	links := []twi.NodeOption{ui.PaginationItem(ui.PaginationPrevious(c.clicked(func() { k.at = max(k.at-1, 0) })))}
 	for i := range 3 {
-		links = append(links, ui.PaginationItem(ui.PaginationLink(i == k.at, c.clicked(func() { k.at = i }), twi.Text(strconv.Itoa(i+1)))))
+		links = append(links, ui.PaginationItem(ui.PaginationLink(ui.Active(i == k.at), c.clicked(func() { k.at = i }), twi.Text(strconv.Itoa(i+1)))))
 	}
 	links = append(links, ui.PaginationItem(ui.PaginationEllipsis()), ui.PaginationItem(ui.PaginationNext(c.clicked(func() { k.at = min(k.at+1, 2) }))))
 	return show("Pagination", "previous, pages and next; a click or Enter turns",
@@ -384,7 +385,7 @@ func paginationPage(c controls) twi.Node {
 func progressPage(c controls) twi.Node {
 	k := c.kit
 	step := func(label string, by int) twi.Node {
-		return ui.Button(ui.Outline, ui.SizeSM, c.clicked(func() { k.progress = min(max(k.progress+by, 0), 100) }), twi.Text(label))
+		return ui.Button(ui.ButtonOutline, ui.ButtonSizeSM, c.clicked(func() { k.progress = min(max(k.progress+by, 0), 100) }), twi.Text(label))
 	}
 	return show("Progress", "a bar in hundredths of its width",
 		el("w-60 flex flex-col", ui.Progress(k.progress)),
@@ -438,10 +439,10 @@ func scrollAreaPage(controls) twi.Node {
 func sidebarPage(c controls) twi.Node {
 	k := c.kit
 	button := func(glyph, name string) twi.Node {
-		return ui.SidebarMenuButton(ui.SizeDefault, k.side == name, c.clicked(func() { k.side = name }), txt("w-1", glyph), twi.Text(name))
+		return ui.SidebarMenuButton(ui.SidebarMenuButtonSizeDefault, ui.Active(k.side == name), c.clicked(func() { k.side = name }), txt("w-1", glyph), twi.Text(name))
 	}
 	sub := func(name string) twi.Node {
-		return ui.SidebarMenuSubItem(ui.SidebarMenuSubButton(k.side == name, c.clicked(func() { k.side = name }), twi.Text(name)))
+		return ui.SidebarMenuSubItem(ui.SidebarMenuSubButton(ui.Active(k.side == name), c.clicked(func() { k.side = name }), twi.Text(name)))
 	}
 	return show("Sidebar", "ctrl+b or the trigger collapses it to icons",
 		el("h-16 w-80 flex flex-row rounded-lg border overflow-hidden",

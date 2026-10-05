@@ -25,6 +25,16 @@
 - `drive.Frame.Cells` is removed; the frame itself has `Width`, `Height`, `At(x, y)` and `Row(y)`, which return `drive.Cell` (grapheme, `Fg`, `Bg`, `Attr` with `drive.Bold` and the rest, `Width` with `drive.Wide` and `drive.Continuation`). Migrate: `f.Cells().At(x, y)` becomes `f.At(x, y)`.
 - `drive.Styles` is removed; `drive.With` passes any `twi.Option` to the driven runtime. Migrate: `drive.Styles(sheet)` becomes `drive.With(twi.Styles(sheet))`.
 - `ui.Input` and `ui.Textarea` end an undo step after a pause in typing, on the runtime clock. `rt.Now` reads that clock.
+- `ui.Variant` and `ui.Size` are gone. Each component takes its own type with shadcn's names, and a variant or size the component does not draw no longer compiles: `ButtonVariant` (`ButtonDefault`, `ButtonDestructive`, `ButtonOutline`, `ButtonSecondary`, `ButtonGhost`, `ButtonLink`) and `ButtonSize` (`ButtonSizeDefault`, `ButtonSizeXS`, `ButtonSizeSM`, `ButtonSizeLG`, `ButtonSizeIcon`), also taken by every `Trigger(v, s, ...)` and `Close(v, s, ...)`; `AlertVariant`; `BadgeVariant`; `AvatarSize`; `ItemVariant`, `ItemSize` and `ItemMediaVariant`; `EmptyMediaVariant`; `AttachmentMediaVariant`; `BubbleVariant`; `MarkerVariant`; `ToggleVariant` and `ToggleSize` for `Toggle` and `ToggleGroup`; `SidebarMenuButtonSize`. Migrate: `ui.Button(ui.Outline, ui.SizeSM, ...)` becomes `ui.Button(ui.ButtonOutline, ui.ButtonSizeSM, ...)`, `ui.Badge(ui.Secondary, ...)` becomes `ui.Badge(ui.BadgeSecondary, ...)`, and so on.
+- `ui.Marker` variants take shadcn's names: `Ruled` becomes `MarkerSeparator`, `Bordered` becomes `MarkerBorder`.
+- One alignment enum: `ui.Alignment` becomes `ui.Align` with `AlignCenter`, `AlignStart` and `AlignEnd`, and the input group's `ui.Align` is gone. `ui.Side` values are prefixed: `SideBottom`, `SideTop`, `SideRight`, `SideLeft`. `InputGroupAddon` takes a `ui.Side`. Migrate: `ui.Start` becomes `ui.AlignStart`, `ui.Right` becomes `ui.SideRight`, `ui.InlineStart` becomes `ui.SideLeft`, `ui.InlineEnd` becomes `ui.SideRight`, `ui.BlockStart` becomes `ui.SideTop` and `ui.BlockEnd` becomes `ui.SideBottom`.
+- `Message`, `Bubble` and `BubbleReactions` draw every `Align` and `Side` instead of panicking on center or a left or right side.
+- `ui.Upload` values are prefixed: `UploadDone`, `UploadIdle`, `UploadUploading`, `UploadProcessing`, `UploadFailed`.
+- `ui.Input` and `ui.Textarea` call `OnSubmit`, renamed from `Submit`. Migrate: `in.Submit = f` becomes `in.OnSubmit = f`.
+- Positional bools become named options: `PaginationLink`, `SidebarMenuButton` and `SidebarMenuSubButton` lose their bool and read `ui.Active(on)`; `Resizable.Handle` loses its bool and reads the new `Resizable.WithHandle` field. Migrate: `ui.PaginationLink(i == page, ...)` becomes `ui.PaginationLink(ui.Active(i == page), ...)`, `r.Handle(true)` becomes `r.WithHandle = true` and `r.Handle()`.
+- `DropdownMenuSeparator`, `SelectSeparator`, `SidebarSeparator` and `InputOTPSeparator` take options like every other part.
+- `Toaster.Show`, `Success` and `Error` take any number of `ToastAction`s, one button each. Migrate: `toaster.Show(t, d, ui.ToastAction{})` becomes `toaster.Show(t, d)`.
+- `ui.ToastKind` and its values are unexported; nothing took them.
 
 ## v0.5.0 (2026-10-05)
 

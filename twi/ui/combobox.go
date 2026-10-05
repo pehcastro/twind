@@ -24,7 +24,7 @@ type Combobox struct {
 }
 
 func NewCombobox(rt *twi.Runtime) *Combobox {
-	c := &Combobox{anchored: newAnchored(rt, Bottom, Start), Empty: "No items found.", field: NewInput(rt)}
+	c := &Combobox{anchored: newAnchored(rt, SideBottom, AlignStart), Empty: "No items found.", field: NewInput(rt)}
 	c.sizing, c.sideOffset = triggerWidth, 1
 	return c
 }
@@ -41,13 +41,13 @@ func (c *Combobox) Input(options ...twi.NodeOption) twi.Node {
 	if c.ShowClear && c.field.Value() != "" {
 		glyph, act = "✕", c.click(func() { c.choose(selectItem{}) })
 	}
-	trigger := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{act, icon(glyph, "")})
+	trigger := part(button(ButtonGhost, ButtonSizeIcon, "text-muted-foreground"), []twi.NodeOption{act, icon(glyph, "")})
 	field := c.field.field("h-1 grow", []twi.NodeOption{twi.OnBlur(func(*twi.Event) { c.set(false) }), c.click(func() {
 		if !c.Open {
 			c.show()
 		}
 	})})
-	return group(&c.field.control, field, []Addon{InputGroupAddon(InlineEnd, trigger)}, append(options, keyDown(c.rt, c.key))...)
+	return group(&c.field.control, field, []Addon{InputGroupAddon(SideRight, trigger)}, append(options, keyDown(c.rt, c.key))...)
 }
 
 func (c *Combobox) Content(children ...twi.NodeOption) twi.Node {

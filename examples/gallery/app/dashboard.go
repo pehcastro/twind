@@ -39,7 +39,7 @@ func newDashboard(rt *twi.Runtime) func() twi.Node {
 	visitors := []month{{"Jan", 186, 80}, {"Feb", 305, 200}, {"Mar", 237, 120}, {"Apr", 73, 190}, {"May", 209, 130}, {"Jun", 214, 140}}
 	peak, heights := 305, strings.Fields(barHeights)
 	span := ui.NewToggleGroup(rt)
-	span.Variant, span.Size, span.Value = ui.Outline, ui.SizeSM, []string{"6m"}
+	span.Variant, span.Size, span.Value = ui.ToggleOutline, ui.ToggleSizeSM, []string{"6m"}
 	at, pageCount := 0, (len(docs)+rowsPerPage-1)/rowsPerPage
 	selected, picked := "", ""
 	turnTo := func(page int) twi.NodeOption { return clicked(rt, func() { at = min(max(page, 0), pageCount-1) }) }
@@ -52,7 +52,7 @@ func newDashboard(rt *twi.Runtime) func() twi.Node {
 		return ui.Card(twi.Class(class), clicked(rt, func() { picked = label }),
 			el("flex flex-col",
 				ui.CardDescription(twi.Text(label)),
-				el("flex flex-row items-center justify-between", ui.CardTitle(twi.Text(value)), ui.Badge(ui.Outline, twi.Text(arrow+" "+delta))),
+				el("flex flex-row items-center justify-between", ui.CardTitle(twi.Text(value)), ui.Badge(ui.BadgeOutline, twi.Text(arrow+" "+delta))),
 			),
 			el("flex flex-col", txt("font-medium", trend+" "+arrow), txt("text-muted-foreground truncate", note)),
 		)
@@ -88,13 +88,13 @@ func newDashboard(rt *twi.Runtime) func() twi.Node {
 			rows = append(rows, ui.TableRow(twi.Class(map[bool]string{true: "bg-muted", false: ""}[d.title == selected]), clicked(rt, func() { selected = d.title }),
 				ui.TableCell(twi.Class("min-w-0 truncate font-medium"), twi.Text(d.title)),
 				ui.TableCell(twi.Class("hidden min-w-0 truncate lg:block"), twi.Text(d.kind)),
-				ui.TableCell(twi.Class("flex-none w-17"), ui.Badge(ui.Outline, mark, twi.Text(d.status))),
+				ui.TableCell(twi.Class("flex-none w-17"), ui.Badge(ui.BadgeOutline, mark, twi.Text(d.status))),
 				ui.TableCell(twi.Class("flex-none w-14 min-w-0"), reviewer),
 			))
 		}
 		links := []twi.NodeOption{ui.PaginationItem(ui.PaginationPrevious(turnTo(at - 1)))}
 		for i := range pageCount {
-			links = append(links, ui.PaginationItem(ui.PaginationLink(i == at, turnTo(i), twi.Text(fmt.Sprint(i+1)))))
+			links = append(links, ui.PaginationItem(ui.PaginationLink(ui.Active(i == at), turnTo(i), twi.Text(fmt.Sprint(i+1)))))
 		}
 		links = append(links, ui.PaginationItem(ui.PaginationNext(turnTo(at+1))))
 		shown := visitors

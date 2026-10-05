@@ -9,12 +9,12 @@ import (
 	"github.com/pehcastro/twind/twi"
 )
 
-type ToastKind uint8
+type toastKind uint8
 
 const (
-	ToastDefault ToastKind = iota
-	ToastSuccess
-	ToastError
+	toastDefault toastKind = iota
+	toastSuccess
+	toastError
 )
 
 type ToastAction struct {
@@ -24,9 +24,9 @@ type ToastAction struct {
 
 type toast struct {
 	id                 int
-	kind               ToastKind
+	kind               toastKind
 	title, description string
-	action             ToastAction
+	actions            []ToastAction
 	left               time.Duration
 	tick               *twi.Timer
 }
@@ -51,21 +51,21 @@ func (t *Toaster) Avoid(panels ...*Dialog) {
 	t.panels = append(t.panels, panels...)
 }
 
-func (t *Toaster) Show(title, description string, action ToastAction) {
-	t.add(ToastDefault, title, description, action)
+func (t *Toaster) Show(title, description string, actions ...ToastAction) {
+	t.add(toastDefault, title, description, actions)
 }
 
-func (t *Toaster) Success(title, description string, action ToastAction) {
-	t.add(ToastSuccess, title, description, action)
+func (t *Toaster) Success(title, description string, actions ...ToastAction) {
+	t.add(toastSuccess, title, description, actions)
 }
 
-func (t *Toaster) Error(title, description string, action ToastAction) {
-	t.add(ToastError, title, description, action)
+func (t *Toaster) Error(title, description string, actions ...ToastAction) {
+	t.add(toastError, title, description, actions)
 }
 
-func (t *Toaster) add(kind ToastKind, title, description string, action ToastAction) {
+func (t *Toaster) add(kind toastKind, title, description string, actions []ToastAction) {
 	t.made++
-	s := &toast{id: t.made, kind: kind, title: title, description: description, action: action, left: t.Duration}
+	s := &toast{id: t.made, kind: kind, title: title, description: description, actions: actions, left: t.Duration}
 	t.toasts = append(t.toasts, s)
 	if !t.hovered {
 		t.run(s)
@@ -142,15 +142,15 @@ func (t *Toaster) Node() twi.Node {
 			continue
 		}
 		switch p.side {
-		case Left:
+		case SideLeft:
 			before = []twi.NodeOption{part("h-full shrink-0 "+sideWidth, nil)}
-		case Right:
+		case SideRight:
 			after = []twi.NodeOption{part("h-full shrink-0 "+sideWidth, nil)}
-		case Bottom:
+		case SideBottom:
 			if box := p.box.Bounds(); !box.Empty() {
 				top = min(top, box.Min.Y-t.rt.Viewport().Max.Y)
 			}
-		case Top:
+		case SideTop:
 		}
 	}
 	stack := part("flex flex-col w-52 max-w-full min-w-0 pointer-events-auto "+gap, children)
@@ -161,10 +161,10 @@ func (t *Toaster) Node() twi.Node {
 func (t *Toaster) toast(s *toast) twi.Node {
 	var mark []twi.NodeOption
 	switch s.kind {
-	case ToastDefault:
-	case ToastSuccess:
+	case toastDefault:
+	case toastSuccess:
 		mark = []twi.NodeOption{icon("✓", "shrink-0")}
-	case ToastError:
+	case toastError:
 		mark = []twi.NodeOption{icon("⊗", "shrink-0")}
 	default:
 		panic("ui: unknown toast kind")
@@ -173,21 +173,15 @@ func (t *Toaster) toast(s *toast) twi.Node {
 	if s.description != "" {
 		body = append(body, part("text-muted-foreground", []twi.NodeOption{twi.Text(s.description)}))
 	}
-	var action []twi.NodeOption
-	if s.action.Label != "" {
-		action = []twi.NodeOption{Button(Default, SizeXS, twi.OnClick(func(*twi.Event) {
-			if s.action.OnClick != nil {
-				s.action.OnClick()
+	row := slices.Concat([]twi.NodeOption{twi.Key(strconv.Itoa(s.id))}, mark, []twi.NodeOption{part("flex flex-col grow min-w-0", body)})
+	for _, a := range s.actions {
+		row = append(row, Button(ButtonDefault, ButtonSizeXS, twi.OnClick(func(*twi.Event) {
+			if a.OnClick != nil {
+				a.OnClick()
 			}
 			t.dismiss(s)
-		}), twi.Text(s.action.Label))}
+		}), twi.Text(a.Label)))
 	}
-	closeButton := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{twi.OnClick(func(*twi.Event) { t.dismiss(s) }), icon("✕", "")})
-	return part("flex flex-row items-start gap-1 shrink-0 rounded-lg border bg-popover pl-2 pr-1 py-1 text-popover-foreground shadow-lg", slices.Concat(
-		[]twi.NodeOption{twi.Key(strconv.Itoa(s.id))},
-		mark,
-		[]twi.NodeOption{part("flex flex-col grow min-w-0", body)},
-		action,
-		[]twi.NodeOption{closeButton},
-	))
+	closeButton := part(button(ButtonGhost, ButtonSizeIcon, "text-muted-foreground"), []twi.NodeOption{twi.OnClick(func(*twi.Event) { t.dismiss(s) }), icon("✕", "")})
+	return part("flex flex-row items-start gap-1 shrink-0 rounded-lg border bg-popover pl-2 pr-1 py-1 text-popover-foreground shadow-lg", append(row, closeButton))
 }

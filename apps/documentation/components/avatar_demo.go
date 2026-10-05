@@ -8,9 +8,9 @@ import (
 func AvatarDemo(*twi.Runtime) func() twi.Node {
 	return func() twi.Node {
 		return twi.Element(twi.Class("flex flex-row items-center gap-2"),
-			ui.Avatar(ui.SizeSM, ui.AvatarFallback(twi.Text("CN"))),
-			ui.Avatar(ui.SizeDefault, ui.AvatarFallback(twi.Text("CN"))),
-			ui.Avatar(ui.SizeLG, ui.AvatarFallback(twi.Text("ER"))),
+			ui.Avatar(ui.AvatarSizeSM, ui.AvatarFallback(twi.Text("CN"))),
+			ui.Avatar(ui.AvatarSizeDefault, ui.AvatarFallback(twi.Text("CN"))),
+			ui.Avatar(ui.AvatarSizeLG, ui.AvatarFallback(twi.Text("ER"))),
 		)
 	}
 }

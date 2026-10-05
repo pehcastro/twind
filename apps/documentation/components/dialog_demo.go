@@ -12,7 +12,7 @@ func DialogDemo(rt *twi.Runtime) func() twi.Node {
 	username.Insert("@peduarte")
 	return func() twi.Node {
 		return twi.Element(twi.Class("flex flex-row"),
-			dialog.Trigger(ui.Outline, ui.SizeDefault, twi.Text("Edit profile")),
+			dialog.Trigger(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Edit profile")),
 			dialog.Content(
 				dialog.Header(
 					dialog.Title(twi.Text("Edit profile")),
@@ -23,8 +23,8 @@ func DialogDemo(rt *twi.Runtime) func() twi.Node {
 					ui.Field(ui.Vertical, ui.FieldLabel(twi.Text("Username")), username.Node()),
 				),
 				dialog.Footer(
-					dialog.Close(ui.Outline, ui.SizeDefault, twi.Text("Cancel")),
-					dialog.Close(ui.Default, ui.SizeDefault, twi.Text("Save changes")),
+					dialog.Close(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Cancel")),
+					dialog.Close(ui.ButtonDefault, ui.ButtonSizeDefault, twi.Text("Save changes")),
 				),
 			),
 		)

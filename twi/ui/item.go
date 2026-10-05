@@ -2,24 +2,47 @@ package ui
 
 import "github.com/pehcastro/twind/twi"
 
-func Item(v Variant, s Size, children ...twi.NodeOption) twi.Node {
+type ItemVariant uint8
+
+const (
+	ItemDefault ItemVariant = iota
+	ItemOutline
+	ItemMuted
+)
+
+type ItemSize uint8
+
+const (
+	ItemSizeDefault ItemSize = iota
+	ItemSizeSM
+)
+
+func Item(v ItemVariant, s ItemSize, children ...twi.NodeOption) twi.Node {
 	return part("flex flex-row items-center rounded-md border px-1 "+
-		pick("item", v, map[Variant]string{
-			Default: "border-transparent bg-transparent",
-			Outline: "border-border",
-			Muted:   "border-transparent bg-muted/50",
+		pick("item", v, map[ItemVariant]string{
+			ItemDefault: "border-transparent bg-transparent",
+			ItemOutline: "border-border",
+			ItemMuted:   "border-transparent bg-muted/50",
 		})+" "+
-		pick("item", s, map[Size]string{
-			SizeDefault: "gap-2",
-			SizeSM:      "gap-1",
+		pick("item", s, map[ItemSize]string{
+			ItemSizeDefault: "gap-2",
+			ItemSizeSM:      "gap-1",
 		}), children)
 }
 
-func ItemMedia(v Variant, children ...twi.NodeOption) twi.Node {
-	return part("flex flex-row shrink-0 items-center justify-center gap-1 "+pick("item media", v, map[Variant]string{
-		Default: "bg-transparent",
-		Icon:    "h-1 w-3 rounded-sm bg-muted shadow-[0_0_0_1px_var(--color-border)]",
-		Image:   "h-3 w-5 overflow-hidden rounded-sm",
+type ItemMediaVariant uint8
+
+const (
+	ItemMediaDefault ItemMediaVariant = iota
+	ItemMediaIcon
+	ItemMediaImage
+)
+
+func ItemMedia(v ItemMediaVariant, children ...twi.NodeOption) twi.Node {
+	return part("flex flex-row shrink-0 items-center justify-center gap-1 "+pick("item media", v, map[ItemMediaVariant]string{
+		ItemMediaDefault: "bg-transparent",
+		ItemMediaIcon:    "h-1 w-3 rounded-sm bg-muted shadow-[0_0_0_1px_var(--color-border)]",
+		ItemMediaImage:   "h-3 w-5 overflow-hidden rounded-sm",
 	}), children)
 }
 

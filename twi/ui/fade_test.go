@@ -71,7 +71,7 @@ func TestFadingOverlaysShowNoPageInsideThePanel(t *testing.T) {
 		return func() twi.Node {
 			return twi.Element(append([]twi.NodeOption{
 				twi.Class("flex flex-col h-full bg-background text-foreground"),
-				m.Node(m.Trigger(Outline, SizeDefault, twi.Text("Open")), m.Content(m.Item("Profile"), m.Item("Billing"), m.Item("Team"), m.Item("Log out"))),
+				m.Node(m.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Open")), m.Content(m.Item("Profile"), m.Item("Billing"), m.Item("Team"), m.Item("Log out"))),
 			}, pageOfLetters(width, height-3)...)...)
 		}
 	})
@@ -89,10 +89,10 @@ func TestFadingOverlaysShowNoPageInsideThePanel(t *testing.T) {
 		return func() twi.Node {
 			return twi.Element(append([]twi.NodeOption{
 				twi.Class("flex flex-col h-full bg-background text-foreground"),
-				dialog.Trigger(Outline, SizeDefault, twi.Text("Edit")),
+				dialog.Trigger(ButtonOutline, ButtonSizeDefault, twi.Text("Edit")),
 				dialog.Content(
 					dialog.Header(dialog.Title(twi.Text("Edit profile")), dialog.Description(twi.Text("Make changes here."))),
-					dialog.Footer(dialog.Close(Outline, SizeDefault, twi.Text("Cancel"))),
+					dialog.Footer(dialog.Close(ButtonOutline, ButtonSizeDefault, twi.Text("Cancel"))),
 				),
 			}, pageOfLetters(width, height-3)...)...)
 		}

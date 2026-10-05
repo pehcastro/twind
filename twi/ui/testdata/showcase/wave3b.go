@@ -61,7 +61,7 @@ func wave3b(rt *twi.Runtime, open string) func() twi.Node {
 			),
 		)
 	}
-	outline, size := ui.Outline, ui.SizeDefault
+	outline, size := ui.ButtonOutline, ui.ButtonSizeDefault
 	return func() twi.Node {
 		return el("flex flex-row grow gap-4",
 			el("flex flex-col gap-2 flex-1 min-w-40",
@@ -78,7 +78,7 @@ func wave3b(rt *twi.Runtime, open string) func() twi.Node {
 				)),
 				el("flex flex-row flex-wrap gap-x-4 gap-y-1",
 					section("Collapsible", repos.Node(twi.Class("w-44 gap-1"),
-						el("flex flex-row items-center justify-between gap-4 px-2", text("font-semibold", "@peduarte starred 3 repositories"), repos.Trigger(ui.Ghost, ui.SizeIcon, label("↕"))),
+						el("flex flex-row items-center justify-between gap-4 px-2", text("font-semibold", "@peduarte starred 3 repositories"), repos.Trigger(ui.ButtonGhost, ui.ButtonSizeIcon, label("↕"))),
 						repo("@radix-ui/primitives"),
 						repos.Content(twi.Class("gap-1"), repo("@radix-ui/colors"), repo("@stitches/react")),
 					)),

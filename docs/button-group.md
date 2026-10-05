@@ -8,8 +8,8 @@ A container that joins related buttons.
 
 ```go
 ui.ButtonGroup(ui.Horizontal,
-	ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Archive")),
-	ui.Button(ui.Outline, ui.SizeDefault, twi.Text("Report")),
+	ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Archive")),
+	ui.Button(ui.ButtonOutline, ui.ButtonSizeDefault, twi.Text("Report")),
 )
 ```
 

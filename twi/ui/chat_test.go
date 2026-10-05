@@ -42,8 +42,8 @@ func TestMessageScrollerFollowsAndStops(t *testing.T) {
 		return counted(&renders, func() twi.Node {
 			var items []twi.NodeOption
 			for i := 1; i <= sent; i++ {
-				a := map[bool]Alignment{true: End, false: Start}[i%2 == 0]
-				items = append(items, s.Item(Message(a, MessageContent(Bubble(Secondary, a, BubbleContent(twi.Text("message "+strconv.Itoa(i))))))))
+				a := map[bool]Align{true: AlignEnd, false: AlignStart}[i%2 == 0]
+				items = append(items, s.Item(Message(a, MessageContent(Bubble(BubbleSecondary, a, BubbleContent(twi.Text("message "+strconv.Itoa(i))))))))
 			}
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
 				twi.OnKey(func(e *twi.Event) {
@@ -113,7 +113,7 @@ func TestMessageScrollerShortContentFollows(t *testing.T) {
 		s = NewMessageScroller(rt)
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col p-1 h-full bg-background text-foreground"),
-				s.Node(twi.Class("h-8 w-30"), s.Viewport(s.Item(Message(Start, MessageContent(twi.Text("only one"))))), s.Button()))
+				s.Node(twi.Class("h-8 w-30"), s.Viewport(s.Item(Message(AlignStart, MessageContent(twi.Text("only one"))))), s.Button()))
 		}
 	})
 	d.Wheel(5, 3, -3)
@@ -131,12 +131,13 @@ func TestResizableHandleByKeysAndDrag(t *testing.T) {
 	)
 	d := overlayDriver(t, 60, 8, func(rt *twi.Runtime) func() twi.Node {
 		r = NewResizable(rt)
+		r.WithHandle = true
 		r.OnResize = func(s []int) { resized = append(resized, s) }
 		return counted(&renders, func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
 				r.Node(twi.Class("rounded-lg border"),
 					r.Panel(twi.Class("items-center justify-center"), twi.Text("One")),
-					r.Handle(true),
+					r.Handle(),
 					r.Panel(twi.Class("items-center justify-center"), twi.Text("Two")),
 				))
 		})
@@ -205,7 +206,7 @@ func TestResizableVerticalUsesUpAndDown(t *testing.T) {
 		r.Orientation, r.Sizes = Vertical, []int{30, 70}
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col h-full bg-background text-foreground"),
-				r.Node(r.Panel(twi.Text("Header")), r.Handle(false), r.Panel(twi.Text("Body"))))
+				r.Node(r.Panel(twi.Text("Header")), r.Handle(), r.Panel(twi.Text("Body"))))
 		}
 	})
 	hit(d, "tab left right")
