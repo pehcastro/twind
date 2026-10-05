@@ -51,7 +51,7 @@ func TestOverlaysPointer(t *testing.T) {
 	}
 	bg := func(anchor, s string) color.RGBA {
 		x, y := at(anchor, s)
-		return d.Frame().Cells().At(x, y).Bg.RGBA
+		return d.Frame().At(x, y).Bg.RGBA
 	}
 	move := func(x, y int) {
 		d.Move(x, y)

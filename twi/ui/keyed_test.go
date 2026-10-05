@@ -26,14 +26,14 @@ func TestKeyedChildKeepsItsBoxWhenASiblingBeforeItGoes(t *testing.T) {
 		}
 	})
 	x, y, _ := at(d.Frame(), "B")
-	settled := d.Frame().Cells().At(x, y).Bg
+	settled := d.Frame().At(x, y).Bg
 	d.Press("x")
 	d.Advance(50 * time.Millisecond)
 	bx, by, ok := at(d.Frame(), "B")
 	if _, _, gone := at(d.Frame(), "A"); gone || !ok {
 		t.Fatalf("A still drawn or B missing:\n%s", d.Frame().Text())
 	}
-	if got := d.Frame().Cells().At(bx, by).Bg; got != settled {
+	if got := d.Frame().At(bx, by).Bg; got != settled {
 		t.Errorf("B 50 ms after A went: bg %+v, want its own %+v at once; a box matched by index transitions from A's colour", got.RGBA, settled.RGBA)
 	}
 }

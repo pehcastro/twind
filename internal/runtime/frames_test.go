@@ -37,7 +37,7 @@ func driveFrames(t *testing.T, app drive.App, opts ...drive.Option) *drive.Drive
 func cells(f drive.Frame, x, y, n int) string {
 	var b strings.Builder
 	for i := range n {
-		b.WriteString(f.Cells().At(x+i, y).Grapheme)
+		b.WriteString(f.At(x+i, y).Grapheme)
 	}
 	return b.String()
 }
@@ -99,8 +99,8 @@ func TestWidthsAndCellPixelsFromTheBackend(t *testing.T) {
 			t.Errorf("%s: top row ends %q and the flag row %q at column %d, want \"─┐\" and \"k│ \": the right border at column %d", c.name, top, flag, c.border-1, c.border)
 		}
 		rows := 0
-		for y := range f.Cells().Height() {
-			if f.Cells().At(0, y).Bg.RGBA != black {
+		for y := range f.Height() {
+			if f.At(0, y).Bg.RGBA != black {
 				rows++
 			}
 		}
@@ -211,7 +211,7 @@ func TestFadingPanelCoversThePageText(t *testing.T) {
 	inside := func(f drive.Frame) (page, panel string) {
 		for y := 1; y < 4; y++ {
 			for x := 2; x < 14; x++ {
-				if g := f.Cells().At(x, y).Grapheme; y == 1 && x < 7 {
+				if g := f.At(x, y).Grapheme; y == 1 && x < 7 {
 					panel += g
 				} else {
 					page += strings.TrimSpace(g)
@@ -242,7 +242,7 @@ func TestPlacesReachHoverAndSelection(t *testing.T) {
 		t.Fatalf("no %q in the frame:\n%s", word, d.Frame().Text())
 		return 0, 0
 	}
-	bg := func(word string) color.RGBA { return d.Frame().Cells().At(at(word)).Bg.RGBA }
+	bg := func(word string) color.RGBA { return d.Frame().At(at(word)).Bg.RGBA }
 	rest := bg("three")
 	d.Move(at("one"))
 	if got := bg("one"); got != rest {

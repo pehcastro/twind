@@ -22,6 +22,7 @@
 - `rt.Copy` returns nothing; it never failed. Migrate: drop the error check.
 - `rt.Focus` returns nothing and runs on the runtime's goroutine after the current handler, from any goroutine. Migrate: drop the result; the focused element's `OnFocus` reports the move.
 - `rt.ContentBox` takes the `*twi.Event` whose handler runs. Migrate: `rt.ContentBox(e.Current())` becomes `rt.ContentBox(e)`.
+- `drive.Frame.Cells` is removed; the frame itself has `Width`, `Height`, `At(x, y)` and `Row(y)`, which return `drive.Cell` (grapheme, `Fg`, `Bg`, `Attr` with `drive.Bold` and the rest, `Width` with `drive.Wide` and `drive.Continuation`). Migrate: `f.Cells().At(x, y)` becomes `f.At(x, y)`.
 - `drive.Styles` is removed; `drive.With` passes any `twi.Option` to the driven runtime. Migrate: `drive.Styles(sheet)` becomes `drive.With(twi.Styles(sheet))`.
 - `ui.Input` and `ui.Textarea` end an undo step after a pause in typing, on the runtime clock. `rt.Now` reads that clock.
 

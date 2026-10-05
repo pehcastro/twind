@@ -207,7 +207,7 @@ func TestDrivenTruncateFitAspect(t *testing.T) {
 	if got != want {
 		t.Errorf("frame\n%s\nwant\n%s", got, want)
 	}
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	video, fill := cells.At(0, 3).Bg, 0
 	var shade strings.Builder
 	for y := range cells.Height() {

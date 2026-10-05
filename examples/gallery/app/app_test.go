@@ -187,7 +187,7 @@ func TestClicks(t *testing.T) {
 	d.Click(x, y)
 	d.Move(0, 0)
 	light, _ := builtin("twind-light")
-	if got, want := d.Frame().Cells().Row(y)[x+len("Capabilities")+1].Bg.RGBA, light.Tokens[theme.Muted].RGBA; got != want {
+	if got, want := d.Frame().Row(y)[x+len("Capabilities")+1].Bg.RGBA, light.Tokens[theme.Muted].RGBA; got != want {
 		t.Errorf("a click on a row did not select it: background %v, want muted %v", got, want)
 	}
 	t.Logf("page 2, 3m and the Capabilities row selected:\n%s", d.Frame().Text())
@@ -203,7 +203,7 @@ func TestSettingsPreview(t *testing.T) {
 	}()
 	page := func() color.RGBA {
 		x, y := inMain(t, d, "Primary")
-		return d.Frame().Cells().Row(y)[x].Bg.RGBA
+		return d.Frame().Row(y)[x].Bg.RGBA
 	}
 	shows := func(name string) color.RGBA {
 		th, _ := builtin(name)
@@ -240,7 +240,7 @@ func TestSchemeToggle(t *testing.T) {
 	}()
 	canvas := func() color.RGBA {
 		x, y := inMain(t, d, "Twind gallery")
-		return d.Frame().Cells().Row(y)[x].Bg.RGBA
+		return d.Frame().Row(y)[x].Bg.RGBA
 	}
 	want := func(name string) color.RGBA {
 		th, _ := builtin(name)

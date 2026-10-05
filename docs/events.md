@@ -22,6 +22,8 @@ Tab into the boxes above, press **+** or click one.
 | `twi.OnPointerDownOutside(func(*twi.Event))` | a press anywhere outside it, to close a popup |
 | `twi.OnFocusOutside(func(*twi.Event))` | focus moving somewhere outside it |
 
+A key goes through three steps, in this order: every `OnHotkey` in the tree, then `OnKeyDown` on the focused element and up through its parents, then every `OnKey` in the tree. `e.PreventDefault()` in an `OnHotkey` ends the key there; in an `OnKeyDown` it keeps the key from the `OnKey` hooks; in an `OnKey` it stops Enter from clicking and the arrows from scrolling. In the two tree-wide hooks the event has no element: `e.Target()` and `e.Current()` are nil and `e.Offset()` is zero.
+
 `e.StopPropagation()` stops the event from reaching the parents, and `e.PreventDefault()` stops what the runtime would do next, such as scrolling on an arrow key. `e.Target()` is the element the event started on and `e.Current()` the one whose handler is running.
 
 ## Redrawing

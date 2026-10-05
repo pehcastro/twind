@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	"github.com/pehcastro/twind/internal/runtime/testdata/hover"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
@@ -30,7 +29,7 @@ func TestCounter(t *testing.T) {
 		t.Errorf("after three presses of +:\n%s", text)
 	}
 	d.Resize(40, 10)
-	if cells := d.Frame().Cells(); cells.Width() != 40 || cells.Height() != 10 {
+	if cells := d.Frame(); cells.Width() != 40 || cells.Height() != 10 {
 		t.Errorf("after Resize(40, 10) the frame is %dx%d", cells.Width(), cells.Height())
 	}
 	if err := d.Err(); err != nil {
@@ -158,8 +157,8 @@ func TestWideGlyph(t *testing.T) {
 		return func() twi.Node { return twi.Text("中x") }
 	}, drive.Size(6, 1))
 	f := d.Frame()
-	cells := f.Cells()
-	if f.Text() != "中x\n" || cells.At(0, 0).Width != buffer.Wide || cells.At(1, 0).Width != buffer.Continuation || cells.At(2, 0).Grapheme != "x" {
+	cells := f
+	if f.Text() != "中x\n" || cells.At(0, 0).Width != drive.Wide || cells.At(1, 0).Width != drive.Continuation || cells.At(2, 0).Grapheme != "x" {
 		t.Errorf("text %q, cells %#v", f.Text(), cells.Row(0))
 	}
 	if err := d.Close(); err != nil {

@@ -59,7 +59,7 @@ func TestTabsActiveStandsOutInEveryTheme(t *testing.T) {
 		f := d.Frame()
 		ax, ay, _ := at(f, "Preview")
 		ix, iy, _ := at(f, "Code")
-		active, list, page := f.Cells().At(ax, ay), f.Cells().At(ix, iy), f.Cells().At(0, 0)
+		active, list, page := f.At(ax, ay), f.At(ix, iy), f.At(0, 0)
 		step := oklabDistance(active.Bg.RGBA, list.Bg.RGBA)
 		table += fmt.Sprintf("%s, %d, %s, %s, %s, %s, %s, %.3f\n", th.Name, th.Scheme, hex(page.Bg.RGBA), hex(list.Bg.RGBA), hex(active.Bg.RGBA), hex(list.Fg.RGBA), hex(active.Fg.RGBA), step)
 		if step < visibleStep {

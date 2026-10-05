@@ -112,7 +112,7 @@ func TestTextareaCaretAtAWrapIsDrawnOnce(t *testing.T) {
 	p := promptDriver(t, "w-10", false)
 	p.typed("ab cdefgh", "ctrl+left")
 	caret := zinc(t, theme.Light).Tokens[theme.Foreground].RGBA
-	cells, carets := p.Frame().Cells(), 0
+	cells, carets := p.Frame(), 0
 	for y := range cells.Height() {
 		for x := range cells.Width() {
 			if cells.At(x, y).Bg.RGBA == caret {
@@ -188,7 +188,7 @@ func TestTextareaPasteChipIsTinted(t *testing.T) {
 	if !ok {
 		t.Fatalf("no chip in the field:\n%s", d.Frame().Text())
 	}
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	if text, chip := cells.At(x, y).Fg.RGBA, cells.At(x+len("look "), y).Fg.RGBA; text == chip {
 		t.Fatalf("the chip is drawn in the text colour %v", text)
 	}

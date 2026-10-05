@@ -34,8 +34,28 @@ func (\*Driver) Wheel(x, y, notches int)
 
 type Frame struct\
 func (Frame) ANSI() string\
-func (Frame) Cells() \*buffer.Buffer\
-func (Frame) Text() string
+func (Frame) At(x, y int) Cell\
+func (Frame) Height() int\
+func (Frame) Row(y int) \[\]Cell\
+func (Frame) Text() string\
+func (Frame) Width() int\
+type Attr uint8\
+const Bold Attr\
+const Dim Attr\
+const Italic Attr\
+const Underline Attr\
+const Strikethrough Attr\
+const Inverse Attr\
+type Width uint8\
+const Narrow Width\
+const Wide Width\
+const Continuation Width\
+type Cell struct\
+Cell.Grapheme string\
+Cell.Fg color.Color\
+Cell.Bg color.Color\
+Cell.Attr Attr\
+Cell.Width Width
 
 ## script.go
 

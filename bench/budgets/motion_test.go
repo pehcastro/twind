@@ -13,7 +13,6 @@ import (
 
 	docsapp "github.com/pehcastro/twind/apps/documentation"
 	playground "github.com/pehcastro/twind/examples/playground/app"
-	"github.com/pehcastro/twind/internal/buffer"
 	runkonst "github.com/pehcastro/twind/internal/konst/runtime"
 	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
 	"github.com/pehcastro/twind/internal/terminal"
@@ -626,7 +625,7 @@ func motionTargets(t testing.TB, sheet style.Sheet, p motionPath, sc motionScena
 		}
 		return view
 	}, drive.Size(p.cols, p.rows), drive.With(twi.Styles(sheet)))
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	at := map[string]image.Point{motionMiddle: image.Pt(p.cols/2, p.rows/2)}
 	for _, target := range sc.targets {
 		from := motionContentFrom
@@ -638,7 +637,7 @@ func motionTargets(t testing.TB, sheet style.Sheet, p motionPath, sc motionScena
 			var row strings.Builder
 			var xs []int
 			for x, c := range cells.Row(y) {
-				if c.Width == buffer.Continuation {
+				if c.Width == drive.Continuation {
 					continue
 				}
 				for range len(c.Grapheme) {

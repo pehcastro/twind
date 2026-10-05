@@ -3,7 +3,6 @@ package markdown
 import (
 	"testing"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	"github.com/pehcastro/twind/internal/highlight"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
@@ -58,7 +57,7 @@ func TestFenceLanguages(t *testing.T) {
 	}
 }
 
-func themed(t *testing.T, view func() twi.Node, width, height int) (*buffer.Buffer, theme.Tokens) {
+func themed(t *testing.T, view func() twi.Node, width, height int) (drive.Frame, theme.Tokens) {
 	t.Helper()
 	sheet, err := styles()
 	if err != nil {
@@ -74,7 +73,7 @@ func themed(t *testing.T, view func() twi.Node, width, height int) (*buffer.Buff
 			t.Error(err)
 		}
 	})
-	return d.Frame().Cells(), dark.Tokens
+	return d.Frame(), dark.Tokens
 }
 
 func TestHighlightKinds(t *testing.T) {
@@ -100,13 +99,13 @@ func TestFenceMarkdownStyles(t *testing.T) {
 	cells, tokens := themed(t, func() twi.Node { return element("whitespace-pre", []twi.NodeOption{h.Code("md", src)}) }, 60, 2)
 	for _, c := range []struct {
 		x, y, n int
-		attr    buffer.Attr
+		attr    drive.Attr
 	}{
-		{5, 0, 8, buffer.Bold},
-		{15, 0, 8, buffer.Italic},
-		{25, 0, 10, buffer.Italic},
-		{26, 0, 8, buffer.Bold | buffer.Italic},
-		{0, 1, 10, buffer.Strikethrough},
+		{5, 0, 8, drive.Bold},
+		{15, 0, 8, drive.Italic},
+		{25, 0, 10, drive.Italic},
+		{26, 0, 8, drive.Bold | drive.Italic},
+		{0, 1, 10, drive.Strikethrough},
 	} {
 		for i := range c.n {
 			if got := cells.At(c.x+i, c.y); got.Attr&c.attr != c.attr {

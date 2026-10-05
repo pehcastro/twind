@@ -69,7 +69,7 @@ func TestFocusFromCodeHidesTheRing(t *testing.T) {
 		}
 	}()
 	painted := func(rgba color.RGBA) bool {
-		cells := d.Frame().Cells()
+		cells := d.Frame()
 		for y := range cells.Height() {
 			for x := range cells.Width() {
 				if c := cells.At(x, y); c.Fg.RGBA == rgba || c.Bg.RGBA == rgba {

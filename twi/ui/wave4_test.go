@@ -115,7 +115,7 @@ func TestInputGroupButtonInsideTheBorder(t *testing.T) {
 	expect := expecter(t, d)
 	fx, fy, _ := at(d.Frame(), "twind.dev")
 	bx, by, _ := at(d.Frame(), "Copy")
-	halo := func() bool { return d.Frame().Cells().At(1, fy).Fg.RGBA == light.Tokens[theme.Ring].RGBA }
+	halo := func() bool { return d.Frame().At(1, fy).Fg.RGBA == light.Tokens[theme.Ring].RGBA }
 	expect("the group's border is not ring coloured before any focus", !halo())
 	expect("the button sits on the field's row, inside the group's 30 cells", by == fy && bx > fx && bx+len("Copy") <= 1+30)
 	hit(d, "tab")

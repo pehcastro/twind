@@ -74,7 +74,7 @@ func TestSidebarHoverIsLighterThanActive(t *testing.T) {
 	})
 	look := func(word string) (color.Color, color.Color) {
 		x, y, _ := at(d.Frame(), word)
-		c := d.Frame().Cells().At(x, y)
+		c := d.Frame().At(x, y)
 		return c.Bg, c.Fg
 	}
 	x, y, _ := at(d.Frame(), "Home")

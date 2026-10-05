@@ -136,7 +136,7 @@ func TestToastStack(t *testing.T) {
 	d.Press("escape")
 	expect("and the next the last one", len(toaster.toasts) == 0 && !has("has not been created"))
 	d.Press("x")
-	expect("a title holding escape sequences reaches the screen as text", has("red") && has("title") && d.Frame().Cells().At(0, 0).Grapheme != "\x1b")
+	expect("a title holding escape sequences reaches the screen as text", has("red") && has("title") && d.Frame().At(0, 0).Grapheme != "\x1b")
 	t.Logf("sanitised title:\n%s", d.Frame().Text())
 }
 

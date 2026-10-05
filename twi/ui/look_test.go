@@ -245,7 +245,7 @@ func TestCellLookCardAndBadgeDriven(t *testing.T) {
 				if x == left || x == right || y == top || y == bottom {
 					want = page
 				}
-				if got := f.Cells().At(x, y).Bg.RGBA; got != want {
+				if got := f.At(x, y).Bg.RGBA; got != want {
 					t.Errorf("scheme %d cell %d,%d %q: bg %v, want %v; the fill stays inside the line", scheme, x, y, string(row[x]), got, want)
 				}
 			}
@@ -257,7 +257,7 @@ func TestCellLookCardAndBadgeDriven(t *testing.T) {
 			if x == bx-2 || x == bx+len("Badge")+1 {
 				want = page
 			}
-			if got := f.Cells().At(x, by).Bg.RGBA; got != want {
+			if got := f.At(x, by).Bg.RGBA; got != want {
 				t.Errorf("scheme %d badge cell %d: bg %v, want %v; the pill is its background across the box, nothing outside", scheme, x, got, want)
 			}
 		}

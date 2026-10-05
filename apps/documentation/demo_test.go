@@ -107,10 +107,10 @@ func TestDialogShowsNoPageThroughItWhileItMoves(t *testing.T) {
 	d.Advance(time.Second)
 	rest()
 	t.Logf("closed:\n%s", d.Frame().Text())
-	after := d.Frame().Cells()
+	after := d.Frame()
 	for y := range after.Height() {
 		for x := range after.Width() {
-			if was, is := before.Cells().At(x, y), after.At(x, y); was != is {
+			if was, is := before.At(x, y), after.At(x, y); was != is {
 				t.Fatalf("the closed page differs at %d,%d from the page before the dialog opened: %+v, was %+v:\n%s", x, y, is, was, d.Frame().Text())
 			}
 		}
@@ -145,7 +145,7 @@ func TestDrawerDemoFitsAndDrags(t *testing.T) {
 	x, y := spot(t, d, "Open drawer")
 	d.Click(x+1, y)
 	d.Advance(time.Second)
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	sx, sy := spot(t, d, "Submit")
 	fill := cells.At(sx, sy).Bg
 	left, right := sx, sx
@@ -199,7 +199,7 @@ func TestDirectionDemoReadsRightToLeft(t *testing.T) {
 
 func TestCardDemoButtonsHaveRowsAboveAndBelow(t *testing.T) {
 	d, _, _ := framed(t, "card")
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	for _, label := range []string{" Login  ", "Login with Google"} {
 		x, y := spot(t, d, label)
 		button := func(dy int) bool {

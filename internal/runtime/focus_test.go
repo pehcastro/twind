@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	rkonst "github.com/pehcastro/twind/internal/konst/runtime"
 	"github.com/pehcastro/twind/internal/render"
 	"github.com/pehcastro/twind/internal/runtime"
@@ -160,7 +159,7 @@ func TestTabShowsFocusVisibleRing(t *testing.T) {
 		}
 	}()
 	locate := func(word string) (int, int) {
-		cells := d.Frame().Cells()
+		cells := d.Frame()
 		for y := range cells.Height() {
 			for x := range cells.Width() - len(word) {
 				found := true
@@ -176,7 +175,7 @@ func TestTabShowsFocusVisibleRing(t *testing.T) {
 		return 0, 0
 	}
 	ringed := func(word string) bool {
-		cells := d.Frame().Cells()
+		cells := d.Frame()
 		x0, y0 := locate(word)
 		for y := max(y0-1, 0); y <= min(y0+1, cells.Height()-1); y++ {
 			for x := max(x0-3, 0); x < min(x0+len(word)+3, cells.Width()); x++ {
@@ -200,20 +199,20 @@ func TestTabShowsFocusVisibleRing(t *testing.T) {
 			d.Press(step.key)
 		}
 		_, y := locate("one")
-		row := d.Frame().Cells().At(1, y).Bg.RGBA == within
+		row := d.Frame().At(1, y).Bg.RGBA == within
 		if got := [3]bool{ringed("one"), ringed("two"), row}; got != [3]bool{step.one, step.two, step.row} {
 			t.Errorf("after %q: ring on one, ring on two, focus-within row = %v, want %v:\n%s", step.key, got, [3]bool{step.one, step.two, step.row}, d.Frame().ANSI())
 		}
 		underlined := func(word string) bool {
 			x, y := locate(word)
-			return d.Frame().Cells().At(x, y).Attr&buffer.Underline != 0
+			return d.Frame().At(x, y).Attr&drive.Underline != 0
 		}
 		if underlined("one") || !underlined("two") {
 			t.Errorf("after %q: data-[state=on]:underline must mark two only, focused or not:\n%s", step.key, d.Frame().ANSI())
 		}
 	}
 	x, y := locate("off")
-	if bg := d.Frame().Cells().At(x, y).Bg.RGBA; bg == pillBg {
+	if bg := d.Frame().At(x, y).Bg.RGBA; bg == pillBg {
 		t.Errorf("the disabled pill is not faded by disabled:opacity-50: background %v", bg)
 	}
 }

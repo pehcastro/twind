@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	rkonst "github.com/pehcastro/twind/internal/konst/runtime"
 	"github.com/pehcastro/twind/internal/runtime/testdata/hover"
 	"github.com/pehcastro/twind/twi"
@@ -63,7 +62,7 @@ func (p *pointed) expect(step, want string) {
 func (p *pointed) background(word string, want style.State) {
 	p.t.Helper()
 	x, y := p.at(word)
-	cell := p.d.Frame().Cells().At(x, y)
+	cell := p.d.Frame().At(x, y)
 	bg := p.sheet.ComputeState(style.ComputedStyle{}, strings.Fields(hover.Pill), style.NodeState{States: want}).Background.RGBA
 	if cell.Bg.RGBA != bg {
 		p.t.Errorf("%s background %v, want %v for states %b:\n%s", word, cell.Bg.RGBA, bg, want, p.d.Frame().ANSI())
@@ -72,7 +71,7 @@ func (p *pointed) background(word string, want style.State) {
 
 func (p *pointed) underlined(word string) bool {
 	x, y := p.at(word)
-	return p.d.Frame().Cells().At(x, y).Attr&buffer.Underline != 0
+	return p.d.Frame().At(x, y).Attr&drive.Underline != 0
 }
 
 func TestPointerHoverEnterLeave(t *testing.T) {

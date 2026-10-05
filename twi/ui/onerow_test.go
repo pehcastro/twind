@@ -43,7 +43,7 @@ func TestCellLookOneRowControlsDriven(t *testing.T) {
 			if y < 1 || !strings.Contains(lines[y-1], "╭") || strings.Count(lines[y], "│") != 2 || !strings.Contains(lines[y+1], "╰") {
 				t.Fatalf("scheme %d: %q is not boxed by its border, a row above and below the text:\n%s", scheme, label, f.Text())
 			}
-			edge := f.Cells().At(2, y).Fg.RGBA
+			edge := f.At(2, y).Fg.RGBA
 			if red := int(edge.R) > int(edge.G)+20; red != (label == "not an email") {
 				t.Errorf("scheme %d %q: border %v, want red only on the invalid input", scheme, label, edge)
 			}
@@ -56,10 +56,10 @@ func TestCellLookOneRowControlsDriven(t *testing.T) {
 			if strings.ContainsAny(lines[y], "│┃") {
 				t.Errorf("scheme %d: %q, a side bar on a one-row control", scheme, lines[y])
 			}
-			if got := f.Cells().At(1, y).Bg.RGBA; got != page {
+			if got := f.At(1, y).Bg.RGBA; got != page {
 				t.Errorf("scheme %d %q: bg %v left of the control, want the page %v", scheme, label, got, page)
 			}
-			inside := f.Cells().At(2, y).Bg.RGBA
+			inside := f.At(2, y).Bg.RGBA
 			t.Logf("scheme %d %q: bg %v, page %v", scheme, label, inside, page)
 			apart := 5000
 			if scheme == theme.Dark && label == "Outline" {

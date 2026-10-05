@@ -45,7 +45,7 @@ func TestMessageBubbleAttachmentMarkerLook(t *testing.T) {
 		return func() twi.Node { return look }
 	})
 	expect := expecter(t, d)
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	type place struct{ x, y int }
 	where := map[string]place{}
 	for _, s := range []string{"AI", "ME", "A long", "message.", "Thanks", "read", "2:14 PM", "secondary", "tinted", "destructive", "Today", "done", "failed", "drop.txt"} {

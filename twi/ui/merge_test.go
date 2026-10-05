@@ -69,8 +69,8 @@ func TestOverride(t *testing.T) {
 	}
 	group := frame(FieldGroup(twi.Class("w-26"), twi.Element(twi.Class("h-1 bg-primary"))))
 	filled := 0
-	for x := range group.Cells().Width() {
-		if group.Cells().At(x, 1).Bg.RGBA == light.Tokens[theme.Primary].RGBA {
+	for x := range group.Width() {
+		if group.At(x, 1).Bg.RGBA == light.Tokens[theme.Primary].RGBA {
 			filled++
 		}
 	}

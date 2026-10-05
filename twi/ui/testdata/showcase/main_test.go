@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
@@ -16,9 +15,9 @@ import (
 
 const settleTime = time.Second
 
-func airplaneRow(t *testing.T, f drive.Frame) []buffer.Cell {
+func airplaneRow(t *testing.T, f drive.Frame) []drive.Cell {
 	t.Helper()
-	return slices.Clone(f.Cells().Row(find(t, f, "Airplane Mode").y))
+	return f.Row(find(t, f, "Airplane Mode").y)
 }
 
 func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
@@ -87,7 +86,7 @@ func find(t *testing.T, f drive.Frame, s string) spot {
 
 func ringRows(f drive.Frame, ring color.RGBA) []int {
 	var rows []int
-	cells := f.Cells()
+	cells := f
 	for y := range cells.Height() {
 		for x := range cells.Width() {
 			if c := cells.At(x, y); strings.ContainsAny(c.Grapheme, "─│▄▌▀▐") && c.Fg.RGBA == ring && !slices.Contains(rows, y) {
@@ -133,7 +132,7 @@ func TestFormKeys(t *testing.T) {
 		y := find(t, f, anchor).y + below
 		row := strings.Split(f.Text(), "\n")[y]
 		before, _, _ := strings.Cut(row, s)
-		return f.Cells().At(len([]rune(before)), y).Bg.RGBA
+		return f.At(len([]rune(before)), y).Bg.RGBA
 	}
 	expect := func(what string, ok bool) {
 		t.Helper()

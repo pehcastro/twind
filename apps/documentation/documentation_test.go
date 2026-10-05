@@ -421,7 +421,7 @@ func column(d *drive.Driver, from, to int, text string) int {
 func onThisPage(t *testing.T, d *drive.Driver) (current string, rows []int) {
 	t.Helper()
 	x, _ := spot(t, d, "On this page")
-	cells, seen := d.Frame().Cells(), map[string]int{}
+	cells, seen := d.Frame(), map[string]int{}
 	colours := make([]string, len(buttonSections))
 	for i, s := range buttonSections {
 		y := column(d, x, cells.Width(), s)
@@ -525,7 +525,7 @@ func highlightedSidebarRows(t *testing.T, d *drive.Driver) []string {
 		text string
 		bg   color.Color
 	}
-	cells, count := d.Frame().Cells(), map[color.Color]int{}
+	cells, count := d.Frame(), map[color.Color]int{}
 	var rows []row
 	for y := header + 2; y < cells.Height(); y++ {
 		var text strings.Builder

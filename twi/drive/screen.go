@@ -162,7 +162,50 @@ func (s *screen) frame() Frame {
 	return Frame{c}
 }
 
-func (f Frame) Cells() *buffer.Buffer { return f.cells }
+type Attr uint8
+
+const (
+	Bold Attr = 1 << iota
+	Dim
+	Italic
+	Underline
+	Strikethrough
+	Inverse
+)
+
+type Width uint8
+
+const (
+	Narrow Width = iota
+	Wide
+	Continuation
+)
+
+type Cell struct {
+	Grapheme string
+	Fg, Bg   color.Color
+	Attr     Attr
+	Width    Width
+}
+
+func (f Frame) Width() int { return f.cells.Width() }
+
+func (f Frame) Height() int { return f.cells.Height() }
+
+func (f Frame) At(x, y int) Cell { return cell(f.cells.At(x, y)) }
+
+func (f Frame) Row(y int) []Cell {
+	row := f.cells.Row(y)
+	out := make([]Cell, len(row))
+	for x, c := range row {
+		out[x] = cell(c)
+	}
+	return out
+}
+
+func cell(c buffer.Cell) Cell {
+	return Cell{Grapheme: c.Grapheme, Fg: c.Fg, Bg: c.Bg, Attr: Attr(c.Attr), Width: Width(c.Width)}
+}
 
 func (f Frame) Text() string {
 	var b strings.Builder

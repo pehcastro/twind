@@ -3,7 +3,6 @@ package docsapp
 import (
 	"testing"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
@@ -28,7 +27,7 @@ func codeBlocks(t *testing.T) *drive.Driver {
 
 func TestFenceLanguages(t *testing.T) {
 	d := codeBlocks(t)
-	cells, tokens := d.Frame().Cells(), theme.Default().WithScheme(theme.Dark).Tokens
+	cells, tokens := d.Frame(), theme.Default().WithScheme(theme.Dark).Tokens
 	syntax := map[color.Color]bool{}
 	for token := theme.SyntaxKeyword; token <= theme.SyntaxPunctuation; token++ {
 		syntax[tokens[token]] = true
@@ -50,14 +49,14 @@ func TestFenceLanguages(t *testing.T) {
 func TestFenceMarkdownStyles(t *testing.T) {
 	d := codeBlocks(t)
 	t.Logf("Code blocks, 120x160:\n%s", d.Frame().Text())
-	cells, tokens := d.Frame().Cells(), theme.Default().WithScheme(theme.Dark).Tokens
+	cells, tokens := d.Frame(), theme.Default().WithScheme(theme.Dark).Tokens
 	for _, c := range []struct {
 		text string
-		attr buffer.Attr
+		attr drive.Attr
 	}{
-		{"**bold**", buffer.Bold},
-		{"*italic*", buffer.Italic},
-		{"~~struck~~", buffer.Strikethrough},
+		{"**bold**", drive.Bold},
+		{"*italic*", drive.Italic},
+		{"~~struck~~", drive.Strikethrough},
 	} {
 		x, y := spot(t, d, c.text)
 		for i := range len(c.text) {

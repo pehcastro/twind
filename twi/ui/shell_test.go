@@ -162,16 +162,16 @@ func TestContextMenuReopensWhereRightClicked(t *testing.T) {
 	d.ClickWith(input.MouseRight, 5, 3)
 	d.Advance(settleTime)
 	x, y, _ := at(d.Frame(), "Forward")
-	settled := d.Frame().Cells().At(x, y).Fg
+	settled := d.Frame().At(x, y).Fg
 	for _, p := range []image.Point{{40, 10}, {20, 14}, {50, 4}} {
 		d.ClickWith(input.MouseRight, p.X, p.Y)
 		d.Advance(frameStep)
 		nx, ny, _ := at(d.Frame(), "Forward")
 		expect("a right click elsewhere in the area puts the menu at the new point", menu.Open && nx == p.X+2 && ny == p.Y+2)
 		expect("nothing of the menu stays at the last point", !strings.Contains(strings.Split(d.Frame().Text(), "\n")[y], "Forward"))
-		expect("the menu at the new point opens again: its text is not yet at the settled colour", d.Frame().Cells().At(nx, ny).Fg != settled)
+		expect("the menu at the new point opens again: its text is not yet at the settled colour", d.Frame().At(nx, ny).Fg != settled)
 		d.Advance(settleTime)
-		expect("and settles at the settled colour", d.Frame().Cells().At(nx, ny).Fg == settled)
+		expect("and settles at the settled colour", d.Frame().At(nx, ny).Fg == settled)
 		y = ny
 	}
 	settledClick(d, 10, 15)
@@ -214,7 +214,7 @@ func TestMenubarKeysAndPointer(t *testing.T) {
 	accent := zinc(t, theme.Light).Tokens[theme.Accent].RGBA
 	lit := func(s string) bool {
 		x, y, ok := at(d.Frame(), s)
-		return ok && d.Frame().Cells().At(x, y).Bg.RGBA == accent
+		return ok && d.Frame().At(x, y).Bg.RGBA == accent
 	}
 	opened := func() []string {
 		var out []string
@@ -390,7 +390,7 @@ func TestScrollArea(t *testing.T) {
 	primary := zinc(t, theme.Light).Tokens[theme.Primary].RGBA
 	expect("the first rows show, the rest are clipped", has(d, "row a") && has(d, "row e") && !has(d, "row f"))
 	expect("a thumb runs down its own column", thumb(bar) > 0 && thumb(bar) < 6)
-	expect("the content stops one column short of the thumb", d.Frame().Cells().At(bar-1, ay-1).Bg.RGBA == primary && d.Frame().Cells().At(bar, ay-1).Bg.RGBA != primary)
+	expect("the content stops one column short of the thumb", d.Frame().At(bar-1, ay-1).Bg.RGBA == primary && d.Frame().At(bar, ay-1).Bg.RGBA != primary)
 	sx, _, _ := at(d.Frame(), "short")
 	expect("an area that fits draws no thumb", thumb(sx+16-3) == 0)
 	t.Logf("scroll areas, 40x14:\n%s", d.Frame().Text())
@@ -423,7 +423,7 @@ func TestScrollAreaRingStaysInside(t *testing.T) {
 	})
 	expect := expecter(t, d)
 	tinted := func(x0, x1, y0, y1 int) bool {
-		cells := d.Frame().Cells()
+		cells := d.Frame()
 		for y := y0; y <= y1; y++ {
 			for x := x0; x <= x1; x++ {
 				if c := cells.At(x, y); c.Fg.RGBA == ring && strings.TrimSpace(c.Grapheme) != "" || c.Bg.RGBA == ring {
@@ -433,7 +433,7 @@ func TestScrollAreaRingStaysInside(t *testing.T) {
 		}
 		return false
 	}
-	wide := d.Frame().Cells().Width() - 1
+	wide := d.Frame().Width() - 1
 	_, header, _ := at(d.Frame(), "header")
 	_, footer, _ := at(d.Frame(), "footer")
 	hit(d, "tab")
@@ -450,7 +450,7 @@ func TestScrollAreaRingStaysInside(t *testing.T) {
 	x, y, _ = at(d.Frame(), "boxed b")
 	settledClick(d, x, y)
 	t.Logf("the bordered area clicked:\n%s", d.Frame().Text())
-	expect("the bordered area clicked: no ring", !tinted(0, wide, 0, d.Frame().Cells().Height()-1))
+	expect("the bordered area clicked: no ring", !tinted(0, wide, 0, d.Frame().Height()-1))
 }
 
 func TestOverlayClosingFrame(t *testing.T) {

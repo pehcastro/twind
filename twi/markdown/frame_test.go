@@ -39,7 +39,7 @@ func TestCodeBlockOneRing(t *testing.T) {
 			top := slices.IndexFunc(lines, func(l string) bool { return strings.ContainsAny(l, "╭┌") })
 			bottom := slices.IndexFunc(lines, func(l string) bool { return strings.ContainsAny(l, "╰└") })
 			rows := lines[top : bottom+1]
-			cells, page := d.Frame().Cells(), d.Frame().Cells().At(0, bottom+1).Bg
+			cells, page := d.Frame(), d.Frame().At(0, bottom+1).Bg
 			left, right := strings.IndexAny(lines[top], "╭┌"), len([]rune(strings.TrimRight(lines[top], " ")))-1
 			for y := top; y <= bottom; y++ {
 				for x, cell := range cells.Row(y)[left : right+1] {

@@ -8,7 +8,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	konst "github.com/pehcastro/twind/internal/konst/style"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
@@ -65,7 +64,7 @@ func inputLine(d *drive.Driver) string {
 
 func cursorColumn(t *testing.T, d *drive.Driver) (int, string) {
 	t.Helper()
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	foreground := theme.Default().Tokens[theme.Foreground].RGBA
 	for y := range cells.Height() {
 		row := cells.Row(y)
@@ -196,10 +195,10 @@ func pickerSpot(t *testing.T, d *drive.Driver, name string) (int, int) {
 	return 0, 0
 }
 
-func pickerRow(t *testing.T, d *drive.Driver, name string) buffer.Cell {
+func pickerRow(t *testing.T, d *drive.Driver, name string) drive.Cell {
 	t.Helper()
 	x, y := pickerSpot(t, d, name)
-	return d.Frame().Cells().Row(y)[x]
+	return d.Frame().Row(y)[x]
 }
 
 func builtinTheme(t *testing.T, name string) theme.Theme {
@@ -287,10 +286,10 @@ func spot(t *testing.T, d *drive.Driver, s string) (int, int) {
 	return 0, 0
 }
 
-func cellAt(t *testing.T, d *drive.Driver, s string) buffer.Cell {
+func cellAt(t *testing.T, d *drive.Driver, s string) drive.Cell {
 	t.Helper()
 	x, y := spot(t, d, s)
-	return d.Frame().Cells().Row(y)[x]
+	return d.Frame().Row(y)[x]
 }
 
 func TestPickerPreviews(t *testing.T) {

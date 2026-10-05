@@ -195,7 +195,7 @@ func TestAccordionStateAndBorders(t *testing.T) {
 	border := light.Tokens[theme.Border].RGBA
 	rows := strings.Split(d.Frame().Text(), "\n")
 	var lines []int
-	cells := d.Frame().Cells()
+	cells := d.Frame()
 	for y := range cells.Height() {
 		if c := cells.At(20, y); c.Fg.RGBA == border && strings.TrimSpace(c.Grapheme) != "" {
 			lines = append(lines, y)

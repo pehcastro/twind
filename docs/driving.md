@@ -34,7 +34,7 @@ func TestCounter(t *testing.T) {
 | `ClickWith(button, x, y)`, `Down`, `Up` | other buttons, and presses held across moves |
 | `Resize(w, h)` | a terminal resize |
 | `Advance(d)` | moves the fake clock and runs every frame due |
-| `Frame()` | the screen: `.Text()` for the characters, `.ANSI()` with colours, `.Cells()` for each cell |
+| `Frame()` | the screen: `.Text()` for the characters, `.ANSI()` with colours, `.At(x, y)` and `.Row(y)` for each cell's grapheme, colours and attributes |
 | `Clipboard()` | the last text copied with OSC 52 |
 | `Err()`, `Close()` | the first error the app returned, and shutting it down |
 

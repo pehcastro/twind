@@ -65,7 +65,7 @@ func (r *related) shows(step string, lit ...string) {
 	var got []string
 	for _, word := range []string{"name", "badge", "named", "item", "unnamed", "itemed", "before", "peer", "after", "row", "icon", "label", "kid", "plain", "still"} {
 		x, y := r.at(word)
-		if r.d.Frame().Cells().At(x, y).Bg.RGBA == r.sky {
+		if r.d.Frame().At(x, y).Bg.RGBA == r.sky {
 			got = append(got, word)
 		}
 	}
@@ -82,7 +82,7 @@ func (r *related) mask() string {
 	for y, line := range lines {
 		runes := []rune(line)
 		for x := range runes {
-			if frame.Cells().At(x, y).Bg.RGBA == r.sky {
+			if frame.At(x, y).Bg.RGBA == r.sky {
 				runes[x] = '#'
 			}
 		}
@@ -115,7 +115,7 @@ func TestGroupHoverActive(t *testing.T) {
 	x, y := r.at("name")
 	r.d.Down(x, y)
 	badge, by := r.at("badge")
-	if bg := r.d.Frame().Cells().At(badge, by).Bg.RGBA; bg != r.red {
+	if bg := r.d.Frame().At(badge, by).Bg.RGBA; bg != r.red {
 		t.Errorf("pressed on name: badge %v, want group-active %v:\n%s", bg, r.red, r.mask())
 	}
 	r.d.Up(x, y)

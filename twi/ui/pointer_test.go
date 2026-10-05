@@ -95,7 +95,7 @@ func TestClickPastTheEndShowsTheCaret(t *testing.T) {
 	settledClick(f.Driver, x+9, y)
 	f.want(t, "Peedro", 6, 6)
 	caret := zinc(t, theme.Light).Tokens[theme.Foreground].RGBA
-	if bg := f.Frame().Cells().At(x+6, y).Bg.RGBA; bg != caret {
+	if bg := f.Frame().At(x+6, y).Bg.RGBA; bg != caret {
 		t.Errorf("the cell after Peedro has background %v, want the caret %v", bg, caret)
 	}
 }
@@ -139,7 +139,7 @@ func TestDragSelects(t *testing.T) {
 	f.want(t, "hello world", 1, 4)
 	primary := zinc(t, theme.Light).Tokens[theme.Primary].RGBA
 	for i := 1; i < 4; i++ {
-		if bg := f.Frame().Cells().At(x+i, y).Bg.RGBA; bg != primary {
+		if bg := f.Frame().At(x+i, y).Bg.RGBA; bg != primary {
 			t.Errorf("cell %d of the selection has background %v, want the primary %v", i, bg, primary)
 		}
 	}

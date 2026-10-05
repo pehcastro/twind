@@ -114,7 +114,7 @@ func TestDialogKeys(t *testing.T) {
 			t.Errorf("%s:\n%s", what, d.Frame().Text())
 		}
 	}
-	corner := func() color.RGBA { return d.Frame().Cells().At(79, 23).Bg.RGBA }
+	corner := func() color.RGBA { return d.Frame().At(79, 23).Bg.RGBA }
 	page := corner()
 	hit(d, "tab tab")
 	expect("two tabs focus the trigger", dlg.focused && !before.focused)
@@ -237,7 +237,7 @@ func TestDrawerHandleDragsItClosed(t *testing.T) {
 	muted := zinc(t, theme.Light).Tokens[theme.Muted]
 	_, top, _ := at(d.Frame(), "Title")
 	hx, hy := 40, top
-	for hy > 0 && d.Frame().Cells().At(hx, hy).Bg != muted {
+	for hy > 0 && d.Frame().At(hx, hy).Bg != muted {
 		hy--
 	}
 	expect("the handle sits above the title", hy > 0 && hy < top)

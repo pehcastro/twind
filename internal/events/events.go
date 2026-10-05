@@ -61,6 +61,9 @@ type Event[N comparable] struct {
 }
 
 func (e *Event[N]) Offset() image.Point {
+	if e.tree == nil {
+		return image.Point{}
+	}
 	return image.Pt(e.Mouse.X, e.Mouse.Y).Sub(e.tree.Origin(e.current))
 }
 

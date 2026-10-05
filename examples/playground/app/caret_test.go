@@ -15,7 +15,7 @@ func TestClickPlacesTheCaretInTheForm(t *testing.T) {
 	form := func(step string) string {
 		_, top := spot(t, d, "Name on card")
 		y := top + 3
-		row := d.Frame().Cells().Row(y)
+		row := d.Frame().Row(y)
 		left := strings.Index(lines(d)[y], "│")
 		var marked strings.Builder
 		for x := left; x < len(row); x++ {

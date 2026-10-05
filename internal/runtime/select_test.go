@@ -51,7 +51,7 @@ func (s *selecting) at(word string, nth int) (int, int) {
 func (s *selecting) lit(word string) []bool {
 	s.t.Helper()
 	x, y := s.at(word, 0)
-	cells := s.d.Frame().Cells()
+	cells := s.d.Frame()
 	lit := make([]bool, len(word))
 	for i := range word {
 		c := cells.At(x+i, y)
@@ -167,7 +167,7 @@ func TestSelectionWideGlyphsAndTruncation(t *testing.T) {
 	s.d.Down(x+1, y)
 	s.d.Move(x+25, y)
 	s.d.Up(x+25, y)
-	cells := s.d.Frame().Cells()
+	cells := s.d.Frame()
 	for i := range 20 {
 		c := cells.At(x+i, y)
 		if lit := c.Bg.RGBA != cardBg; lit != (i < 19) {

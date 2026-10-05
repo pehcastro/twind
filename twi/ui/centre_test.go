@@ -9,7 +9,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pehcastro/twind/internal/buffer"
 	"github.com/pehcastro/twind/internal/layout"
 	"github.com/pehcastro/twind/internal/paint"
 	"github.com/pehcastro/twind/internal/raster"
@@ -23,7 +22,7 @@ import (
 	"github.com/pehcastro/twind/twi/theme"
 )
 
-func reach(b *buffer.Buffer, x, y, dx, dy int) (n int) {
+func reach(b drive.Frame, x, y, dx, dy int) (n int) {
 	for cx, cy := x+dx, y+dy; cx >= 0 && cy >= 0 && cx < b.Width() && cy < b.Height() && b.At(cx, cy).Bg == b.At(x, y).Bg; cx, cy = cx+dx, cy+dy {
 		n++
 	}
@@ -36,7 +35,7 @@ func centred(t *testing.T, name string, d *drive.Driver, glyph string) {
 	if !ok {
 		t.Fatalf("%s: no %q in the frame:\n%s", name, glyph, d.Frame().Text())
 	}
-	b := d.Frame().Cells()
+	b := d.Frame()
 	left, right, up, down := reach(b, x, y, -1, 0), reach(b, x, y, 1, 0), reach(b, x, y, 0, -1), reach(b, x, y, 0, 1)
 	if left == 0 || left != right || up != down {
 		t.Errorf("%s: %q has %d fill cells left, %d right, %d above, %d below:\n%s", name, glyph, left, right, up, down, d.Frame().Text())
@@ -217,7 +216,7 @@ func TestSmallAvatarFillOutreachesItsLetters(t *testing.T) {
 		return func() twi.Node { return Avatar(SizeSM, AvatarFallback(twi.Text("CN"))) }
 	})
 	x, y, _ := at(d.Frame(), "CN")
-	b := d.Frame().Cells()
+	b := d.Frame()
 	if left, right := reach(b, x, y, -1, 0), reach(b, x+1, y, 1, 0); left != 1 || right != 1 {
 		t.Errorf("small avatar: %d fill cells left of CN, %d right, want one each:\n%s", left, right, d.Frame().Text())
 	}
