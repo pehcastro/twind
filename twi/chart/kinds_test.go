@@ -4,6 +4,7 @@ import (
 	"image"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -347,6 +348,58 @@ func TestEveryKindDrivesWithTooltipAndConsoleGlyphs(t *testing.T) {
 			t.Errorf("%s: pointer at %v (hover %d) shows no tooltip matching %q:\n%s", k.name, k.at, c.hover, k.tip, hovered)
 		}
 		t.Logf("%s, 100x30, no graphics, pointer at %v:\n%s", k.name, k.at, hovered)
+	}
+}
+
+func TestLabelledBarsLeaveNoEmptyRows(t *testing.T) {
+	visits := []float64{186, 305, 237, 73, 209, 214}
+	build := func(labelled bool, height int) func(rt *twi.Runtime) *Chart {
+		return func(rt *twi.Runtime) *Chart {
+			c := sized(rt, &Chart{Kind: Bar, Labelled: labelled, Labels: []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun"}, Series: []Series{{Label: "Desktop", Color: theme.Chart1, Values: visits}}})
+			c.Height = height
+			return c
+		}
+	}
+	top, zero := regexp.MustCompile(`^\s*320 `), regexp.MustCompile(`^\s*0 \S`)
+	for _, height := range []int{14, 16, 19, 26} {
+		var spans [2]int
+		var labelled []string
+		for i, on := range []bool{false, true} {
+			d, _ := chartDriver(t, build(on, height))
+			lines := strings.Split(d.Frame().Text(), "\n")
+			first, last := slices.IndexFunc(lines, top.MatchString), slices.IndexFunc(lines, zero.MatchString)
+			spans[i], labelled = last-first, lines
+		}
+		if spans[1] != spans[0] {
+			t.Errorf("height %d: ticks span %d rows labelled and %d unlabelled: the label row cost plot rows", height, spans[1], spans[0])
+		}
+		if at := strings.Index(labelled[1], "305"); at < 0 {
+			t.Errorf("height %d: the chart's first row is %q, not the tallest bar's label: empty rows above it\n%s", height, labelled[1], strings.Join(labelled, "\n"))
+		} else {
+			col := utf8.RuneCountInString(labelled[1][:at]) + 1
+			under, next := []rune(labelled[2])[col], []rune(labelled[3])[col]
+			if under != '█' && under != '▄' && (under != '─' || next != '█') {
+				t.Errorf("height %d: under the 305 label are %q and %q, want the top of its bar, or a grid row over a full cell where the bar's top is under half a half cell\n%s", height, under, next, strings.Join(labelled, "\n"))
+			}
+		}
+		c := &Chart{Kind: Bar, Labelled: true, Labels: make([]string, len(visits)), Series: []Series{{Color: theme.Chart1, Values: visits}}}
+		p := c.model()
+		h := p.fit(height - 1 - konst.LegendGap - 1)
+		cell := image.Point{10, 20}
+		dst := image.NewRGBA(image.Rect(0, 0, 600, h*cell.Y))
+		c.canvas = reuse(c.canvas, 600, h*cell.Y)
+		m := pixelMetrics(cell)
+		c.canvas.dst, c.canvas.token, c.canvas.dot = dst, palette, int(m.dot)
+		c.trace(c.canvas, p, p.rows(m, h, float32(cell.Y)), 0)
+		lo, hi := p.bar(1, 0, 600, m)
+		x := int(lo+hi) / 2
+		y := 0
+		for y < dst.Rect.Dy() && dst.RGBAAt(x, y).R == 0 {
+			y++
+		}
+		if y/cell.Y != 1 {
+			t.Errorf("height %d: in pixels the tallest bar starts in row %d (pixel %d of %d), want row 1, right under the label row", height, y/cell.Y, y, dst.Rect.Dy())
+		}
 	}
 }
 

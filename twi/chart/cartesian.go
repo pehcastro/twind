@@ -44,6 +44,9 @@ func (c *Chart) cartesian(p plot) twi.Node {
 	if c.Brush {
 		h -= konst.BrushRows + 1
 	}
+	if c.Labelled && p.kind == Bar && !p.horizontal {
+		h = p.fit(h)
+	}
 	if w-room < konst.MinPlot || h-p.lead < konst.MinPlot {
 		panic("chart: no room for a plot")
 	}

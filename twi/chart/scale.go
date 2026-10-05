@@ -27,9 +27,6 @@ func (c *Chart) window(from, to int) plot {
 		panic("chart: window " + strconv.Itoa(from) + " to " + strconv.Itoa(to) + " outside " + strconv.Itoa(len(c.Labels)) + " labels")
 	}
 	p := plot{kind: c.Kind, stacked: c.Stacked, horizontal: c.Horizontal && c.Kind == Bar, step: c.Step, points: to - from, labels: c.Labels[from:to]}
-	if c.Labelled && c.Kind == Bar && !p.horizontal {
-		p.lead = 1
-	}
 	lo, hi := 0.0, 0.0
 	for s, series := range c.Series {
 		if len(series.Values) != len(c.Labels) {
@@ -134,13 +131,34 @@ func (p plot) y(v float64, m metrics) float32 {
 }
 
 func (p plot) rows(m metrics, h int, unit float32) metrics {
-	last := len(p.ticks) - 1
-	span := h - 1 - p.lead
-	if step := span / last; step > 0 {
-		span = step * last
-	}
+	span := p.snap(h - 1 - p.lead)
 	m.top, m.bottom = (float32(h-1-span)+0.5)*unit, (float32(h)-0.5)*unit
 	return m
+}
+
+func (p *plot) fit(h int) int {
+	for span := p.snap(h - 1); ; span = p.snap(span - 1) {
+		p.lead = 0
+		m := p.halves(span + 1)
+		for s, top := range p.top {
+			for _, v := range top {
+				if v >= 0 && (!p.stacked || s == len(p.top)-1) && int(p.y(v, m))/konst.CellRows == 0 {
+					p.lead = 1
+				}
+			}
+		}
+		if span+1+p.lead <= h {
+			return span + 1 + p.lead
+		}
+	}
+}
+
+func (p plot) snap(rows int) int {
+	last := len(p.ticks) - 1
+	if step := rows / last; step > 0 {
+		return step * last
+	}
+	return rows
 }
 
 func (p plot) halves(h int) metrics {
