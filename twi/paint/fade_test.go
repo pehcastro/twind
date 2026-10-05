@@ -43,6 +43,31 @@ func TestFadingPanelHidesThePage(t *testing.T) {
 	}
 }
 
+func TestFadingLineOverTheSameLineNeverDips(t *testing.T) {
+	night, line := color.RGBA{R: 5, G: 4, B: 6, A: 255}, color.RGBA{R: 36, G: 31, B: 46, A: 255}
+	ground := filled(night)
+	ground.Color = literal(line)
+	dimmed := over(literal(color.RGBA{A: 128}), literal(line)).RGBA
+	for step := range 11 {
+		opacity := float64(step) / 10
+		ink := plain()
+		ink.Color = literal(line)
+		root := scene.New(place(0, 0, 10, 1, layout.Edges{}), ground, scene.Sanitize("──────────"))
+		root.Children = []scene.Node{
+			scene.New(place(0, 0, 10, 1, layout.Edges{}), filled(color.RGBA{A: 128}), scene.Text{}),
+			faded(opacity, scene.New(place(1, 0, 8, 1, layout.Edges{}), ink, scene.Sanitize("────────"))),
+		}
+		c := painted(10, 1, root, Composited).At(4, 0)
+		low, high := [3]uint8{dimmed.R, dimmed.G, dimmed.B}, [3]uint8{line.R, line.G, line.B}
+		for k, got := range [3]uint8{c.Fg.RGBA.R, c.Fg.RGBA.G, c.Fg.RGBA.B} {
+			if c.Grapheme != "─" || got+1 < low[k] || got > high[k]+1 {
+				t.Errorf("opacity %.1f: %q ink %+v, want a line between the dimmed page line %+v and the dialog line %+v", opacity, c.Grapheme, c.Fg.RGBA, dimmed, line)
+				break
+			}
+		}
+	}
+}
+
 func TestFadingBackdropKeepsThePage(t *testing.T) {
 	text := strings.Repeat("abcdefghij\n", 4)
 	backdrop := scene.New(place(1, 0, 8, 4, layout.Edges{}), filled(color.RGBA{A: 128}), scene.Text{})

@@ -91,8 +91,12 @@ func put(buf *buffer.Buffer, clip layout.Rect, x, y int, src buffer.Cell) {
 		upper.RGBA.A /= 2
 		under = over(upper, dst.Bg)
 	}
+	stroke := over(src.Bg, dst.Fg)
 	src.Bg = over(src.Bg, under)
-	src.Fg = over(src.Fg, src.Bg)
+	if src.Grapheme != dst.Grapheme || src.Attr != dst.Attr || src.Grapheme == " " || dst.Fg.Kind != color.Literal {
+		stroke = src.Bg
+	}
+	src.Fg = over(src.Fg, stroke)
 	buf.Set(x, y, src)
 }
 

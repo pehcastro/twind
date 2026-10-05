@@ -382,6 +382,7 @@ type motionLook struct {
 	glyph  string
 	pixels bool
 	colour [3]int
+	ink    [3]int
 }
 
 func (l motionLook) far(o motionLook, step int) bool {
@@ -391,6 +392,10 @@ func (l motionLook) far(o motionLook, step int) bool {
 		}
 	}
 	return false
+}
+
+func (l motionLook) shows(o motionLook) bool {
+	return l.glyph == o.glyph && !(motionLook{colour: l.ink}).far(motionLook{colour: o.ink}, blinkStep)
 }
 
 func (m *motionModel) state() []motionLook {
@@ -433,7 +438,7 @@ func (m *motionModel) state() []motionLook {
 		l.text = c.text
 		ink := motionLook{colour: [3]int{int(c.fg >> 16 & 0xff), int(c.fg >> 8 & 0xff), int(c.fg & 0xff)}}
 		if c.fg == 0 || ink.far(*l, blinkReturn) {
-			l.glyph = fmt.Sprint(c.text, c.fg, c.attr)
+			l.glyph, l.ink = fmt.Sprint(c.text, c.fg == 0, c.attr), ink.colour
 		}
 	}
 	return looks
@@ -500,9 +505,9 @@ func (m *motionModel) apply(t testing.TB, frames []motionFrame, r *motionResult)
 		for c := range now {
 			kind := ""
 			switch {
-			case a[c].glyph == now[c].glyph && b[c].glyph != now[c].glyph && now[c].glyph == "":
+			case a[c].shows(now[c]) && !b[c].shows(now[c]) && now[c].glyph == "":
 				kind = motionPassing
-			case a[c].glyph == now[c].glyph && b[c].glyph != now[c].glyph:
+			case a[c].shows(now[c]) && !b[c].shows(now[c]):
 				kind = "glyph gone"
 			case a[c].pixels && now[c].pixels && !b[c].pixels && a[c].far(b[c], blinkStep) && now[c].far(b[c], blinkStep):
 				kind = "pixels gone"
@@ -793,6 +798,8 @@ func TestBlinkTellsAMovingEdge(t *testing.T) {
 		{"fill flashes", []string{at(1, red), at(1, "  ")}, []image.Point{{0, 1}, {1, 1}}},
 		{"fill flashes as a dimmer one moves in", []string{at(1, red), at(1, "  ") + at(2, dim)}, []image.Point{{0, 1}, {1, 1}}},
 		{"text fades into its background", []string{at(1, ink("5;4;6", "195;218;80")), "", at(1, ink("25;27;14", "25;25;12")), at(1, ink("5;4;6", "5;4;6"))}, nil},
+		{"ink wobbles and returns", []string{at(1, ink("36;31;46", "5;4;6")), at(1, ink("33;28;41", "4;4;5")), at(1, ink("36;31;46", "2;2;3"))}, nil},
+		{"ink dips and returns", []string{at(1, ink("36;31;46", "5;4;6")), at(1, ink("11;10;14", "4;4;5")), at(1, ink("36;31;46", "2;2;3"))}, []image.Point{{0, 1}, {1, 1}}},
 		{"text jumps", []string{at(1, "ab"), at(1, "  ") + at(3, "ab")}, []image.Point{{0, 1}, {1, 1}}},
 	} {
 		m := newMotionModel(motionPath{"cells", 4, 6, terminal.Capabilities{Sync: true}})

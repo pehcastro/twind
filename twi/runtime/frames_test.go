@@ -187,14 +187,19 @@ func TestMotionKeepsItsPaceAfterAChange(t *testing.T) {
 }
 
 func TestSlowTerminalKeepsTheMotionPace(t *testing.T) {
+	began := time.Now()
+	for range 5 {
+		time.Sleep(konst.MotionInterval)
+	}
+	interval := time.Since(began) / 5
 	b := newBackend(20, 3)
 	b.blocked = 20 * time.Millisecond
 	r := pulsing(t, b)
 	window := 600 * time.Millisecond
-	count, paced := r.count(window), int(window/konst.MotionInterval)
-	t.Logf("pulsing through a terminal that blocks each write %v: %d frames in %v, %d at the motion pace", b.blocked, count, window, paced)
-	if count < paced-3 || count > paced+2 {
-		t.Errorf("%d frames in %v with each write blocked %v, want %d to %d: the pace counts from the frame's start, not its end", count, window, b.blocked, paced-3, paced+2)
+	count, fromStart, fromEnd := r.count(window), int(window/interval), int(window/(interval+b.blocked))
+	t.Logf("pulsing through a terminal that blocks each write %v, a %v sleep taking %v: %d frames in %v, %d paced from each frame's start, %d from its end", b.blocked, konst.MotionInterval, interval, count, window, fromStart, fromEnd)
+	if count <= (fromStart+fromEnd)/2 || count > fromStart+2 {
+		t.Errorf("%d frames in %v with each write blocked %v, want %d to %d: the pace counts from the frame's start, not its end", count, window, b.blocked, (fromStart+fromEnd)/2+1, fromStart+2)
 	}
 	if err := r.stop(t); err != nil {
 		t.Error(err)

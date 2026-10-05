@@ -230,6 +230,12 @@ func (r *Runtime) loop(b Backend) error {
 				now = r.cfg.Clock.Now()
 			}
 		}
+		select {
+		case <-alarm:
+			alarm = nil
+			continue
+		default:
+		}
 		next := r.sleep()
 		if next.IsZero() || !frameAt.IsZero() && frameAt.Before(next) {
 			next = frameAt
