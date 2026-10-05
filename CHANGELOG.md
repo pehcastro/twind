@@ -1,6 +1,18 @@
 # Changelog
 
-## Unreleased
+## Unreleased (prepared as v0.6.0)
+
+A smaller, harder public API: the pipeline is internal, every component and option says what it takes, and lists fit the room they have.
+
+- `twi.MinSize` and `twi.MaxSize` size a node at run time. Menus, sub menus, menubar menus, Select, NativeSelect and Combobox cap their height to the room on the side they open, scroll, keep the highlighted item in view with the arrow keys, and match their trigger's width.
+- `rt.Copy`, `rt.Focus`, `rt.ScrollIntoView` and `rt.HideFocusRings` are safe from any goroutine; `Copy` before `Run` rides the first frame.
+- Undo in `ui.Input` and `ui.Textarea` breaks a typing run after a pause.
+- xterm and other terminals that confirm 24-bit colour get it even without COLORTERM; the first frame re-reads the terminal size if it moved during detection (foot).
+- Charts: labelled bars leave no empty rows; value labels on a grid row read whole in sixel terminals.
+- Fades: a fading border over the same glyph no longer dips for a frame.
+- `twind doctor` no longer stops on the GDI path and accepts `y`; `twind new` writes only the template and a README for the published version.
+- Speed: key press back to v0.4.0 speed (B/op too); paint up to 1.24x; render of the docs 1.5x, docs first frame 1.14x.
+- CI runs on Windows, Linux and macOS.
 
 ### Breaking
 
