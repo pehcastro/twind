@@ -13,23 +13,23 @@ One command opens the documentation, itself a Twind app, in your terminal. It do
 Windows, in PowerShell:
 
 ```powershell
-irm https://github.com/pehcastro/twind/releases/latest/download/docs.ps1 | iex
+irm twind.nkz.md/docs | iex
 ```
 
 Linux and macOS:
 
 ```sh
-curl -fsSL https://github.com/pehcastro/twind/releases/latest/download/docs.sh | sh
+curl -fsSL twind.nkz.md/docs | sh
 ```
 
 Replace `docs` with `landing`, `portfolio`, `playground` or `gallery` to open one of the examples. To pass arguments, such as a page to open:
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/pehcastro/twind/releases/latest/download/docs.ps1))) -page button
+& ([scriptblock]::Create((irm twind.nkz.md/docs))) -page button
 ```
 
 ```sh
-curl -fsSL https://github.com/pehcastro/twind/releases/latest/download/docs.sh | sh -s -- -page button
+curl -fsSL twind.nkz.md/docs | sh -s -- -page button
 ```
 
 `TWIND_VERSION=v0.5.0` picks a release other than the latest. The cache is `%LocalAppData%\twind\try` on Windows, `~/.cache/twind/try` on Linux and `~/Library/Caches/twind/try` on macOS.
