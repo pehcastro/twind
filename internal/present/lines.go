@@ -1,12 +1,14 @@
 package present
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/maphash"
 	"image"
 	"math"
 	"slices"
+	"strconv"
 	"sync"
 
 	"github.com/pehcastro/twind/internal/graphics"
@@ -14,6 +16,7 @@ import (
 	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
 	konst "github.com/pehcastro/twind/internal/konst/paint"
 	scenekonst "github.com/pehcastro/twind/internal/konst/scene"
+	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
 	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
 )
@@ -250,7 +253,20 @@ func (w *worker) joinedLines(s *Screen, t int) [][]run {
 }
 
 func (w *worker) encode(s *Screen, t int) {
-	lo := len(w.out)
+	lo, key, single := len(w.out), twin{s.hashes[t], s.tiles[t].Size()}, s.covers[t] == image.Pt(1, 1) && !s.fresh
+	if single {
+		s.lock.Lock()
+		body, ok := s.stored.image(key, s.frame)
+		s.lock.Unlock()
+		if ok {
+			if len(body) > 0 {
+				w.out = append(cursor(w.out, s.tiles[t].Min), body...)
+			}
+			s.pieces[t] = piece{w, lo, len(w.out)}
+			return
+		}
+	}
+	s.encoded.Add(1)
 	switch s.Graphics {
 	case terminal.GraphicsSixel:
 		if w.sixel == nil {
@@ -274,7 +290,8 @@ func (w *worker) encode(s *Screen, t int) {
 			}
 			return
 		}
-		w.out = w.sixel.Encode(w.out, s.tileLines(t, w.lines[:0]), s.placement(t))
+		w.lines = s.tileLines(t, w.lines[:0])
+		w.out = w.sixel.Encode(w.out, w.lines, s.placement(t))
 	case terminal.GraphicsITerm2:
 		if w.iterm == nil {
 			w.iterm = &graphics.ITerm{}
@@ -287,7 +304,17 @@ func (w *worker) encode(s *Screen, t int) {
 	default:
 		panic(fmt.Sprintf("present: unknown graphics %d", s.Graphics))
 	}
+	if single {
+		s.lock.Lock()
+		s.stored.remember(key, w.out[lo+bytes.IndexByte(w.out[lo:], 'H')+1:], s.frame)
+		s.lock.Unlock()
+	}
 	s.pieces[t] = piece{w, lo, len(w.out)}
+}
+
+func cursor(dst []byte, at image.Point) []byte {
+	dst = strconv.AppendInt(append(dst, termkonst.CSI...), int64(at.Y+1), 10)
+	return append(strconv.AppendInt(append(dst, ';'), int64(at.X+1), 10), 'H')
 }
 
 func (s *Screen) hash(t int) uint64 {
@@ -348,6 +375,9 @@ func (w *worker) measure(s *Screen, t, twin int) {
 		shift = (s.tiles[twin].Min.Y-cells.Min.Y)*s.cols + s.tiles[twin].Min.X - cells.Min.X
 	}
 	painted, grounded := s.underText() && s.painted.Load(), s.underText() && !s.plain[t] && s.hashes[t] != s.sent[t] || s.Graphics == terminal.GraphicsGDI
+	if grounded && w.entry != nil && w.entry.sampled(s, cells) {
+		return
+	}
 	bands, sums := w.bands, w.sums
 	for y := cells.Min.Y; y < cells.Max.Y; y++ {
 		clear(s.sampled[y*s.cols+cells.Min.X : y*s.cols+cells.Max.X])
@@ -386,6 +416,9 @@ func (w *worker) measure(s *Screen, t, twin int) {
 		}
 	}
 	w.bands, w.sums = bands, sums
+	if grounded && w.entry != nil {
+		w.entry.sample(s, cells)
+	}
 }
 
 func (w *worker) unpack(s *Screen, t int) {
@@ -473,9 +506,13 @@ func (s *Screen) inset() int {
 
 func (s *Screen) flat(x, y, margin int) bool {
 	r, c, at := s.area(x, y)
-	first := pixel(c.line(r.Min.Y+margin), at)
+	first, seen := pixel(c.line(r.Min.Y+margin), at), int32(-1)
 	for py := r.Min.Y + margin; py < r.Max.Y-margin; py++ {
-		runs := c.line(py)
+		if c.lineOf[py] == seen {
+			continue
+		}
+		seen = c.lineOf[py]
+		runs := c.store[seen]
 		if i := find(runs, at); runs[i].Pixel != first || int(runs[i].End) < at+s.Cell.X {
 			return false
 		}

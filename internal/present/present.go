@@ -9,7 +9,6 @@ import (
 	"io"
 	"math"
 	"slices"
-	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -92,6 +91,8 @@ type Screen struct {
 	spliced      []run
 	blank        []run
 	splices      map[[2]int32]int32
+	lastPair     [2]int32
+	lastSplice   int32
 	tiles        []image.Rectangle
 	changed      []image.Rectangle
 	changedIn    []int
@@ -131,6 +132,9 @@ type Screen struct {
 	painting     terminal.Pixels
 	gdiPix       []byte
 	strip        []byte
+	stored       store
+	composed     atomic.Int64
+	encoded      atomic.Int64
 }
 
 type cached struct {
@@ -226,10 +230,14 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 		paint()
 		s.reached()
 	} else {
+		if !s.fresh {
+			s.stored.open(storedFor{s.page, s.Profile, s.Graphics})
+		}
 		next, changed := s.damaged(&root)
 		s.surfaces(next, changed, paint)
 		s.reached()
 		s.transmit()
+		s.stored.sweep(len(s.tiles), s.frame)
 	}
 	s.compose()
 	if s.Graphics == terminal.GraphicsNone {
@@ -296,7 +304,7 @@ func (s *Screen) reset(cols, rows int) {
 	if s.Cell != s.cell || s.cache == nil {
 		s.cache, s.shapes, s.splices, s.recipes, s.seed = map[uint64]*cached{}, map[string]*cached{}, map[[2]int32]int32{}, map[uint64]recipe{}, maphash.MakeSeed()
 	}
-	s.cols, s.rows, s.cell, s.font, s.fresh = cols, rows, s.Cell, s.Font, true
+	s.cols, s.rows, s.cell, s.font, s.fresh, s.stored.tiles = cols, rows, s.Cell, s.Font, true, nil
 	s.text, s.shown, s.want = nil, nil, nil
 	s.reach, s.over = make([][2]int, rows), s.over[:0]
 	s.writer = terminal.Writer{Out: &s.out, Profile: s.Profile}
@@ -418,6 +426,9 @@ func (s *Screen) reached() {
 		s.touch(image.Rect(0, 0, s.cols, s.rows))
 	}
 	for _, r := range s.painter.Repainted() {
+		s.touch(image.Rect(r.X, r.Y, r.X+r.W, r.Y+r.H))
+	}
+	if r := s.painter.Moved(); r.W > 0 {
 		s.touch(image.Rect(r.X, r.Y, r.X+r.W, r.Y+r.H))
 	}
 	for _, t := range s.drawing {
@@ -698,8 +709,7 @@ func (s *Screen) put(t int) {
 		p := s.pieces[s.twins[t]]
 		encoded := p.w.out[p.lo:p.hi]
 		if s.twins[t] != t && len(encoded) > 0 {
-			at := strconv.AppendInt(append(s.out.AvailableBuffer(), termkonst.CSI...), int64(cells.Min.Y+1), 10)
-			s.out.Write(append(strconv.AppendInt(append(at, ';'), int64(cells.Min.X+1), 10), 'H'))
+			s.out.Write(cursor(s.out.AvailableBuffer(), cells.Min))
 			encoded = encoded[bytes.IndexByte(encoded, 'H')+1:]
 		}
 		s.out.Write(encoded)

@@ -11,4 +11,6 @@ const (
 	ShareFar       = 4
 	ShareGrid      = 256
 	ShareLimit     = 1 << 20
+	StoredPerTile  = 4
+	StoredFrames   = 120
 )

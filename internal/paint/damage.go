@@ -37,6 +37,19 @@ type Painter struct {
 	layers                 []*buffer.Buffer
 	walker                 scene.Walker
 	scrolls                bool
+	offsets                []int
+	rel, wasRel            []uint64
+	views, wasViews        []view
+	moved                  layout.Rect
+	changed                []layout.Rect
+	held                   []held
+	heldWidth              int
+}
+
+type held struct {
+	sig   uint64
+	cells [konst.DamageColumns]buffer.Cell
+	kept  bool
 }
 
 type shape struct {
@@ -74,16 +87,24 @@ func Paint(buf *buffer.Buffer, root scene.Node, look Look) {
 func (p *Painter) Paint(buf *buffer.Buffer, root *scene.Node, look Look) {
 	p.order(root, layout.Rect{W: buf.Width(), H: buf.Height()})
 	p.sign(buf, root, look)
+	p.shift(buf)
+	p.changed = p.changed[:0]
+	if buf == p.buf && buf.Width() == p.width && buf.Height() == p.height {
+		p.recall(buf)
+	}
 	p.damage(buf)
+	p.changed = append(p.changed, p.spans...)
 	for _, span := range p.spans {
 		p.repaint(buf, root, look, span)
 	}
 	p.buf, p.width, p.height = buf, buf.Width(), buf.Height()
 	p.tiles, p.last = p.last, p.tiles
 	p.wide, p.wasWide = p.wasWide, p.wide
+	p.rel, p.wasRel = p.wasRel, p.rel
+	p.views, p.wasViews = p.wasViews, p.views
 }
 
-func (p *Painter) Repainted() []layout.Rect { return p.spans }
+func (p *Painter) Repainted() []layout.Rect { return p.changed }
 
 func (p *Painter) Scrolls() bool { return p.scrolls }
 
@@ -93,7 +114,8 @@ func (p *Painter) order(root *scene.Node, screen layout.Rect) {
 		p.nodes, p.areas, p.shapes, p.ops = make([]*scene.Node, 0, total), make([]layout.Rect, 0, total), make([]shape, 0, total), make([]op, 0, total)
 	}
 	p.nodes, p.areas, p.reshaped, p.scrolls = p.nodes[:0], p.areas[:0], false, false
-	p.preorder(root, screen)
+	p.offsets, p.views = p.offsets[:0], p.views[:0]
+	p.preorder(root, screen, 0)
 	if !p.reshaped && len(p.nodes) == len(p.shapes) {
 		return
 	}
@@ -141,17 +163,28 @@ func size(n *scene.Node) int {
 	return total
 }
 
-func (p *Painter) preorder(n *scene.Node, screen layout.Rect) {
+func (p *Painter) preorder(n *scene.Node, screen layout.Rect, offset int) {
 	s := shape{n.ZIndex, n.TopLayer, int32(len(n.Children)), n.Position, n.Opacity <= 0, n.Opacity < 1, n.Scroll}
-	switch i := len(p.nodes); {
+	i := len(p.nodes)
+	switch {
 	case i == len(p.shapes):
 		p.shapes, p.reshaped = append(p.shapes, s), true
 	case p.shapes[i] != s:
 		p.shapes[i], p.reshaped = s, true
 	}
 	p.nodes, p.areas, p.scrolls = append(p.nodes, n), append(p.areas, overlap(overlap(p.extent(n), n.Clip), screen)), p.scrolls || n.Scroll
+	if offset != 0 {
+		for len(p.offsets) < i {
+			p.offsets = append(p.offsets, 0)
+		}
+		p.offsets = append(p.offsets, offset)
+	}
+	if n.Scroll {
+		p.views = append(p.views, p.view(n, int32(i), screen))
+		offset += n.ScrollContent.Y - n.Padding.Y
+	}
 	for i := range n.Children {
-		p.preorder(&n.Children[i], screen)
+		p.preorder(&n.Children[i], screen, offset)
 	}
 }
 
@@ -166,6 +199,10 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 	canvas := mix(mix(mix(maphash.Comparable(p.seed, root.Background), uint64(look)), uint64(p.Profile)), maphash.Comparable(p.seed, p.Widths))
 	for i := range p.tiles {
 		p.tiles[i] = canvas
+	}
+	p.rel = p.rel[:0]
+	if len(p.views) > 0 {
+		p.rel = append(p.rel, p.tiles...)
 	}
 	screen := layout.Rect{W: width, H: height}
 	p.groups = append(p.groups[:0], canvas)
@@ -185,12 +222,17 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 			continue
 		}
 		n := p.nodes[o.node]
-		box := mix(p.box(n), p.groups[len(p.groups)-1])
-		p.mark(area, box, false)
-		ink, lines, widest, wide := box, n.Lines(p.Widths), 0, false
+		box := mix(p.box(n, 0), p.groups[len(p.groups)-1])
+		rel := box
+		if int(o.node) < len(p.offsets) && p.offsets[o.node] != 0 && len(p.rel) > 0 {
+			rel = mix(p.box(n, p.offsets[o.node]), p.groups[len(p.groups)-1])
+		}
+		p.mark(area, box, rel)
+		ink, relInk, lines, widest, wide := box, rel, n.Lines(p.Widths), 0, false
 		lines = lines[:min(len(lines), n.Content.H)]
 		for _, line := range lines {
-			ink = mix(ink, maphash.String(p.seed, line))
+			h := maphash.String(p.seed, line)
+			ink, relInk = mix(ink, h), mix(relInk, h)
 			widest = max(widest, len(line))
 			for i := range len(line) {
 				wide = wide || line[i] >= utf8.RuneSelf
@@ -203,14 +245,20 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 			widest = n.Content.W
 		}
 		c := n.Content
-		p.mark(overlap(overlap(layout.Rect{X: c.X, Y: c.Y, W: min(widest, c.W), H: len(lines)}, n.Clip), screen), ink, wide)
+		text := overlap(overlap(layout.Rect{X: c.X, Y: c.Y, W: min(widest, c.W), H: len(lines)}, n.Clip), screen)
+		p.mark(text, ink, relInk)
+		for y := text.Y; y < text.Y+text.H && text.W > 0; y++ {
+			p.wide[y] = p.wide[y] || wide
+		}
 	}
 }
 
-func (p *Painter) box(n *scene.Node) uint64 {
+func (p *Painter) box(n *scene.Node, moved int) uint64 {
 	g, b := &n.Gradient, &n.Border
+	bounds, padding, content := n.Bounds, n.Padding, n.Content
+	bounds.Y, padding.Y, content.Y = bounds.Y-moved, padding.Y-moved, content.Y-moved
 	h := maphash.Comparable(p.seed, face{
-		n.Bounds, n.Padding, n.Content, n.Clip,
+		bounds, padding, content, n.Clip,
 		math.Float64bits(g.Angle), math.Float64bits(g.From.Position), math.Float64bits(g.Via.Position), math.Float64bits(g.To.Position),
 		int(b.Radius), len(n.Shadows), len(n.InsetShadows),
 		word(n.Background), word(n.Foreground), word(g.From.Color), word(g.Via.Color), word(g.To.Color), word(b.Color),
@@ -238,15 +286,22 @@ func bit(b bool, at uint) uint64 {
 	return 0
 }
 
-func (p *Painter) mark(area layout.Rect, h uint64, wide bool) {
+func (p *Painter) mark(area layout.Rect, h, rel uint64) {
 	if area.W == 0 {
 		return
 	}
+	lo, hi := area.X/konst.DamageColumns, (area.X+area.W+konst.DamageColumns-1)/konst.DamageColumns
 	for y := area.Y; y < area.Y+area.H; y++ {
-		p.wide[y] = p.wide[y] || wide
 		row := p.tiles[y*p.columns : (y+1)*p.columns]
-		for t := area.X / konst.DamageColumns; t < (area.X+area.W+konst.DamageColumns-1)/konst.DamageColumns; t++ {
+		for t := lo; t < hi; t++ {
 			row[t] = mix(row[t], h)
+		}
+		if len(p.rel) == 0 {
+			continue
+		}
+		row = p.rel[y*p.columns : (y+1)*p.columns]
+		for t := lo; t < hi; t++ {
+			row[t] = mix(row[t], rel)
 		}
 	}
 }
@@ -287,6 +342,36 @@ func (p *Painter) damage(buf *buffer.Buffer) {
 				run.X, run.W, t = 0, width, p.columns
 			}
 			p.extend(run)
+		}
+	}
+}
+
+func (p *Painter) recall(buf *buffer.Buffer) {
+	if len(p.held) != len(p.tiles) || p.heldWidth != buf.Width() {
+		p.held, p.heldWidth = make([]held, len(p.tiles)), buf.Width()
+	}
+	m := p.moved
+	for y := range buf.Height() {
+		if p.wide[y] || p.wasWide[y] || y >= m.Y && y < m.Y+m.H {
+			continue
+		}
+		row := buf.Row(y)
+		for t := range p.columns {
+			i := y*p.columns + t
+			if p.tiles[i] == p.last[i] {
+				continue
+			}
+			h, cells := &p.held[i], row[t*konst.DamageColumns:min((t+1)*konst.DamageColumns, len(row))]
+			if !h.kept || h.sig != p.tiles[i] {
+				copy(h.cells[:], cells)
+				h.sig, h.kept = p.last[i], true
+				continue
+			}
+			shown := h.cells
+			copy(h.cells[:], cells)
+			copy(cells, shown[:])
+			h.sig, p.last[i] = p.last[i], p.tiles[i]
+			p.changed = append(p.changed, layout.Rect{X: t * konst.DamageColumns, Y: y, W: len(cells), H: 1})
 		}
 	}
 }

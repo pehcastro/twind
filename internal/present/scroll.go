@@ -62,6 +62,7 @@ func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {
 		c := s.column(left)
 		lo, hi := max(px.Min.X, left)-left, min(px.Max.X, left+span)-left
 		clear(s.splices)
+		s.lastPair = [2]int32{-1, -2}
 		if lo == 0 && hi == c.width {
 			s.blank = append(s.blank[:0], run{End: int32(c.width)})
 			c.shift(px.Min.Y, px.Max.Y, by.Y, c.intern(s.blank, s.digest(&s.key, s.blank)))
@@ -168,6 +169,10 @@ func (s *Screen) unshifted(l *scene.Layer, b *scene.Box, dy int, area image.Rect
 
 func (s *Screen) splice(c *column, y int, from int32, lo, hi int) {
 	pair := [2]int32{c.lineOf[y], from}
+	if pair == s.lastPair {
+		c.link(c.lineOf, y, s.lastSplice)
+		return
+	}
 	k, ok := s.splices[pair]
 	if !ok {
 		s.blank = append(s.blank[:0], run{End: int32(c.width)})
@@ -180,8 +185,9 @@ func (s *Screen) splice(c *column, y int, from int32, lo, hi int) {
 		if !slices.Equal(s.spliced, c.line(y)) {
 			k = c.intern(s.spliced, s.digest(&s.key, s.spliced))
 		}
+		s.splices[pair] = k
 	}
-	s.splices[pair] = k
+	s.lastPair, s.lastSplice = pair, k
 	c.link(c.lineOf, y, k)
 }
 

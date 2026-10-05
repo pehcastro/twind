@@ -186,6 +186,24 @@ func TestOneTextRepaintsItsTile(t *testing.T) {
 	}
 }
 
+func TestToggledTileIsRestoredNotRedrawn(t *testing.T) {
+	before, after := scenery(), scenery()
+	after.Children[0] = retext(after.Children[0], "keys 2")
+	var p Painter
+	buf := buffer.New(appColumns, appRows)
+	p.Paint(buf, &before, Composited)
+	p.Paint(buf, &after, Composited)
+	for i, root := range []scene.Node{before, after, before} {
+		p.Paint(buf, &root, Composited)
+		if want := []layout.Rect{{W: konst.DamageColumns, H: 1}}; len(p.spans) != 0 || !slices.Equal(p.Repainted(), want) {
+			t.Errorf("toggle %d: drew %v and reported %v, want nothing drawn and the text's tile %v reported", i, p.spans, p.Repainted(), want)
+		}
+		want := buffer.New(appColumns, appRows)
+		reference(want, root, Composited)
+		same(t, i, buf, want)
+	}
+}
+
 func TestDamagedPaintAfterResize(t *testing.T) {
 	root := scenery()
 	var p Painter
@@ -300,15 +318,15 @@ func TestBoxSignatureSeesEveryPaintedField(t *testing.T) {
 	}
 	var p Painter
 	p.Paint(buffer.New(4, 4), &base, Composited)
-	want := p.box(&base)
+	want := p.box(&base, 0)
 	for name, change := range changes {
 		n := base
 		change(&n)
-		if p.box(&n) == want {
+		if p.box(&n, 0) == want {
 			t.Errorf("%s: the box signature did not change, so the box would not be repainted", name)
 		}
 	}
-	if again := base; p.box(&again) != want {
+	if again := base; p.box(&again, 0) != want {
 		t.Error("the same box gave two signatures")
 	}
 }

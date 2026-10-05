@@ -46,6 +46,8 @@ type worker struct {
 	parts  []part
 	groups []group
 	out    []byte
+	trail  []storedRow
+	entry  *stored
 }
 
 type link struct {
@@ -194,7 +196,7 @@ func (w *worker) close() {
 }
 
 func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
-	w.lazy = false
+	w.lazy, w.entry = false, nil
 	w.collect(s, f, t)
 	r, c := s.lines(t)
 	parts, deep := w.parts, 0
@@ -227,8 +229,16 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
 		w.recipe = w.describe(w.recipe[:0], r)
 		w.hashed = maphash.Bytes(s.seed, w.recipe)
 		s.lock.Lock()
-		twin := s.recall(w.hashed, w.recipe)
+		twin, e := s.recall(w.hashed, w.recipe), (*stored)(nil)
+		if twin < 0 {
+			e = s.stored.tile(w.hashed, w.recipe, s.frame)
+		}
 		s.lock.Unlock()
+		if w.entry = e; e != nil {
+			w.restore(c, r, e)
+			s.hashes[t] = e.hash
+			return -1, true
+		}
 		if twin >= 0 {
 			area, source := s.lines(twin)
 			links := w.links[:0]
@@ -268,15 +278,18 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
 			return twin, false
 		}
 	}
+	s.composed.Add(1)
 	for len(w.layers) <= deep {
 		w.layers = append(w.layers, layer{})
 	}
 	l, width := &w.layers[0], int32(c.width)
 	h, hash, linked := uint64(scenekonst.HashSeed)^uint64(s.page), uint64(0), r.Min.Y
+	w.trail = w.trail[:0]
 	for y := r.Min.Y; y < r.Max.Y; y++ {
 		if y > r.Min.Y && repeats(parts, y) {
 			h = (h ^ hash) * scenekonst.HashPrime
 			spans[y-r.Min.Y] = spans[y-r.Min.Y-1]
+			w.trail[len(w.trail)-1].n++
 			continue
 		}
 		l.clear(width)
@@ -302,6 +315,7 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
 		hash = s.digest(&w.key, row)
 		h = (h ^ hash) * scenekonst.HashPrime
 		spans[y-r.Min.Y] = [2]int32{int32(len(store)), int32(len(store) + len(row))}
+		w.trail = append(w.trail, storedRow{spans[y-r.Min.Y], 1, hash})
 		store = append(store, row...)
 		c.lock.Lock()
 		repeat(c, linked, y)
@@ -327,7 +341,29 @@ func (w *worker) fill(s *Screen, f *scene.Frame, t int) (twin int, memo bool) {
 	c.lock.Unlock()
 	w.keep(store)
 	s.hashes[t] = h
+	if from == 0 && !s.fresh {
+		s.lock.Lock()
+		w.entry = s.stored.keep(w.hashed, w.recipe, store, w.trail, h, s.frame)
+		s.lock.Unlock()
+	}
 	return -1, from == 0
+}
+
+func (w *worker) restore(c *column, r image.Rectangle, e *stored) {
+	w.store = append(w.store[:0], e.runs...)
+	y, spans := r.Min.Y, w.spans[:r.Dy()]
+	c.lock.Lock()
+	for _, row := range e.rows {
+		k := c.intern(e.runs[row.span[0]:row.span[1]], row.hash)
+		for range row.n {
+			c.link(c.lineOf, y, k)
+			if len(c.baseOf) > 0 {
+				c.link(c.baseOf, y, -1)
+			}
+			spans[y-r.Min.Y], y = row.span, y+1
+		}
+	}
+	c.lock.Unlock()
 }
 
 func (w *worker) keep(store []run) {
