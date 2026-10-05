@@ -427,7 +427,7 @@ func run(ctx context.Context, c command, work, exe string) error {
 		}
 	}
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd.Dir, cmd.Env = c.dir, append(os.Environ(), c.env...)
+	cmd.Dir, cmd.Env = c.dir, append(append(os.Environ(), c.env...), "PWD="+c.dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()

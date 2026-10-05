@@ -399,9 +399,6 @@ func (m *motionModel) state() []motionLook {
 	area := m.cell.X * m.cell.Y
 	for i, c := range m.cells {
 		l := &looks[i]
-		if strings.TrimSpace(c.text) != "" {
-			l.text, l.glyph = c.text, fmt.Sprint(c.text, c.fg, c.attr)
-		}
 		bg := [3]int{int(c.bg >> 16 & 0xff), int(c.bg >> 8 & 0xff), int(c.bg & 0xff)}
 		x, y := i%m.size.X, i/m.size.X
 		for py := range m.cell.Y {
@@ -429,6 +426,14 @@ func (m *motionModel) state() []motionLook {
 		}
 		for k := range l.colour {
 			l.colour[k] /= area
+		}
+		if strings.TrimSpace(c.text) == "" {
+			continue
+		}
+		l.text = c.text
+		ink := motionLook{colour: [3]int{int(c.fg >> 16 & 0xff), int(c.fg >> 8 & 0xff), int(c.fg & 0xff)}}
+		if c.fg == 0 || ink.far(*l, blinkReturn) {
+			l.glyph = fmt.Sprint(c.text, c.fg, c.attr)
 		}
 	}
 	return looks
@@ -769,6 +774,9 @@ func TestMotionHasNoBlinks(t *testing.T) {
 func TestBlinkTellsAMovingEdge(t *testing.T) {
 	at := func(row int, s string) string { return termkonst.CSI + strconv.Itoa(row+1) + ";1H" + s }
 	red, dim := termkonst.CSI+"48;2;200;0;0m  "+termkonst.CSI+"0m", termkonst.CSI+"48;2;100;0;0m  "+termkonst.CSI+"0m"
+	ink := func(fg, bg string) string {
+		return termkonst.CSI + "38;2;" + fg + ";48;2;" + bg + "mab" + termkonst.CSI + "0m"
+	}
 	for _, c := range []struct {
 		name   string
 		frames []string
@@ -784,6 +792,7 @@ func TestBlinkTellsAMovingEdge(t *testing.T) {
 		{"fill moves down", []string{at(1, red), at(1, "  ") + at(2, red)}, nil},
 		{"fill flashes", []string{at(1, red), at(1, "  ")}, []image.Point{{0, 1}, {1, 1}}},
 		{"fill flashes as a dimmer one moves in", []string{at(1, red), at(1, "  ") + at(2, dim)}, []image.Point{{0, 1}, {1, 1}}},
+		{"text fades into its background", []string{at(1, ink("5;4;6", "195;218;80")), "", at(1, ink("25;27;14", "25;25;12")), at(1, ink("5;4;6", "5;4;6"))}, nil},
 		{"text jumps", []string{at(1, "ab"), at(1, "  ") + at(3, "ab")}, []image.Point{{0, 1}, {1, 1}}},
 	} {
 		m := newMotionModel(motionPath{"cells", 4, 6, terminal.Capabilities{Sync: true}})

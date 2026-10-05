@@ -6,6 +6,7 @@ const (
 	ShadowStrips  = 8
 	StripSamples  = 8
 	PhiSteps      = 1024
+	PhiTolerance  = 1e-15
 	GradientSteps = 256
 	Quiet         = 0.4999
 	OutlineWindow = 4

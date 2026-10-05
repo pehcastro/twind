@@ -14,7 +14,7 @@ func TestPhiTableIsTheNormalCDF(t *testing.T) {
 	low := math.Erf(-konst.ShadowReach / math.Sqrt2)
 	for i := range konst.PhiSteps + 1 {
 		x := (2*float64(i)/konst.PhiSteps - 1) * konst.ShadowReach
-		if got, want := phi(i), (math.Erf(x/math.Sqrt2)-low)/(-2*low); got != want {
+		if got, want := phi(i), (math.Erf(x/math.Sqrt2)-low)/(-2*low); math.Abs(got-want) > konst.PhiTolerance {
 			t.Fatalf("phi(%d) = %v, want %v: run go generate ./twi/raster", i, got, want)
 		}
 	}

@@ -14,6 +14,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -195,6 +196,24 @@ func TestConPTYBacksUpAndUndoRestores(t *testing.T) {
 	if got := snapshot(t, r.dir); !maps.Equal(got, fixed) {
 		t.Errorf("a second fix changed the folder to %v", got)
 	}
+	r.sys.chain = nil
+	if _, err := r.sys.undo(r.dir); err != nil {
+		t.Fatal(err)
+	}
+	if got := snapshot(t, r.dir); !maps.Equal(got, before) {
+		t.Errorf("after undo the folder is %v, want %v", got, before)
+	}
+}
+
+func TestUndoWhileTheTerminalHoldsTheDLL(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("only Windows refuses to remove a file another process holds open")
+	}
+	r := newRig(t, konst.Rio, pe.IMAGE_FILE_MACHINE_ARM64, map[string]string{konst.DLL: "old dll"})
+	if _, err := r.sys.conpty(context.Background(), yes); err != nil {
+		t.Fatal(err)
+	}
+	fixed := snapshot(t, r.dir)
 	held, err := os.Open(filepath.Join(r.dir, konst.DLL))
 	if err != nil {
 		t.Fatal(err)
@@ -206,13 +225,6 @@ func TestConPTYBacksUpAndUndoRestores(t *testing.T) {
 	}
 	if got := snapshot(t, r.dir); !maps.Equal(got, fixed) {
 		t.Errorf("a failed undo changed the folder to %v", got)
-	}
-	r.sys.chain = nil
-	if _, err := r.sys.undo(r.dir); err != nil {
-		t.Fatal(err)
-	}
-	if got := snapshot(t, r.dir); !maps.Equal(got, before) {
-		t.Errorf("after undo the folder is %v, want %v", got, before)
 	}
 }
 
