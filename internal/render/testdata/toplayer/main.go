@@ -35,7 +35,7 @@ func run(cols, rows int, top bool, hold time.Duration) error {
 	if err != nil {
 		return err
 	}
-	title, layer := "before: the popover stays in the card's flow", 0
+	title, layer := "before: the popover stays in the card's flow", int32(0)
 	if top {
 		title, layer = "after: the popover opens in the top layer", 1
 	}

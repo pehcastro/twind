@@ -27,7 +27,31 @@ type Start struct{ Page, Theme string }
 type entry struct {
 	group, slug, title string
 	page               markdown.Page
-	parsed             bool
+	parsed, live       bool
+}
+
+type kept[K comparable] struct {
+	key  K
+	node twi.Node
+	set  bool
+}
+
+func (k *kept[K]) of(key K, build func() twi.Node) twi.Node {
+	if !k.set || k.key != key {
+		k.key, k.node, k.set = key, build(), true
+	}
+	return k.node
+}
+
+type pageKey struct {
+	page   int
+	copied string
+}
+
+type navKey struct {
+	page    int
+	open    uint64
+	sidebar bool
 }
 
 type site struct {
@@ -52,6 +76,8 @@ type site struct {
 	picker              bool
 	copied              string
 	copying             *twi.Timer
+	keptPage            kept[pageKey]
+	keptNav             kept[navKey]
 }
 
 func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
@@ -72,7 +98,7 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 			entries = append(entries, entry{group: group[0], slug: slug})
 		}
 		folds[group[0]] = ui.NewCollapsible(rt)
-		folds[group[0]].Open = group[0] != "Components"
+		folds[group[0]].Open = true
 	}
 	return &site{
 		rt: rt, catalogs: catalogs, entries: entries, folds: folds, previews: map[string]*preview{}, props: props(),
@@ -141,34 +167,36 @@ func (s *site) parse(i int) error {
 	if err != nil {
 		return err
 	}
-	if err := s.resolve(file, page.Blocks); err != nil {
+	live, err := s.resolve(file, page.Blocks)
+	if err != nil {
 		return err
 	}
-	e.page, e.parsed = page, true
+	e.page, e.parsed, e.live = page, true, live
 	return nil
 }
 
-func (s *site) resolve(file string, blocks []markdown.Block) error {
+func (s *site) resolve(file string, blocks []markdown.Block) (live bool, err error) {
 	for _, b := range blocks {
-		var err error
 		switch {
 		case b.Kind == markdown.Tag && b.Name == "Preview":
-			err = s.addPreview(b.Attrs["name"])
+			live, err = true, s.addPreview(b.Attrs["name"])
 		case b.Kind == markdown.Tag && b.Name == "Props":
 			if _, ok := s.props[b.Attrs["of"]]; !ok {
 				err = fmt.Errorf("no props table for %q", b.Attrs["of"])
 			}
 		}
 		if err != nil {
-			return fmt.Errorf("%s:%d: %w", file, b.Line, err)
+			return false, fmt.Errorf("%s:%d: %w", file, b.Line, err)
 		}
 		for _, nested := range append([][]markdown.Block{b.Children}, b.Items...) {
-			if err := s.resolve(file, nested); err != nil {
-				return err
+			inner, err := s.resolve(file, nested)
+			if err != nil {
+				return false, err
 			}
+			live = live || inner
 		}
 	}
-	return nil
+	return live, nil
 }
 
 func New(rt *twi.Runtime, start Start) (func() twi.Node, error) {
@@ -308,6 +336,19 @@ func (s *site) view() twi.Node {
 }
 
 func (s *site) nav() twi.Node {
+	key, bit := navKey{page: s.page, sidebar: s.sidebar.Open}, uint64(1)
+	for i, e := range s.entries {
+		if i == 0 || e.group != s.entries[i-1].group {
+			if s.folds[e.group].Open {
+				key.open |= bit
+			}
+			bit <<= 1
+		}
+	}
+	return s.keptNav.of(key, s.sidebarNode)
+}
+
+func (s *site) sidebarNode() twi.Node {
 	var groups []twi.NodeOption
 	for i := 0; i < len(s.entries); {
 		group, fold := s.entries[i].group, s.folds[s.entries[i].group]
@@ -375,6 +416,13 @@ func (s *site) follow(target string) {
 }
 
 func (s *site) sections(e entry) twi.Node {
+	if e.live {
+		return s.markdown(e)
+	}
+	return s.keptPage.of(pageKey{s.page, s.copied}, func() twi.Node { return s.markdown(e) })
+}
+
+func (s *site) markdown(e entry) twi.Node {
 	options := markdown.Options{Highlight: s.highlighter.Code, Follow: s.follow, Copy: s.copy, Copied: s.copied}
 	var out []twi.NodeOption
 	for blocks := e.page.Blocks; len(blocks) > 0; {

@@ -99,7 +99,7 @@ type Runtime struct {
 	sanitize      func(string) scene.Text
 	caps          terminal.Capabilities
 	layers, shut  []layer
-	opened        int
+	opened        int32
 	start         time.Time
 	motionAt      time.Time
 	moving        bool
@@ -111,7 +111,7 @@ type Runtime struct {
 
 type layer struct {
 	elem  *Elem
-	order int
+	order int32
 }
 
 func New(cfg Config) *Runtime {
@@ -545,7 +545,7 @@ func (r *Runtime) number(root render.Node) render.Node {
 	return root
 }
 
-func lift(n render.Node, path []int, order int) render.Node {
+func lift(n render.Node, path []int, order int32) render.Node {
 	if len(path) == 0 {
 		n.TopLayer = order
 		return n

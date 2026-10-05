@@ -320,14 +320,10 @@ func TestChartBrushTakesAnyPointer(t *testing.T) {
 
 func TestSidebarScrolls(t *testing.T) {
 	d := open(t)
-	if strings.Contains(d.Frame().Text(), "Accordion") {
-		t.Fatalf("the Components group starts open on the Introduction:\n%s", d.Frame().Text())
-	}
 	toComponents := 3 + 1 + 4 + 1 + 6 + 1
 	for range toComponents {
 		d.Press("tab")
 	}
-	d.Press("enter")
 	for range 60 {
 		d.Press("tab")
 	}
@@ -529,7 +525,7 @@ func highlightedSidebarRows(t *testing.T, d *drive.Driver) []string {
 	var rows []row
 	for y := header + 2; y < cells.Height(); y++ {
 		var text strings.Builder
-		for x := range right {
+		for x := range right - 1 {
 			text.WriteString(cells.At(x, y).Grapheme)
 		}
 		if lead := len(text.String()) - len(strings.TrimLeft(text.String(), " ")); lead < right {

@@ -27,9 +27,9 @@ type Node struct {
 	Key      string
 	Text     string
 	Element  style.Element
+	TopLayer int32
 	Classes  []string
 	State    *style.NodeState
-	TopLayer int
 	Children []Node
 	Enter    *motion.Presence
 	Exit     *motion.Presence
@@ -100,6 +100,7 @@ type styledBox struct {
 	move     *moving
 	canvas   *Canvas
 	pixels   *raster.Pixels
+	source   *Node
 }
 
 func Render(root Node, f Frame) (*buffer.Buffer, error) {
@@ -136,6 +137,12 @@ type Tree struct {
 	blank            style.ComputedStyle
 	seed             maphash.Seed
 	styles           map[cascade]*styledBox
+	leafParent       *style.ComputedStyle
+	leaf             *styledBox
+	widths           text.Widths
+	still, stirring  bool
+	unsettled        int
+	visits           int
 }
 
 type cascade struct {
@@ -165,8 +172,9 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	band := f.Sheet.Band(f.Width)
 	t.restyle = t.restyle || f.Cell != t.cell
 	t.crossed = band != t.band
-	t.ancestors = t.ancestors[:0]
-	t.now, t.motion.Reduced, t.presenting, t.graphics = f.Now, f.ReducedMotion, false, f.Graphics
+	t.ancestors, t.unsettled = t.ancestors[:0], 0
+	still := !t.stirring && f.Widths == t.widths && f.ReducedMotion == t.motion.Reduced
+	t.now, t.motion.Reduced, t.presenting, t.graphics, t.widths, t.stirring = f.Now, f.ReducedMotion, false, f.Graphics, f.Widths, false
 	if t.styles == nil {
 		t.seed, t.styles = maphash.MakeSeed(), map[cascade]*styledBox{}
 	}
@@ -179,12 +187,14 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 		t.restyle = true
 	}
 	t.rows = rows
+	t.still = still && !t.restyle && !t.crossed
 	styled, fresh := t.root, t.root == nil
 	if fresh {
 		styled = new(styledBox)
 	}
 	err := t.build(&f, styled, fresh, &t.blank, text.DirLTR, false, root, style.PlaceOf(0, 1), nil)
 	clear(t.styles)
+	t.leafParent, t.leaf = nil, nil
 	t.root, t.cell, t.band, t.restyle = styled, f.Cell, band, false
 	if err != nil {
 		t.root = nil
@@ -202,6 +212,12 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 }
 
 func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, dir text.Direction, n *Node, state *style.NodeState, related []int, placed Placement) (*style.ComputedStyle, layout.Style, error) {
+	if n.text() && n.Enter == nil && n.Exit == nil && n.Extra == nil {
+		if t.leafParent == parent {
+			return t.leaf.computed, t.leaf.box.Style, nil
+		}
+		t.leafParent, t.leaf = parent, s
+	}
 	var h maphash.Hash
 	h.SetSeed(t.seed)
 	for _, c := range n.Classes {
@@ -349,7 +365,7 @@ func (t *Tree) scene(s *styledBox, r reclip, n *scene.Node) {
 	if s.animated {
 		st = m.shown
 	}
-	*n = scene.New(&s.box, *st, s.text)
+	n.Fill(&s.box, st, s.text)
 	n.Direct(s.wrapping.Dir)
 	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
 	n.Bounds, n.Halves.Bounds = t.outer(n.Bounds)
@@ -540,18 +556,24 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		}
 		s.state, s.element, s.placed = state, n.Element, placed
 	}
-	if !animating && (s.animated || t.motion.Holds(s.key)) {
-		t.animate(s, s.computed, s.computed)
+	if animating || s.animated || t.motion.Holds(s.key) {
+		if !animating {
+			t.animate(s, s.computed, s.computed)
+		}
+		t.stirring = true
 	}
 	lift := motion.Still()
-	if age := t.now - s.born; s.enter != nil && age < s.enter.Duration && !t.motion.Reduced {
-		lift, t.presenting = s.enter.Enter(age), true
+	if age := t.now - s.born; s.enter != nil && age < s.enter.Total() {
+		t.stirring = true
+		if age < s.enter.Duration && !t.motion.Reduced {
+			lift, t.presenting = s.enter.Enter(age), true
+		}
 	}
 	if lift != s.current().lift {
 		s.moves().lift, s.painted = lift, false
 	}
-	if n.TopLayer != s.top {
-		s.top, s.painted = n.TopLayer, false
+	if int(n.TopLayer) != s.top {
+		s.top, s.painted = int(n.TopLayer), false
 	}
 	if (painter == nil) != (s.canvas == nil) || painter != nil && painter.Key != s.canvas.Key {
 		s.painted = false
@@ -597,6 +619,18 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 	}
 	if len(s.exiting) > 0 {
 		t.exits(s)
+		t.stirring = true
+	}
+	t.visits++
+	unsettled := fresh || changed || restate || reclassed
+	if !unsettled && t.still && t.unsettled == 0 && len(n.Children) > 0 && &n.Children[0] == s.source {
+		for _, c := range s.children {
+			s.painted = s.painted && (c.painted || s.canvas != nil && t.graphics)
+		}
+		return nil
+	}
+	if unsettled {
+		t.unsettled++
 	}
 	t.ancestors = append(t.ancestors, s)
 	last, index := lastElement(n.Children), 0
@@ -621,6 +655,13 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		s.box.Children = append(s.box.Children, &e.box)
 	}
 	t.ancestors = t.ancestors[:len(t.ancestors)-1]
+	if unsettled {
+		t.unsettled--
+	}
+	s.source = nil
+	if len(n.Children) > 0 {
+		s.source = &n.Children[0]
+	}
 	return nil
 }
 

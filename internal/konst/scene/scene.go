@@ -16,6 +16,7 @@ const (
 	HashSeed     = 0xcbf29ce484222325
 	HashPrime    = 0x9e3779b97f4a7c15
 	HashShift    = 29
+	FirstSlots   = 32
 	LookSlots    = 512
 	LookOps      = 1024
 	StampSlots   = 256

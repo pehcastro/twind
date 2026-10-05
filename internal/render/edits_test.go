@@ -72,7 +72,7 @@ func editNode(r *rand.Rand, root *render.Node) string {
 		n.Children = slices.Delete(slices.Clone(n.Children), at, at+1)
 		return "remove"
 	case 4:
-		n.TopLayer = r.IntN(2) * (1 + r.IntN(2))
+		n.TopLayer = r.Int32N(2) * (1 + r.Int32N(2))
 		return "top layer"
 	}
 	n.Extra = nil
@@ -94,9 +94,12 @@ func TestTopLayerReclipsRowsLaidOutInPlace(t *testing.T) {
 	var tree render.Tree
 	root := node("page", node("card", text("card"), menuNode(0)), node("later", text("later")))
 	paintTree(t, &tree, root, nil, 0)
+	root = cloned(root)
 	menu := &root.Children[0].Children[1]
 	menu.Children = append(menu.Children, text("five"))
 	paintTree(t, &tree, root, nil, 0)
+	root = cloned(root)
+	menu = &root.Children[0].Children[1]
 	menu.TopLayer = 1
 	_, sc := paintTree(t, &tree, root, nil, 0)
 	if rows := sc.Children[0].Children[1].Children; rows[0].Clip != (layout.Rect{W: 16, H: 8}) {
@@ -119,6 +122,7 @@ func TestRetainedRandomEditsMatchFresh(t *testing.T) {
 			t.Fatal(err)
 		}
 		for done := 0; done < 10; {
+			root = cloned(root)
 			kind := editNode(r, &root)
 			if kind == "none" {
 				continue

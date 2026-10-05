@@ -51,7 +51,7 @@ func topSheet(t *testing.T) style.Sheet {
 	return sheet
 }
 
-func menuNode(top int) render.Node {
+func menuNode(top int32) render.Node {
 	m := node("menu", text("one"), text("two"), text("three"), text("four"), node("none", text("gone")))
 	m.TopLayer = top
 	return m
@@ -95,11 +95,11 @@ func frameOf(buf *buffer.Buffer) string {
 func TestTopLayerMenuEscapesCardAndScroller(t *testing.T) {
 	for _, c := range []struct {
 		name   string
-		root   func(top int) render.Node
+		root   func(top int32) render.Node
 		scroll []int
 		want   []string
 	}{
-		{"overflow-hidden card", func(top int) render.Node {
+		{"overflow-hidden card", func(top int32) render.Node {
 			return node("page", node("card", text("card"), menuNode(top)), node("later", text("later")))
 		}, nil, []string{
 			"card            |",
@@ -111,7 +111,7 @@ func TestTopLayerMenuEscapesCardAndScroller(t *testing.T) {
 			"rrrrrrrrrrrrrrrr|",
 			"                |",
 		}},
-		{"scrolled container", func(top int) render.Node {
+		{"scrolled container", func(top int32) render.Node {
 			return node("page", node("scroller", text("a"), node("relative", text("b"), menuNode(top)), text("c"), text("d"), text("e"), text("f")), node("later", text("later")))
 		}, []int{0}, []string{
 			"b               |",
@@ -141,6 +141,7 @@ func TestTopLayerFlagAloneReclips(t *testing.T) {
 	var tree render.Tree
 	root := node("page", node("card", text("card"), menuNode(0)), node("later", text("later")))
 	paintTree(t, &tree, root, nil, 0)
+	root = cloned(root)
 	root.Children[0].Children[1].TopLayer = 1
 	_, sc := paintTree(t, &tree, root, nil, 0)
 	menu := sc.Children[0].Children[1]

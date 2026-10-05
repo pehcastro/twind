@@ -223,6 +223,7 @@ func NewCommandDialog(rt \*twi.Runtime) \*CommandDialog\
 CommandDialog embeds \*Dialog\
 CommandDialog embeds \*Command\
 CommandDialog.Hotkey rune\
+func (\*CommandDialog) List(groups ...CommandGroup) twi.Node\
 func (\*CommandDialog) Node(children ...twi.NodeOption) twi.Node\
 func (CommandDialog) Trigger(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
 func (\*CommandDialog) Close(v ButtonVariant, s ButtonSize, children ...twi.NodeOption) twi.Node\
@@ -241,7 +242,6 @@ CommandDialog.OnSelect func(string)\
 func (\*CommandDialog) Group(heading string, items ...CommandItem) CommandGroup\
 func (\*CommandDialog) Input(placeholder string) twi.Node\
 func (\*CommandDialog) Item(value string, children ...twi.NodeOption) CommandItem\
-func (\*CommandDialog) List(groups ...CommandGroup) twi.Node\
 func (\*CommandDialog) Search(s string)\
 func (\*CommandDialog) Separator() CommandGroup
 

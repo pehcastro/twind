@@ -141,6 +141,27 @@ func TestCommandFilterAndChoose(t *testing.T) {
 	expect("escape closes it without choosing", !palette.Open && len(*chosen) == 2)
 }
 
+func TestClosedCommandDialogBuildsNoList(t *testing.T) {
+	d, palette, _, _ := commandApp(t, 30, new(int))
+	group := palette.Group("Suggestions", palette.Item("Calendar"), palette.Item("Calculator"))
+	if allocs := testing.AllocsPerRun(5, func() { palette.List(group) }); allocs != 0 {
+		t.Errorf("a closed palette's list allocated %v times, want none", allocs)
+	}
+	settledPress(d, "ctrl+k")
+	d.Press("escape")
+	if text := d.Frame().Text(); !strings.Contains(text, "Calendar") {
+		t.Errorf("the palette dropped its list while it closes:\n%s", text)
+	}
+	d.Advance(settleTime)
+	if text := d.Frame().Text(); strings.Contains(text, "Calendar") {
+		t.Errorf("the closed palette still shows its list:\n%s", text)
+	}
+	settledPress(d, "ctrl+k")
+	if text := d.Frame().Text(); !strings.Contains(text, "Calendar") {
+		t.Errorf("the reopened palette shows no list:\n%s", text)
+	}
+}
+
 func TestCommandWindow(t *testing.T) {
 	extra := 40
 	d, palette, _, rt := commandApp(t, 40, &extra)

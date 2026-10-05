@@ -64,9 +64,13 @@ func (r *Runtime) scrollIntoView() bool {
 type Ref struct {
 	bounds image.Rectangle
 	frame  uint64
+	read   bool
 }
 
-func (f *Ref) Bounds() image.Rectangle { return f.bounds }
+func (f *Ref) Bounds() image.Rectangle {
+	f.read = true
+	return f.bounds
+}
 
 func (r *Runtime) ContentBox(e *Elem) image.Rectangle {
 	c := r.doc.sceneOf(e).Content
@@ -83,12 +87,12 @@ func (r *Runtime) measure() bool {
 	for _, e := range r.doc.refs {
 		at, ref := r.doc.sceneOf(e).Bounds, e.node.Measure
 		box := image.Rect(at.X, at.Y, at.X+at.W, at.Y+at.H)
-		moved = moved || box != ref.bounds
+		moved = moved || ref.read && box != ref.bounds
 		ref.bounds, ref.frame = box, r.doc.frame
 	}
 	for _, ref := range r.measured {
 		if ref.frame != r.doc.frame && ref.bounds != (image.Rectangle{}) {
-			ref.bounds, moved = image.Rectangle{}, true
+			ref.bounds, moved = image.Rectangle{}, moved || ref.read
 		}
 	}
 	r.measured = r.measured[:0]

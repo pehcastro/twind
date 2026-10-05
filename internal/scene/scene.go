@@ -189,7 +189,13 @@ func (t Text) MinContent(b text.Wrapping) int {
 }
 
 func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
-	n := Node{
+	var n Node
+	n.Fill(box, &s, content)
+	return n
+}
+
+func (n *Node) Fill(box *layout.Box, s *style.ComputedStyle, content Text) {
+	*n = Node{
 		Bounds:        box.BorderBox,
 		Padding:       box.PaddingBox,
 		Content:       box.ContentBox,
@@ -207,7 +213,7 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 		n.ScrollContent = layout.Rect{X: p.X - box.ScrollX, Y: p.Y - box.ScrollY, W: box.ScrollWidth, H: box.ScrollHeight}
 	}
 	if s.Visibility == style.Hidden {
-		return n
+		return
 	}
 	own := func(c color.Color) color.Color {
 		if c.Kind == color.Current {
@@ -236,8 +242,7 @@ func New(box *layout.Box, s style.ComputedStyle, content Text) Node {
 	n.Foreground = s.Color
 	n.Bold, n.Italic, n.Underline, n.Strikethrough = s.Bold, s.Italic, s.Underline, s.Strikethrough
 	n.TextAlign = s.TextAlign
-	n.text, n.wrapping = content, Wrapping(&s)
-	return n
+	n.text, n.wrapping = content, Wrapping(s)
 }
 
 func (n *Node) Direct(d text.Direction) {
@@ -247,7 +252,7 @@ func (n *Node) Direct(d text.Direction) {
 	}
 }
 
-func (n Node) Lines(w text.Widths) []string {
+func (n *Node) Lines(w text.Widths) []string {
 	if n.text.clean == "" {
 		return nil
 	}

@@ -2,6 +2,7 @@ package runtime_test
 
 import (
 	"fmt"
+	"image"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -97,6 +98,30 @@ func TestMeasureFollowsABoxThatMovesInTheSameFrame(t *testing.T) {
 	g.apply(t, r.next(t))
 	if got, want := g.row(0), "(0,0)-(0,0)"; got != want {
 		t.Fatalf("a ref whose node is gone reads %q, want %q:\n%s", got, want, g.text())
+	}
+}
+
+func TestUnreadRefDoesNotRebuildTheView(t *testing.T) {
+	var builds atomic.Int32
+	ref := &twi.Ref{}
+	r := launch(newBackend(40, 12), func(rt *twi.Runtime) func() twi.Node {
+		return func() twi.Node {
+			builds.Add(1)
+			return twi.Element(twi.Element(twi.Measure(ref), twi.At(10, 3), twi.Text("box")))
+		}
+	})
+	t.Cleanup(func() {
+		if err := r.stop(t); err != nil {
+			t.Error(err)
+		}
+	})
+	r.next(t)
+	r.quiet(t)
+	if got := builds.Load(); got != 1 {
+		t.Fatalf("a view that never reads its ref was built %d times for the first frame, want 1", got)
+	}
+	if got, want := ref.Bounds(), image.Rect(10, 3, 13, 4); got != want {
+		t.Fatalf("the unread ref measured %v, want %v", got, want)
 	}
 }
 

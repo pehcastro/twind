@@ -133,14 +133,15 @@ func (d *Damage) add(r image.Rectangle, layer int) {
 }
 
 type looks struct {
-	slots [konst.LookSlots]memo
+	slots []memo
 	ops   []raster.Op
+	used  int
 }
 
 type memo struct {
-	look     uint64
-	at, size image.Point
-	from, to int
+	look, key uint64
+	at, size  image.Point
+	from, to  int
 }
 
 func (m *looks) look(ops []raster.Op, visual image.Rectangle) uint64 {
@@ -148,23 +149,45 @@ func (m *looks) look(ops []raster.Op, visual image.Rectangle) uint64 {
 	for i := range ops {
 		colors = colors<<8 ^ packed(ops[i].Color)
 	}
-	slot := &m.slots[mix(colors, math.Float64bits(ops[0].Box.W)^math.Float64bits(ops[0].Box.H)>>1)%konst.LookSlots]
+	key := mix(colors, math.Float64bits(ops[0].Box.W)^math.Float64bits(ops[0].Box.H)>>1)
+	if m.slots == nil {
+		m.slots = make([]memo, konst.FirstSlots)
+	}
+	slot := &m.slots[key%uint64(len(m.slots))]
 	if slot.to-slot.from == len(ops) && slot.size == visual.Size() && same(m.ops[slot.from:slot.to], slot.at, ops, visual.Min) {
 		return slot.look
 	}
 	look := mix(hash(ops, visual.Min), uint64(visual.Dx())<<32|uint64(visual.Dy()))
-	if len(m.ops)+len(ops) > konst.LookOps {
-		m.ops, m.slots = m.ops[:0], [konst.LookSlots]memo{}
+	switch {
+	case len(m.ops)+len(ops) > konst.LookOps:
+		m.ops, m.used = m.ops[:0], 0
+		clear(m.slots)
+	case slot.to == 0:
+		if m.used++; m.used*2 > len(m.slots) && len(m.slots) < konst.LookSlots {
+			m.slots = regrown(m.slots, func(e *memo) uint64 { return e.key }, func(e *memo) bool { return e.to != 0 })
+			slot = &m.slots[key%uint64(len(m.slots))]
+		}
 	}
-	*slot = memo{look: look, at: visual.Min, size: visual.Size(), from: len(m.ops), to: len(m.ops) + len(ops)}
+	*slot = memo{look: look, key: key, at: visual.Min, size: visual.Size(), from: len(m.ops), to: len(m.ops) + len(ops)}
 	m.ops = append(m.ops, ops...)
 	return look
 }
 
+func regrown[T any](slots []T, key func(*T) uint64, used func(*T) bool) []T {
+	next := make([]T, 2*len(slots))
+	for i := range slots {
+		if e := &slots[i]; used(e) {
+			next[key(e)%uint64(len(next))] = *e
+		}
+	}
+	return next
+}
+
 type stamps struct {
-	slots   [konst.StampSlots]stamp
+	slots   []stamp
 	ops     []raster.Op
 	shadows []style.Shadow
+	used    int
 }
 
 type stamp struct {
@@ -172,19 +195,23 @@ type stamp struct {
 	visual                image.Rectangle
 	border                Border
 	background            color.Color
-	look                  uint64
+	look, key             uint64
 	from, to              int
 	shadows, insets, ends int
 }
 
 func (s *stamps) reset() {
-	s.slots, s.ops, s.shadows = [konst.StampSlots]stamp{}, s.ops[:0], s.shadows[:0]
+	clear(s.slots)
+	s.ops, s.shadows, s.used = s.ops[:0], s.shadows[:0], 0
 }
 
-func (s *stamps) find(n *Node, size image.Point) *stamp {
+func (s *stamps) find(n *Node, size image.Point) (*stamp, uint64) {
 	h := mix(uint64(size.X)<<32|uint64(uint32(size.Y)), packed(n.Background.RGBA)<<32|packed(n.Border.Color.RGBA))
 	h = mix(h, uint64(n.Border.Radius)<<16|uint64(n.Border.Style)<<8|uint64(len(n.Shadows))<<4|uint64(len(n.InsetShadows)))
-	return &s.slots[h%konst.StampSlots]
+	if s.slots == nil {
+		s.slots = make([]stamp, konst.FirstSlots)
+	}
+	return &s.slots[h%uint64(len(s.slots))], h
 }
 
 func (st *stamp) holds(s *stamps, n *Node, size image.Point, visual image.Rectangle) bool {
@@ -192,11 +219,17 @@ func (st *stamp) holds(s *stamps, n *Node, size image.Point, visual image.Rectan
 		slices.Equal(s.shadows[st.shadows:st.insets], n.Shadows) && slices.Equal(s.shadows[st.insets:st.ends], n.InsetShadows)
 }
 
-func (s *stamps) keep(st *stamp, n *Node, ops []raster.Op, bounds, visual image.Rectangle, look uint64) {
-	if len(s.ops)+len(ops) > konst.StampOps || len(s.shadows)+len(n.Shadows)+len(n.InsetShadows) > konst.StampShadows {
+func (s *stamps) keep(st *stamp, key uint64, n *Node, ops []raster.Op, bounds, visual image.Rectangle, look uint64) {
+	switch {
+	case len(s.ops)+len(ops) > konst.StampOps || len(s.shadows)+len(n.Shadows)+len(n.InsetShadows) > konst.StampShadows:
 		s.reset()
+	case st.to == 0:
+		if s.used++; s.used*2 > len(s.slots) && len(s.slots) < konst.StampSlots {
+			s.slots = regrown(s.slots, func(e *stamp) uint64 { return e.key }, func(e *stamp) bool { return e.to != 0 })
+			st = &s.slots[key%uint64(len(s.slots))]
+		}
 	}
-	*st = stamp{size: bounds.Size(), visual: visual.Sub(bounds.Min), border: n.Border, background: n.Background, look: look, from: len(s.ops), shadows: len(s.shadows)}
+	*st = stamp{size: bounds.Size(), visual: visual.Sub(bounds.Min), border: n.Border, background: n.Background, look: look, key: key, from: len(s.ops), shadows: len(s.shadows)}
 	x, y := float64(bounds.Min.X), float64(bounds.Min.Y)
 	for _, op := range ops {
 		op.Box.X -= x

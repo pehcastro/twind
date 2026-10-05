@@ -278,6 +278,13 @@ func NewCommandDialog(rt *twi.Runtime) *CommandDialog {
 	return d
 }
 
+func (d *CommandDialog) List(groups ...CommandGroup) twi.Node {
+	if !d.Open && !d.shown && !d.closing {
+		return twi.Node{}
+	}
+	return d.Command.List(groups...)
+}
+
 func (d *CommandDialog) Node(children ...twi.NodeOption) twi.Node {
 	if d.wasOpen && !d.Open {
 		d.Search("")

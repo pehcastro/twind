@@ -25,12 +25,13 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 	}
 	start, plain := len(f.ops), n != f.root && n.Gradient.Kind != style.GradientLinear && n.Turn == 0 && n.Shrink == 0 && n.Pixels == nil
 	var st *stamp
+	var key uint64
 	hit, visual := false, bounds
 	if len(n.Shadows) > 0 {
 		visual = f.cast(bounds, n.Shadows)
 	}
 	if plain {
-		st = f.stamps.find(n, bounds.Size())
+		st, key = f.stamps.find(n, bounds.Size())
 		hit = st.holds(&f.stamps, n, bounds.Size(), visual.Sub(bounds.Min))
 	}
 	if hit {
@@ -56,7 +57,7 @@ func (f *Frame) record(n *Node, round int32, origin image.Point, layerClip image
 	}
 	look := f.looks.look(f.ops[start:], visual)
 	if plain && len(f.ops) == drawn {
-		f.stamps.keep(st, n, f.ops[start:], bounds, visual, look)
+		f.stamps.keep(st, key, n, f.ops[start:], bounds, visual, look)
 	}
 	return visual, look, true
 }
