@@ -120,13 +120,13 @@ Since then (2026-10-02 to 10-04) the overlay window draws the look in the PowerS
 
 ## Linux (not on a real desktop yet)
 
-Measured under WSL Ubuntu 24.04 with a virtual display at b6944b5 (2026-09-30), an older build; details in `.local/planning/linux.md`. Driven frames match Windows byte for byte.
+Measured under WSL Ubuntu 24.04 with a virtual display at b6944b5 (2026-09-30), xterm and foot again with TWI-269 (2026-10-05); details in `.local/planning/linux.md`. Driven frames match Windows byte for byte.
 
 | Terminal | Seen | Open |
 |---|---|---|
-| xterm 390 | 16 colours though it accepts 24-bit | colour depth from TERM and COLORTERM only; the DECRQSS answer is ignored |
+| xterm 390 | truecolor from its DECRQSS answer (TERM=xterm, no COLORTERM) | window ops off by default, so no grid or cell answer |
 | kitty 0.32 | truecolor, kitty images | logs an unknown mode 2027 query (harmless) |
 | alacritty 0.13 | truecolor, cells look | none |
-| foot 1.16 | truecolor, sixel | one cold start laid out at the requested size instead of the window's |
+| foot 1.16 | truecolor, sixel; 10 of 10 cold starts fill the 177x54 window, one of them with the pty moving during detection | the original wrong-size start was not reproduced on the old build either (20 cold, 8 warm) |
 
 Not tried: ghostty, wezterm, Hyprland. Input and exit restore not exercised.

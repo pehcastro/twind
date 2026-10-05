@@ -3,6 +3,7 @@ package terminal
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image"
 	"io"
 	"slices"
@@ -1096,6 +1097,47 @@ func TestSizeFromTheTerminal(t *testing.T) {
 		if err := b.Exit(); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestSizeWhenThePtyMovesDuringStartup(t *testing.T) {
+	foot := image.Pt(120, 36)
+	term := newFake()
+	term.reply = func(p []byte) []string {
+		if !bytes.HasSuffix(p, []byte(konst.Fence)) {
+			return nil
+		}
+		reply := "\x1b[?62;4;22c"
+		if bytes.Contains(p, []byte(konst.GridQuery)) {
+			reply = fmt.Sprintf("\x1b[6;18;9t\x1b[8;%d;%dt", foot.Y, foot.X) + reply
+		}
+		foot = image.Pt(177, 54)
+		term.tty.mu.Lock()
+		term.tty.cells = foot
+		term.tty.mu.Unlock()
+		return []string{reply}
+	}
+	b, err := enter(term, term.tty, Options{}, offer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, h, _ := b.Size()
+	laid := image.Pt(w, h)
+	for queued := true; queued; {
+		select {
+		case ev := <-b.Events:
+			if r, ok := ev.(input.ResizeEvent); ok {
+				laid = image.Pt(r.Width, r.Height)
+			}
+		default:
+			queued = false
+		}
+	}
+	if laid != image.Pt(177, 54) {
+		t.Errorf("laid out at %v, want the pty's 177x54", laid)
+	}
+	if err := b.Exit(); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -235,9 +235,14 @@ func enter(out io.Writer, t tty, opt Options, o offer) (*Backend, error) {
 	if !opt.NoMouse {
 		seq += konst.MouseOn
 	}
+	columns, rows, _ := t.size()
 	raw, replies, err := b.ask(seq+konst.CursorHome+konst.GraphemesOn+konst.Probes+o.version()+konst.Queries, konst.StartupTimeout)
 	if err == nil {
 		raw, err = b.askKitty(raw, replies, o)
+	}
+	if w, h, _ := t.size(); err == nil && (w != columns || h != rows) {
+		b.trace.log("terminal: pty moved from %dx%d to %dx%d while detecting, grid asked again", columns, rows, w, h)
+		_, _, err = b.ask(konst.CellQuery, konst.QueryTimeout)
 	}
 	if err != nil {
 		if b.traced != nil {

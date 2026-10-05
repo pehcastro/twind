@@ -207,6 +207,7 @@ const (
 	TruecolorProbe     = "1;2;3"
 	TruecolorQuery     = CSI + "38;2;" + TruecolorProbe + "m" + DCS + "$qm" + ST + Reset
 	TruecolorAnswer    = "1$r"
+	TruecolorFenced    = "\x1b7" + TruecolorQuery + "\x1b8" + CSI + "K" + Fence
 	ClipboardCap       = "4d73"
 	ClipboardQuery     = DCS + "+q" + ClipboardCap + ST
 	ClipboardAnswer    = "1+r"
