@@ -54,7 +54,7 @@ func TestTabsActiveStandsOutInEveryTheme(t *testing.T) {
 				return twi.Element(twi.Class("flex flex-col p-1 h-full bg-background text-foreground"),
 					tabs.Node(tabs.List(tabs.Trigger("preview", twi.Text("Preview")), tabs.Trigger("code", twi.Text("Code")))))
 			}
-		}, drive.Size(30, 4), drive.Styles(sheet))
+		}, drive.Size(30, 4), drive.With(twi.Styles(sheet)))
 		d.Advance(settleTime)
 		f := d.Frame()
 		ax, ay, _ := at(f, "Preview")

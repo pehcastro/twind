@@ -103,7 +103,7 @@ func TestScrollIntoViewDuringMeasure(t *testing.T) {
 	}
 	t.Run("ref handler", func(t *testing.T) {
 		r := launch(newBackend(20, 8), func(rt *twi.Runtime) func() twi.Node {
-			box, asked := twi.NewRef(rt), false
+			box, asked := &twi.Ref{}, false
 			return func() twi.Node {
 				if !asked && box.Bounds() != (image.Rectangle{}) {
 					asked = true

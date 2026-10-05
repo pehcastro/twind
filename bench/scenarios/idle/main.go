@@ -34,7 +34,6 @@ func (b *backend) Write(p []byte) (int, error) {
 
 func (b *backend) Events() <-chan input.Event           { return b.events }
 func (b *backend) Size() (width, height int, err error) { return b.width, b.height, nil }
-func (b *backend) Sync() bool                           { return true }
 func (b *backend) Exit() error                          { return nil }
 func (b *backend) Capabilities() terminal.Capabilities  { return b.caps }
 
@@ -52,9 +51,9 @@ func main() {
 	window := flag.Duration("window", 10*time.Second, "idle time measured after the first frame")
 	period := flag.Duration("timer", 0, "the period of one timer that sets itself again each time it fires, 0 for no timer")
 	flag.Parse()
-	b := &backend{events: make(chan input.Event), drawn: make(chan struct{}), width: 80, height: 24}
+	b := &backend{events: make(chan input.Event), drawn: make(chan struct{}), width: 80, height: 24, caps: terminal.Capabilities{Sync: true}}
 	c := &clock{}
-	opts := []twi.RenderOption{twi.Backend(b, c), twi.ColorProfile(color.TrueColor)}
+	opts := []twi.Option{twi.Backend(b, c), twi.ColorProfile(color.TrueColor)}
 	view := counter.New
 	switch *app {
 	case "counter":

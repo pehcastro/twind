@@ -108,7 +108,7 @@ func (a *anchored) option(label string, at int, active *int, checked bool, choos
 	if checked {
 		mark = []twi.NodeOption{icon("✓", "")}
 	}
-	highlight := twi.OnPointerEnter(func() {
+	highlight := twi.OnPointerEnter(func(*twi.Event) {
 		if *active != at {
 			*active = at
 			a.rt.Invalidate()

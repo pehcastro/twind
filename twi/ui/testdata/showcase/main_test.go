@@ -33,7 +33,7 @@ func driven(t testing.TB, name string, scheme theme.Scheme) *drive.Driver {
 			t.Fatalf("no page %q", name)
 		}
 		return func() twi.Node { return screen(twi.Class(""), body()) }
-	}, drive.Size(150, 45), drive.Styles(sheet))
+	}, drive.Size(150, 45), drive.With(twi.Styles(sheet)))
 	d.Advance(settleTime)
 	return d
 }

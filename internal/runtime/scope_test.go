@@ -28,7 +28,7 @@ func (a *focusApp) popover(t *testing.T, modal bool) *drive.Driver {
 				content := []twi.NodeOption{
 					twi.Key("popover"),
 					twi.NonModalFocusScope(),
-					twi.OnFocusOutside(func() {
+					twi.OnFocusOutside(func(*twi.Event) {
 						a.record("outside")
 						set(false)
 					}),

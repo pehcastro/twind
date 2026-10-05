@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
 )
 
@@ -15,7 +16,7 @@ func TestSpringMenuAndFlipReorder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(App, drive.Size(100, 30), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(100, 30), drive.With(twi.Styles(sheet)))
 	defer func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)

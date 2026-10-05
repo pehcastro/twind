@@ -60,10 +60,10 @@ type Buffer struct {
 	Mode   Mode
 	Wrap   int
 	Widths text.Widths
-	Now    func() time.Time
 	state
 	undo, redo []state
 	last       step
+	now        time.Time
 	edited     time.Time
 	goal       int
 	unit       Unit
@@ -121,10 +121,11 @@ func (b *Buffer) Remember(s string) {
 	b.walk = len(b.history)
 }
 
-func (b *Buffer) Apply(k input.KeyEvent) bool {
+func (b *Buffer) Apply(k input.KeyEvent, now time.Time) bool {
 	if k.Release {
 		return false
 	}
+	b.now = now
 	shift := k.Modifiers&input.ModShift != 0
 	word := k.Modifiers&(input.ModCtrl|input.ModAlt) != 0
 	var ctrl rune
@@ -222,13 +223,10 @@ func (b *Buffer) replace(start, end int, s string, kind step) {
 	if start == end && s == "" {
 		return
 	}
-	if b.Now != nil {
-		now := b.Now()
-		if now.Sub(b.edited) >= konst.UndoPause {
-			b.last = stepOther
-		}
-		b.edited = now
+	if b.now.Sub(b.edited) >= konst.UndoPause {
+		b.last = stepOther
 	}
+	b.edited = b.now
 	if kind == stepOther || kind != b.last {
 		b.undo = append(b.undo, b.state)
 		if len(b.undo) > konst.UndoDepth {

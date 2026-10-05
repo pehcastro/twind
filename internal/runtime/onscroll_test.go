@@ -23,8 +23,8 @@ func TestOnScrollFiresOnceWithTheNewOffset(t *testing.T) {
 			for i := range listRows {
 				list = append(list, twi.Element(twi.Key(fmt.Sprint("row-", i)), twi.Text(fmt.Sprint("row ", i))))
 			}
-			return twi.Element(twi.Class("col"), twi.OnKey(func(k input.KeyEvent) {
-				switch k.Rune {
+			return twi.Element(twi.Class("col"), twi.OnKey(func(e *twi.Event) {
+				switch e.Key.Rune {
 				case 'x':
 					presses++
 					rt.Invalidate()

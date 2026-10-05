@@ -24,7 +24,7 @@ func overlayDriver(t *testing.T, width, height int, app drive.App) *drive.Driver
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(light)
 		return app(rt)
-	}, drive.Size(width, height), drive.Styles(sheet))
+	}, drive.Size(width, height), drive.With(twi.Styles(sheet)))
 	d.Advance(settleTime)
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
@@ -78,8 +78,8 @@ func at(f drive.Frame, s string) (x, y int, ok bool) {
 }
 
 func listen(heard *[]rune) twi.NodeOption {
-	return twi.OnKey(func(k input.KeyEvent) {
-		if !k.Release && k.Key == input.KeyRune {
+	return twi.OnKey(func(e *twi.Event) {
+		if k := e.Key; !k.Release && k.Key == input.KeyRune {
 			*heard = append(*heard, k.Rune)
 		}
 	})

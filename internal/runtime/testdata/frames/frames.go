@@ -31,9 +31,9 @@ func (l *Layers) App(rt *twi.Runtime) func() twi.Node {
 	}
 	return func() twi.Node {
 		return twi.Element(twi.Class("flex flex-row gap-2 h-full bg-black text-white"),
-			twi.OnKey(func(k input.KeyEvent) {
-				l.A = l.A != (k.Rune == 'a')
-				l.B = l.B != (k.Rune == 'b')
+			twi.OnKey(func(e *twi.Event) {
+				l.A = l.A != (e.Key.Rune == 'a')
+				l.B = l.B != (e.Key.Rune == 'b')
 				rt.Invalidate()
 			}),
 			twi.Element(slices.Concat(
@@ -64,9 +64,9 @@ func Closing(rt *twi.Runtime) func() twi.Node {
 	focused := twi.NewSignal(rt, 0)
 	open, shown := false, false
 	return func() twi.Node {
-		field := twi.Element(twi.Key("field"), twi.Focusable(), twi.AutoFocus(), twi.OnFocus(func() { focused.Set(focused.Get() + 1) }), twi.Text([]string{"field", "once", "twice"}[min(focused.Get(), 2)]))
-		keys := twi.OnKey(func(k input.KeyEvent) {
-			open = k.Rune == 'o' || open && k.Key != input.KeyEscape
+		field := twi.Element(twi.Key("field"), twi.Focusable(), twi.AutoFocus(), twi.OnFocus(func(*twi.Event) { focused.Set(focused.Get() + 1) }), twi.Text([]string{"field", "once", "twice"}[min(focused.Get(), 2)]))
+		keys := twi.OnKey(func(e *twi.Event) {
+			open = e.Key.Rune == 'o' || open && e.Key.Key != input.KeyEscape
 			rt.Invalidate()
 		})
 		switch {
@@ -114,8 +114,8 @@ func Pulse(rt *twi.Runtime) func() twi.Node {
 			pulse = twi.Text("still")
 		}
 		return twi.Element(twi.Class("h-full bg-black text-white"),
-			twi.OnKey(func(k input.KeyEvent) {
-				on = on && k.Rune != 's'
+			twi.OnKey(func(e *twi.Event) {
+				on = on && e.Key.Rune != 's'
 				rt.Invalidate()
 			}),
 			pulse,

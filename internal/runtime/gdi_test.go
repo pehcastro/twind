@@ -124,11 +124,11 @@ func TestForcedGDIWithoutAnOverlayDrawsCells(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	first := func(opts ...twi.RenderOption) string {
+	first := func(opts ...twi.Option) string {
 		b := newBackend(40, 15)
 		b.caps = terminal.Capabilities{Identity: terminal.IdentityOther, CellPixels: image.Pt(10, 20)}
 		r := run{b: b, clock: &clock{}, done: make(chan error, 1)}
-		r.rt = twi.New(append([]twi.RenderOption{twi.Backend(b, r.clock), twi.Styles(s), twi.ColorProfile(color.TrueColor)}, opts...)...)
+		r.rt = twi.New(append([]twi.Option{twi.Backend(b, r.clock), twi.Styles(s), twi.ColorProfile(color.TrueColor)}, opts...)...)
 		app := hello.Surfaces(r.rt)
 		go func() { r.done <- r.rt.Run(app) }()
 		f := r.next(t)

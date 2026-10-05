@@ -43,9 +43,9 @@ func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster, dark *
 		return ui.Button(v, ui.SizeDefault, clicked(rt, func() { toaster.Show(label+" pressed", "A sample of the "+label+" button.", ui.ToastAction{}) }), twi.Text(label))
 	}
 	return func() twi.Node {
-		items := []twi.NodeOption{twi.Class("grid grid-cols-2 gap-x-1"), twi.OnFocus(func() { opened = palette.Value }), twi.OnPointerLeave(apply), restore}
+		items := []twi.NodeOption{twi.Class("grid grid-cols-2 gap-x-1"), twi.OnFocus(func(*twi.Event) { opened = palette.Value }), twi.OnPointerLeave(func(*twi.Event) { apply() }), restore}
 		for _, n := range names {
-			items = append(items, palette.Item(n, twi.OnPointerEnter(func() { preview(n) }), ui.Label(twi.Text(n))))
+			items = append(items, palette.Item(n, twi.OnPointerEnter(func(*twi.Event) { preview(n) }), ui.Label(twi.Text(n))))
 		}
 		scheme := map[bool]string{false: "Light", true: "Dark"}[dark.Checked]
 		return ui.Card(twi.Class("py-1"),

@@ -15,6 +15,7 @@ import (
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 type focusApp struct {
@@ -46,11 +47,11 @@ func (a *focusApp) button(name string, opts ...twi.NodeOption) twi.Node {
 	return twi.Element(append([]twi.NodeOption{
 		twi.Key(name),
 		twi.Focusable(),
-		twi.OnFocus(func() {
+		twi.OnFocus(func(*twi.Event) {
 			a.record("focus " + name)
 			a.focused.Set(name)
 		}),
-		twi.OnBlur(func() { a.record("blur " + name) }),
+		twi.OnBlur(func(*twi.Event) { a.record("blur " + name) }),
 		twi.OnKeyDown(func(e *twi.Event) { a.heard(name, e.Key) }),
 		twi.Text(name),
 	}, opts...)...)
@@ -59,7 +60,7 @@ func (a *focusApp) button(name string, opts ...twi.NodeOption) twi.Node {
 func (a *focusApp) start(t *testing.T) *drive.Driver {
 	t.Helper()
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
-		in := twi.NewInput(rt)
+		in := ui.NewInput(rt)
 		redraw := twi.NewSignal(rt, 0)
 		a.focused = twi.NewSignal(rt, "")
 		return func() twi.Node {
@@ -81,7 +82,7 @@ func (a *focusApp) start(t *testing.T) *drive.Driver {
 					}
 					redraw.Set(redraw.Get() + 1)
 				}),
-				twi.OnKey(func(k input.KeyEvent) { a.heard("document", k) }),
+				twi.OnKey(func(e *twi.Event) { a.heard("document", e.Key) }),
 				in.Node(twi.AutoFocus(), twi.Key("input")),
 			}
 			if a.before {
@@ -152,7 +153,7 @@ func TestTabShowsFocusVisibleRing(t *testing.T) {
 	ring := lit("focus-visible:ring-2 focus-visible:ring-sky-500", style.StateFocusVisible).Shadows[0].Color.RGBA
 	within := lit("focus-within:bg-zinc-900", style.StateFocusWithin).Background.RGBA
 	pillBg := lit("bg-zinc-700", 0).Background.RGBA
-	d := drive.New(pill.App, drive.Size(30, 9), drive.Styles(sheet))
+	d := drive.New(pill.App, drive.Size(30, 9), drive.With(twi.Styles(sheet)))
 	defer func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)

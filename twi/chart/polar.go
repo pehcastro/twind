@@ -233,7 +233,7 @@ func (c *Chart) polar(p plot) twi.Node {
 			q := point{float32(at.X) + 0.5, (float32(at.Y) + 0.5) * konst.CellRows}
 			c.point(c.aim(p, float32(w), float32(h*konst.CellRows), cellUnit, cols, q), at)
 		}),
-		twi.OnPointerLeave(func() { c.point(0, image.Point{}) }),
+		twi.OnPointerLeave(func(*twi.Event) { c.point(0, image.Point{}) }),
 		surface(c.key(0), func(dst *image.RGBA, cell image.Point) {
 			c.canvas = c.pixels(c.canvas, dst, cell)
 			c.spin(c.canvas, p, pixelMetrics(cell), point{float32(cell.X), float32(cell.Y)}, cols, hover)

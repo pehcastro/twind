@@ -295,8 +295,8 @@ func TestControlKeys(t *testing.T) {
 			a, b, c := rg.Item("a", twi.Text("A")), rg.Item("b", twi.Text("B")), rg.Item("c", twi.Text("C"))
 			x, y, z := tg.Item("x", twi.Text("X")), tg.Item("y", twi.Text("Y")), tg.Item("z", twi.Text("Z"))
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1"),
-				twi.OnKey(func(k input.KeyEvent) {
-					if !k.Release && k.Key == input.KeyRune {
+				twi.OnKey(func(e *twi.Event) {
+					if k := e.Key; !k.Release && k.Key == input.KeyRune {
 						heard = append(heard, k.Rune)
 					}
 				}),
@@ -304,7 +304,7 @@ func TestControlKeys(t *testing.T) {
 				otp.Node(otp.Slot(0), otp.Slot(1), otp.Slot(2), otp.Slot(3)), sel.Node(),
 			)
 		}
-	}, drive.Size(40, 40), drive.Styles(sheet))
+	}, drive.Size(40, 40), drive.With(twi.Styles(sheet)))
 	defer func() {
 		if err := d.Close(); err != nil {
 			t.Fatal(err)

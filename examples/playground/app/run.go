@@ -28,7 +28,7 @@ func Run(args []string) error {
 	if err != nil {
 		return err
 	}
-	opts := []twi.RenderOption{twi.Fullscreen(), twi.Styles(sheet)}
+	opts := []twi.Option{twi.Styles(sheet)}
 	graphics, known := map[string]terminal.Graphics{"none": terminal.GraphicsNone, "sixel": terminal.GraphicsSixel, "kitty": terminal.GraphicsKitty, "iterm2": terminal.GraphicsITerm2}[*graphicsName]
 	if known {
 		opts = append(opts, twi.Graphics(graphics))

@@ -7,7 +7,6 @@ import (
 
 	konst "github.com/pehcastro/twind/internal/konst/ui"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/input"
 )
 
 type ToastKind uint8
@@ -117,12 +116,12 @@ func (t *Toaster) Node() twi.Node {
 	if len(t.toasts) == 0 {
 		return closed()
 	}
-	newest := twi.OnKey(func(k input.KeyEvent) {
-		if !k.Release && escape(k) && len(t.toasts) > 0 {
+	newest := twi.OnKey(func(e *twi.Event) {
+		if !e.Key.Release && escape(e.Key) && len(t.toasts) > 0 {
 			t.dismiss(t.toasts[len(t.toasts)-1])
 		}
 	})
-	children := []twi.NodeOption{newest, twi.OnPointerEnter(func() { t.hover(true) }), twi.OnPointerLeave(func() { t.hover(false) })}
+	children := []twi.NodeOption{newest, twi.OnPointerEnter(func(*twi.Event) { t.hover(true) }), twi.OnPointerLeave(func(*twi.Event) { t.hover(false) })}
 	shown := t.toasts[max(len(t.toasts)-konst.VisibleToasts, 0):]
 	for i, s := range shown {
 		depth := len(shown) - 1 - i

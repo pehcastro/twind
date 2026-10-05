@@ -52,7 +52,7 @@ func (r *Runtime) scrollers(path []int) (innermostFirst []scroller) {
 }
 
 func (r *Runtime) ScrollIntoView(key string) {
-	r.owned(func() { r.intoView, r.dirty = key, true })
+	r.Dispatch(func() { r.intoView, r.dirty = key, true })
 }
 
 func (r *Runtime) scrollIntoView() bool {

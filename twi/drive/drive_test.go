@@ -44,7 +44,7 @@ func TestCounter(t *testing.T) {
 func recorder(keys *[]input.KeyEvent) drive.App {
 	return func(*twi.Runtime) func() twi.Node {
 		return func() twi.Node {
-			return twi.Element(twi.OnKey(func(k input.KeyEvent) { *keys = append(*keys, k) }), twi.Text("keys"))
+			return twi.Element(twi.OnKey(func(e *twi.Event) { *keys = append(*keys, e.Key) }), twi.Text("keys"))
 		}
 	}
 }
@@ -205,7 +205,7 @@ func sheet(t *testing.T) drive.Option {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return drive.Styles(s)
+	return drive.With(twi.Styles(s))
 }
 
 func TestScript(t *testing.T) {
@@ -255,7 +255,7 @@ func TestPointerVerbs(t *testing.T) {
 	}
 	trace := &hover.Trace{}
 	script := "size 30x8\nmove 2 1\ndown 2 1\nmove 9 1\nup 9 1\nclick 9 1\n"
-	if err := drive.RunScript(strings.NewReader(script), trace.App, t.TempDir(), drive.Styles(s)); err != nil {
+	if err := drive.RunScript(strings.NewReader(script), trace.App, t.TempDir(), drive.With(twi.Styles(s))); err != nil {
 		t.Fatal(err)
 	}
 	want := "enter row, enter one, leave one, enter two, click two, click row"

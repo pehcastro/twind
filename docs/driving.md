@@ -10,7 +10,7 @@ func TestCounter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(App, drive.Size(80, 24), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(80, 24), drive.With(twi.Styles(sheet)))
 	defer d.Close()
 	d.Press("tab")
 	d.Press("enter")
@@ -22,7 +22,7 @@ func TestCounter(t *testing.T) {
 }
 ```
 
-`App` is the same function the program runs: `func App(rt *twi.Runtime) func() twi.Node`. The driver gives it a runtime on a fake clock, so timers, transitions and animations advance only when you call `Advance`.
+`App` is the same function the program runs: `func App(rt *twi.Runtime) func() twi.Node`. The driver gives it a runtime on a fake clock, so timers, transitions and animations advance only when you call `Advance`. `drive.With` passes the options `twi.New` takes, such as `twi.Styles` and `twi.Theme`.
 
 ## The driver
 

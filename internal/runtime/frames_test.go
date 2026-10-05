@@ -22,7 +22,7 @@ func driveFrames(t *testing.T, app drive.App, opts ...drive.Option) *drive.Drive
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(app, append([]drive.Option{drive.Styles(sheet)}, opts...)...)
+	d := drive.New(app, append([]drive.Option{drive.With(twi.Styles(sheet))}, opts...)...)
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
 			t.Error(err)
@@ -264,11 +264,9 @@ func TestPlacesReachHoverAndSelection(t *testing.T) {
 func TestCopyWritesTheClipboard(t *testing.T) {
 	app := func(rt *twi.Runtime) func() twi.Node {
 		return func() twi.Node {
-			return twi.Element(twi.OnKey(func(k input.KeyEvent) {
-				if k.Rune == 'y' {
-					if err := rt.Copy("from the app"); err != nil {
-						t.Error(err)
-					}
+			return twi.Element(twi.OnKey(func(e *twi.Event) {
+				if e.Key.Rune == 'y' {
+					rt.Copy("from the app")
 				}
 			}), twi.Text("copy"))
 		}
@@ -277,13 +275,6 @@ func TestCopyWritesTheClipboard(t *testing.T) {
 	d.Press("y")
 	if got := d.Clipboard(); got != "from the app" {
 		t.Errorf("rt.Copy wrote %q to the clipboard, want %q", got, "from the app")
-	}
-	r := launch(newBackend(10, 1), app, twi.NoClipboard())
-	r.next(t)
-	r.b.events <- key('y')
-	r.quiet(t)
-	if err := r.stop(t); err != nil {
-		t.Error(err)
 	}
 }
 

@@ -29,7 +29,7 @@ func startPointer(t *testing.T, open bool) *pointed {
 		t.Fatal(err)
 	}
 	p := &pointed{t: t, trace: &hover.Trace{Open: open}, sheet: sheet}
-	p.d = drive.New(p.trace.App, drive.Size(30, 8), drive.Styles(sheet))
+	p.d = drive.New(p.trace.App, drive.Size(30, 8), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := p.d.Err(); err != nil {
 			t.Error(err)

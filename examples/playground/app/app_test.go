@@ -10,6 +10,7 @@ import (
 
 	"github.com/pehcastro/twind/internal/buffer"
 	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/tailwind"
@@ -32,7 +33,7 @@ func open(t *testing.T) *drive.Driver {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(App, drive.Size(100, 30), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(100, 30), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
 			t.Error(err)
@@ -100,15 +101,15 @@ func TestTypeDeleteWordUndoThenTrapFocus(t *testing.T) {
 		cursor         int
 		cursorGrapheme string
 	}{
-		{func() { d.Type("hello") }, "hello", "input", 5, nbsp},
-		{func() { d.Press("ctrl+w") }, "Ask twind: a page, theme, dialog, toast, load, later or quit", "input", 0, nbsp},
-		{func() { d.Type("world") }, "world", "input", 5, nbsp},
-		{func() { d.Press("ctrl+z") }, "Ask twind: a page, theme, dialog, toast, load, later or quit", "input", 0, nbsp},
-		{func() { d.Press("ctrl+z") }, "hello", "input", 5, nbsp},
-		{func() { d.Type(" 中b"); press(d, "left", "left") }, "hello" + nbsp + "中b", "input", 6, "中"},
-		{func() { d.Press("right") }, "hello" + nbsp + "中b", "input", 8, "b"},
-		{func() { d.Press("ctrl+g") }, "hello" + nbsp + "中b", "input", -1, ""},
-		{func() { press(d, "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab") }, "hello" + nbsp + "中b", "theme", -1, ""},
+		{func() { d.Type("hello") }, "hello", "input", 5, " "},
+		{func() { d.Press("ctrl+w") }, "Ask twind: a page, theme, dialog, toast, load, later or quit", "input", 0, " "},
+		{func() { d.Type("world") }, "world", "input", 5, " "},
+		{func() { d.Press("ctrl+z") }, "Ask twind: a page, theme, dialog, toast, load, later or quit", "input", 0, " "},
+		{func() { d.Press("ctrl+z") }, "hello", "input", 5, " "},
+		{func() { d.Type(" 中b"); press(d, "left", "left") }, "hello 中b", "input", 6, "中"},
+		{func() { d.Press("right") }, "hello 中b", "input", 8, "b"},
+		{func() { d.Press("ctrl+g") }, "hello 中b", "input", -1, ""},
+		{func() { press(d, "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab", "tab") }, "hello 中b", "theme", -1, ""},
 	}
 	for i, s := range steps {
 		s.act()
@@ -319,7 +320,7 @@ func BenchmarkThemePreview(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	d := drive.New(App, drive.Size(100, 30), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(100, 30), drive.With(twi.Styles(sheet)))
 	run(d, "t")
 	samples := make([]time.Duration, 0, b.N)
 	b.ResetTimer()

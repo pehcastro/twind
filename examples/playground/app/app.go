@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pehcastro/twind/internal/edit"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/icon"
 	"github.com/pehcastro/twind/twi/input"
@@ -67,8 +66,8 @@ func (c controls) focusable(name string) []twi.NodeOption {
 	opts := []twi.NodeOption{
 		twi.Key(name),
 		twi.Focusable(),
-		twi.OnFocus(func() { c.update(func(s *state) { s.focus = name }) }),
-		twi.OnBlur(func() {
+		twi.OnFocus(func(*twi.Event) { c.update(func(s *state) { s.focus = name }) }),
+		twi.OnBlur(func(*twi.Event) {
 			c.update(func(s *state) {
 				if s.focus == name {
 					s.focus = ""
@@ -272,10 +271,9 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 		}
 	}
 	global := []key{{"1-" + strconv.Itoa(bar), "page"}, {"ctrl+k", "components"}, {"t", "theme"}, {"m", "scheme"}, {"q", "quit"}}
-	field := twi.NewInput(rt)
+	field := ui.NewInput(rt)
 	field.Insert(opening.Value)
 	field.Placeholder = "Ask twind: a page, theme, dialog, toast, load, later or quit"
-	field.CursorClass, field.SelectionClass, field.PlaceholderClass = "bg-foreground text-background", "bg-primary text-primary-foreground", "text-muted-foreground"
 	return func() twi.Node {
 		c := controls{state: st.Get(), update: update, command: command, auto: opening.Focus, kit: k}
 		s := c.state
@@ -332,11 +330,11 @@ func playground(rt *twi.Runtime, env Env, start state, opening Start) func() twi
 			el("mx-2 flex flex-row items-center gap-1 px-1 border rounded-lg bg-card text-muted-foreground focus-within:border-ring",
 				txt("text-primary font-bold", "▌"),
 				field.Node(append(c.focusable("input"),
-					twi.Class("grow h-1 overflow-hidden flex flex-row text-foreground"),
+					twi.Class("grow w-auto h-1 px-0 border-0 rounded-none bg-transparent dark:bg-transparent text-foreground"),
 					twi.OnKeyDown(func(e *twi.Event) {
 						if e.Key.Key == input.KeyEnter {
 							cmd := strings.ToLower(strings.TrimSpace(field.Value()))
-							field.Buffer = edit.Buffer{}
+							field.Set("")
 							update(func(s *state) { command(s, cmd) })
 						}
 					}))...),
@@ -398,7 +396,7 @@ func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 			mark = "● "
 		}
 		list = append(list, twi.Element(twi.Class(class), twi.Text(mark+t.Name),
-			twi.OnPointerEnter(func() { c.update(func(s *state) { s.cursor = i }) }),
+			twi.OnPointerEnter(func(*twi.Event) { c.update(func(s *state) { s.cursor = i }) }),
 			twi.OnClick(func(*twi.Event) { c.update(apply) }),
 		))
 	}
@@ -411,7 +409,7 @@ func picker(themes []theme.Theme, c controls, apply func(*state)) twi.Node {
 			e.StopPropagation()
 		}),
 		twi.Element(twi.Class("w-44 flex flex-col gap-1 px-1 border rounded-lg shadow-lg bg-popover text-popover-foreground"),
-			twi.OnPointerDownOutside(func() { c.update(closePicker) }),
+			twi.OnPointerDownOutside(func(*twi.Event) { c.update(closePicker) }),
 			el("flex flex-col",
 				txt("px-1 font-bold", "Theme"),
 				txt("px-1 text-muted-foreground", "↑ ↓ preview, Enter keeps, Esc restores"),

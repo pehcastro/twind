@@ -5,7 +5,6 @@ import (
 
 	"github.com/pehcastro/twind/internal/events"
 	"github.com/pehcastro/twind/internal/runtime"
-	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
 )
 
@@ -23,15 +22,13 @@ func (n *node) behave() *runtime.Node {
 
 func push[T any](list *[]T, item T) { *list = append(*list, item) }
 
-func (n *node) listen(t events.Type, handler func(*Event)) {
-	push(&n.behave().Listeners, listener{Type: t, Handle: handler})
-}
-
-func always(handler func()) func(*Event) { return func(*Event) { handler() } }
-
 type behaviour func(*runtime.Node)
 
 func (b behaviour) apply(n *node) { b(n.behave()) }
+
+func (n *node) listen(t events.Type, handler func(*Event)) {
+	push(&n.behave().Listeners, listener{Type: t, Handle: handler})
+}
 
 type onKeyDown func(*Event)
 
@@ -39,17 +36,17 @@ func (h onKeyDown) apply(n *node) { n.listen(events.KeyDown, h) }
 
 func OnKeyDown(handler func(*Event)) NodeOption { return onKeyDown(handler) }
 
-type onFocus func()
+type onFocus func(*Event)
 
-func (h onFocus) apply(n *node) { n.listen(events.Focus, always(h)) }
+func (h onFocus) apply(n *node) { n.listen(events.Focus, h) }
 
-func OnFocus(handler func()) NodeOption { return onFocus(handler) }
+func OnFocus(handler func(*Event)) NodeOption { return onFocus(handler) }
 
-type onBlur func()
+type onBlur func(*Event)
 
-func (h onBlur) apply(n *node) { n.listen(events.Blur, always(h)) }
+func (h onBlur) apply(n *node) { n.listen(events.Blur, h) }
 
-func OnBlur(handler func()) NodeOption { return onBlur(handler) }
+func OnBlur(handler func(*Event)) NodeOption { return onBlur(handler) }
 
 type onClick func(*Event)
 
@@ -75,29 +72,31 @@ func (h onPointerUp) apply(n *node) { n.listen(events.PointerUp, h) }
 
 func OnPointerUp(handler func(*Event)) NodeOption { return onPointerUp(handler) }
 
-type onPointerEnter func()
+type onPointerEnter func(*Event)
 
-func (h onPointerEnter) apply(n *node) { n.listen(events.PointerEnter, always(h)) }
+func (h onPointerEnter) apply(n *node) { n.listen(events.PointerEnter, h) }
 
-func OnPointerEnter(handler func()) NodeOption { return onPointerEnter(handler) }
+func OnPointerEnter(handler func(*Event)) NodeOption { return onPointerEnter(handler) }
 
-type onPointerLeave func()
+type onPointerLeave func(*Event)
 
-func (h onPointerLeave) apply(n *node) { n.listen(events.PointerLeave, always(h)) }
+func (h onPointerLeave) apply(n *node) { n.listen(events.PointerLeave, h) }
 
-func OnPointerLeave(handler func()) NodeOption { return onPointerLeave(handler) }
+func OnPointerLeave(handler func(*Event)) NodeOption { return onPointerLeave(handler) }
 
-type onPointerDownOutside func()
+type onPointerDownOutside func(*Event)
 
-func (h onPointerDownOutside) apply(n *node) { push(&n.behave().PointerDownOutside, (func())(h)) }
+func (h onPointerDownOutside) apply(n *node) {
+	push(&n.behave().PointerDownOutside, (func(*Event))(h))
+}
 
-func OnPointerDownOutside(handler func()) NodeOption { return onPointerDownOutside(handler) }
+func OnPointerDownOutside(handler func(*Event)) NodeOption { return onPointerDownOutside(handler) }
 
-type onFocusOutside func()
+type onFocusOutside func(*Event)
 
-func (h onFocusOutside) apply(n *node) { push(&n.behave().FocusOutside, (func())(h)) }
+func (h onFocusOutside) apply(n *node) { push(&n.behave().FocusOutside, (func(*Event))(h)) }
 
-func OnFocusOutside(handler func()) NodeOption { return onFocusOutside(handler) }
+func OnFocusOutside(handler func(*Event)) NodeOption { return onFocusOutside(handler) }
 
 type onScroll func(image.Point)
 
@@ -109,7 +108,7 @@ func OnPaste(handler func(text string)) NodeOption {
 	return behaviour(func(n *runtime.Node) { n.Paste = handler })
 }
 
-func OnHotkey(handler func(input.KeyEvent) bool) NodeOption {
+func OnHotkey(handler func(*Event)) NodeOption {
 	return behaviour(func(n *runtime.Node) { n.Hotkey = handler })
 }
 
@@ -157,7 +156,5 @@ func (k keyed) apply(n *node) {
 func Key(key string) NodeOption { return keyed(key) }
 
 type Ref = runtime.Ref
-
-func NewRef(*Runtime) *Ref { return &Ref{} }
 
 func Measure(ref *Ref) NodeOption { return behaviour(func(n *runtime.Node) { n.Measure = ref }) }

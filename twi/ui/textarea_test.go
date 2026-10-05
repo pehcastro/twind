@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	ekonst "github.com/pehcastro/twind/internal/konst/edit"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/input"
@@ -198,5 +199,19 @@ func TestTextareaCopiesTheSelection(t *testing.T) {
 	p.typed("copy me", "ctrl+g ctrl+shift+c")
 	if got := p.Clipboard(); got != "copy me" {
 		t.Fatalf("the clipboard holds %q, want the selection", got)
+	}
+}
+
+func TestEditorsUndoOneBurstAfterAPause(t *testing.T) {
+	p := promptDriver(t, "w-24", false)
+	for _, field := range []interface{ Value() string }{p.area, p.line} {
+		p.Type("one")
+		p.Advance(ekonst.UndoPause)
+		p.Type("two")
+		p.Press("ctrl+z")
+		if got := field.Value(); got != "one" {
+			t.Errorf("one undo after a pause left %q, want only the second burst gone", got)
+		}
+		p.Press("tab")
 	}
 }

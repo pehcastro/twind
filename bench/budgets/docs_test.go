@@ -80,7 +80,6 @@ func (be *docsBackend) Paint(p terminal.Pixels) bool {
 }
 
 func (be *docsBackend) Events() <-chan input.Event           { return be.events }
-func (be *docsBackend) Sync() bool                           { return true }
 func (be *docsBackend) Exit() error                          { return nil }
 func (be *docsBackend) Size() (width, height int, err error) { return be.cols, be.rows, nil }
 func (be *docsBackend) Capabilities() terminal.Capabilities  { return be.caps }
@@ -119,7 +118,7 @@ func docsSidebar(b *testing.B, sheet style.Sheet, p docsPath) map[string]int {
 			b.Fatal(err)
 		}
 		return view
-	}, drive.Size(p.cols, p.rows), drive.Styles(sheet))
+	}, drive.Size(p.cols, p.rows), drive.With(twi.Styles(sheet)))
 	rows := map[string]int{}
 	for y, line := range strings.Split(d.Frame().Text(), "\n") {
 		for _, entry := range []string{"Introduction", "Installation", "Theming"} {

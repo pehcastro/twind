@@ -27,7 +27,7 @@ func TestStaticRenderDrawsTheFinalState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := twi.RenderString(entering.Entering(), twi.Styles(sheet), twi.Width(12), twi.ColorProfile(color.TrueColor))
+	out := rendered(t, entering.Entering(), twi.Styles(sheet), twi.Width(12), twi.ColorProfile(color.TrueColor))
 	if !strings.Contains(out, "entered") {
 		t.Errorf("a fade-in rendered statically wrote %q, want the text at rest", out)
 	}
@@ -95,8 +95,17 @@ func sheet(t *testing.T) twi.RenderOption {
 	return twi.Styles(s)
 }
 
+func rendered(t *testing.T, node twi.Node, opts ...twi.RenderOption) string {
+	t.Helper()
+	out, err := twi.RenderString(node, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 func TestRenderHelloTruecolor(t *testing.T) {
-	out := twi.RenderString(hello.App(), sheet(t), twi.ColorProfile(color.TrueColor))
+	out := rendered(t, hello.App(), sheet(t), twi.ColorProfile(color.TrueColor))
 	lines := strings.SplitAfter(out, "\n")
 	for i, line := range lines[:len(lines)-1] {
 		if !strings.HasSuffix(line, "\x1b[0m\n") {
@@ -148,7 +157,7 @@ func TestRenderHelloTruecolor(t *testing.T) {
 func TestRenderDefaultsOnAPipe(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("FORCE_COLOR", "")
-	out := twi.RenderString(hello.App(), sheet(t))
+	out := rendered(t, hello.App(), sheet(t))
 	if strings.ContainsRune(out, 0x1b) {
 		t.Errorf("a writer that is not a terminal got escapes: %q", out[:min(len(out), 40)])
 	}
@@ -168,13 +177,13 @@ func TestRenderDefaultsOnAPipe(t *testing.T) {
 		t.Errorf("default width is not 80: %d rows, longest line %d columns, want 76", len(rows), longest)
 	}
 	t.Setenv("FORCE_COLOR", "3")
-	if out := twi.RenderString(hello.App(), sheet(t)); !strings.Contains(out, "\x1b[") {
+	if out := rendered(t, hello.App(), sheet(t)); !strings.Contains(out, "\x1b[") {
 		t.Error("FORCE_COLOR=3 on a pipe gave no colour")
 	}
 }
 
 func TestRenderNarrowWrapsLikeLayout(t *testing.T) {
-	rows := decode(t, twi.RenderString(hello.App(), sheet(t), twi.Width(20)))
+	rows := decode(t, rendered(t, hello.App(), sheet(t), twi.Width(20)))
 	if len(rows) != 19 {
 		t.Fatalf("%d rows, want 19: the card grows one row for the wrapped text", len(rows))
 	}
@@ -190,7 +199,7 @@ func TestRenderNarrowWrapsLikeLayout(t *testing.T) {
 }
 
 func TestRenderBorderNoneTakesNoSpace(t *testing.T) {
-	rows := decode(t, twi.RenderString(hello.Borderless(), sheet(t)))
+	rows := decode(t, rendered(t, hello.Borderless(), sheet(t)))
 	if len(rows) != 5 || rows[2][2].glyph != "x" {
 		t.Errorf("border-none reserved space or drew a border: %d rows, %v", len(rows), rows)
 	}
@@ -213,7 +222,7 @@ func TestRenderHostileText(t *testing.T) {
 			input.WriteString(s)
 		}
 		for _, p := range []color.Profile{color.None, color.Attributes, color.TrueColor} {
-			out := twi.RenderString(twi.Text(input.String()), twi.ColorProfile(p))
+			out := rendered(t, twi.Text(input.String()), twi.ColorProfile(p))
 			rest := sgr.ReplaceAllString(out, "")
 			if i := strings.IndexFunc(rest, func(r rune) bool { return r == 0x1b || r == 0x9b || r == 0x9d || r == 0x7 }); i >= 0 {
 				t.Errorf("%s, profile %d: control %q reached the output: %q", fields[0], p, rest[i], out)

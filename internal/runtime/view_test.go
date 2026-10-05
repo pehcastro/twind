@@ -25,7 +25,7 @@ func TestViewRunsOnlyWhenItCanChange(t *testing.T) {
 				twi.Element(list...),
 				twi.Text(fmt.Sprint("n=", plain)),
 				twi.Element(twi.OnClick(func(*twi.Event) { plain++ }), twi.Text("click")),
-				twi.Element(twi.OnPointerEnter(func() { plain += 10 }), twi.Text("enter")),
+				twi.Element(twi.OnPointerEnter(func(*twi.Event) { plain += 10 }), twi.Text("enter")),
 			)
 		}
 	}, twi.Styles(scrollSheet(t)))

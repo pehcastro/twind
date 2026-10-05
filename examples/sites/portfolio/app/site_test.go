@@ -40,7 +40,7 @@ func TestTour(t *testing.T) {
 	start, _ := builtin("twind-light")
 	out := t.TempDir()
 	app := func(rt *twi.Runtime) func() twi.Node { return newSite(rt, start, posts).view }
-	if err := drive.RunScript(strings.NewReader(string(script)), app, out, drive.Styles(sheet)); err != nil {
+	if err := drive.RunScript(strings.NewReader(string(script)), app, out, drive.With(twi.Styles(sheet))); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range []struct {

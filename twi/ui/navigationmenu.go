@@ -37,9 +37,9 @@ func (n *NavigationMenu) Item(value string) *NavigationMenuItem {
 
 func (n *NavigationMenu) Node(children ...twi.NodeOption) twi.Node {
 	return part("relative flex flex-row w-fit", append([]twi.NodeOption{
-		twi.OnPointerDownOutside(func() { n.show(nil) }),
-		twi.OnPointerEnter(n.stop),
-		twi.OnPointerLeave(func() { n.after(konst.HoverShut, nil) }),
+		twi.OnPointerDownOutside(func(*twi.Event) { n.show(nil) }),
+		twi.OnPointerEnter(func(*twi.Event) { n.stop() }),
+		twi.OnPointerLeave(func(*twi.Event) { n.after(konst.HoverShut, nil) }),
 	}, children...))
 }
 
@@ -57,14 +57,14 @@ func (i *NavigationMenuItem) Trigger(children ...twi.NodeOption) twi.Node {
 	open := n.Value == i.value
 	return part("flex flex-row items-center gap-1 rounded-md bg-background px-2 font-medium select-none hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent/50 data-[state=open]:text-accent-foreground "+n.ring("", onItem), append([]twi.NodeOption{
 		openState(open), n.dataActive(at == n.active && n.link < 0),
-		twi.OnPointerEnter(func() {
+		twi.OnPointerEnter(func(*twi.Event) {
 			if n.Value != "" {
 				n.show(i)
 				return
 			}
 			n.after(konst.HoverOpen, i)
 		}),
-		twi.OnPointerLeave(n.stop),
+		twi.OnPointerLeave(func(*twi.Event) { n.stop() }),
 		n.click(func() {
 			if open {
 				n.show(nil)
@@ -92,7 +92,7 @@ func (i *NavigationMenuItem) Link(href string, children ...twi.NodeOption) twi.N
 		classes += " bg-accent text-accent-foreground"
 	}
 	return part(classes, append([]twi.NodeOption{
-		twi.OnPointerEnter(func() {
+		twi.OnPointerEnter(func(*twi.Event) {
 			if n.link != at {
 				n.link = at
 				n.rt.Invalidate()

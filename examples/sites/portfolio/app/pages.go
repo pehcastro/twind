@@ -129,7 +129,8 @@ func (s *site) list(n int) twi.Node {
 		}
 		row := []twi.NodeOption{twi.Key("row-" + p.file), twi.Focusable(), twi.OnClick(func(*twi.Event) { s.read(i) }), twi.OnKeyDown(func(e *twi.Event) {
 			step := map[input.Key]int{input.KeyArrowDown: 1, input.KeyArrowUp: -1}[e.Key.Key]
-			if j := i + step; step != 0 && !e.Key.Release && j >= 0 && j < len(shown) && s.rt.Focus("row-"+shown[j].file) {
+			if j := i + step; step != 0 && !e.Key.Release && j >= 0 && j < len(shown) {
+				s.rt.Focus("row-" + shown[j].file)
 				e.PreventDefault()
 				e.StopPropagation()
 			}

@@ -460,11 +460,14 @@ func TestRendersEveryComponent(t *testing.T) {
 		twi.Element(twi.Class("flex flex-row gap-1"), Avatar(SizeDefault, AvatarFallback(twi.Text("CN"))), Skeleton(twi.Class("h-1 w-10"))),
 	)
 	labels := []string{"Save", "New", "Ctrl", "Email", "Card title", "Card description", "Act", "Card content", "Card footer", "Alert title", "Alert description", "Empty title", "Empty description", "Create", "CN"}
-	static := twi.RenderString(every, twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(60), twi.ColorProfile(color.None))
+	static, err := twi.RenderString(every, twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(60), twi.ColorProfile(color.None))
+	if err != nil {
+		t.Fatal(err)
+	}
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(zinc(t, theme.Dark))
 		return func() twi.Node { return every }
-	}, drive.Size(60, 40), drive.Styles(sheet))
+	}, drive.Size(60, 40), drive.With(twi.Styles(sheet)))
 	driven := d.Frame().Text()
 	if err := d.Close(); err != nil {
 		t.Fatal(err)
@@ -483,8 +486,11 @@ func TestRendersOneRowControls(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, v := range []Variant{Default, Destructive, Outline, Secondary, Ghost, Link} {
-		out := twi.RenderString(twi.Element(twi.Class("flex flex-row"), Button(v, SizeDefault, twi.Text("Button")), Badge(Default, twi.Text("Badge"))),
+		out, err := twi.RenderString(twi.Element(twi.Class("flex flex-row"), Button(v, SizeDefault, twi.Text("Button")), Badge(Default, twi.Text("Badge"))),
 			twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(30), twi.ColorProfile(color.TrueColor))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if rows := strings.Count(out, "\n"); rows != 1 || !strings.Contains(out, "Button") {
 			t.Errorf("button variant %d renders %d rows, want one row holding its label:\n%s", v, rows, out)
 		}
@@ -496,7 +502,10 @@ func TestRendersOneRowControls(t *testing.T) {
 		"button group with text":  {ButtonGroup(Horizontal, ButtonGroupText(twi.Text("https://")), Button(Outline, SizeDefault, twi.Text("Go"))), 1},
 		"item with a description": {Item(Outline, SizeDefault, ItemMedia(Icon, twi.Text("◆")), ItemContent(ItemTitle(twi.Text("Title")), ItemDescription(twi.Text("Body")))), 4},
 	} {
-		out := twi.RenderString(c.node, twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(30), twi.ColorProfile(color.None))
+		out, err := twi.RenderString(c.node, twi.Styles(sheet), twi.Theme(zinc(t, theme.Light)), twi.Width(30), twi.ColorProfile(color.None))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if rows := strings.Count(out, "\n"); rows != c.rows {
 			t.Errorf("%s renders %d rows, want %d:\n%s", name, rows, c.rows, out)
 		}
@@ -533,7 +542,7 @@ func TestRendersWave1b(t *testing.T) {
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(zinc(t, theme.Dark))
 		return func() twi.Node { return every }
-	}, drive.Size(60, 30), drive.Styles(sheet))
+	}, drive.Size(60, 30), drive.With(twi.Styles(sheet)))
 	frame := d.Frame().Text()
 	if err := d.Close(); err != nil {
 		t.Fatal(err)

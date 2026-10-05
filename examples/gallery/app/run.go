@@ -26,7 +26,7 @@ func Run(args []string) error {
 	if err != nil {
 		return err
 	}
-	opts := []twi.RenderOption{twi.Fullscreen()}
+	var opts []twi.Option
 	if *cells {
 		opts = append(opts, twi.Graphics(terminal.GraphicsNone))
 	}

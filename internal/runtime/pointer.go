@@ -110,7 +110,7 @@ func (r *Runtime) press(ev input.MouseEvent) {
 			}
 		}
 	}
-	var outside []func()
+	var outside []func(*events.Event[*Elem])
 	var walk func(*Elem)
 	walk = func(e *Elem) {
 		if !e.holds(target) {
@@ -121,8 +121,9 @@ func (r *Runtime) press(ev input.MouseEvent) {
 		}
 	}
 	walk(r.doc.root)
+	down := &events.Event[*Elem]{Type: events.PointerDown, Mouse: ev}
 	for _, f := range outside {
-		f()
+		f(down)
 	}
 }
 

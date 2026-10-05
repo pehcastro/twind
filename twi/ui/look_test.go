@@ -208,7 +208,7 @@ func TestCellLookCardAndBadgeDriven(t *testing.T) {
 					Badge(Secondary, twi.Text("Badge")),
 				)
 			}
-		}, drive.Size(80, 24), drive.Styles(sheet))
+		}, drive.Size(80, 24), drive.With(twi.Styles(sheet)))
 		f := d.Frame()
 		if err := d.Close(); err != nil {
 			t.Fatal(err)

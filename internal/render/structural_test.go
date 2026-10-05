@@ -11,7 +11,6 @@ import (
 	"github.com/pehcastro/twind/internal/render/testdata/sheet"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
-	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
 )
 
@@ -39,12 +38,12 @@ func TestStructuralCardHeaderHasAction(t *testing.T) {
 			if action {
 				header = append(header, twi.Element(twi.Class(sheet.CardAction), twi.Data("slot", "card-action"), twi.Element(twi.Class(sheet.CardButton), twi.Text("Button"))))
 			}
-			return twi.Element(twi.Class(sheet.Page), twi.OnKey(func(input.KeyEvent) { action = !action; rt.Invalidate() }),
+			return twi.Element(twi.Class(sheet.Page), twi.OnKey(func(*twi.Event) { action = !action; rt.Invalidate() }),
 				twi.Element(twi.Class(sheet.Card), twi.Element(header...), twi.Element(twi.Class(sheet.CardContent), twi.Text("Content"))),
 			)
 		}
 	}
-	d := drive.New(app, drive.Size(60, 12), drive.Styles(styles))
+	d := drive.New(app, drive.Size(60, 12), drive.With(twi.Styles(styles)))
 	type place struct {
 		word string
 		x, y int
@@ -125,7 +124,7 @@ func TestStructuralGroupState(t *testing.T) {
 	}
 	app := func(rt *twi.Runtime) func() twi.Node {
 		return func() twi.Node {
-			return twi.Element(twi.Class(sheet.Page), twi.OnKey(func(input.KeyEvent) { open = !open; rt.Invalidate() }),
+			return twi.Element(twi.Class(sheet.Page), twi.OnKey(func(*twi.Event) { open = !open; rt.Invalidate() }),
 				twi.Element(twi.Class(sheet.Group), twi.Data("state", state()),
 					twi.Element(twi.Text("Trigger")),
 					twi.Element(twi.Class(sheet.Opened), twi.Text("Closed hint")),
@@ -134,7 +133,7 @@ func TestStructuralGroupState(t *testing.T) {
 			)
 		}
 	}
-	d := drive.New(app, drive.Size(20, 4), drive.Styles(styles))
+	d := drive.New(app, drive.Size(20, 4), drive.With(twi.Styles(styles)))
 	for _, step := range []struct {
 		name  string
 		press bool

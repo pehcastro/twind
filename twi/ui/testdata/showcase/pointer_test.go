@@ -12,6 +12,7 @@ import (
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/theme"
 )
 
@@ -117,7 +118,7 @@ func (c *counting) Write(p []byte) (int, error) {
 
 func (c *counting) Events() <-chan input.Event           { return c.events }
 func (c *counting) Size() (width, height int, err error) { return 150, 45, nil }
-func (c *counting) Sync() bool                           { return true }
+func (c *counting) Capabilities() terminal.Capabilities  { return terminal.Capabilities{Sync: true} }
 func (c *counting) Exit() error                          { return nil }
 
 type stepping struct{ calls atomic.Int64 }

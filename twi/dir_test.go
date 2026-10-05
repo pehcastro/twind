@@ -15,7 +15,7 @@ func TestDir(t *testing.T) {
 		twi.Element(twi.Text("שלום world")),
 		twi.Element(twi.Dir(text.DirLTR), twi.Text("שלום world")),
 	)
-	got := strings.Fields(strings.ReplaceAll(twi.RenderString(page, twi.Width(16), twi.ColorProfile(color.None)), " ", "_"))
+	got := strings.Fields(strings.ReplaceAll(rendered(t, page, twi.Width(16), twi.ColorProfile(color.None)), " ", "_"))
 	want := []string{"______world_םולש", "םולש_world"}
 	if !slices.Equal(got, want) {
 		t.Errorf("rtl page with an ltr child printed %q, want %q", got, want)

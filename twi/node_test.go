@@ -8,7 +8,6 @@ import (
 
 	"github.com/pehcastro/twind/internal/events"
 	"github.com/pehcastro/twind/internal/runtime"
-	"github.com/pehcastro/twind/twi/input"
 )
 
 func paths(n runtime.Node) []string {
@@ -107,12 +106,11 @@ func TestEmptyClassesAndLeavesStayNil(t *testing.T) {
 
 func TestEachHandlerLandsWithItsType(t *testing.T) {
 	var got []string
-	call := func(name string) func() { return func() { got = append(got, name) } }
 	event := func(name string) func(*Event) { return func(*Event) { got = append(got, name) } }
-	e := Element(OnKeyDown(event("keydown")), OnFocus(call("focus")), OnBlur(call("blur")), OnClick(event("click")),
+	e := Element(OnKeyDown(event("keydown")), OnFocus(event("focus")), OnBlur(event("blur")), OnClick(event("click")),
 		OnPointerDown(event("pointerdown")), OnPointerMove(event("pointermove")), OnPointerUp(event("pointerup")),
-		OnPointerEnter(call("enter")), OnPointerLeave(call("leave")),
-		OnPointerDownOutside(call("downoutside")), OnFocusOutside(call("focusoutside")), TopLayer(), Disabled()).runtimeTree()
+		OnPointerEnter(event("enter")), OnPointerLeave(event("leave")),
+		OnPointerDownOutside(event("downoutside")), OnFocusOutside(event("focusoutside")), TopLayer(), Disabled()).runtimeTree()
 	ev := e.Events
 	var types []events.Type
 	for _, l := range ev.Listeners {
@@ -122,11 +120,11 @@ func TestEachHandlerLandsWithItsType(t *testing.T) {
 	if want := []events.Type{events.KeyDown, events.Focus, events.Blur, events.Click, events.PointerDown, events.PointerMove, events.PointerUp, events.PointerEnter, events.PointerLeave}; !slices.Equal(types, want) {
 		t.Errorf("listener types %v, want %v", types, want)
 	}
-	for _, list := range [][]func(){ev.PointerDownOutside, ev.FocusOutside} {
+	for _, list := range [][]func(*Event){ev.PointerDownOutside, ev.FocusOutside} {
 		if len(list) != 1 {
 			t.Fatalf("an outside list holds %d, want 1", len(list))
 		}
-		list[0]()
+		list[0](nil)
 	}
 	if want := []string{"keydown", "focus", "blur", "click", "pointerdown", "pointermove", "pointerup", "enter", "leave", "downoutside", "focusoutside"}; !slices.Equal(got, want) {
 		t.Errorf("handlers ran %q, want %q", got, want)
@@ -138,10 +136,10 @@ func TestEachHandlerLandsWithItsType(t *testing.T) {
 
 func TestOwnKeysRunBeforeChildKeys(t *testing.T) {
 	var got []string
-	key := func(name string) NodeOption { return OnKey(func(input.KeyEvent) { got = append(got, name) }) }
+	key := func(name string) NodeOption { return OnKey(func(*Event) { got = append(got, name) }) }
 	tree := Element(key("p1"), Element(key("c1"), Element(key("g1"))), key("p2"), Element(key("c2"))).runtimeTree()
 	for _, k := range tree.Keys {
-		k(input.KeyEvent{})
+		k(nil)
 	}
 	if want := []string{"p1", "p2", "c1", "g1", "c2"}; !slices.Equal(got, want) {
 		t.Errorf("keys ran %q, want %q", got, want)

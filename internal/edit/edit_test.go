@@ -39,8 +39,13 @@ func ctrl(r rune) input.KeyEvent {
 
 func press(t *testing.T, b *Buffer, keys ...input.KeyEvent) {
 	t.Helper()
+	pressAt(t, b, time.Time{}, keys...)
+}
+
+func pressAt(t *testing.T, b *Buffer, now time.Time, keys ...input.KeyEvent) {
+	t.Helper()
 	for _, k := range keys {
-		if !b.Apply(k) {
+		if !b.Apply(k, now) {
 			t.Fatalf("%+v not handled", k)
 		}
 	}
@@ -313,28 +318,24 @@ func TestUndoRedoCtrlShiftZ(t *testing.T) {
 
 func TestUndoPauseEndsStep(t *testing.T) {
 	now := time.Unix(0, 0)
-	b := Buffer{Now: func() time.Time { return now }}
-	typeText(t, &b, "ab")
+	var b Buffer
+	pressAt(t, &b, now, input.KeyEvent{Rune: 'a'}, input.KeyEvent{Rune: 'b'})
 	now = now.Add(konst.UndoPause - 1)
-	typeText(t, &b, "c")
+	pressAt(t, &b, now, input.KeyEvent{Rune: 'c'})
 	now = now.Add(konst.UndoPause)
-	typeText(t, &b, "de")
-	press(t, &b, backspace)
+	pressAt(t, &b, now, input.KeyEvent{Rune: 'd'}, input.KeyEvent{Rune: 'e'}, backspace)
 	now = now.Add(konst.UndoPause)
-	press(t, &b, backspace)
+	pressAt(t, &b, now, backspace)
 	for _, value := range []string{"abcd", "abcde", "abc", ""} {
-		press(t, &b, ctrl('z'))
+		pressAt(t, &b, now, ctrl('z'))
 		want(t, &b, value, len(value), len(value))
 	}
 }
 
 func TestUndoClockBackwardKeepsStep(t *testing.T) {
-	now := time.Unix(100, 0)
-	b := Buffer{Now: func() time.Time { return now }}
-	typeText(t, &b, "a")
-	now = time.Unix(0, 0)
-	typeText(t, &b, "b")
-	press(t, &b, ctrl('z'))
+	var b Buffer
+	pressAt(t, &b, time.Unix(100, 0), input.KeyEvent{Rune: 'a'})
+	pressAt(t, &b, time.Unix(0, 0), input.KeyEvent{Rune: 'b'}, ctrl('z'))
 	want(t, &b, "", 0, 0)
 }
 
@@ -345,7 +346,7 @@ func TestMultilineNewline(t *testing.T) {
 	typeText(t, &b, "c")
 	want(t, &b, "ab\nc", 4, 4)
 	wantCursor(t, &b, 1, 1)
-	if b.Apply(enter) {
+	if b.Apply(enter, time.Time{}) {
 		t.Fatal("plain enter handled")
 	}
 }
@@ -355,7 +356,7 @@ func TestMultilineSingleLineRefuses(t *testing.T) {
 	b.Insert("a\nb")
 	want(t, &b, "ab", 2, 2)
 	for _, k := range []input.KeyEvent{with(enter, input.ModShift), up, down} {
-		if b.Apply(k) {
+		if b.Apply(k, time.Time{}) {
 			t.Fatalf("%+v handled in single line", k)
 		}
 	}
@@ -400,7 +401,7 @@ func TestMultilineHomeEnd(t *testing.T) {
 
 func TestKeyReleaseIgnored(t *testing.T) {
 	var b Buffer
-	if b.Apply(input.KeyEvent{Rune: 'a', Release: true}) || b.Value() != "" {
+	if b.Apply(input.KeyEvent{Rune: 'a', Release: true}, time.Time{}) || b.Value() != "" {
 		t.Fatalf("release edited %q", b.Value())
 	}
 }

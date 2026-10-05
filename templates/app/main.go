@@ -30,7 +30,7 @@ func run(scheme string) error {
 	if err != nil {
 		return err
 	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
+	rt := twi.New(twi.Styles(sheet))
 	return rt.Run(app(rt, scheme))
 }
 

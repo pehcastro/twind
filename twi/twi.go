@@ -18,10 +18,8 @@ import (
 	"github.com/pehcastro/twind/internal/runtime"
 	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
 	"github.com/pehcastro/twind/twi/text"
-	"github.com/pehcastro/twind/twi/theme"
 )
 
 type Node struct{ built *node }
@@ -32,7 +30,7 @@ type node struct {
 }
 
 type handlers struct {
-	keys   []func(input.KeyEvent)
+	keys   []func(*Event)
 	events *runtime.Node
 	below  []handled
 	first  [1]handled
@@ -76,7 +74,7 @@ func (h *handlers) eventsBelow() int {
 	return count
 }
 
-func (h *handlers) lifted(keys *[]func(input.KeyEvent)) []runtime.Node {
+func (h *handlers) lifted(keys *[]func(*Event)) []runtime.Node {
 	var out []runtime.Node
 	if count := h.eventsBelow(); count > 0 {
 		out = make([]runtime.Node, 0, count)
@@ -85,7 +83,7 @@ func (h *handlers) lifted(keys *[]func(input.KeyEvent)) []runtime.Node {
 	return out
 }
 
-func (h *handlers) lift(path []int, keys *[]func(input.KeyEvent), out *[]runtime.Node) {
+func (h *handlers) lift(path []int, keys *[]func(*Event), out *[]runtime.Node) {
 	*keys = append(*keys, h.keys...)
 	for _, b := range h.below {
 		if b.events == nil {
@@ -116,14 +114,14 @@ func (n *node) withHandlers() *handlers {
 	return n.handlers
 }
 
-type onKey func(input.KeyEvent)
+type onKey func(*Event)
 
 func (h onKey) apply(n *node) {
 	own := n.withHandlers()
 	own.keys = append(own.keys, h)
 }
 
-func OnKey(handler func(input.KeyEvent)) NodeOption { return onKey(handler) }
+func OnKey(handler func(*Event)) NodeOption { return onKey(handler) }
 
 type classList struct {
 	names  []string
@@ -242,21 +240,6 @@ func Classes(options []NodeOption) (classes []string, rest []NodeOption) {
 	return classes, rest
 }
 
-type RenderOption func(*renderConfig)
-
-type renderConfig struct {
-	width       int
-	profile     color.Profile
-	profileSet  bool
-	sheet       style.Sheet
-	theme       *theme.Theme
-	fullscreen  bool
-	noClipboard bool
-	graphics    *terminal.Graphics
-	backend     runtime.Backend
-	clock       runtime.Clock
-}
-
 func look(p color.Profile) paint.Look {
 	if p <= color.Attributes {
 		return paint.Plain
@@ -264,28 +247,16 @@ func look(p color.Profile) paint.Look {
 	return paint.Composited
 }
 
-func Width(cells int) RenderOption { return func(c *renderConfig) { c.width = cells } }
-
-func ColorProfile(p color.Profile) RenderOption {
-	return func(c *renderConfig) { c.profile, c.profileSet = p, true }
-}
-
-func Styles(sheet style.Sheet) RenderOption { return func(c *renderConfig) { c.sheet = sheet } }
-
-func Theme(t theme.Theme) RenderOption { return func(c *renderConfig) { c.theme = &t } }
-
-func RenderString(node Node, opts ...RenderOption) string {
+func RenderString(node Node, opts ...RenderOption) (string, error) {
 	var out strings.Builder
-	if err := Render(&out, node, opts...); err != nil {
-		panic(err)
-	}
-	return out.String()
+	err := Render(&out, node, opts...)
+	return out.String(), err
 }
 
 func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
-	var cfg renderConfig
+	var cfg config
 	for _, o := range opts {
-		o(&cfg)
+		o.applyRender(&cfg)
 	}
 	termWidth, termHeight, sizeErr := terminal.Size(w)
 	if cfg.width <= 0 {
@@ -328,7 +299,7 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 	return (&terminal.Writer{Out: w, Profile: cfg.profile}).Static(buf)
 }
 
-func inline(out io.Writer, node Node, cfg renderConfig, caps terminal.Capabilities, cursor image.Point, screenRows int) (bool, error) {
+func inline(out io.Writer, node Node, cfg config, caps terminal.Capabilities, cursor image.Point, screenRows int) (bool, error) {
 	if cfg.graphics != nil {
 		caps.Graphics = *cfg.graphics
 	}

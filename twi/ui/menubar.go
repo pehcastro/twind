@@ -88,8 +88,8 @@ func (m *MenubarMenu) Trigger(children ...twi.NodeOption) twi.Node {
 	if m.Open || at == b.active && b.within {
 		classes += " bg-accent text-accent-foreground"
 	}
-	focus := func(on bool) func() {
-		return func() {
+	focus := func(on bool) func(*twi.Event) {
+		return func(*twi.Event) {
 			b.within = on
 			if on {
 				b.active = at
@@ -98,7 +98,7 @@ func (m *MenubarMenu) Trigger(children ...twi.NodeOption) twi.Node {
 		}
 	}
 	options := []twi.NodeOption{openState(m.Open), twi.OnFocus(focus(true)), twi.OnBlur(focus(false)),
-		twi.OnPointerEnter(func() {
+		twi.OnPointerEnter(func(*twi.Event) {
 			if open := b.open(); open != nil && open != m {
 				open.dismiss()
 				b.active = at

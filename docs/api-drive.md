@@ -8,8 +8,8 @@ type App func(rt \*twi.Runtime) func() twi.Node\
 type Option func(\*config)\
 func CellPixels(size image.Point) Option\
 func Size(width, height int) Option\
-func Styles(sheet style.Sheet) Option\
 func Widths(w text.Widths) Option\
+func With(opts ...twi.Option) Option\
 type Driver struct\
 func New(app App, opts ...Option) \*Driver\
 func (\*Driver) Advance(dt time.Duration)\

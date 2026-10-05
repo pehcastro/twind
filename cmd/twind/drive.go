@@ -31,6 +31,7 @@ import (
 	twindos "os"
 	twindtesting "testing"
 
+	twindtwi "github.com/pehcastro/twind/twi"
 	twinddrive "github.com/pehcastro/twind/twi/drive"
 )
 
@@ -44,7 +45,7 @@ func TestTwindDrive(t *twindtesting.T) {
 		t.Fatal(err)
 	}
 	defer script.Close()
-	if err := twinddrive.RunScript(script, App, %s, twinddrive.Styles(sheet)); err != nil {
+	if err := twinddrive.RunScript(script, App, %s, twinddrive.With(twindtwi.Styles(sheet))); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pehcastro/twind/internal/buffer"
+	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/theme"
@@ -15,7 +16,7 @@ func codeBlocks(t *testing.T) *drive.Driver {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(App, drive.Size(120, 160), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(120, 160), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)

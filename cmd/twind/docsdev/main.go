@@ -25,7 +25,7 @@ func run(start docsapp.Start) error {
 	if err != nil {
 		return err
 	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
+	rt := twi.New(twi.Styles(sheet))
 	view, err := docsapp.New(rt, start)
 	if err != nil {
 		return err

@@ -73,8 +73,8 @@ func gallery(rt *twi.Runtime, s start) func() twi.Node {
 			flip()
 		}
 	})
-	focus := func(on bool) func() {
-		return func() {
+	focus := func(on bool) func(*twi.Event) {
+		return func(*twi.Event) {
 			navFocused = on
 			rt.Invalidate()
 		}

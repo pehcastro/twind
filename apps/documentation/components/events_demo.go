@@ -15,7 +15,7 @@ func EventsDemo(rt *twi.Runtime) func() twi.Node {
 			classes += " bg-accent text-accent-foreground"
 		}
 		return twi.Element(twi.Class(classes), twi.Key(name), twi.Focusable(),
-			twi.OnFocus(func() {
+			twi.OnFocus(func(*twi.Event) {
 				focused = name
 				rt.Invalidate()
 			}),

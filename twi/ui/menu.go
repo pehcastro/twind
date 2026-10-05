@@ -40,7 +40,7 @@ func NewDropdownMenu(rt *twi.Runtime) *DropdownMenu {
 }
 
 func (m *DropdownMenu) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(m.anchor), twi.OnPointerDownOutside(m.dismiss)}, children...))
+	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(m.anchor), twi.OnPointerDownOutside(func(*twi.Event) { m.dismiss() })}, children...))
 }
 
 func (m *DropdownMenu) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
@@ -122,7 +122,7 @@ func NewContextMenu(rt *twi.Runtime) *ContextMenu {
 }
 
 func (c *ContextMenu) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex flex-col", append([]twi.NodeOption{twi.Measure(c.anchor), twi.OnPointerDownOutside(c.dismiss)}, children...))
+	return part("relative flex flex-col", append([]twi.NodeOption{twi.Measure(c.anchor), twi.OnPointerDownOutside(func(*twi.Event) { c.dismiss() })}, children...))
 }
 
 func (c *ContextMenu) Trigger(children ...twi.NodeOption) twi.Node {
@@ -169,8 +169,7 @@ type DropdownMenuSub struct {
 }
 
 func (l *menuLevel) Sub() *DropdownMenuSub {
-	rt := l.root.rt
-	s := &DropdownMenuSub{menuLevel: menuLevel{root: l.root}, floating: newFloating(rt), parent: l}
+	s := &DropdownMenuSub{menuLevel: menuLevel{root: l.root}, floating: newFloating(), parent: l}
 	s.popup, s.alignOffset, s.sizing = &s.floating, -1, availableHeight
 	l.root.subs = append(l.root.subs, s)
 	return s
@@ -226,7 +225,7 @@ func (l *menuLevel) add(it menuItem, classes string, children []twi.NodeOption) 
 	}
 	l.built = append(l.built, it)
 	m := l.root
-	highlight := twi.OnPointerEnter(func() {
+	highlight := twi.OnPointerEnter(func(*twi.Event) {
 		if l.active == at && l.opened() == (it.sub != nil) {
 			return
 		}

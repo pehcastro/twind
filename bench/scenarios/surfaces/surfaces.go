@@ -36,7 +36,8 @@ func App(rt *twi.Runtime) func() twi.Node {
 	themes := Themes()
 	st := twi.NewSignal(rt, state{})
 	shown := 0
-	onKey := func(k input.KeyEvent) {
+	onKey := func(e *twi.Event) {
+		k := e.Key
 		if k.Release || k.Key != input.KeyRune {
 			return
 		}

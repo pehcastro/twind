@@ -14,8 +14,8 @@ import (
 )
 
 func toggleOn(rt *twi.Runtime, r rune, on *bool) twi.NodeOption {
-	return twi.OnKey(func(k input.KeyEvent) {
-		if !k.Release && k.Key == input.KeyRune && k.Rune == r {
+	return twi.OnKey(func(e *twi.Event) {
+		if k := e.Key; !k.Release && k.Key == input.KeyRune && k.Rune == r {
 			*on = !*on
 			rt.Invalidate()
 		}

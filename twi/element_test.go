@@ -18,7 +18,7 @@ func TestElementTagSizesAnSvgChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	var frame []string
-	for _, row := range decode(t, twi.RenderString(relate.Icons(), twi.Styles(sheet), twi.Width(12), twi.ColorProfile(color.TrueColor))) {
+	for _, row := range decode(t, rendered(t, relate.Icons(), twi.Styles(sheet), twi.Width(12), twi.ColorProfile(color.TrueColor))) {
 		var line strings.Builder
 		for _, c := range row {
 			switch {
@@ -56,7 +56,7 @@ func TestElementClassesSplitsTheCallersClasses(t *testing.T) {
 		t.Fatal(err)
 	}
 	render := func(options ...twi.NodeOption) string {
-		return twi.RenderString(twi.Element(options...), twi.Styles(sheet), twi.Width(10), twi.ColorProfile(color.None))
+		return rendered(t, twi.Element(options...), twi.Styles(sheet), twi.Width(10), twi.ColorProfile(color.None))
 	}
 	if merged, whole := render(append([]twi.NodeOption{twi.Class(classes...)}, rest...)...), render(options...); merged != whole {
 		t.Errorf("the split options render %q, the originals %q", merged, whole)

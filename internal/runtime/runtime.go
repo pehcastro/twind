@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"image"
 	"io"
-	goruntime "runtime"
 	"runtime/debug"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -30,7 +28,7 @@ type Backend interface {
 	io.Writer
 	Events() <-chan input.Event
 	Size() (width, height int, err error)
-	Sync() bool
+	Capabilities() terminal.Capabilities
 	Exit() error
 }
 
@@ -41,17 +39,16 @@ type Clock interface {
 
 type Tree struct {
 	Root   render.Node
-	Keys   []func(input.KeyEvent)
+	Keys   []func(*events.Event[*Elem])
 	Events Node
 }
 
 type Config struct {
-	Clock       Clock
-	Sheet       style.Sheet
-	Profile     color.Profile
-	Graphics    *terminal.Graphics
-	NoClipboard bool
-	DevState    string
+	Clock    Clock
+	Sheet    style.Sheet
+	Profile  color.Profile
+	Graphics *terminal.Graphics
+	DevState string
 }
 
 type PanicError struct {
@@ -74,15 +71,14 @@ type Runtime struct {
 	now     time.Time
 	awake   bool
 	clip    []byte
-	looper  string
-	stopped chan struct{}
 
 	app           func() Tree
 	built         Tree
 	rebuild       bool
 	dirty         bool
 	width, height int
-	keys          []func(input.KeyEvent)
+	keys          []func(*events.Event[*Elem])
+	global        events.Event[*Elem]
 	doc           document
 	focus         events.FocusManager[*Elem]
 	screen        *present.Screen
@@ -152,27 +148,10 @@ func (r *Runtime) Invalidate() {
 }
 
 func (r *Runtime) HideFocusRings() {
-	r.owned(func() { r.ringsHidden, r.dirty = true, true })
+	r.Dispatch(func() { r.ringsHidden, r.dirty = true, true })
 }
 
-func (r *Runtime) owned(f func()) {
-	if looper, _ := r.looping(); looper != goroutine() {
-		r.Dispatch(f)
-		return
-	}
-	f()
-}
-
-func (r *Runtime) looping() (looper string, stopped chan struct{}) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.looper, r.stopped
-}
-
-func goroutine() string {
-	var trace [konst.GoroutineHeader]byte
-	return strings.Fields(string(trace[:goruntime.Stack(trace[:], false)]))[1]
-}
+func (r *Runtime) Now() time.Time { return r.cfg.Clock.Now() }
 
 func (r *Runtime) Restyle(apply func()) {
 	r.Dispatch(func() {
@@ -210,15 +189,6 @@ func (r *Runtime) Run(b Backend, app func() Tree) (err error) {
 }
 
 func (r *Runtime) loop(b Backend) error {
-	r.mu.Lock()
-	r.looper, r.stopped = goroutine(), make(chan struct{})
-	r.mu.Unlock()
-	defer func() {
-		r.mu.Lock()
-		r.looper = ""
-		close(r.stopped)
-		r.mu.Unlock()
-	}()
 	var err error
 	if r.width, r.height, err = b.Size(); err != nil {
 		return err
@@ -329,7 +299,8 @@ func (r *Runtime) handle(ev input.Event) error {
 		c := ev.Key == input.KeyRune && ev.Rune == 'c' && !ev.Release
 		switch {
 		case c && r.sel.shown && (ev.Modifiers == input.ModCtrl || ev.Modifiers == input.ModMeta):
-			return r.Copy(r.sel.text())
+			r.Copy(r.sel.text())
+			return nil
 		case c && ev.Modifiers == input.ModCtrl:
 			r.quitting.Store(true)
 			return nil
@@ -337,7 +308,8 @@ func (r *Runtime) handle(ev input.Event) error {
 			r.sel.clear()
 			r.dirty = true
 		}
-		if !ev.Release && r.hotkey(ev) {
+		r.global = events.Event[*Elem]{Type: events.KeyDown, Key: ev}
+		if !ev.Release && r.hotkey() {
 			return nil
 		}
 		r.dirty = r.dirty || r.ringless
@@ -348,7 +320,10 @@ func (r *Runtime) handle(ev input.Event) error {
 			return nil
 		}
 		for _, h := range r.keys {
-			h(ev)
+			h(&r.global)
+		}
+		if r.global.DefaultPrevented() {
+			return nil
 		}
 		r.activate(ev)
 		r.scrollKey(ev)
@@ -376,8 +351,11 @@ func (r *Runtime) handle(ev input.Event) error {
 	return nil
 }
 
-func (r *Runtime) hotkey(ev input.KeyEvent) bool {
-	return slices.ContainsFunc(r.doc.hotkeys, func(e *Elem) bool { return e.node.Hotkey(ev) })
+func (r *Runtime) hotkey() bool {
+	return slices.ContainsFunc(r.doc.hotkeys, func(e *Elem) bool {
+		e.node.Hotkey(&r.global)
+		return r.global.DefaultPrevented()
+	})
 }
 
 func (r *Runtime) activate(ev input.KeyEvent) {
@@ -484,7 +462,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	r.texts, r.stale = r.stale, r.texts
 	clear(r.texts)
 	if r.screen == nil {
-		r.screen = &present.Screen{Out: clipped{r, b}, Profile: r.cfg.Profile, Sync: b.Sync(), Margins: r.caps.Margins}
+		r.screen = &present.Screen{Out: clipped{r, b}, Profile: r.cfg.Profile, Sync: r.caps.Sync, Margins: r.caps.Margins}
 		if c, ok := b.(interface{ Covers(cluster string) bool }); ok {
 			r.screen.Covers = c.Covers
 		}
@@ -578,11 +556,7 @@ func lift(n render.Node, path []int, order int) render.Node {
 }
 
 func (r *Runtime) capabilities(b Backend) terminal.Capabilities {
-	reporter, ok := b.(interface{ Capabilities() terminal.Capabilities })
-	if !ok {
-		return terminal.Capabilities{}
-	}
-	caps := reporter.Capabilities()
+	caps := b.Capabilities()
 	if caps.CellPixels == r.zoomed {
 		r.zoomed = image.Point{}
 	}

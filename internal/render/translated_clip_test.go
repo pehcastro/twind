@@ -52,7 +52,7 @@ func TestTranslatedClip(t *testing.T) {
 			"three",
 		},
 	} {
-		d := drive.New(func(*twi.Runtime) func() twi.Node { return func() twi.Node { return c.root } }, drive.Size(30, 2), drive.Styles(sheet))
+		d := drive.New(func(*twi.Runtime) func() twi.Node { return func() twi.Node { return c.root } }, drive.Size(30, 2), drive.With(twi.Styles(sheet)))
 		if got := strings.Split(d.Frame().Text(), "\n")[0]; got != c.want {
 			t.Errorf("%s: first row %q, want %q:\n%s", c.name, got, c.want, d.Frame().Text())
 		}

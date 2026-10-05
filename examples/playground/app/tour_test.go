@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/pehcastro/twind/internal/terminal"
+	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
 )
 
@@ -21,7 +22,7 @@ func TestTour(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := t.TempDir()
-	if err := drive.RunScript(bytes.NewReader(src), App, out, drive.Styles(sheet)); err != nil {
+	if err := drive.RunScript(bytes.NewReader(src), App, out, drive.With(twi.Styles(sheet))); err != nil {
 		t.Fatal(err)
 	}
 	read := func(name, ext string) string {
@@ -77,7 +78,7 @@ func TestTour(t *testing.T) {
 		}
 	}
 
-	d := drive.New(App, drive.Size(100, 30), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(100, 30), drive.With(twi.Styles(sheet)))
 	defer func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)

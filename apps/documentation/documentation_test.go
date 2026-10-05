@@ -175,7 +175,7 @@ func open(t *testing.T) *drive.Driver {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(App, drive.Size(120, 36), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(120, 36), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
 			t.Error(err)
@@ -287,7 +287,7 @@ func TestChartBrushTakesAnyPointer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(App, drive.Size(120, 60), drive.Styles(sheet))
+	d := drive.New(App, drive.Size(120, 60), drive.With(twi.Styles(sheet)))
 	defer func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)
@@ -579,7 +579,7 @@ func BenchmarkFirstFrame(b *testing.B) {
 		b.Fatal(err)
 	}
 	for range b.N {
-		if err := drive.New(App, drive.Size(120, 36), drive.Styles(sheet)).Close(); err != nil {
+		if err := drive.New(App, drive.Size(120, 36), drive.With(twi.Styles(sheet))).Close(); err != nil {
 			b.Fatal(err)
 		}
 	}

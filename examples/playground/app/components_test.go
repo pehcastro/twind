@@ -133,7 +133,7 @@ func TestTourOfComponents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := drive.New(counted, drive.Size(100, 30), drive.Styles(sheet))
+	d := drive.New(counted, drive.Size(100, 30), drive.With(twi.Styles(sheet)))
 	defer func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)

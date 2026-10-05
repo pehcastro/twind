@@ -33,7 +33,7 @@ type drag struct {
 }
 
 func newDialog(rt *twi.Runtime, kind dialogKind, side Side) *Dialog {
-	return &Dialog{overlay: overlay{control: control{rt: rt}}, kind: kind, side: side, box: twi.NewRef(rt)}
+	return &Dialog{overlay: overlay{control: control{rt: rt}}, kind: kind, side: side, box: &twi.Ref{}}
 }
 
 func NewDialog(rt *twi.Runtime) *Dialog { return newDialog(rt, modal, Bottom) }
@@ -54,7 +54,7 @@ func (d *Dialog) Content(children ...twi.NodeOption) twi.Node {
 	}
 	at := d.phase()
 	if d.kind != alert && at == opened {
-		children = append(children, twi.OnPointerDownOutside(func() { d.set(false) }))
+		children = append(children, twi.OnPointerDownOutside(func(*twi.Event) { d.set(false) }))
 	}
 	if d.side == Bottom && (d.kind == sheet || d.kind == drawer) {
 		children = append(children, twi.Measure(d.box))
@@ -140,8 +140,8 @@ func (d *Dialog) Close(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 func (d *Dialog) close(classes, ring string, children []twi.NodeOption) twi.Node {
 	d.closes++
 	here := d.closes
-	focus := func(on bool) func() {
-		return func() {
+	focus := func(on bool) func(*twi.Event) {
+		return func(*twi.Event) {
 			switch {
 			case on:
 				d.focus = here

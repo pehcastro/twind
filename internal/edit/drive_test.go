@@ -7,6 +7,7 @@ import (
 
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 type driveStep struct {
@@ -17,7 +18,7 @@ type driveStep struct {
 
 func driveInput(t *testing.T, steps []driveStep) {
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
-		in := twi.NewInput(rt)
+		in := ui.NewInput(rt)
 		return func() twi.Node {
 			start, end := in.Selection()
 			v := in.Value()

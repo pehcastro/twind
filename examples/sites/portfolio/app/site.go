@@ -103,9 +103,8 @@ func (s *site) flip() {
 }
 
 func (s *site) copy(what, value string) {
-	if s.rt.Copy(value) == nil {
-		s.toaster.Success(what+" copied", value, ui.ToastAction{})
-	}
+	s.rt.Copy(value)
+	s.toaster.Success(what+" copied", value, ui.ToastAction{})
 }
 
 func (s *site) keys(e *twi.Event) {

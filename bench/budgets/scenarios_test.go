@@ -6,7 +6,6 @@ import (
 
 	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/input"
 )
 
 //go:generate go run github.com/pehcastro/twind/internal/twirgen -o twir_gen_test.go
@@ -50,7 +49,7 @@ func keys(rt *twi.Runtime) func() twi.Node {
 	pressed := twi.NewSignal(rt, 0)
 	return func() twi.Node {
 		return twi.Element(
-			twi.OnKey(func(input.KeyEvent) { pressed.Set(pressed.Get() + 1) }),
+			twi.OnKey(func(*twi.Event) { pressed.Set(pressed.Get() + 1) }),
 			twi.Text("keys "+strconv.Itoa(pressed.Get())),
 			tree(keyNodes-2),
 		)

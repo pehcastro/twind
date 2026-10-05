@@ -12,15 +12,15 @@ Tab into the boxes above, press **+** or click one.
 | --- | --- |
 | `twi.OnClick(func(*twi.Event))` | a click, or Enter or Space on the focused element |
 | `twi.OnKeyDown(func(*twi.Event))` | a key while the element or a child has focus; the key is in `e.Key` |
-| `twi.OnKey(func(input.KeyEvent))` | every key the focused element did not take, wherever the focus is |
-| `twi.OnHotkey(func(input.KeyEvent) bool)` | every key before the focused element sees it; return true to take it, as the Sidebar's Ctrl+B and the Command palette's Ctrl+K do |
+| `twi.OnKey(func(*twi.Event))` | every key the focused element did not take, wherever the focus is; `e.PreventDefault()` stops Enter from clicking and the arrows from scrolling |
+| `twi.OnHotkey(func(*twi.Event))` | every key before the focused element sees it; `e.PreventDefault()` takes it, as the Sidebar's Ctrl+B and the Command palette's Ctrl+K do |
 | `twi.OnPaste(func(string))` | a paste, on the focused element or the nearest parent with a handler |
 | `twi.OnWidth(func(int))` | its content width after each layout, so text can wrap to it |
-| `twi.OnFocus(func())`, `twi.OnBlur(func())` | the element gaining or losing focus |
-| `twi.OnPointerEnter(func())`, `twi.OnPointerLeave(func())` | the pointer moving over it and away |
+| `twi.OnFocus(func(*twi.Event))`, `twi.OnBlur(func(*twi.Event))` | the element gaining or losing focus |
+| `twi.OnPointerEnter(func(*twi.Event))`, `twi.OnPointerLeave(func(*twi.Event))` | the pointer moving over it and away |
 | `twi.OnPointerDown(func(*twi.Event))` | a button pressed over it; the button is in `e.Mouse` |
-| `twi.OnPointerDownOutside(func())` | a press anywhere outside it, to close a popup |
-| `twi.OnFocusOutside(func())` | focus moving somewhere outside it |
+| `twi.OnPointerDownOutside(func(*twi.Event))` | a press anywhere outside it, to close a popup |
+| `twi.OnFocusOutside(func(*twi.Event))` | focus moving somewhere outside it |
 
 `e.StopPropagation()` stops the event from reaching the parents, and `e.PreventDefault()` stops what the runtime would do next, such as scrolling on an arrow key. `e.Target()` is the element the event started on and `e.Current()` the one whose handler is running.
 

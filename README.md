@@ -62,7 +62,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
+	rt := twi.New(twi.Styles(sheet))
 	err = rt.Run(func() twi.Node {
 		return twi.Element(twi.Class("m-2 rounded-lg border p-1"), twi.Text("Hello from Twind"))
 	})

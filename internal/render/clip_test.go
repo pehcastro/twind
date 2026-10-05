@@ -45,7 +45,7 @@ func TestOverflowHiddenKeepsStart(t *testing.T) {
 				return twi.Element(twi.Class(c.classes), twi.Text("title"), twi.Text("row 1"), twi.Text("row 2"), twi.Text("row 3"), twi.Text("row 4"))
 			}
 		}
-		d := drive.New(app, drive.Size(30, 8), drive.Styles(sheet))
+		d := drive.New(app, drive.Size(30, 8), drive.With(twi.Styles(sheet)))
 		if got, want := d.Frame().Text(), strings.Join(c.want, "\n")+"\n"; got != want {
 			t.Errorf("%s: frame\n%s\nwant\n%s", c.classes, got, want)
 		}

@@ -72,12 +72,11 @@ func TestHotkeyRunsBeforeTheFocusedField(t *testing.T) {
 		field = ui.NewInput(rt)
 		field.Insert("abc")
 		return func() twi.Node {
-			return twi.Element(twi.OnHotkey(func(k input.KeyEvent) bool {
-				if k.Rune == 'k' && k.Modifiers == input.ModCtrl {
+			return twi.Element(twi.OnHotkey(func(e *twi.Event) {
+				if e.Key.Rune == 'k' && e.Key.Modifiers == input.ModCtrl {
 					hot = append(hot, "palette")
-					return true
+					e.PreventDefault()
 				}
-				return false
 			}), field.Node(twi.AutoFocus()))
 		}
 	})

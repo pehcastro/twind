@@ -30,7 +30,7 @@ func startRelated(t *testing.T) *related {
 	bg := func(class string) color.RGBA {
 		return sheet.ComputeState(style.ComputedStyle{}, []string{class}, style.NodeState{}).Background.RGBA
 	}
-	r := &related{t: t, d: drive.New(relate.App, drive.Size(40, 8), drive.Styles(sheet)), sky: bg(relate.Lit), red: bg(relate.Pressed)}
+	r := &related{t: t, d: drive.New(relate.App, drive.Size(40, 8), drive.With(twi.Styles(sheet))), sky: bg(relate.Lit), red: bg(relate.Pressed)}
 	t.Cleanup(func() {
 		if err := r.d.Err(); err != nil {
 			t.Error(err)

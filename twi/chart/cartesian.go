@@ -95,7 +95,7 @@ func (c *Chart) cartesian(p plot) twi.Node {
 			}
 			c.point(under(at.X, p.points, w), at)
 		}),
-		twi.OnPointerLeave(func() { c.point(0, image.Point{}) }),
+		twi.OnPointerLeave(func(*twi.Event) { c.point(0, image.Point{}) }),
 		plot,
 	}
 	if !p.horizontal {

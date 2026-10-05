@@ -16,7 +16,7 @@ type MessageScroller struct {
 }
 
 func NewMessageScroller(rt *twi.Runtime) *MessageScroller {
-	s := &MessageScroller{rt: rt, following: true, view: twi.NewRef(rt), content: twi.NewRef(rt)}
+	s := &MessageScroller{rt: rt, following: true, view: &twi.Ref{}, content: &twi.Ref{}}
 	s.end = fmt.Sprintf("\x00%p", s)
 	return s
 }

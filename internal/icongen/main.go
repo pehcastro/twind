@@ -10,8 +10,8 @@ import (
 	"io"
 	"log"
 	"math"
+	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -61,7 +61,6 @@ type path struct {
 }
 
 func main() {
-	lucide := flag.String("lucide", "", "lucide icons directory")
 	out := flag.String("out", "icons_gen.go", "output file")
 	flag.Parse()
 	icons := list()
@@ -72,7 +71,7 @@ func main() {
 	}
 	fmt.Fprintf(&src, "\tCount Name = %d\n)\n\nfunc (n Name) lucide() (name string, glyph rune, path string) {\n\tswitch n {\n", len(icons))
 	for _, icon := range icons {
-		d, err := read(filepath.Join(*lucide, icon[0]+".svg"))
+		d, err := read(konst.LucideIcons + icon[0] + ".svg")
 		if err != nil {
 			log.Fatalf("%s: %v", icon[0], err)
 		}
@@ -96,8 +95,16 @@ func ident(name string) string {
 	return b.String()
 }
 
-func read(file string) (string, error) {
-	raw, err := os.ReadFile(file)
+func read(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("%s: %s", url, resp.Status)
+	}
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}

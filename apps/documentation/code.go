@@ -26,9 +26,7 @@ type preview struct {
 }
 
 func (s *site) copy(code string) {
-	if s.rt.Copy(code) != nil {
-		return
-	}
+	s.rt.Copy(code)
 	if s.copying != nil {
 		s.copying.Stop()
 	}

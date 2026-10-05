@@ -93,9 +93,8 @@ func (k kit) links(class string, names ...string) twi.Node {
 
 func (k kit) copy(value string) twi.NodeOption {
 	return twi.OnClick(func(*twi.Event) {
-		if k.rt.Copy(value) == nil {
-			k.toast.Success("Copied to clipboard", value, ui.ToastAction{})
-		}
+		k.rt.Copy(value)
+		k.toast.Success("Copied to clipboard", value, ui.ToastAction{})
 	})
 }
 

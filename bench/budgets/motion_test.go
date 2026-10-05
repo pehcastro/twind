@@ -81,7 +81,6 @@ func (be *motionBackend) Paint(p terminal.Pixels) bool {
 }
 
 func (be *motionBackend) Events() <-chan input.Event           { return be.events }
-func (be *motionBackend) Sync() bool                           { return be.caps.Sync }
 func (be *motionBackend) Exit() error                          { return nil }
 func (be *motionBackend) Size() (width, height int, err error) { return be.cols, be.rows, nil }
 func (be *motionBackend) Capabilities() terminal.Capabilities  { return be.caps }
@@ -626,7 +625,7 @@ func motionTargets(t testing.TB, sheet style.Sheet, p motionPath, sc motionScena
 			t.Fatal(err)
 		}
 		return view
-	}, drive.Size(p.cols, p.rows), drive.Styles(sheet))
+	}, drive.Size(p.cols, p.rows), drive.With(twi.Styles(sheet)))
 	cells := d.Frame().Cells()
 	at := map[string]image.Point{motionMiddle: image.Pt(p.cols/2, p.rows/2)}
 	for _, target := range sc.targets {

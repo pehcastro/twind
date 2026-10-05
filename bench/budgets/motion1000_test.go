@@ -12,7 +12,6 @@ import (
 	runkonst "github.com/pehcastro/twind/internal/konst/runtime"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
-	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/motion"
 )
 
@@ -74,7 +73,7 @@ func (t *tiles) app(rt *twi.Runtime) func() twi.Node {
 		labels[i] = fmt.Sprintf("%03d", i)
 	}
 	return func() twi.Node {
-		opts := []twi.NodeOption{twi.Class("bg-zinc-950 text-zinc-100"), twi.OnKey(func(input.KeyEvent) { t.flip() })}
+		opts := []twi.NodeOption{twi.Class("bg-zinc-950 text-zinc-100"), twi.OnKey(func(*twi.Event) { t.flip() })}
 		for i := range tileCount {
 			at := tileSpot(t.slot(i))
 			if len(t.ids) > 0 {
@@ -93,7 +92,7 @@ func BenchmarkMotion1000(b *testing.B) {
 		b.Fatal(err)
 	}
 	t := &tiles{}
-	d := drive.New(t.app, drive.Size(tileCols, tileRows), drive.Styles(sheet))
+	d := drive.New(t.app, drive.Size(tileCols, tileRows), drive.With(twi.Styles(sheet)))
 	now := clock(b)
 	rest := strings.Fields(d.Frame().Text())
 	var samples []time.Duration

@@ -11,3 +11,5 @@ const (
 	GraphicsKitty  = terminal.GraphicsKitty
 	GraphicsGDI    = terminal.GraphicsGDI
 )
+
+type Capabilities = terminal.Capabilities

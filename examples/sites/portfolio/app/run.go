@@ -31,7 +31,7 @@ func Run(args []string) error {
 	if err != nil {
 		return err
 	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
+	rt := twi.New(twi.Styles(sheet))
 	s := newSite(rt, t, posts)
 	if !s.open(*pageName) {
 		return fmt.Errorf("-page %q: not a page or a post", *pageName)

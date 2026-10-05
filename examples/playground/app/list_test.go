@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
 )
 
@@ -44,7 +45,7 @@ func TestListScript(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := t.TempDir()
-	if err := drive.RunScript(bytes.NewReader(src), App, out, drive.Styles(sheet)); err != nil {
+	if err := drive.RunScript(bytes.NewReader(src), App, out, drive.With(twi.Styles(sheet))); err != nil {
 		t.Fatal(err)
 	}
 	frame := func(name string) string {

@@ -157,7 +157,7 @@ func TestScrollbarDriven(t *testing.T) {
 				return twi.Element(twi.Class("col"), twi.Element(rows...))
 			}
 		}
-		d := drive.New(app, drive.Size(16, 7), drive.Styles(sheet))
+		d := drive.New(app, drive.Size(16, 7), drive.With(twi.Styles(sheet)))
 		got, want := d.Frame().Text(), strings.Join(c.want, "\n")+"\n"
 		t.Logf("%s:\n%s", c.classes, got)
 		if got != want {

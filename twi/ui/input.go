@@ -159,8 +159,8 @@ func (e *editor) key(ev *twi.Event) {
 		}
 	case k.Key == input.KeyRune && k.Modifiers == input.ModCtrl|input.ModShift && unicode.ToLower(k.Rune) == 'c':
 		start, end := e.Selection()
-		_ = e.rt.Copy(e.Value()[start:end])
-	case !e.Apply(k):
+		e.rt.Copy(e.Value()[start:end])
+	case !e.Apply(k, e.rt.Now()):
 		return
 	}
 	ev.PreventDefault()
@@ -169,7 +169,7 @@ func (e *editor) key(ev *twi.Event) {
 }
 
 func (e *editor) at(ev *twi.Event) int {
-	box := e.rt.ContentBox(ev.Current())
+	box := e.rt.ContentBox(ev)
 	return e.At(ev.Mouse.Y-box.Min.Y+e.top, ev.Mouse.X-box.Min.X+e.scroll)
 }
 

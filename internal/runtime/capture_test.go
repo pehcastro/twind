@@ -43,7 +43,7 @@ func pointerApp(log *pointerLog) drive.App {
 			box := append(log.listen("box"), twi.At(5, 2), twi.Element(twi.Key("inner"), twi.Text("0123456789")))
 			other := append(log.listen("other"), twi.At(20, 6), twi.Text("other"))
 			return twi.Element(
-				twi.OnKey(func(input.KeyEvent) { redraws++; rt.Invalidate() }),
+				twi.OnKey(func(*twi.Event) { redraws++; rt.Invalidate() }),
 				twi.Element(box...),
 				twi.Element(other...),
 				twi.Text(fmt.Sprint("redraws ", redraws)),
@@ -126,7 +126,7 @@ func TestPointerMoveInsideAScrolledArea(t *testing.T) {
 			}
 			return twi.Element(twi.Class("col h-5 w-12 shrink-0 overflow-y-auto"), twi.Element(append(rows, twi.Class("col shrink-0"))...))
 		}
-	}, drive.Size(20, 8), drive.Styles(scrollSheet(t)))
+	}, drive.Size(20, 8), drive.With(twi.Styles(scrollSheet(t))))
 	d.Wheel(2, 1, 1)
 	log = nil
 	d.Click(3, 1)

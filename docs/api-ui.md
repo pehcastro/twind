@@ -282,8 +282,7 @@ Input.Submit func(string)\
 Input.Mode edit.Mode\
 Input.Wrap int\
 Input.Widths text.Widths\
-Input.Now func() time.Time\
-func (\*Input) Apply(k input.KeyEvent) bool\
+func (\*Input) Apply(k input.KeyEvent, now time.Time) bool\
 func (\*Input) At(row, column int) int\
 func (\*Input) Cursor() (row, column int)\
 func (\*Input) Drag(at int)\
@@ -309,8 +308,7 @@ Textarea.Submit func(string)\
 Textarea.Mode edit.Mode\
 Textarea.Wrap int\
 Textarea.Widths text.Widths\
-Textarea.Now func() time.Time\
-func (\*Textarea) Apply(k input.KeyEvent) bool\
+func (\*Textarea) Apply(k input.KeyEvent, now time.Time) bool\
 func (\*Textarea) At(row, column int) int\
 func (\*Textarea) Cursor() (row, column int)\
 func (\*Textarea) Drag(at int)\

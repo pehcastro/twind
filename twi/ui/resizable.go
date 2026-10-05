@@ -52,7 +52,7 @@ func (r *Resizable) Panel(children ...twi.NodeOption) twi.Node {
 	i := r.built
 	r.built++
 	if i == len(r.panels) {
-		r.panels = append(r.panels, twi.NewRef(r.rt))
+		r.panels = append(r.panels, &twi.Ref{})
 	}
 	size := "flex-1"
 	if i < len(r.Sizes)-1 {

@@ -42,7 +42,7 @@ func (c *Combobox) Input(options ...twi.NodeOption) twi.Node {
 		glyph, act = "✕", c.click(func() { c.choose(selectItem{}) })
 	}
 	trigger := part(button(Ghost, SizeIcon, "text-muted-foreground"), []twi.NodeOption{act, icon(glyph, "")})
-	field := c.field.field("h-1 grow", []twi.NodeOption{twi.OnBlur(func() { c.set(false) }), c.click(func() {
+	field := c.field.field("h-1 grow", []twi.NodeOption{twi.OnBlur(func(*twi.Event) { c.set(false) }), c.click(func() {
 		if !c.Open {
 			c.show()
 		}

@@ -7,7 +7,6 @@ import (
 	"github.com/pehcastro/twind/internal/events"
 	"github.com/pehcastro/twind/internal/render"
 	"github.com/pehcastro/twind/internal/scene"
-	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
 )
 
@@ -27,10 +26,10 @@ type Node struct {
 	Scope                            Scope
 	Measure                          *Ref
 	Listeners                        []events.Listener[*Elem]
-	PointerDownOutside, FocusOutside []func()
+	PointerDownOutside, FocusOutside []func(*events.Event[*Elem])
 	Scroll                           []func(image.Point)
 	Paste                            func(string)
-	Hotkey                           func(input.KeyEvent) bool
+	Hotkey                           func(*events.Event[*Elem])
 	Width                            func(int)
 	Children                         []Node
 }
@@ -138,23 +137,7 @@ func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 	d.moved(focus)
 }
 
-func (r *Runtime) Focus(key string) bool {
-	looper, stopped := r.looping()
-	switch looper {
-	case "":
-		return false
-	case goroutine():
-		return r.focusKey(key)
-	}
-	took := make(chan bool, 1)
-	r.Dispatch(func() { took <- r.focusKey(key) })
-	select {
-	case ok := <-took:
-		return ok
-	case <-stopped:
-		return false
-	}
-}
+func (r *Runtime) Focus(key string) { r.Dispatch(func() { r.focusKey(key) }) }
 
 func (r *Runtime) focusKey(key string) bool {
 	e := r.doc.root.keyed(key)
@@ -199,7 +182,7 @@ func (d *document) moved(focus *events.FocusManager[*Elem]) {
 	for _, e := range d.entered {
 		if !e.scope.holds(current) {
 			for _, f := range e.scope.node.FocusOutside {
-				f()
+				f(&events.Event[*Elem]{Type: events.Focus})
 			}
 		}
 	}

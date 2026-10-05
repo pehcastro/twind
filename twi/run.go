@@ -19,30 +19,18 @@ import (
 	"github.com/pehcastro/twind/twi/theme"
 )
 
-func Fullscreen() RenderOption { return func(c *renderConfig) { c.fullscreen = true } }
-
-func Graphics(mode terminal.Graphics) RenderOption {
-	return func(c *renderConfig) { c.graphics = &mode }
-}
-
-func NoClipboard() RenderOption { return func(c *renderConfig) { c.noClipboard = true } }
-
-func Backend(b runtime.Backend, c runtime.Clock) RenderOption {
-	return func(cfg *renderConfig) { cfg.backend, cfg.clock = b, c }
-}
-
 type Timer = runtime.Timer
 
 type Runtime struct {
 	rt    *runtime.Runtime
-	cfg   renderConfig
+	cfg   config
 	theme theme.Theme
 }
 
-func New(opts ...RenderOption) *Runtime {
-	var cfg renderConfig
+func New(opts ...Option) *Runtime {
+	var cfg config
 	for _, o := range opts {
-		o(&cfg)
+		o.applyRun(&cfg)
 	}
 	var devState string
 	if cfg.backend == nil {
@@ -58,7 +46,7 @@ func New(opts ...RenderOption) *Runtime {
 	if cfg.theme != nil {
 		r.theme = *cfg.theme
 	}
-	r.rt = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics, NoClipboard: cfg.noClipboard, DevState: devState})
+	r.rt = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics, DevState: devState})
 	return r
 }
 
@@ -76,7 +64,9 @@ func (r *Runtime) Dispatch(f func()) { r.rt.Dispatch(f) }
 
 func (r *Runtime) After(d time.Duration, fn func()) *Timer { return r.rt.After(d, fn) }
 
-func (r *Runtime) Focus(key string) bool { return r.rt.Focus(key) }
+func (r *Runtime) Now() time.Time { return r.rt.Now() }
+
+func (r *Runtime) Focus(key string) { r.rt.Focus(key) }
 
 func (r *Runtime) HideFocusRings() { r.rt.HideFocusRings() }
 
@@ -84,11 +74,11 @@ func (r *Runtime) ScrollIntoView(key string) { r.rt.ScrollIntoView(key) }
 
 func (r *Runtime) Viewport() image.Rectangle { return r.rt.Viewport() }
 
-func (r *Runtime) ContentBox(e *runtime.Elem) image.Rectangle { return r.rt.ContentBox(e) }
+func (r *Runtime) ContentBox(e *Event) image.Rectangle { return r.rt.ContentBox(e.Current()) }
 
 func (r *Runtime) Clicks() int { return r.rt.Clicks() }
 
-func (r *Runtime) Copy(text string) error { return r.rt.Copy(text) }
+func (r *Runtime) Copy(text string) { r.rt.Copy(text) }
 
 func (r *Runtime) Widths() text.Widths { return r.rt.Widths() }
 
@@ -100,11 +90,8 @@ func (r *Runtime) Run(app func() Node) error {
 	if !r.cfg.profileSet {
 		return errors.New("twi: Backend needs a ColorProfile")
 	}
-	b := r.cfg.backend
+	var b runtime.Backend = r.cfg.backend
 	if b == nil {
-		if !r.cfg.fullscreen {
-			return errors.New("twi: Run needs a mode, Fullscreen()")
-		}
 		t, err := terminal.Enter(os.Stdin, os.Stdout, terminal.Options{})
 		if err != nil {
 			return err
@@ -134,8 +121,6 @@ func (r *Runtime) restoreTheme(key string) {
 type terminalBackend struct{ *terminal.Backend }
 
 func (t terminalBackend) Events() <-chan input.Event { return t.Backend.Events }
-
-func (t terminalBackend) Sync() bool { return t.Backend.Capabilities.Sync }
 
 func (t terminalBackend) Capabilities() terminal.Capabilities { return t.Current() }
 

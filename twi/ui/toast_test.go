@@ -23,7 +23,8 @@ func toastDriver(t *testing.T) (*drive.Driver, *Toaster, *Dialog, *int) {
 	d := overlayDriver(t, 100, 30, func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(zinc(t, theme.Light))
 		toaster, dlg = NewToaster(rt), NewDialog(rt)
-		keys := twi.OnKey(func(k input.KeyEvent) {
+		keys := twi.OnKey(func(e *twi.Event) {
+			k := e.Key
 			if k.Release || k.Key != input.KeyRune {
 				return
 			}

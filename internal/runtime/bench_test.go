@@ -29,10 +29,14 @@ func (b *countingBackend) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (b *countingBackend) Capabilities() terminal.Capabilities  { return b.caps }
+func (b *countingBackend) Capabilities() terminal.Capabilities {
+	caps := b.caps
+	caps.Sync = true
+	return caps
+}
+
 func (b *countingBackend) Events() <-chan input.Event           { return b.events }
 func (b *countingBackend) Size() (width, height int, err error) { return 120, 40, nil }
-func (b *countingBackend) Sync() bool                           { return true }
 func (b *countingBackend) Exit() error                          { return nil }
 
 type steppingClock struct{ calls atomic.Int64 }

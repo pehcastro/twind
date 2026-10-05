@@ -79,8 +79,8 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 		themes:  slices.DeleteFunc(theme.Builtin(), func(t theme.Theme) bool { return t.Scheme == theme.Dark }),
 		palette: ui.NewCommandDialog(rt),
 		sidebar: ui.NewSidebar(rt),
-		area:    twi.NewRef(rt),
-		body:    twi.NewRef(rt),
+		area:    &twi.Ref{},
+		body:    &twi.Ref{},
 		heads:   map[string]*twi.Ref{},
 		heldRow: -1, returnRow: -1,
 	}
@@ -317,7 +317,7 @@ func (s *site) nav() twi.Node {
 			if fold.Open {
 				items = append(items, ui.SidebarMenuButton(ui.SizeDefault, i == s.page,
 					twi.Key("nav-"+e.slug), twi.OnClick(func(*twi.Event) { s.open(at) }), twi.Text(e.title),
-					twi.OnFocus(func() { s.focusRow(at) }), twi.OnBlur(func() {
+					twi.OnFocus(func(*twi.Event) { s.focusRow(at) }), twi.OnBlur(func(*twi.Event) {
 						if !s.palette.Open {
 							s.heldRow = -1
 						}
@@ -385,7 +385,7 @@ func (s *site) sections(e entry) twi.Node {
 		section := []twi.NodeOption{markdown.Render(markdown.Page{Blocks: blocks[:end]}, options)}
 		if b := blocks[0]; b.Kind == markdown.Heading && outlined(b.Level) {
 			if s.heads[b.ID] == nil {
-				s.heads[b.ID] = twi.NewRef(s.rt)
+				s.heads[b.ID] = &twi.Ref{}
 			}
 			section = append(section, twi.Key("section-"+b.ID), twi.Measure(s.heads[b.ID]))
 			if b.Level == 2 {
@@ -496,7 +496,7 @@ func (s *site) pickerNode() twi.Node {
 			mark = "● "
 		}
 		list = append(list, twi.Element(twi.Class(class), twi.Text(mark+t.Name),
-			twi.OnPointerEnter(func() { show(i) }), twi.OnClick(func(*twi.Event) { apply() })))
+			twi.OnPointerEnter(func(*twi.Event) { show(i) }), twi.OnClick(func(*twi.Event) { apply() })))
 	}
 	return twi.Element(twi.Key("picker"), twi.FocusScope(), twi.Class("fixed inset-0 z-50 flex items-center justify-center bg-black/50"),
 		twi.OnKeyDown(func(ev *twi.Event) {
@@ -506,7 +506,7 @@ func (s *site) pickerNode() twi.Node {
 			ev.StopPropagation()
 		}),
 		el("flex flex-col w-40 rounded-lg border bg-popover text-popover-foreground shadow-lg",
-			twi.OnPointerDownOutside(restore),
+			twi.OnPointerDownOutside(func(*twi.Event) { restore() }),
 			txt("px-1 font-semibold", "Theme"),
 			txt("px-1 text-muted-foreground", "↑ ↓ preview, Enter keeps, Esc restores"),
 			ui.DropdownMenuSeparator(),

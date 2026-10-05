@@ -18,7 +18,6 @@ import (
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/style"
 	"github.com/pehcastro/twind/twi/text"
 )
 
@@ -28,7 +27,7 @@ type Option func(*config)
 
 type config struct {
 	width, height int
-	sheet         style.Sheet
+	runtime       []twi.Option
 	widths        text.Widths
 	cell          image.Point
 }
@@ -41,7 +40,9 @@ func Widths(w text.Widths) Option { return func(c *config) { c.widths = w } }
 
 func CellPixels(size image.Point) Option { return func(c *config) { c.cell = size } }
 
-func Styles(sheet style.Sheet) Option { return func(c *config) { c.sheet = sheet } }
+func With(opts ...twi.Option) Option {
+	return func(c *config) { c.runtime = append(c.runtime, opts...) }
+}
 
 type Driver struct {
 	rt      *twi.Runtime
@@ -67,7 +68,7 @@ func New(app App, opts ...Option) *Driver {
 		screen: &screen{cells: buffer.New(cfg.width, cfg.height), widths: cfg.widths, cell: cfg.cell},
 		exited: make(chan struct{}),
 	}
-	d.rt = twi.New(twi.Backend(&backend{d.screen, d.events}, d.clock), twi.Styles(cfg.sheet), twi.ColorProfile(color.TrueColor))
+	d.rt = twi.New(append(cfg.runtime, twi.Backend(&backend{d.screen, d.events}, d.clock), twi.ColorProfile(color.TrueColor))...)
 	view := app(d.rt)
 	go func() {
 		d.runErr = d.rt.Run(view)
@@ -238,8 +239,6 @@ func (b *backend) Events() <-chan input.Event { return b.events }
 func (b *backend) Size() (width, height int, err error) {
 	return b.cells.Width(), b.cells.Height(), nil
 }
-
-func (b *backend) Sync() bool { return true }
 
 func (b *backend) Capabilities() terminal.Capabilities {
 	return terminal.Capabilities{Sync: true, Widths: b.widths, CellPixels: b.cell}

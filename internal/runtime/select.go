@@ -284,15 +284,11 @@ func (s *selection) text() string {
 	return b.String()
 }
 
-func (r *Runtime) Copy(text string) error {
-	if r.cfg.NoClipboard {
-		return nil
-	}
+func (r *Runtime) Copy(text string) {
 	r.mu.Lock()
 	r.clip = append(r.clip, terminal.Clipboard(text)...)
 	r.mu.Unlock()
 	r.wakeUp()
-	return nil
 }
 
 type clipped struct {

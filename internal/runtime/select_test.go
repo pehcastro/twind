@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pehcastro/twind/internal/runtime/testdata/selection"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
@@ -24,7 +25,7 @@ func startSelecting(t *testing.T) *selecting {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &selecting{t: t, d: drive.New(selection.App, drive.Size(60, 12), drive.Styles(sheet))}
+	s := &selecting{t: t, d: drive.New(selection.App, drive.Size(60, 12), drive.With(twi.Styles(sheet)))}
 	t.Cleanup(func() {
 		if err := s.d.Err(); err != nil {
 			t.Error(err)
@@ -176,12 +177,12 @@ func TestSelectionWideGlyphsAndTruncation(t *testing.T) {
 	s.copied("中文 wide and trunc")
 }
 
-func TestSelectionIdleAndNoClipboard(t *testing.T) {
+func TestSelectionIdleAndCopyKeepsRunning(t *testing.T) {
 	sheet, err := selection.Styles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := launch(newBackend(60, 12), selection.App, twi.Styles(sheet), twi.NoClipboard())
+	r := launch(newBackend(60, 12), selection.App, twi.Styles(sheet))
 	r.next(t)
 	for _, ev := range []input.MouseEvent{
 		{X: 3, Y: 2, Button: input.MouseLeft, Action: input.MousePress},
@@ -203,10 +204,13 @@ func TestSelectionIdleAndNoClipboard(t *testing.T) {
 		t.Errorf("idle with a selection shown, the runtime woke %d times", woke)
 	}
 	r.b.events <- input.KeyEvent{Key: input.KeyRune, Rune: 'c', Modifiers: input.ModCtrl}
+	if f := r.next(t); !strings.Contains(f, string(terminal.Clipboard("alpha"))) {
+		t.Errorf("ctrl+c with a selection wrote %q, want the selection on the clipboard", f)
+	}
 	r.quiet(t)
 	select {
 	case err := <-r.done:
-		t.Fatalf("ctrl+c with a selection and the clipboard off quit the app: %v", err)
+		t.Fatalf("ctrl+c with a selection quit the app: %v", err)
 	default:
 	}
 	if err := r.stop(t); err != nil {

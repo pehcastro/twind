@@ -50,7 +50,6 @@ func (b *backend) Write(p []byte) (int, error) {
 func (b *backend) Capabilities() terminal.Capabilities  { return b.caps }
 func (b *backend) Events() <-chan input.Event           { return b.events }
 func (b *backend) Size() (width, height int, err error) { return b.width, b.height, nil }
-func (b *backend) Sync() bool                           { return false }
 func (b *backend) Exit() error {
 	b.exits.Add(1)
 	return nil
@@ -76,9 +75,9 @@ func start(build func(rt *twi.Runtime) func() twi.Node) run {
 	return launch(newBackend(20, 3), build)
 }
 
-func launch(b *backend, build func(rt *twi.Runtime) func() twi.Node, opts ...twi.RenderOption) run {
+func launch(b *backend, build func(rt *twi.Runtime) func() twi.Node, opts ...twi.Option) run {
 	r := run{b: b, clock: &clock{}, done: make(chan error, 1)}
-	r.rt = twi.New(append([]twi.RenderOption{twi.Backend(r.b, r.clock), twi.ColorProfile(color.None)}, opts...)...)
+	r.rt = twi.New(append([]twi.Option{twi.Backend(r.b, r.clock), twi.ColorProfile(color.None)}, opts...)...)
 	app := build(r.rt)
 	go func() { r.done <- r.rt.Run(app) }()
 	return r
@@ -208,7 +207,7 @@ func TestHundredSetsOneFrame(t *testing.T) {
 		s = twi.NewSignal(rt, 0)
 		return func() twi.Node {
 			return twi.Element(
-				twi.OnKey(func(input.KeyEvent) {
+				twi.OnKey(func(*twi.Event) {
 					for range 100 {
 						s.Set(s.Get() + 1)
 					}
@@ -249,7 +248,7 @@ func TestHandlerDispatchDrawsOnce(t *testing.T) {
 		s = twi.NewSignal(rt, 0)
 		return func() twi.Node {
 			return twi.Element(
-				twi.OnKey(func(input.KeyEvent) {
+				twi.OnKey(func(*twi.Event) {
 					s.Set(s.Get() + 1)
 					rt.Dispatch(func() { s.Set(s.Get() + 10) })
 				}),
@@ -307,7 +306,7 @@ func TestSignalWakesItsOwnRuntime(t *testing.T) {
 	a.next(t)
 	b := start(static(func() twi.Node {
 		return twi.Element(
-			twi.OnKey(func(input.KeyEvent) { s.Set(s.Get() + 1) }),
+			twi.OnKey(func(*twi.Event) { s.Set(s.Get() + 1) }),
 			twi.Text("b"+strconv.Itoa(s.Get())),
 		)
 	}))
@@ -326,7 +325,7 @@ func TestSignalWakesItsOwnRuntime(t *testing.T) {
 
 func TestPanicExitsOnce(t *testing.T) {
 	r := start(static(func() twi.Node {
-		return twi.Element(twi.OnKey(func(input.KeyEvent) { panic("boom") }), twi.Text("x"))
+		return twi.Element(twi.OnKey(func(*twi.Event) { panic("boom") }), twi.Text("x"))
 	}))
 	r.next(t)
 	r.b.events <- key('p')
@@ -344,7 +343,7 @@ func TestPanicExitsOnce(t *testing.T) {
 func TestOnKeyTreeOrder(t *testing.T) {
 	var order []string
 	listen := func(name string) twi.NodeOption {
-		return twi.OnKey(func(input.KeyEvent) { order = append(order, name) })
+		return twi.OnKey(func(*twi.Event) { order = append(order, name) })
 	}
 	r := start(static(func() twi.Node {
 		return twi.Element(
@@ -395,13 +394,6 @@ func TestInputClosed(t *testing.T) {
 	}
 }
 
-func TestRunNeedsAMode(t *testing.T) {
-	rt := twi.New()
-	if err := rt.Run(counter.New(rt)); err == nil || !strings.Contains(err.Error(), "Fullscreen") {
-		t.Fatalf("Run without a mode returned %v", err)
-	}
-}
-
 func TestTextIsSanitised(t *testing.T) {
 	r := start(static(func() twi.Node { return twi.Text("a\x1b[2Jb") }))
 	if f := r.next(t); strings.Contains(f, "\x1b[2J") || !strings.Contains(f, "a") {
@@ -432,13 +424,13 @@ func sixelTiles(frame string) []string {
 	return at
 }
 
-func surfaces(t *testing.T, b *backend, opts ...twi.RenderOption) run {
+func surfaces(t *testing.T, b *backend, opts ...twi.Option) run {
 	t.Helper()
 	s, err := hello.Styles()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return launch(b, hello.Surfaces, append([]twi.RenderOption{twi.Styles(s), twi.ColorProfile(color.TrueColor)}, opts...)...)
+	return launch(b, hello.Surfaces, append([]twi.Option{twi.Styles(s), twi.ColorProfile(color.TrueColor)}, opts...)...)
 }
 
 func TestSixelSendsOnlyChangedSurfaces(t *testing.T) {
@@ -468,18 +460,18 @@ func TestGraphicsChoice(t *testing.T) {
 		name   string
 		caps   terminal.Capabilities
 		env    string
-		opts   []twi.RenderOption
+		opts   []twi.Option
 		pixels bool
 	}{
 		{name: "reported", caps: sixel, pixels: true},
 		{name: "no cell size", caps: terminal.Capabilities{Graphics: terminal.GraphicsSixel}},
-		{name: "option none", caps: sixel, opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsNone)}},
-		{name: "option sixel", caps: terminal.Capabilities{CellPixels: image.Pt(10, 20)}, opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsSixel)}, pixels: true},
-		{name: "environment wins", caps: sixel, env: "sixel", opts: []twi.RenderOption{twi.Graphics(terminal.GraphicsNone)}, pixels: true},
-		{name: "profile 256", caps: sixel, opts: []twi.RenderOption{twi.ColorProfile(color.ANSI256)}, pixels: true},
-		{name: "profile 16", caps: sixel, opts: []twi.RenderOption{twi.ColorProfile(color.ANSI16)}},
-		{name: "profile attributes", caps: sixel, opts: []twi.RenderOption{twi.ColorProfile(color.Attributes)}},
-		{name: "profile none", caps: sixel, env: "sixel", opts: []twi.RenderOption{twi.ColorProfile(color.None)}},
+		{name: "option none", caps: sixel, opts: []twi.Option{twi.Graphics(terminal.GraphicsNone)}},
+		{name: "option sixel", caps: terminal.Capabilities{CellPixels: image.Pt(10, 20)}, opts: []twi.Option{twi.Graphics(terminal.GraphicsSixel)}, pixels: true},
+		{name: "environment wins", caps: sixel, env: "sixel", opts: []twi.Option{twi.Graphics(terminal.GraphicsNone)}, pixels: true},
+		{name: "profile 256", caps: sixel, opts: []twi.Option{twi.ColorProfile(color.ANSI256)}, pixels: true},
+		{name: "profile 16", caps: sixel, opts: []twi.Option{twi.ColorProfile(color.ANSI16)}},
+		{name: "profile attributes", caps: sixel, opts: []twi.Option{twi.ColorProfile(color.Attributes)}},
+		{name: "profile none", caps: sixel, env: "sixel", opts: []twi.Option{twi.ColorProfile(color.None)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("TWIND_GRAPHICS", tc.env)
@@ -564,7 +556,7 @@ func TestHandlerSetAndSetThemeDrawOnce(t *testing.T) {
 		shown := twi.NewSignal(rt, "light")
 		return func() twi.Node {
 			return twi.Element(
-				twi.OnKey(func(input.KeyEvent) {
+				twi.OnKey(func(*twi.Event) {
 					shown.Set("dark")
 					rt.SetTheme(dark)
 				}),

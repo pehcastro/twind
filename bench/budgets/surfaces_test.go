@@ -27,7 +27,6 @@ func (be *surfaceBackend) Write(p []byte) (int, error) {
 }
 
 func (be *surfaceBackend) Events() <-chan input.Event          { return be.events }
-func (be *surfaceBackend) Sync() bool                          { return true }
 func (be *surfaceBackend) Exit() error                         { return nil }
 func (be *surfaceBackend) Capabilities() terminal.Capabilities { return be.caps }
 func (be *surfaceBackend) Size() (width, height int, err error) {
@@ -63,12 +62,12 @@ func (f frames) report(b *testing.B) {
 
 type scenario struct {
 	app  func(*twi.Runtime) func() twi.Node
-	opts []twi.RenderOption
+	opts []twi.Option
 }
 
 func (sc scenario) start(caps terminal.Capabilities) (*surfaceBackend, *twi.Runtime, chan error) {
 	be := &surfaceBackend{events: make(chan input.Event), written: make(chan []byte), caps: caps}
-	rt := twi.New(append([]twi.RenderOption{twi.Backend(be, &steppingClock{}), twi.ColorProfile(color.TrueColor)}, sc.opts...)...)
+	rt := twi.New(append([]twi.Option{twi.Backend(be, &steppingClock{}), twi.ColorProfile(color.TrueColor)}, sc.opts...)...)
 	done := make(chan error, 1)
 	go func() { done <- rt.Run(sc.app(rt)) }()
 	return be, rt, done
@@ -201,7 +200,7 @@ func BenchmarkSurface(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	sc := scenario{surfaces.App, []twi.RenderOption{twi.Styles(sheet), twi.Theme(surfaces.Themes()[0])}}
+	sc := scenario{surfaces.App, []twi.Option{twi.Styles(sheet), twi.Theme(surfaces.Themes()[0])}}
 	arms := []struct {
 		name      string
 		caps      terminal.Capabilities
@@ -233,7 +232,7 @@ func BenchmarkPlayground(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	sc := scenario{playground.App, []twi.RenderOption{twi.Styles(sheet)}}
+	sc := scenario{playground.App, []twi.Option{twi.Styles(sheet)}}
 	enter := input.KeyEvent{Key: input.KeyEnter}
 	steps := []step{
 		{name: "type", timed: key('a'), after: []input.Event{input.KeyEvent{Key: input.KeyBackspace}}},

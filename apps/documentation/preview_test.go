@@ -49,7 +49,7 @@ func TestPreviewCardInsideItsFrameWhenNarrow(t *testing.T) {
 		return view
 	}
 	for _, width := range []int{60, 80, 120} {
-		d := drive.New(app, drive.Size(width, 39), drive.Styles(sheet))
+		d := drive.New(app, drive.Size(width, 39), drive.With(twi.Styles(sheet)))
 		t.Cleanup(func() {
 			if err := d.Err(); err != nil {
 				t.Error(err)

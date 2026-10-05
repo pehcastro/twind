@@ -30,7 +30,7 @@ func TestRestoredPageAndThemeShow(t *testing.T) {
 			s.recallTheme(tc.theme)
 			saved = [2]string{s.pageMemo(), s.themeMemo()}
 			return s.view
-		}, drive.Size(120, 36), drive.Styles(sheet))
+		}, drive.Size(120, 36), drive.With(twi.Styles(sheet)))
 		text := d.Frame().Text()
 		if !strings.Contains(text, tc.wantPage) || !strings.Contains(text, tc.wantBar) {
 			t.Errorf("restored %s and %s: want %q and %q on screen:\n%s", tc.page, tc.theme, tc.wantPage, tc.wantBar, text)

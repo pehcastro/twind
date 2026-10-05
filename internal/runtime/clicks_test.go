@@ -21,7 +21,7 @@ func TestPointerDownSeesTheClickCount(t *testing.T) {
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		down := twi.OnPointerDown(func(*twi.Event) { counts = append(counts, rt.Clicks()) })
 		return func() twi.Node { return twi.Element(down, twi.Text("one two three")) }
-	}, drive.Size(20, 2), drive.Styles(sheet))
+	}, drive.Size(20, 2), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)
@@ -45,11 +45,11 @@ func TestPointerContentBoxOfTheListener(t *testing.T) {
 	}
 	var boxes []image.Rectangle
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
-		down := twi.OnPointerDown(func(ev *twi.Event) { boxes = append(boxes, rt.ContentBox(ev.Current())) })
+		down := twi.OnPointerDown(func(ev *twi.Event) { boxes = append(boxes, rt.ContentBox(ev)) })
 		return func() twi.Node {
 			return twi.Element(twi.Class(selection.Card), down, twi.Element(twi.Focusable(), twi.Text("x")))
 		}
-	}, drive.Size(30, 6), drive.Styles(sheet))
+	}, drive.Size(30, 6), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)

@@ -63,7 +63,6 @@ func (b *shownBackend) Paint(p terminal.Pixels) bool {
 }
 
 func (b *shownBackend) Events() <-chan input.Event           { return b.events }
-func (b *shownBackend) Sync() bool                           { return true }
 func (b *shownBackend) Exit() error                          { return nil }
 func (b *shownBackend) Size() (width, height int, err error) { return toastGrid.X, toastGrid.Y, nil }
 func (b *shownBackend) Capabilities() terminal.Capabilities  { return b.caps }
@@ -111,7 +110,7 @@ func toastSpots(t *testing.T, sheet style.Sheet) (success, undo image.Point) {
 			t.Fatal(err)
 		}
 		return view
-	}, drive.Size(toastGrid.X, toastGrid.Y), drive.Styles(sheet))
+	}, drive.Size(toastGrid.X, toastGrid.Y), drive.With(twi.Styles(sheet)))
 	defer func() { _ = d.Close() }()
 	find := func(word string) image.Point {
 		for y, line := range strings.Split(d.Frame().Text(), "\n") {

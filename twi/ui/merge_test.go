@@ -63,7 +63,7 @@ func TestOverride(t *testing.T) {
 			return func() twi.Node {
 				return twi.Element(twi.Class("flex flex-col w-60 gap-1 p-1 h-full bg-background text-foreground"), n)
 			}
-		}, drive.Size(64, 6), drive.Styles(sheet))
+		}, drive.Size(64, 6), drive.With(twi.Styles(sheet)))
 		defer func() { _ = d.Close() }()
 		return d.Frame()
 	}

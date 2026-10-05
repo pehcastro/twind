@@ -19,7 +19,7 @@ func BenchmarkPointerFieldKeyToFrame(b *testing.B) {
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 w-40"), name.Node(twi.AutoFocus()), bio.Node())
 		}
-	}, drive.Size(60, 14), drive.Styles(sheet))
+	}, drive.Size(60, 14), drive.With(twi.Styles(sheet)))
 	b.Cleanup(func() {
 		if err := d.Close(); err != nil {
 			b.Error(err)
@@ -44,7 +44,7 @@ func BenchmarkTextareaKeyToFrame(b *testing.B) {
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 w-40"), bio.Node(twi.AutoFocus()))
 		}
-	}, drive.Size(60, 14), drive.Styles(sheet))
+	}, drive.Size(60, 14), drive.With(twi.Styles(sheet)))
 	b.Cleanup(func() {
 		if err := d.Close(); err != nil {
 			b.Error(err)

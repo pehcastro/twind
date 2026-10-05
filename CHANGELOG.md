@@ -9,6 +9,21 @@
 - `twi/tailwind` keeps only `Stale`; the compiler and `Checker` moved under `internal/`.
 - `twi.Runtime` no longer embeds the runtime. It keeps `Run`, `SetTheme`, `Theme`, `Invalidate`, `Quit`, `Dispatch`, `After`, `Focus`, `HideFocusRings`, `ScrollIntoView`, `Viewport`, `ContentBox`, `Clicks`, `Copy`, `Widths` and `Remember`; `Restyle` and the embedded `Runtime` field are gone.
 - The `twi/fix` API reference page is removed; `twind doctor -fix` is unchanged.
+- `twi.New` takes `twi.Option` and `twi.Render` takes `twi.RenderOption`; an option the entry does not read no longer compiles. `ColorProfile`, `Styles`, `Theme` and `Graphics` return `twi.Setting` and fit both. Migrate: a `[]twi.RenderOption` passed to `New` becomes `[]twi.Option`, and `Width` goes only to `Render`.
+- `twi.Fullscreen` is removed: `rt.Run` without a backend takes the terminal fullscreen. Migrate: `twi.New(twi.Fullscreen(), opts...)` becomes `twi.New(opts...)`.
+- `twi.NoClipboard` is removed. Migrate: drop it; `rt.Copy` always writes the clipboard.
+- `twi.Backend` takes a `twi.Terminal` and a `twi.Clock`; a terminal reports `Capabilities() terminal.Capabilities` (from `twi/terminal`) instead of `Sync() bool`. Migrate: replace `Sync() bool { return s }` with `Capabilities() terminal.Capabilities { return terminal.Capabilities{Sync: s} }`.
+- `OnFocus`, `OnBlur`, `OnPointerEnter`, `OnPointerLeave`, `OnPointerDownOutside` and `OnFocusOutside` take `func(*twi.Event)`. Migrate: `func() { ... }` becomes `func(*twi.Event) { ... }`.
+- `twi.OnKey` takes `func(*twi.Event)`; the key is `e.Key`, and `e.PreventDefault()` stops Enter from clicking and the arrows from scrolling. Migrate: `func(k input.KeyEvent) { ... }` becomes `func(e *twi.Event) { k := e.Key; ... }`.
+- `twi.OnHotkey` takes `func(*twi.Event)` and takes a key with `e.PreventDefault()` instead of returning true. Migrate: `return true` becomes `e.PreventDefault()`.
+- `twi.Input` and `twi.NewInput` are removed. Migrate: use `ui.NewInput(rt)`, which edits the same way and draws the field.
+- `twi.NewRef` is removed; it ignored its runtime. Migrate: `twi.NewRef(rt)` becomes `&twi.Ref{}`.
+- `twi.RenderString` returns `(string, error)` instead of panicking. Migrate: check the error.
+- `rt.Copy` returns nothing; it never failed. Migrate: drop the error check.
+- `rt.Focus` returns nothing and runs on the runtime's goroutine after the current handler, from any goroutine. Migrate: drop the result; the focused element's `OnFocus` reports the move.
+- `rt.ContentBox` takes the `*twi.Event` whose handler runs. Migrate: `rt.ContentBox(e.Current())` becomes `rt.ContentBox(e)`.
+- `drive.Styles` is removed; `drive.With` passes any `twi.Option` to the driven runtime. Migrate: `drive.Styles(sheet)` becomes `drive.With(twi.Styles(sheet))`.
+- `ui.Input` and `ui.Textarea` end an undo step after a pause in typing, on the runtime clock. `rt.Now` reads that clock.
 
 ## v0.5.0 (2026-10-05)
 

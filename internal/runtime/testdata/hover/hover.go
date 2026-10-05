@@ -16,8 +16,8 @@ func (t *Trace) record(event string) { t.Events = append(t.Events, event) }
 func (t *Trace) watched(name string, options ...twi.NodeOption) twi.Node {
 	return twi.Element(append([]twi.NodeOption{
 		twi.Key(name),
-		twi.OnPointerEnter(func() { t.record("enter " + name) }),
-		twi.OnPointerLeave(func() { t.record("leave " + name) }),
+		twi.OnPointerEnter(func(*twi.Event) { t.record("enter " + name) }),
+		twi.OnPointerLeave(func(*twi.Event) { t.record("leave " + name) }),
 		twi.OnClick(func(*twi.Event) { t.record("click " + name) }),
 	}, options...)...)
 }
@@ -27,7 +27,7 @@ func (t *Trace) App(rt *twi.Runtime) func() twi.Node {
 		root := []twi.NodeOption{twi.Class("flex flex-col gap-1 p-1 h-full bg-black text-white")}
 		if t.Open {
 			root = append(root, t.watched("overlay", twi.Class("fixed top-0 left-0 w-8 h-3 z-50 bg-zinc-900"), twi.Text("overlay"),
-				twi.OnPointerDownOutside(func() {
+				twi.OnPointerDownOutside(func(*twi.Event) {
 					t.record("outside")
 					t.Open = false
 					rt.Invalidate()

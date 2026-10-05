@@ -2,6 +2,7 @@ package edit
 
 import (
 	"testing"
+	"time"
 
 	"github.com/pehcastro/twind/twi/input"
 )
@@ -20,11 +21,11 @@ func TestKeyNewlineShiftEnterAndCtrlJ(t *testing.T) {
 	press(t, b, ctrl('j'))
 	typeText(t, b, "c")
 	want(t, b, "a\nb\nc", 5, 5)
-	if b.Apply(enter) {
+	if b.Apply(enter, time.Time{}) {
 		t.Fatal("plain enter broke the line")
 	}
 	var single Buffer
-	if single.Apply(ctrl('j')) || single.Value() != "" {
+	if single.Apply(ctrl('j'), time.Time{}) || single.Value() != "" {
 		t.Fatalf("a one-line field took ctrl+j: %q", single.Value())
 	}
 }
@@ -205,14 +206,14 @@ func TestHistoryWalksBackAndRestoresTheDraft(t *testing.T) {
 	want(t, &b, "second", 6, 6)
 	press(t, &b, up)
 	want(t, &b, "first", 5, 5)
-	if b.Apply(up) || b.Value() != "first" {
+	if b.Apply(up, time.Time{}) || b.Value() != "first" {
 		t.Fatalf("up past the oldest holds %q", b.Value())
 	}
 	press(t, &b, down)
 	want(t, &b, "second", 6, 6)
 	press(t, &b, down)
 	want(t, &b, "draft", 5, 5)
-	if b.Apply(down) || b.Value() != "draft" {
+	if b.Apply(down, time.Time{}) || b.Value() != "draft" {
 		t.Fatalf("down past the draft holds %q", b.Value())
 	}
 }
@@ -246,7 +247,7 @@ func TestHistoryNotOnShiftOrCtrlP(t *testing.T) {
 	b.Remember("old")
 	b.Insert("ab")
 	for _, k := range []input.KeyEvent{with(up, input.ModShift), ctrl('p'), ctrl('n')} {
-		if b.Apply(k) || b.Value() != "ab" {
+		if b.Apply(k, time.Time{}) || b.Value() != "ab" {
 			t.Fatalf("%+v walked history: %q", k, b.Value())
 		}
 	}
@@ -255,7 +256,7 @@ func TestHistoryNotOnShiftOrCtrlP(t *testing.T) {
 func TestHistoryNoneLeavesTheArrows(t *testing.T) {
 	var b Buffer
 	b.Insert("ab")
-	if b.Apply(up) || b.Apply(down) {
+	if b.Apply(up, time.Time{}) || b.Apply(down, time.Time{}) {
 		t.Fatal("a one-line field with no history took up or down")
 	}
 }

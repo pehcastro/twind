@@ -23,7 +23,7 @@ func framed(t *testing.T, page string) (*drive.Driver, screenRows, [4]int) {
 			t.Fatal(err)
 		}
 		return view
-	}, drive.Size(120, 36), drive.Styles(sheet))
+	}, drive.Size(120, 36), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
 			t.Error(err)

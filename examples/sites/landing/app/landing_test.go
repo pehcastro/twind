@@ -42,7 +42,7 @@ func TestTour(t *testing.T) {
 	}
 	out := t.TempDir()
 	app := func(rt *twi.Runtime) func() twi.Node { return landing(rt, platform) }
-	if err := drive.RunScript(strings.NewReader(string(script)), app, out, drive.Styles(sheet), drive.Size(width, height)); err != nil {
+	if err := drive.RunScript(strings.NewReader(string(script)), app, out, drive.With(twi.Styles(sheet)), drive.Size(width, height)); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range []struct {

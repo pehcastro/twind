@@ -9,6 +9,7 @@ import (
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/testdata/hello"
 	"github.com/pehcastro/twind/twi/theme"
 )
@@ -22,7 +23,7 @@ func (f frames) Write(p []byte) (int, error) {
 
 func (frames) Events() <-chan input.Event           { return nil }
 func (frames) Size() (width, height int, err error) { return 20, 3, nil }
-func (frames) Sync() bool                           { return false }
+func (frames) Capabilities() terminal.Capabilities  { return terminal.Capabilities{} }
 func (frames) Exit() error                          { return nil }
 
 type wallClock struct{}

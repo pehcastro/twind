@@ -8,7 +8,6 @@ import (
 
 	rkonst "github.com/pehcastro/twind/internal/konst/runtime"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/input"
 )
 
 type tipApp struct {
@@ -17,15 +16,15 @@ type tipApp struct {
 }
 
 func (a *tipApp) build(rt *twi.Runtime) func() twi.Node {
-	box := twi.NewRef(rt)
+	box := &twi.Ref{}
 	return func() twi.Node {
 		at, view := box.Bounds(), rt.Viewport()
 		x := at.Max.X + 1
 		if x+len("tip!") > view.Max.X {
 			x = at.Min.X - 1 - len("tip!")
 		}
-		keys := twi.OnKey(func(k input.KeyEvent) {
-			switch k.Rune {
+		keys := twi.OnKey(func(e *twi.Event) {
+			switch e.Key.Rune {
 			case 'm':
 				a.boxX = 35
 			case 'h':
@@ -104,7 +103,7 @@ func TestMeasureFollowsABoxThatMovesInTheSameFrame(t *testing.T) {
 func TestMeasurePassLimitStopsALoopThatNeverSettles(t *testing.T) {
 	var builds atomic.Int32
 	r := launch(newBackend(40, 12), func(rt *twi.Runtime) func() twi.Node {
-		self := twi.NewRef(rt)
+		self := &twi.Ref{}
 		return func() twi.Node {
 			builds.Add(1)
 			x := 10

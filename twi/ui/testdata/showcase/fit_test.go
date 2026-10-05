@@ -24,7 +24,7 @@ func TestPagesFit(t *testing.T) {
 				return func() twi.Node {
 					return el("flex flex-row h-full overflow-x-auto", twi.Focusable(), twi.AutoFocus(), screen(twi.Class("flex-1"), body()))
 				}
-			}, drive.Size(size[0], size[1]), drive.Styles(sheet))
+			}, drive.Size(size[0], size[1]), drive.With(twi.Styles(sheet)))
 			d.Advance(settleTime)
 			before := d.Frame().Text()
 			d.Press("right")

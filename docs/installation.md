@@ -24,7 +24,7 @@ Then render a tree:
 
 ```go
 func main() {
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
+	rt := twi.New(twi.Styles(sheet))
 	rt.Run(func() twi.Node {
 		return twi.Element(twi.Class("p-1"), twi.Text("Hello"))
 	})

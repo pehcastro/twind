@@ -48,7 +48,7 @@ func (r *Runtime) listenDev() (stop func()) {
 }
 
 func (r *Runtime) restoreFocus() {
-	if key := r.dev.pending.Focus; key != "" && r.Focus(key) {
+	if key := r.dev.pending.Focus; key != "" && r.focusKey(key) {
 		r.dev.pending.Focus = ""
 	}
 }

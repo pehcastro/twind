@@ -27,9 +27,7 @@ func (s *serialBackend) Write(p []byte) (int, error) {
 func TestCopyBeforeRunRidesTheFirstFrame(t *testing.T) {
 	b := newBackend(10, 1)
 	rt := runtime.New(runtime.Config{Clock: &clock{}})
-	if err := rt.Copy("early"); err != nil {
-		t.Fatal(err)
-	}
+	rt.Copy("early")
 	r := run{b: b, done: make(chan error, 1)}
 	go func() {
 		r.done <- rt.Run(b, func() runtime.Tree { return runtime.Tree{Root: render.Node{Text: "copy"}} })
@@ -53,9 +51,7 @@ func TestCopyFromAnotherGoroutineWritesOnTheLoop(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		for range copies {
-			if err := rt.Copy("x"); err != nil {
-				t.Error(err)
-			}
+			rt.Copy("x")
 			rt.Dispatch(func() { tick++ })
 		}
 	})
@@ -99,21 +95,16 @@ func TestFocusFromAnotherGoroutine(t *testing.T) {
 	})
 	for range 20 {
 		r.rt.HideFocusRings()
-		if !r.rt.Focus("b") || !r.rt.Focus("a") {
-			t.Error("Focus from another goroutine refused a focusable key")
-		}
-		if r.rt.Focus("missing") {
-			t.Error("Focus from another goroutine took a missing key")
-		}
+		r.rt.Focus("b")
+		r.rt.Focus("missing")
+		r.rt.Focus("a")
 	}
 	close(stop)
 	wg.Wait()
 	if err := r.stop(t); err != nil {
 		t.Fatal(err)
 	}
-	if r.rt.Focus("a") {
-		t.Error("Focus after Run took a key")
-	}
+	r.rt.Focus("a")
 }
 
 func TestScrollIntoViewFromAnotherGoroutineWakesTheLoop(t *testing.T) {

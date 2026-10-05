@@ -189,7 +189,7 @@ func (c *Chart) choropleth(p plot) twi.Node {
 			q := point{float32(at.X) + 0.5, (float32(at.Y) + 0.5) * konst.CellRows}
 			c.point(c.atlas().locate(float32(w), float32(h*konst.CellRows), q), at)
 		}),
-		twi.OnPointerLeave(func() { c.point(0, image.Point{}) }),
+		twi.OnPointerLeave(func(*twi.Event) { c.point(0, image.Point{}) }),
 		surface(c.key(0), func(dst *image.RGBA, cell image.Point) {
 			c.canvas = c.pixels(c.canvas, dst, cell)
 			c.colour(c.canvas, p, of, pixelMetrics(cell), hover)

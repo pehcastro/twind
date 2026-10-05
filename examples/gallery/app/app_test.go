@@ -38,7 +38,7 @@ func app(t testing.TB) (drive.App, []drive.Option) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return func(rt *twi.Runtime) func() twi.Node { return gallery(rt, s) }, []drive.Option{drive.Styles(sheet), drive.Size(110, 34)}
+	return func(rt *twi.Runtime) func() twi.Node { return gallery(rt, s) }, []drive.Option{drive.With(twi.Styles(sheet)), drive.Size(110, 34)}
 }
 
 func background(name string, token theme.Token) string {

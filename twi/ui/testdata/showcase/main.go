@@ -24,13 +24,13 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet), twi.Theme(theme.Default().WithScheme(map[string]theme.Scheme{"light": theme.Light, "dark": theme.Dark}[*scheme])))
+	rt := twi.New(twi.Styles(sheet), twi.Theme(theme.Default().WithScheme(map[string]theme.Scheme{"light": theme.Light, "dark": theme.Dark}[*scheme])))
 	body, ok := page(rt, *name, *focus, *open)
 	if !ok {
 		fail(fmt.Errorf("no page %q", *name))
 	}
-	quit := twi.OnKey(func(k input.KeyEvent) {
-		if !k.Release && k.Key == input.KeyRune && k.Rune == 'q' {
+	quit := twi.OnKey(func(e *twi.Event) {
+		if k := e.Key; !k.Release && k.Key == input.KeyRune && k.Rune == 'q' {
 			rt.Quit()
 		}
 	})

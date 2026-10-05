@@ -160,8 +160,8 @@ type floating struct {
 	placedFrom              [2]image.Rectangle
 }
 
-func newFloating(rt *twi.Runtime) floating {
-	return floating{anchor: twi.NewRef(rt), box: twi.NewRef(rt), item: twi.NewRef(rt), mark: twi.NewRef(rt)}
+func newFloating() floating {
+	return floating{anchor: &twi.Ref{}, box: &twi.Ref{}, item: &twi.Ref{}, mark: &twi.Ref{}}
 }
 
 func (f *floating) highlighted(at int) twi.NodeOption {
@@ -293,11 +293,11 @@ type anchored struct {
 }
 
 func newAnchored(rt *twi.Runtime, side Side, align Alignment) anchored {
-	return anchored{overlay: overlay{control: control{rt: rt}}, floating: newFloating(rt), Side: side, Align: align}
+	return anchored{overlay: overlay{control: control{rt: rt}}, floating: newFloating(), Side: side, Align: align}
 }
 
 func (a *anchored) Node(children ...twi.NodeOption) twi.Node {
-	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(a.anchor), twi.OnPointerDownOutside(func() { a.set(false) })}, children...))
+	return part("relative flex w-fit h-fit", append([]twi.NodeOption{twi.Measure(a.anchor), twi.OnPointerDownOutside(func(*twi.Event) { a.set(false) })}, children...))
 }
 
 func (a *anchored) toggle(show func()) twi.NodeOption {
@@ -330,12 +330,12 @@ func (p *Popover) Content(children ...twi.NodeOption) twi.Node {
 type hint struct{ anchored }
 
 func (h *hint) Node(children ...twi.NodeOption) twi.Node {
-	return h.anchored.Node(append([]twi.NodeOption{twi.OnPointerEnter(func() { h.set(true) }), twi.OnPointerLeave(func() { h.set(false) })}, children...)...)
+	return h.anchored.Node(append([]twi.NodeOption{twi.OnPointerEnter(func(*twi.Event) { h.set(true) }), twi.OnPointerLeave(func(*twi.Event) { h.set(false) })}, children...)...)
 }
 
 func (h *hint) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
-	show := func(on bool) func() {
-		return func() {
+	show := func(on bool) func(*twi.Event) {
+		return func(*twi.Event) {
 			h.focused = on
 			h.set(on)
 			h.rt.Invalidate()

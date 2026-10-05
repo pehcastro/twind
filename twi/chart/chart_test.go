@@ -41,7 +41,7 @@ func chartDriver(t *testing.T, build func(rt *twi.Runtime) *Chart) (*drive.Drive
 		return func() twi.Node {
 			return twi.Element(twi.Class("flex flex-col h-full p-1 bg-background text-foreground"), c.Node())
 		}
-	}, drive.Size(100, 30), drive.Styles(sheet))
+	}, drive.Size(100, 30), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := d.Err(); err != nil {
 			t.Error(err)

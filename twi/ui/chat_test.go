@@ -46,8 +46,8 @@ func TestMessageScrollerFollowsAndStops(t *testing.T) {
 				items = append(items, s.Item(Message(a, MessageContent(Bubble(Secondary, a, BubbleContent(twi.Text("message "+strconv.Itoa(i))))))))
 			}
 			return twi.Element(twi.Class("flex flex-col gap-1 p-1 h-full bg-background text-foreground"),
-				twi.OnKey(func(k input.KeyEvent) {
-					if !k.Release && k.Key == input.KeyRune && k.Rune == 'n' {
+				twi.OnKey(func(e *twi.Event) {
+					if k := e.Key; !k.Release && k.Key == input.KeyRune && k.Rune == 'n' {
 						sent++
 						rt.Invalidate()
 					}

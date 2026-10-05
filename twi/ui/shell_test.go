@@ -462,7 +462,7 @@ func TestOverlayClosingFrame(t *testing.T) {
 	d := overlayDriver(t, 60, 12, func(rt *twi.Runtime) func() twi.Node {
 		pop, focuses = NewPopover(rt), twi.NewSignal(rt, 0)
 		return func() twi.Node {
-			refocus := twi.OnFocus(func() { focuses.Set(focuses.Get() + 1) })
+			refocus := twi.OnFocus(func(*twi.Event) { focuses.Set(focuses.Get() + 1) })
 			n := twi.Element(twi.Class("flex flex-col py-1 pl-20 h-full bg-background text-foreground"),
 				pop.Node(pop.Trigger(Outline, SizeDefault, refocus, twi.Text("open")), pop.Content(twi.Element(twi.Text("Dimensions")))))
 			state := "removed"

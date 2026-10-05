@@ -31,7 +31,7 @@ func TestGridCardHeaderDriven(t *testing.T) {
 			)
 		}
 	}
-	d := drive.New(app, drive.Size(60, 12), drive.Styles(styles))
+	d := drive.New(app, drive.Size(60, 12), drive.With(twi.Styles(styles)))
 	rows := strings.Split(d.Frame().Text(), "\n")
 	t.Logf("frame 60x12:\n%s", d.Frame().Text())
 	at := func(y int, word string) int {

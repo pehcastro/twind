@@ -30,7 +30,7 @@ func BenchmarkCommandKeyToFrame(b *testing.B) {
 			}
 			return screen(twi.Class(""), palette.Node(palette.Input("Type a command or search..."), palette.List(palette.Group("Commands", items...))))
 		}
-	}, drive.Size(150, 45), drive.Styles(sheet))
+	}, drive.Size(150, 45), drive.With(twi.Styles(sheet)))
 	now := precise(b)
 	keys := []string{"c", "o", "m", "backspace", "backspace", "backspace"}
 	samples := make([]time.Duration, 0, b.N)

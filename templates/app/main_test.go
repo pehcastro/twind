@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/tailwind"
 )
@@ -30,7 +31,7 @@ func TestDemoScript(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := t.TempDir()
-	if err := drive.RunScript(strings.NewReader(string(script)), App, out, drive.Styles(sheet)); err != nil {
+	if err := drive.RunScript(strings.NewReader(string(script)), App, out, drive.With(twi.Styles(sheet))); err != nil {
 		t.Fatal(err)
 	}
 	for frame, want := range map[string]map[string]bool{

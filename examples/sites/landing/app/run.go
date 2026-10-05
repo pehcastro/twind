@@ -22,7 +22,7 @@ func Run(args []string) error {
 	if err != nil {
 		return err
 	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
+	rt := twi.New(twi.Styles(sheet))
 	app := landing(rt, s)
 	if *at != "" {
 		rt.ScrollIntoView(sectionKey + *at)

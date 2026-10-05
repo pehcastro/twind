@@ -25,7 +25,6 @@ func (be *docsBackend) Write(p []byte) (int, error) {
 }
 
 func (be *docsBackend) Events() <-chan input.Event           { return be.events }
-func (be *docsBackend) Sync() bool                           { return true }
 func (be *docsBackend) Exit() error                          { return nil }
 func (be *docsBackend) Size() (width, height int, err error) { return 120, 36, nil }
 func (be *docsBackend) Capabilities() terminal.Capabilities {

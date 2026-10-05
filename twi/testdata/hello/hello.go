@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/input"
 )
 
 //go:generate go run github.com/pehcastro/twind/internal/twirgen
@@ -41,8 +40,8 @@ func Surfaces(rt *twi.Runtime) func() twi.Node {
 		}
 		return twi.Element(
 			twi.Class("flex flex-col gap-1 p-2 bg-zinc-950 text-zinc-100"),
-			twi.OnKey(func(k input.KeyEvent) {
-				switch k.Rune {
+			twi.OnKey(func(e *twi.Event) {
+				switch e.Key.Rune {
 				case 't':
 					typed.Set(typed.Get() + 1)
 				case 'b':

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pehcastro/twind/internal/runtime/testdata/pill"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
@@ -30,7 +31,7 @@ func (be *backend) Write(p []byte) (int, error) {
 
 func (be *backend) Events() <-chan input.Event           { return be.events }
 func (be *backend) Size() (width, height int, err error) { return columns, rows, nil }
-func (be *backend) Sync() bool                           { return be.sync }
+func (be *backend) Capabilities() terminal.Capabilities  { return terminal.Capabilities{Sync: be.sync} }
 func (be *backend) Exit() error                          { return nil }
 
 type steppingClock struct{ calls atomic.Int64 }
@@ -49,7 +50,7 @@ func BenchmarkKeyToFrame(b *testing.B) {
 	now := clock(b)
 
 	b.Run("drive", func(b *testing.B) {
-		d := drive.New(keys, drive.Size(columns, rows), drive.Styles(sheet))
+		d := drive.New(keys, drive.Size(columns, rows), drive.With(twi.Styles(sheet)))
 		samples := make([]time.Duration, 0, b.N*keysPerOp)
 		b.ResetTimer()
 		for range b.N * keysPerOp {

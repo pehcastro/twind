@@ -59,8 +59,8 @@ func (c *control) behave(keys func(input.KeyEvent) bool) []twi.NodeOption {
 	if c.Disabled {
 		return []twi.NodeOption{twi.Disabled()}
 	}
-	focus := func(on bool) func() {
-		return func() {
+	focus := func(on bool) func(*twi.Event) {
+		return func(*twi.Event) {
 			c.focused = on
 			c.rt.Invalidate()
 		}

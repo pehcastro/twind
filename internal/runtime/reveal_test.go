@@ -2,7 +2,6 @@ package runtime_test
 
 import (
 	"image"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -63,7 +62,7 @@ func TestFocusFromCodeHidesTheRing(t *testing.T) {
 		return func() twi.Node {
 			return twi.Element(twi.OnKeyDown(func(e *twi.Event) { rt.Focus(map[rune]string{'o': "one", 't': "two"}[e.Key.Rune]) }), pills())
 		}
-	}, drive.Size(30, 9), drive.Styles(styles))
+	}, drive.Size(30, 9), drive.With(twi.Styles(styles)))
 	defer func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)
@@ -93,7 +92,6 @@ func TestFocusFromCodeHidesTheRing(t *testing.T) {
 
 func TestFocusSendsBlurThenFocus(t *testing.T) {
 	a := &focusApp{}
-	var took []bool
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		a.focused = twi.NewSignal(rt, "")
 		return func() twi.Node {
@@ -101,11 +99,11 @@ func TestFocusSendsBlurThenFocus(t *testing.T) {
 				twi.OnKeyDown(func(e *twi.Event) {
 					switch e.Key.Rune {
 					case 'b':
-						took = append(took, rt.Focus("b"))
+						rt.Focus("b")
 					case 'm':
-						took = append(took, rt.Focus("missing"))
+						rt.Focus("missing")
 					case 'd':
-						took = append(took, rt.Focus("d"))
+						rt.Focus("d")
 					}
 				}),
 				twi.Text("focused "+a.focused.Get()),
@@ -130,9 +128,6 @@ func TestFocusSendsBlurThenFocus(t *testing.T) {
 	d.Press("m")
 	d.Press("d")
 	expect(t, a, "a missing key and a disabled one", "b m, b d")
-	if want := []bool{true, true, false, false}; !slices.Equal(took, want) {
-		t.Errorf("Focus returned %v, want %v", took, want)
-	}
 }
 
 func nested(before int) runtime.Tree {

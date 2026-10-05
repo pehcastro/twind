@@ -26,7 +26,7 @@ type Command struct {
 	Empty              string
 	OnSelect           func(string)
 	rt                 *twi.Runtime
-	input              *twi.Input
+	input              *Input
 	selected, searched string
 	visible            []string
 	scored, rows       []commandRow
@@ -36,9 +36,7 @@ type Command struct {
 }
 
 func NewCommand(rt *twi.Runtime) *Command {
-	in := twi.NewInput(rt)
-	in.CursorClass, in.SelectionClass, in.PlaceholderClass = cursorClass, selectionClass, placeholderClass
-	return &Command{Empty: "No results found.", rt: rt, input: in}
+	return &Command{Empty: "No results found.", rt: rt, input: NewInput(rt)}
 }
 
 func (c *Command) Search(s string) {
@@ -54,7 +52,7 @@ func (c *Command) Input(placeholder string) twi.Node {
 	c.input.Placeholder = placeholder
 	return part("flex flex-row shrink-0 items-center gap-1 border-b px-1", []twi.NodeOption{
 		icon("⌕", "shrink-0 opacity-50"),
-		c.input.Node(twi.Class("flex flex-row grow h-1 min-w-0 overflow-hidden")),
+		c.input.field("grow h-1", []twi.NodeOption{twi.Class("px-0")}),
 	})
 }
 
@@ -189,7 +187,7 @@ func (c *Command) row(r commandRow, previous rowKind) twi.Node {
 	}
 	return part(classes, append([]twi.NodeOption{
 		twi.Data("selected", strconv.FormatBool(selected)),
-		twi.OnPointerEnter(func() {
+		twi.OnPointerEnter(func(*twi.Event) {
 			if c.selected != value {
 				c.selected = value
 				c.rt.Invalidate()
@@ -285,12 +283,11 @@ func (d *CommandDialog) Node(children ...twi.NodeOption) twi.Node {
 		d.Search("")
 	}
 	d.wasOpen = d.Open
-	hotkey := twi.OnHotkey(func(k input.KeyEvent) bool {
-		pressed := k.Key == input.KeyRune && k.Rune == d.Hotkey && k.Modifiers == input.ModCtrl
-		if pressed {
+	hotkey := twi.OnHotkey(func(e *twi.Event) {
+		if e.Key.Key == input.KeyRune && e.Key.Rune == d.Hotkey && e.Key.Modifiers == input.ModCtrl {
+			e.PreventDefault()
 			d.set(!d.Open)
 		}
-		return pressed
 	})
 	return part("absolute", []twi.NodeOption{hotkey, d.Content(d.Command.Node(children...))})
 }

@@ -90,7 +90,7 @@ func (fd *formField) show(message string) {
 
 func (f *Form) Control(key string, options ...twi.NodeOption) twi.Node {
 	fd := f.field(key)
-	blur := twi.OnBlur(func() {
+	blur := twi.OnBlur(func(*twi.Event) {
 		if fd.open == nil || !*fd.open {
 			fd.show(fd.check())
 			f.rt.Invalidate()

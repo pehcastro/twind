@@ -200,7 +200,7 @@ func TestDrivenTruncateFitAspect(t *testing.T) {
 			)
 		}
 	}
-	d := drive.New(app, drive.Size(24, 10), drive.Styles(styles))
+	d := drive.New(app, drive.Size(24, 10), drive.With(twi.Styles(styles)))
 	got := d.Frame().Text()
 	t.Logf("frame 24x10:\n%s", got)
 	want := strings.Join([]string{"abcdefghi…", "hello worl", "        fit", "video", "", "", "", "", "", ""}, "\n") + "\n"

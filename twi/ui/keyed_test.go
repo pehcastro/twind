@@ -12,8 +12,8 @@ func TestKeyedChildKeepsItsBoxWhenASiblingBeforeItGoes(t *testing.T) {
 	first := true
 	d := staged(t, 20, 5, func(rt *twi.Runtime) func() twi.Node {
 		return func() twi.Node {
-			rows := []twi.NodeOption{twi.OnKey(func(k input.KeyEvent) {
-				if !k.Release && k.Key == input.KeyRune && k.Rune == 'x' {
+			rows := []twi.NodeOption{twi.OnKey(func(e *twi.Event) {
+				if k := e.Key; !k.Release && k.Key == input.KeyRune && k.Rune == 'x' {
 					first = false
 					rt.Invalidate()
 				}

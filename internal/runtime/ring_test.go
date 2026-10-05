@@ -29,7 +29,7 @@ func startRings(t *testing.T, hidden bool) *pointed {
 				twi.Element(twi.Class("text-zinc-400"), twi.Text("plain text")),
 			)
 		}
-	}, drive.Size(30, 8), drive.Styles(sheet))
+	}, drive.Size(30, 8), drive.With(twi.Styles(sheet)))
 	t.Cleanup(func() {
 		if err := p.d.Err(); err != nil {
 			t.Error(err)

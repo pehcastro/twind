@@ -68,7 +68,7 @@ func themed(t *testing.T, view func() twi.Node, width, height int) (*buffer.Buff
 	d := drive.New(func(rt *twi.Runtime) func() twi.Node {
 		rt.SetTheme(dark)
 		return view
-	}, drive.Styles(sheet), drive.Size(width, height))
+	}, drive.With(twi.Styles(sheet)), drive.Size(width, height))
 	t.Cleanup(func() {
 		if err := d.Close(); err != nil {
 			t.Error(err)
