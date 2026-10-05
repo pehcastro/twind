@@ -115,3 +115,47 @@ func TestOverlayWindowDiesWithItsProcess(t *testing.T) {
 		t.Errorf("overlay window %#x outlived its process", hwnd)
 	}
 }
+
+func TestOverlayIsTakenByALaterClaimOverItsPanel(t *testing.T) {
+	k := loadWin32()
+	owner, stranger := hiddenOwner(t, k), hiddenOwner(t, k)
+	far := image.Pt(-4000, -4000)
+	open := func(term uintptr) *layered {
+		h, err := k.overlayOn(term)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h.pixels(image.Pt(4, 4))
+		if !h.draw(far, image.Pt(4, 4), image.Rect(0, 0, 4, 4)) {
+			t.Fatal("UpdateLayeredWindowIndirect refused a transparent draw")
+		}
+		return h
+	}
+	a, b, other := open(owner), open(owner), open(stranger)
+	t.Cleanup(a.release)
+	t.Cleanup(other.release)
+	check := func(name string, wantA, wantB bool) {
+		t.Helper()
+		if gotA, gotB := a.taken(), b.taken(); gotA != wantA || gotB != wantB {
+			t.Errorf("%s: taken A %t B %t, want A %t B %t", name, gotA, gotB, wantA, wantB)
+		}
+	}
+	check("nobody claimed", false, false)
+	a.take()
+	check("A claimed", false, true)
+	b.take()
+	check("B claimed", true, false)
+	other.take()
+	other.take()
+	check("another host's overlay claimed", true, false)
+	a.take()
+	b.take()
+	check("A then B claimed again", true, false)
+	b.move(far.Add(image.Pt(8, 0)))
+	check("B beside A", false, false)
+	b.move(far)
+	b.release()
+	if a.taken() || windows.IsWindowVisible(windows.HWND(a.hwnd)) {
+		t.Errorf("B closed: A taken %t, or A became visible", a.taken())
+	}
+}

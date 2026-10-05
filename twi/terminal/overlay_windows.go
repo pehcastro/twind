@@ -55,6 +55,7 @@ type layered struct {
 	ended  chan struct{}
 	dib    gdiWindow
 	shot   gdiWindow
+	claim  *uint16
 }
 
 func OverlayHost(c Capabilities) (string, bool) {
@@ -72,7 +73,7 @@ func (k win32) hostExe() string {
 }
 
 func (k win32) overlay(tr *trace, id Identity) (host, error) {
-	for _, p := range []*windows.LazyProc{k.createDC, k.deleteDC, k.selectObject, k.deleteObject, k.createDIB, k.clientRect, k.getDC, k.releaseDC, k.bitBlt, k.clientToScreen, k.iconic, k.findWindow, k.relative, k.registerClass, k.createWindow, k.destroyWindow, k.showWindow, k.setWindowPos, k.updateLayered, k.getMessage, k.dispatchMessage, k.postThreadMessage, k.defProc} {
+	for _, p := range []*windows.LazyProc{k.createDC, k.deleteDC, k.selectObject, k.deleteObject, k.createDIB, k.clientRect, k.getDC, k.releaseDC, k.bitBlt, k.clientToScreen, k.iconic, k.findWindow, k.relative, k.windowRect, k.setProp, k.getProp, k.removeProp, k.registerClass, k.createWindow, k.destroyWindow, k.showWindow, k.setWindowPos, k.updateLayered, k.getMessage, k.dispatchMessage, k.postThreadMessage, k.defProc} {
 		if err := p.Find(); err != nil {
 			return nil, err
 		}
@@ -144,7 +145,8 @@ func (k win32) describe(term uintptr, exe string) string {
 func (k win32) overlayOn(term uintptr) (*layered, error) {
 	dc, _, err := k.createDC.Call(0)
 	shot, _, _ := k.createDC.Call(0)
-	h := &layered{k: k, term: term, ended: make(chan struct{}), dib: gdiWindow{k: k, dc: dc}, shot: gdiWindow{k: k, dc: shot}}
+	claim, _ := windows.UTF16PtrFromString(konst.OverlayClaim)
+	h := &layered{k: k, term: term, ended: make(chan struct{}), dib: gdiWindow{k: k, dc: dc}, shot: gdiWindow{k: k, dc: shot}, claim: claim}
 	if dc == 0 || shot == 0 {
 		h.dib.release()
 		h.shot.release()
@@ -186,6 +188,7 @@ func (h *layered) pump(made chan<- error) {
 		}
 		_, _, _ = h.k.dispatchMessage.Call(uintptr(unsafe.Pointer(&msg)))
 	}
+	_, _, _ = h.k.removeProp.Call(h.hwnd, uintptr(unsafe.Pointer(h.claim)))
 	_, _, _ = h.k.destroyWindow.Call(h.hwnd)
 }
 
@@ -255,6 +258,40 @@ func (h *layered) move(at image.Point) {
 	h.k.aware(func() {
 		_, _, _ = h.k.setWindowPos.Call(h.hwnd, 0, uintptr(at.X), uintptr(at.Y), 0, 0, konst.MoveOnly)
 	})
+}
+
+func (h *layered) claims() map[uintptr]uintptr {
+	class, _ := windows.UTF16PtrFromString(konst.OverlayClass)
+	found := map[uintptr]uintptr{}
+	for w, _, _ := h.k.findWindow.Call(0, 0, uintptr(unsafe.Pointer(class)), 0); w != 0; w, _, _ = h.k.findWindow.Call(0, w, uintptr(unsafe.Pointer(class)), 0) {
+		if owner, _, _ := h.k.relative.Call(w, konst.OwnerWindow); owner == h.term {
+			found[w], _, _ = h.k.getProp.Call(w, uintptr(unsafe.Pointer(h.claim)))
+		}
+	}
+	return found
+}
+
+func (h *layered) take() {
+	top := uintptr(0)
+	for _, c := range h.claims() {
+		top = max(top, c)
+	}
+	_, _, _ = h.k.setProp.Call(h.hwnd, uintptr(unsafe.Pointer(h.claim)), top+1)
+}
+
+func (h *layered) taken() bool {
+	rect := func(w uintptr) image.Rectangle {
+		var r windows.Rect
+		_, _, _ = h.k.windowRect.Call(w, uintptr(unsafe.Pointer(&r)))
+		return image.Rect(int(r.Left), int(r.Top), int(r.Right), int(r.Bottom))
+	}
+	claims := h.claims()
+	for w, c := range claims {
+		if c > claims[h.hwnd] && rect(w).Overlaps(rect(h.hwnd)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *layered) show() {

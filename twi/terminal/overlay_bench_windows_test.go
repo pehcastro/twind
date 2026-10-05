@@ -43,7 +43,7 @@ func benchOverlay(b *testing.B) *overlay {
 	o := &overlay{win: h, grid: grid, cell: image.Pt(8, 17), origin: image.Pt(-4000, -4000)}
 	o.size = image.Pt(cols[grid.X], rows[grid.Y])
 	o.columns, o.lines = remap(cols, o.cell.X), remap(rows, o.cell.Y)
-	o.fresh = true
+	o.fresh, o.visible = true, true
 	if !o.paint(Pixels{Cell: o.cell, Grid: grid, Clear: true}) {
 		b.Fatal("the first clear paint was refused")
 	}
@@ -63,6 +63,24 @@ func benchTiles(o *overlay, area image.Rectangle) []Tile {
 		}
 	}
 	return tiles
+}
+
+func BenchmarkOverlayTaken(b *testing.B) {
+	h := benchOverlay(b).win.(*layered)
+	other, err := loadWin32().overlayOn(h.term)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(other.release)
+	other.pixels(image.Pt(4, 4))
+	other.draw(image.Pt(-4000, -4000), image.Pt(4, 4), image.Rect(0, 0, 4, 4))
+	h.take()
+	other.take()
+	for b.Loop() {
+		if !h.taken() {
+			b.Fatal("not taken by the later claim")
+		}
+	}
 }
 
 func BenchmarkOverlayPaint(b *testing.B) {

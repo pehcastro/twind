@@ -145,6 +145,7 @@ const (
 	OverlayExStyle   = 0x00080000 | 0x00000020 | 0x08000000 | 0x00000080
 	PopupStyle       = 0x80000000
 	OwnerWindow      = 4
+	OverlayClaim     = "TwindOverlayClaim"
 	ShowNoActivate   = 4
 	HideWindow       = 0
 	MoveOnly         = 0x0001 | 0x0004 | 0x0010

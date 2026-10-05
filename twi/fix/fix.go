@@ -72,9 +72,10 @@ func Undo(dir string) (string, error) {
 
 func Ask(r io.Reader, w io.Writer) func(Plan) bool {
 	return func(p Plan) bool {
-		_, _ = fmt.Fprintf(w, "%sType yes to go ahead: ", p)
+		_, _ = fmt.Fprintf(w, "%sType y or yes to go ahead: ", p)
 		answer, _ := bufio.NewReader(r).ReadString('\n')
-		return strings.EqualFold(strings.TrimSpace(answer), "yes")
+		answer = strings.ToLower(strings.TrimSpace(answer))
+		return answer == "y" || answer == "yes"
 	}
 }
 

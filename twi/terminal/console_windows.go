@@ -96,7 +96,8 @@ type win32 struct {
 	createFont, createDC, selectObject, glyphIndices, deleteDC, deleteObject *windows.LazyProc
 	createDIB, bitBlt, alphaBlend                                            *windows.LazyProc
 	getDC, releaseDC, clientRect, invalidateRect, threadDPI                  *windows.LazyProc
-	clientToScreen, iconic, findWindow, relative                             *windows.LazyProc
+	clientToScreen, iconic, findWindow, relative, windowRect                 *windows.LazyProc
+	setProp, getProp, removeProp                                             *windows.LazyProc
 	registerClass, createWindow, destroyWindow, showWindow, setWindowPos     *windows.LazyProc
 	updateLayered, getMessage, dispatchMessage, postThreadMessage, defProc   *windows.LazyProc
 	textColor, backColor, textAlign, textOut, flush                          *windows.LazyProc
@@ -127,6 +128,10 @@ func loadWin32() win32 {
 		iconic:            user.NewProc("IsIconic"),
 		findWindow:        user.NewProc("FindWindowExW"),
 		relative:          user.NewProc("GetWindow"),
+		windowRect:        user.NewProc("GetWindowRect"),
+		setProp:           user.NewProc("SetPropW"),
+		getProp:           user.NewProc("GetPropW"),
+		removeProp:        user.NewProc("RemovePropW"),
 		registerClass:     user.NewProc("RegisterClassExW"),
 		createWindow:      user.NewProc("CreateWindowExW"),
 		destroyWindow:     user.NewProc("DestroyWindow"),

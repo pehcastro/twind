@@ -36,6 +36,40 @@ type fakeHost struct {
 	refused  bool
 	term     *fakeTerminal
 	leftLast bool
+	panel    *fakePanel
+	asked    int
+}
+
+type fakePanel struct {
+	mu      sync.Mutex
+	claimed []*fakeHost
+}
+
+func (h *fakeHost) take() {
+	if h.panel == nil {
+		return
+	}
+	h.panel.mu.Lock()
+	defer h.panel.mu.Unlock()
+	h.panel.claimed = append(slices.DeleteFunc(h.panel.claimed, func(o *fakeHost) bool { return o == h }), h)
+}
+
+func (h *fakeHost) taken() bool {
+	h.mu.Lock()
+	h.asked++
+	mine := image.Rectangle{Min: h.drawnAt, Max: h.drawnAt.Add(h.size)}
+	h.mu.Unlock()
+	if h.panel == nil {
+		return false
+	}
+	h.panel.mu.Lock()
+	defer h.panel.mu.Unlock()
+	later := h.panel.claimed[slices.Index(h.panel.claimed, h)+1:]
+	return slices.ContainsFunc(later, func(o *fakeHost) bool {
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		return image.Rectangle{Min: o.drawnAt, Max: o.drawnAt.Add(o.size)}.Overlaps(mine)
+	})
 }
 
 func (h *fakeHost) place() (hostPlace, error) {
@@ -106,6 +140,11 @@ func (h *fakeHost) hide() {
 }
 
 func (h *fakeHost) release() {
+	if h.panel != nil {
+		h.panel.mu.Lock()
+		h.panel.claimed = slices.DeleteFunc(h.panel.claimed, func(o *fakeHost) bool { return o == h })
+		h.panel.mu.Unlock()
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.released = true
@@ -1019,6 +1058,64 @@ func TestOverlayHidesWhenItsCellsLeaveTheScreen(t *testing.T) {
 	for range 5 {
 		step("focused again", ours, same, 0, GraphicsGDI, false)
 	}
+}
+
+func TestOverlayTwoAppsInTwoTabsOfOneWindow(t *testing.T) {
+	panel := &fakePanel{}
+	tabA, tabB := zedHost(), zedHost()
+	tabA.panel, tabB.panel = panel, panel
+	a, b := &overlay{win: tabA, cells: zedCells}, &overlay{win: tabB, cells: zedCells}
+	top := image.Rect(0, 0, zedGrid.X, 1)
+	full := Pixels{Cell: zedCell, Grid: zedGrid, Clear: true, Tiles: []Tile{{Cells: top, Pix: opaque(top, zedCell)}}}
+	b.focus(true)
+	now, _ := calibrate(t, b, tabB, time.Now())
+	b.paint(full)
+	b.focus(false)
+	a.focus(true)
+	now, _ = calibrate(t, a, tabA, now)
+	a.paint(full)
+	ours, foreign := zedScreen(nil), zedScreen(nil)
+	for i := 0; i < len(foreign); i += 4 {
+		foreign[i] = 200
+	}
+	type app struct {
+		name string
+		o    *overlay
+		h    *fakeHost
+		want Graphics
+	}
+	step := func(name string, screen []byte, apps ...app) {
+		t.Helper()
+		now = now.Add(konst.OverlayCoverPoll)
+		for _, p := range apps {
+			p.h.set(func(h *fakeHost) { h.screen = screen })
+			p.o.tick(zedGrid, now)
+			if g, _ := p.o.surface(); g == GraphicsGDI {
+				p.o.paint(full)
+			}
+			g, _ := p.o.surface()
+			if shown, _, _ := p.h.state(); g != p.want || shown != (p.want == GraphicsGDI) {
+				t.Errorf("%s: app %s graphics %d shown %t, want graphics %d", name, p.name, g, shown, p.want)
+			}
+		}
+	}
+	shown, hidden := GraphicsGDI, GraphicsNone
+	step("A's tab shown and focused, B's tab behind it", ours, app{"A", a, tabA, shown}, app{"B", b, tabB, hidden})
+	if tabA.asked != 0 {
+		t.Errorf("the focused app looked for overlays above it %d times", tabA.asked)
+	}
+	a.focus(false)
+	step("focus in the editor, A's tab still shown", ours, app{"A", a, tabA, shown}, app{"B", b, tabB, hidden})
+	b.focus(true)
+	step("B's tab selected, before B's overlay is shown", ours, app{"A", a, tabA, hidden}, app{"B", b, tabB, shown})
+	step("B's tab selected, one check later", ours, app{"A", a, tabA, hidden}, app{"B", b, tabB, shown})
+	b.focus(false)
+	step("another program's tab selected", foreign, app{"A", a, tabA, hidden}, app{"B", b, tabB, hidden})
+	a.focus(true)
+	step("A's tab selected again", ours, app{"B", b, tabB, hidden}, app{"A", a, tabA, shown})
+	step("A's tab still", ours, app{"A", a, tabA, shown}, app{"B", b, tabB, hidden})
+	a.close()
+	step("A closed, Zed shows B's tab", ours, app{"B", b, tabB, shown})
 }
 
 func TestOverlayHiddenGivesTheCellsLook(t *testing.T) {

@@ -292,8 +292,8 @@ func TestScriptQuotesEveryPath(t *testing.T) {
 	}
 }
 
-func TestAskWantsAnExplicitYes(t *testing.T) {
-	for in, want := range map[string]bool{"yes\n": true, "YES\r\n": true, "y\n": false, "\n": false, "": false, "no\n": false} {
+func TestAskTakesYesOrY(t *testing.T) {
+	for in, want := range map[string]bool{"yes\n": true, "YES\r\n": true, "y\n": true, "Y\r\n": true, "Yes\n": true, "n\n": false, "no\n": false, "N\r\n": false, "\n": false, "": false, "yep\n": false, "ok\n": false} {
 		var out bytes.Buffer
 		if got := Ask(strings.NewReader(in), &out)(Plan{Terminal: `C:\a\alacritty.exe`}); got != want {
 			t.Errorf("answer %q: %v, want %v", in, got, want)

@@ -33,6 +33,8 @@ type host interface {
 	pixels(size image.Point) []byte
 	draw(at, size image.Point, dirty image.Rectangle) bool
 	move(at image.Point)
+	take()
+	taken() bool
 	show()
 	hide()
 	release()
@@ -279,10 +281,21 @@ func (o *overlay) focus(focused bool) {
 	o.blurred = !focused
 	if focused {
 		o.covered = false
+		o.win.take()
 	}
 }
 
 func (o *overlay) check(at hostPlace) {
+	cover := func(covered bool, why string, args ...any) {
+		if covered != o.covered {
+			o.covered = covered
+			o.trace.log("cover: "+why+", covered %t", append(args, covered)...)
+		}
+	}
+	if o.win.taken() {
+		cover(true, "another Twind overlay over this panel had focus more recently")
+		return
+	}
 	px := graphicskonst.GDIBytes
 	if !o.picked {
 		o.picked, o.line = true, 0
@@ -313,10 +326,7 @@ func (o *overlay) check(at hostPlace) {
 			page++
 		}
 	}
-	if covered := page < konst.OverlayOurPage; covered != o.covered {
-		o.covered = covered
-		o.trace.log("cover: %d of %d pixels on line %d are the page %v, covered %t", page, o.size.X, o.line, o.page, covered)
-	}
+	cover(page < konst.OverlayOurPage, "%d of %d pixels on line %d are the page %v", page, o.size.X, o.line, o.page)
 }
 
 func (o *overlay) tick(grid image.Point, now time.Time) (input.ResizeEvent, bool) {
