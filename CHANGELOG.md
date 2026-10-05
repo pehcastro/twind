@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.0 (2026-10-05)
+
+The first public release: try every demo with one command, right-to-left text, pixel charts, forms.
+
+- Module path is now `github.com/pehcastro/twind`. The library requires only `golang.org/x/mod` and `golang.org/x/sys`.
+- Try it: `docs.ps1` and `docs.sh` (and one pair per example) download the `twind` binary for your system from the GitHub release, check its sha256 and run it. `twind try` runs the landing pages, portfolio, playground and gallery from the same binary.
+- `twi/chart` draws in pixels through the new `twi.Canvas`: pie, donut, radial, radar, a world map by country, dithered areas, horizontal, negative and labelled bars, step areas, and an area chart with a range brush that zooms.
+- Right-to-left: text is shown in visual order (all 91,707 Unicode bidi conformance lines pass); `twi.Dir` and `ui.Direction` set a paragraph's direction.
+- `ui.Form` binds fields to rules, messages, submit and reset.
+- Select, native select and combobox open from a click anywhere on the control, and their lists draw above any card that clips.
+- One-row buttons and pills read as one pill in Windows Terminal. The PowerShell window draws letters its console font lacks (Hebrew, symbols) from a fallback font.
+- `twind doctor -fix` takes `y`. Known: two Twind apps in two tabs of one Zed window still draw over each other.
+- Sticky positioning; End and PgDn scroll the page; scroll thumbs stay under overlays; toasts clear open sheets.
+- One highlighter colours code in the docs and the portfolio. The docs have an API reference generated from the source.
+- Speed: event paths built once per frame (up to 1.37x less garbage); layout cost of sticky and half rows paid only where used.
+
 ## v0.4.0 (2026-10-04)
 
 Build a full app: events, focus, mouse, motion, the shadcn component set, a docs app and a dev mode, in every Windows terminal.
