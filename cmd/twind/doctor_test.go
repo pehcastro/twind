@@ -129,6 +129,26 @@ func TestDoctorNamesEachIdentity(t *testing.T) {
 	identityName(terminal.IdentityVSCode + 1)
 }
 
+func TestDoctorNamesEachGraphicsKind(t *testing.T) {
+	for g, want := range map[terminal.Graphics]string{
+		terminal.GraphicsNone:   "none",
+		terminal.GraphicsSixel:  "sixel",
+		terminal.GraphicsITerm2: "iterm2",
+		terminal.GraphicsKitty:  "kitty",
+		terminal.GraphicsGDI:    "gdi, drawn over the console window",
+	} {
+		if got := graphicsName(g); got != want {
+			t.Errorf("graphics %d: %q, want %q", g, got, want)
+		}
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an unknown graphics kind did not panic")
+		}
+	}()
+	graphicsName(terminal.GraphicsGDI + 1)
+}
+
 func TestDoctorNamesTheOverlayHostWhereOneDraws(t *testing.T) {
 	var asked []terminal.Capabilities
 	host := func(c terminal.Capabilities) (string, bool) {

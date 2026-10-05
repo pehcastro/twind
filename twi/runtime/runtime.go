@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"image"
 	"io"
+	goruntime "runtime"
 	"runtime/debug"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -71,6 +73,9 @@ type Runtime struct {
 	timers  []*Timer
 	now     time.Time
 	awake   bool
+	clip    []byte
+	looper  string
+	stopped chan struct{}
 
 	app           func() Tree
 	built         Tree
@@ -87,7 +92,6 @@ type Runtime struct {
 	walker        scene.Walker
 	pointer       pointer
 	sel           selection
-	out           io.Writer
 	pointed       bool
 	ringless      bool
 	ringsHidden   bool
@@ -148,8 +152,26 @@ func (r *Runtime) Invalidate() {
 }
 
 func (r *Runtime) HideFocusRings() {
-	r.ringsHidden = true
-	r.Invalidate()
+	r.owned(func() { r.ringsHidden, r.dirty = true, true })
+}
+
+func (r *Runtime) owned(f func()) {
+	if looper, _ := r.looping(); looper != goroutine() {
+		r.Dispatch(f)
+		return
+	}
+	f()
+}
+
+func (r *Runtime) looping() (looper string, stopped chan struct{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.looper, r.stopped
+}
+
+func goroutine() string {
+	var trace [konst.GoroutineHeader]byte
+	return strings.Fields(string(trace[:goruntime.Stack(trace[:], false)]))[1]
 }
 
 func (r *Runtime) Restyle(apply func()) {
@@ -179,7 +201,7 @@ func (r *Runtime) Run(b Backend, app func() Tree) (err error) {
 		}
 	}()
 	r.app = app
-	r.phases.begin(b)
+	r.phases.begin(b, r.cfg.Clock)
 	if r.cfg.DevState == "" {
 		return errors.Join(r.loop(b), b.Exit())
 	}
@@ -188,11 +210,21 @@ func (r *Runtime) Run(b Backend, app func() Tree) (err error) {
 }
 
 func (r *Runtime) loop(b Backend) error {
+	r.mu.Lock()
+	r.looper, r.stopped = goroutine(), make(chan struct{})
+	r.mu.Unlock()
+	defer func() {
+		r.mu.Lock()
+		r.looper = ""
+		close(r.stopped)
+		r.mu.Unlock()
+	}()
 	var err error
 	if r.width, r.height, err = b.Size(); err != nil {
 		return err
 	}
-	r.dirty, r.rebuild, r.out, r.start = true, true, b, r.cfg.Clock.Now()
+	out := clipped{r, b}
+	r.dirty, r.rebuild, r.start = true, true, r.cfg.Clock.Now()
 	events := b.Events()
 	var ev input.Event
 	var alarm <-chan time.Time
@@ -212,7 +244,8 @@ func (r *Runtime) loop(b Backend) error {
 		r.expire(now)
 		if r.quitting.Load() {
 			r.drain()
-			return nil
+			_, err := out.Write(nil)
+			return err
 		}
 		changed, due := r.changed.Swap(false), !r.motionAt.IsZero() && !r.motionDue().After(now)
 		r.rebuild = r.rebuild || changed
@@ -229,6 +262,9 @@ func (r *Runtime) loop(b Backend) error {
 				}
 				now = r.cfg.Clock.Now()
 			}
+		}
+		if _, err := out.Write(nil); err != nil {
+			return err
 		}
 		select {
 		case <-alarm:
@@ -448,7 +484,7 @@ func (r *Runtime) frame(b Backend, now time.Time) error {
 	r.texts, r.stale = r.stale, r.texts
 	clear(r.texts)
 	if r.screen == nil {
-		r.screen = &present.Screen{Out: b, Profile: r.cfg.Profile, Sync: b.Sync(), Margins: r.caps.Margins}
+		r.screen = &present.Screen{Out: clipped{r, b}, Profile: r.cfg.Profile, Sync: b.Sync(), Margins: r.caps.Margins}
 		if c, ok := b.(interface{ Covers(cluster string) bool }); ok {
 			r.screen.Covers = c.Covers
 		}
@@ -557,8 +593,8 @@ func (r *Runtime) capabilities(b Backend) terminal.Capabilities {
 }
 
 func (r *Runtime) surface(caps terminal.Capabilities) (terminal.Graphics, image.Point) {
-	if r.cfg.Graphics != nil {
-		caps.Graphics = *r.cfg.Graphics
+	if forced := r.cfg.Graphics; forced != nil && (*forced != terminal.GraphicsGDI || caps.Graphics == terminal.GraphicsGDI) {
+		caps.Graphics = *forced
 	}
 	if r.cfg.Profile < color.ANSI256 || caps.Graphics == terminal.GraphicsNone || caps.CellPixels.X <= 0 || caps.CellPixels.Y <= 0 {
 		return terminal.GraphicsNone, image.Point{}

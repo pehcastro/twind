@@ -23,7 +23,8 @@ const twindModule = "github.com/pehcastro/twind"
 const newHelp = `Writes a fullscreen app into dir: a sidebar, cards, a dialog and a theme picker, its Style IR,
 a driver script with a test that replays it, a go.mod and a README.
 dir must not exist or must be empty; nothing is ever overwritten.
-Twind has no published version yet: the README says how to point the app at a checkout.`
+go.mod requires the Twind version this twind was built from; a twind built from a checkout writes v0.0.0,
+and the README then says how to point the app at the checkout.`
 
 func newApp(args []string, stdout io.Writer) error {
 	set := flags("new", "[-module path] dir", newHelp)
@@ -68,8 +69,15 @@ func newApp(args []string, stdout io.Writer) error {
 			}
 		}
 	}
-	data := map[string]string{"Module": mod, "Name": path.Base(mod), "Version": version}
-	err = fs.WalkDir(templates.App, "app", func(name string, entry fs.DirEntry, err error) error {
+	if err := writeApp(dir, map[string]string{"Module": mod, "Name": path.Base(mod), "Version": version}); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdout, "wrote module %s in %s\n", mod, dir)
+	return err
+}
+
+func writeApp(dir string, data map[string]string) error {
+	return fs.WalkDir(templates.App, "app", func(name string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return err
 		}
@@ -99,9 +107,4 @@ func newApp(args []string, stdout io.Writer) error {
 		_, err = file.Write(src)
 		return errors.Join(err, file.Close())
 	})
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(stdout, "wrote module %s in %s\n", mod, dir)
-	return err
 }

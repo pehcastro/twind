@@ -2,6 +2,7 @@
 
 A fullscreen Twind app: a sidebar, cards, a dialog and a light and dark theme picker, styled with Tailwind classes and twi/ui components.
 
+    go mod tidy                                 once: fetch Twind and write go.sum
     go run .                                    run it: t picks the theme, tab moves focus, enter opens, q quits
     go tool twind dev .                         run it and swap in a new build on every save, styles included
     go test ./...                               check the styles are fresh and replay testdata/demo.twd
@@ -11,11 +12,13 @@ A fullscreen Twind app: a sidebar, cards, a dialog and a light and dark theme pi
 
 ## Styles
 
-`twir_gen.go` holds the Style IR compiled from the Tailwind classes in this package and the twi/ui components it imports. It is committed, so the app builds with the Go toolchain alone. After changing a class, `go tool twind build` regenerates it (`twind dev` does so on every save), and `go tool twind check` says whether it is stale. Tailwind is not needed to build: it runs only to regenerate, from `.twind/bin/` in this or a parent directory, or else from the user cache (`%LocalAppData%\twind\tailwind\<version>` on Windows, `~/.cache/twind/tailwind/<version>` on Linux, `~/Library/Caches/twind/tailwind/<version>` on macOS), fetched there once from the Tailwind release and checked against the pinned sha256.
+`twir_gen.go` holds the Style IR compiled from the Tailwind classes in this package and the twi/ui components it imports. It is committed, so the app builds with the Go toolchain alone. After changing a class, `go tool twind build` regenerates it (`twind dev` does so on every save), and `go tool twind check` says whether it is stale. Use `twind build` rather than `go generate`: only `twind build` fetches Tailwind. Tailwind is not needed to build: it runs only to regenerate, from `.twind/bin/` in this or a parent directory, or else from the user cache (`%LocalAppData%\twind\tailwind\<version>` on Windows, `~/.cache/twind/tailwind/<version>` on Linux, `~/Library/Caches/twind/tailwind/<version>` on macOS), fetched there once from the Tailwind release and checked against the pinned sha256.
+{{- if eq .Version "v0.0.0"}}
 
-## Before the first Twind release
+## Twind from a checkout
 
-Twind has no published version yet. Point the module at a checkout:
+This app was written by a `twind` built from a checkout, so go.mod names no released version. Point the module at the checkout before `go mod tidy`:
 
     go mod edit -replace github.com/pehcastro/twind=../twind
     go mod tidy
+{{- end}}

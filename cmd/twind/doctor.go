@@ -316,6 +316,8 @@ func graphicsName(g terminal.Graphics) string {
 		return "iterm2"
 	case terminal.GraphicsKitty:
 		return "kitty"
+	case terminal.GraphicsGDI:
+		return "gdi, drawn over the console window"
 	}
 	panic("twind: unknown graphics protocol " + strconv.Itoa(int(g)))
 }

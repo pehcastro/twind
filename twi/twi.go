@@ -127,10 +127,8 @@ func OnKey(handler func(input.KeyEvent)) NodeOption { return onKey(handler) }
 
 type classList struct {
 	names  []string
-	inline [inlineClasses]string
+	inline [konst.InlineClasses]string
 }
-
-const inlineClasses = 8
 
 func (c *classList) apply(n *node) {
 	if n.tree.Classes == nil && len(c.names) > 0 {
@@ -208,8 +206,8 @@ func Class(classes ...string) NodeOption {
 		}
 	}
 	list := &classList{}
-	list.names = list.inline[:0:min(count, inlineClasses)]
-	if count > inlineClasses {
+	list.names = list.inline[:0:min(count, konst.InlineClasses)]
+	if count > konst.InlineClasses {
 		list.names = make([]string, 0, count)
 	}
 	for _, c := range classes {
@@ -289,7 +287,7 @@ func Render(w io.Writer, node Node, opts ...RenderOption) (err error) {
 	if cfg.theme != nil {
 		cfg.sheet = cfg.sheet.WithTheme(cfg.theme)
 	}
-	if os.Getenv("TWIND_GRAPHICS") != "" {
+	if os.Getenv(termkonst.GraphicsEnv) != "" {
 		cfg.graphics = nil
 	}
 	f, ok := w.(*os.File)

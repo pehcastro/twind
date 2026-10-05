@@ -220,4 +220,5 @@ const (
 	KittyZlibAnswer    = "Gi=31;"
 	KittyRawAnswer     = "Gi=32;"
 	DoctorQueries      = VersionQuery + SecondaryQuery + KeyboardQuery + DoctorModes + TruecolorQuery + ClipboardQuery + PointerQuery + KittyQuery + KittyRawQuery + GridQuery
+	GraphicsEnv        = "TWIND_GRAPHICS"
 )

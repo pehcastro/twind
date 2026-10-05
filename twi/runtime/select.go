@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"io"
 	"slices"
 	"strings"
 	"time"
@@ -287,8 +288,31 @@ func (r *Runtime) Copy(text string) error {
 	if r.cfg.NoClipboard {
 		return nil
 	}
-	_, err := r.out.Write(terminal.Clipboard(text))
-	return err
+	r.mu.Lock()
+	r.clip = append(r.clip, terminal.Clipboard(text)...)
+	r.mu.Unlock()
+	r.wakeUp()
+	return nil
+}
+
+type clipped struct {
+	r *Runtime
+	io.Writer
+}
+
+func (c clipped) Write(frame []byte) (int, error) {
+	c.r.mu.Lock()
+	clip := c.r.clip
+	c.r.clip = nil
+	c.r.mu.Unlock()
+	switch {
+	case len(clip) == 0 && len(frame) == 0:
+		return 0, nil
+	case len(clip) == 0:
+		return c.Writer.Write(frame)
+	}
+	_, err := c.Writer.Write(append(clip, frame...))
+	return len(frame), err
 }
 
 func (r *Runtime) highlight(root scene.Node) scene.Node {

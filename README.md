@@ -72,9 +72,16 @@ func main() {
 }
 ```
 
-`go run github.com/pehcastro/twind/cmd/twind build` compiles the classes into `twir_gen.go`, which holds `Styles()`. It fetches the pinned Tailwind once and checks its checksum. Commit `twir_gen.go`; after that nobody needs Tailwind to build. Then `go run .`.
+`go run github.com/pehcastro/twind/cmd/twind build` compiles the classes into `twir_gen.go`, which holds `Styles()`. It fetches the pinned Tailwind once and checks its checksum. Commit `twir_gen.go`; after that nobody needs Tailwind to build. Then `go run .`. Use `twind build` rather than `go generate`: the go:generate line is how `twind build` finds the package, and run alone it finds Tailwind only in `.twind/bin/`, which nothing has fetched.
 
-`go run github.com/pehcastro/twind/cmd/twind new myapp` writes a complete app to start from: a sidebar, cards, a dialog and a theme picker.
+To start from a complete app instead, a sidebar, cards, a dialog and a theme picker, run this outside any Go module, since it writes a module of its own:
+
+```sh
+go run github.com/pehcastro/twind/cmd/twind@latest new myapp
+cd myapp
+go mod tidy
+go run .
+```
 
 ## More
 

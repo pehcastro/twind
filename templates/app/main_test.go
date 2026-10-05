@@ -53,6 +53,11 @@ func TestDemoScript(t *testing.T) {
 
 func TestQuitsOnQOutsideTheDialog(t *testing.T) {
 	d := drive.New(App, drive.Size(120, 34))
+	defer func() {
+		if err := d.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	d.Press("tab")
 	d.Press("tab")
 	d.Press("enter")

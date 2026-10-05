@@ -12,16 +12,18 @@ type tracer interface {
 
 type phases struct {
 	to      tracer
+	clock   Clock
 	started time.Time
 	input   time.Time
 	drawn   bool
 	after   bool
 }
 
-func (p *phases) begin(b Backend) {
+func (p *phases) begin(b Backend, clock Clock) {
+	p.clock = clock
 	p.to, _ = b.(tracer)
 	if p.to != nil {
-		p.started = time.Now()
+		p.started = clock.Now()
 	}
 }
 
@@ -31,7 +33,7 @@ func (p *phases) seen(ev input.Event) {
 	}
 	switch ev.(type) {
 	case input.KeyEvent, input.MouseEvent, input.PasteEvent:
-		p.input = time.Now()
+		p.input = p.clock.Now()
 		p.to.Trace("runtime: first input")
 	}
 }
@@ -41,11 +43,15 @@ func (p *phases) frame() {
 	case p.to == nil:
 	case !p.drawn:
 		p.drawn = true
-		p.to.Trace("runtime: first frame drawn in %v", time.Since(p.started).Round(time.Microsecond))
+		p.to.Trace("runtime: first frame drawn in %v", p.since(p.started))
 	case !p.after && !p.input.IsZero():
 		p.after = true
-		p.to.Trace("runtime: first frame after the first input, %v after it", time.Since(p.input).Round(time.Microsecond))
+		p.to.Trace("runtime: first frame after the first input, %v after it", p.since(p.input))
 	}
+}
+
+func (p *phases) since(t time.Time) time.Duration {
+	return p.clock.Now().Sub(t).Round(time.Microsecond)
 }
 
 func (p *phases) log(format string, args ...any) {

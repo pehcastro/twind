@@ -3,11 +3,14 @@ package twi
 import (
 	"errors"
 	"os"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
 
 	devkonst "github.com/pehcastro/twind/internal/dev/konst"
+	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	konst "github.com/pehcastro/twind/internal/konst/twi"
 	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/runtime"
 	"github.com/pehcastro/twind/twi/terminal"
@@ -46,7 +49,7 @@ func New(opts ...RenderOption) *Runtime {
 			cfg.profile, cfg.profileSet = terminal.Profile(os.Stdout, os.Getenv), true
 		}
 	}
-	if os.Getenv("TWIND_GRAPHICS") != "" {
+	if os.Getenv(termkonst.GraphicsEnv) != "" {
 		cfg.graphics = nil
 	}
 	r := &Runtime{cfg: cfg, theme: theme.Default()}
@@ -79,20 +82,22 @@ func (r *Runtime) Run(app func() Node) error {
 		b = terminalBackend{t}
 	}
 	return r.Runtime.Run(b, func() runtime.Tree {
-		r.Remember("twi.theme", r.themeKey, r.restoreTheme)
+		r.Remember(konst.ThemeState, func() string { return themeKey(r.theme) }, r.restoreTheme)
 		return app().runtimeTree()
 	})
 }
 
-func (r *Runtime) themeKey() string {
-	return r.theme.Name + "/" + strconv.Itoa(int(r.theme.Scheme))
+func themeKey(t theme.Theme) string {
+	return t.Name + "/" + strconv.Itoa(int(t.Scheme))
 }
 
 func (r *Runtime) restoreTheme(key string) {
-	for _, t := range theme.Builtin() {
-		if t.Name+"/"+strconv.Itoa(int(t.Scheme)) == key {
-			r.theme = t
-		}
+	themes := theme.Builtin()
+	if r.cfg.theme != nil {
+		themes = append([]theme.Theme{*r.cfg.theme}, themes...)
+	}
+	if i := slices.IndexFunc(themes, func(t theme.Theme) bool { return themeKey(t) == key }); i >= 0 {
+		r.theme = themes[i]
 	}
 }
 

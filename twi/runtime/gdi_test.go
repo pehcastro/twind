@@ -119,6 +119,29 @@ func TestZedMarksReachTheFrame(t *testing.T) {
 	}
 }
 
+func TestForcedGDIWithoutAnOverlayDrawsCells(t *testing.T) {
+	s, err := hello.Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := func(opts ...twi.RenderOption) string {
+		b := newBackend(40, 15)
+		b.caps = terminal.Capabilities{Identity: terminal.IdentityOther, CellPixels: image.Pt(10, 20)}
+		r := run{b: b, clock: &clock{}, done: make(chan error, 1)}
+		r.rt = twi.New(append([]twi.RenderOption{twi.Backend(b, r.clock), twi.Styles(s), twi.ColorProfile(color.TrueColor)}, opts...)...)
+		app := hello.Surfaces(r.rt)
+		go func() { r.done <- r.rt.Run(app) }()
+		f := r.next(t)
+		if err := r.stop(t); err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	if forced, cells := first(twi.Graphics(terminal.GraphicsGDI)), first(); forced != cells {
+		t.Errorf("forcing GDI on a backend with no overlay wrote\n%q\nwant the cell frame\n%q", forced, cells)
+	}
+}
+
 func TestConhostGDIPaintsSurfaces(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

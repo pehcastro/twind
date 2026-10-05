@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -40,6 +42,41 @@ func TestNewRefuses(t *testing.T) {
 	}
 	if _, err := os.Stat(fresh); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("a refused new created %s: %v", fresh, err)
+	}
+}
+
+func TestNewWritesOnlyTheTemplate(t *testing.T) {
+	for version, checkout := range map[string]bool{"v0.0.0": true, "v0.5.0": false} {
+		dir := t.TempDir()
+		if err := writeApp(dir, map[string]string{"Module": "example.com/hello", "Name": "hello", "Version": version}); err != nil {
+			t.Fatal(err)
+		}
+		var files []string
+		err := filepath.WalkDir(dir, func(name string, entry fs.DirEntry, err error) error {
+			if err == nil && !entry.IsDir() {
+				files = append(files, filepath.ToSlash(strings.TrimPrefix(name, dir+string(filepath.Separator))))
+			}
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{".gitignore", "README.md", "go.mod", "main.go", "main_test.go", "testdata/demo.twd", "twir_gen.go"}; !slices.Equal(files, want) {
+			t.Errorf("%s: wrote %q, want %q", version, files, want)
+		}
+		readme, err := os.ReadFile(filepath.Join(dir, "README.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(readme), "no published version") {
+			t.Errorf("%s: the README says Twind has no published version:\n%s", version, readme)
+		}
+		if got := strings.Contains(string(readme), "-replace github.com/pehcastro/twind="); got != checkout {
+			t.Errorf("%s: the README points at a checkout: %t, want %t:\n%s", version, got, checkout, readme)
+		}
+		if mod, _ := os.ReadFile(filepath.Join(dir, "go.mod")); !strings.Contains(string(mod), "github.com/pehcastro/twind "+version) {
+			t.Errorf("%s: go.mod does not require it:\n%s", version, mod)
+		}
 	}
 }
 

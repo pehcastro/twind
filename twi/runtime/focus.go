@@ -139,6 +139,24 @@ func (d *document) update(root Node, focus *events.FocusManager[*Elem]) {
 }
 
 func (r *Runtime) Focus(key string) bool {
+	looper, stopped := r.looping()
+	switch looper {
+	case "":
+		return false
+	case goroutine():
+		return r.focusKey(key)
+	}
+	took := make(chan bool, 1)
+	r.Dispatch(func() { took <- r.focusKey(key) })
+	select {
+	case ok := <-took:
+		return ok
+	case <-stopped:
+		return false
+	}
+}
+
+func (r *Runtime) focusKey(key string) bool {
 	e := r.doc.root.keyed(key)
 	if e == nil || !r.focus.Set(&r.doc, e) {
 		return false
