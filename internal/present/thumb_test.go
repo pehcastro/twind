@@ -39,3 +39,18 @@ func TestScrollThumbStaysUnderAnOpenSheet(t *testing.T) {
 		}
 	}
 }
+
+func TestScrollbarsWithoutAScrollerAllocateNothing(t *testing.T) {
+	const w, h = 20, 10
+	screenRect := layout.Rect{W: w, H: h}
+	leaf := scene.Node{Bounds: layout.Rect{W: w, H: 1}, Clip: screenRect, Opacity: 1}
+	row := scene.Node{Bounds: layout.Rect{W: w, H: 2}, Clip: screenRect, Opacity: 1, Children: []scene.Node{leaf, leaf}}
+	root := scene.Node{Bounds: screenRect, Clip: screenRect, Opacity: 1, Children: []scene.Node{row, row, row}}
+	s, _ := screen(terminal.GraphicsNone)
+	if err := s.Frame(root, w, h); err != nil {
+		t.Fatal(err)
+	}
+	if allocs := testing.AllocsPerRun(10, func() { s.scrollbars(&root) }); allocs != 0 {
+		t.Errorf("scrollbars over a tree with no scroller allocated %v times per frame, want 0", allocs)
+	}
+}
