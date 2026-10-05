@@ -31,19 +31,19 @@ type Halves struct{ Bounds, Padding, Clip Half }
 type Node struct {
 	Bounds                                 layout.Rect
 	Clip                                   layout.Rect
-	Halves                                 Halves
 	Children                               []Node
+	Shadows                                []style.Shadow
 	ZIndex                                 int
 	TopLayer                               int
 	Opacity                                float64
-	Turn                                   float64
-	Shrink                                 float64
 	Position                               layout.Position
 	Scroll                                 bool
 	HidesOverflow                          bool
 	Background                             color.Color
+	Turn                                   float64
+	Shrink                                 float64
 	Border                                 Border
-	Shadows, InsetShadows                  []style.Shadow
+	InsetShadows                           []style.Shadow
 	Gradient                               style.Gradient
 	Pixels                                 *raster.Pixels
 	Padding                                layout.Rect
@@ -55,10 +55,11 @@ type Node struct {
 	Bold, Italic, Underline, Strikethrough bool
 	TextAlign                              style.TextAlign
 	Truncate, NoWrap                       bool
+	Halves                                 Halves
+	enclosed                               bool
 	text                                   Text
 	wrapping                               text.Wrapping
 	reach                                  layout.Rect
-	enclosed                               bool
 }
 
 func (n *Node) Enclose() {

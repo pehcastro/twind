@@ -201,7 +201,7 @@ func slide(lo, hi, by int, move func(dst, src int), blank func(dst int)) {
 
 func (s *Screen) scrollbars(root *scene.Node) {
 	s.bars = s.bars[:0]
-	if !scrolls(root) {
+	if !s.painter.Scrolls() {
 		return
 	}
 	s.walker.Walk(root, s.cover, func(n *scene.Node, inside func()) {
@@ -211,18 +211,6 @@ func (s *Screen) scrollbars(root *scene.Node) {
 	for _, b := range s.bars {
 		s.overlay(b.at.X, b.at.Y, b.cell)
 	}
-}
-
-func scrolls(n *scene.Node) bool {
-	if n.Scroll {
-		return true
-	}
-	for i := range n.Children {
-		if scrolls(&n.Children[i]) {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Screen) cover(n *scene.Node) {

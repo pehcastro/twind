@@ -6,11 +6,19 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/pehcastro/twind/twi/layout"
 	"github.com/pehcastro/twind/twi/raster"
 	"github.com/pehcastro/twind/twi/style"
 )
+
+func TestNodeFitsItsSizeClass(t *testing.T) {
+	const v040NodeBytes = 528
+	if size := unsafe.Sizeof(Node{}); size > v040NodeBytes {
+		t.Errorf("scene.Node is %d bytes, want at most %d (v0.4.0): every child slice and every preorder read pays for it", size, v040NodeBytes)
+	}
+}
 
 func benchTrees() [2]Node {
 	var trees [2]Node

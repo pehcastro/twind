@@ -241,6 +241,78 @@ func same(t *testing.T, frame int, got, want *buffer.Buffer) {
 	}
 }
 
+func TestPainterSeesANestedScroller(t *testing.T) {
+	plainTree, scrolling := app("keys 1"), app("keys 1")
+	scrolling.Children[1].Children[0].Scroll = true
+	buf := buffer.New(appColumns, appRows)
+	var p Painter
+	for i, frame := range []struct {
+		root *scene.Node
+		want bool
+	}{{&plainTree, false}, {&scrolling, true}, {&plainTree, false}} {
+		p.Paint(buf, frame.root, Composited)
+		if got := p.Scrolls(); got != frame.want {
+			t.Errorf("frame %d: Scrolls() = %v, want %v", i, got, frame.want)
+		}
+	}
+}
+
+func TestBoxSignatureSeesEveryPaintedField(t *testing.T) {
+	ink := func(r uint8) color.Color { return literal(color.RGBA{R: r, A: 255}) }
+	base := scene.Node{Bounds: layout.Rect{X: 1, Y: 2, W: 3, H: 4}, Padding: layout.Rect{X: 1, Y: 2, W: 3, H: 4}, Content: layout.Rect{X: 1, Y: 2, W: 3, H: 4}, Clip: layout.Rect{W: 9, H: 9}, Background: ink(1), Foreground: ink(2)}
+	base.Gradient = style.Gradient{GradientLine: style.GradientLine{Kind: style.GradientLinear, Angle: 0.5}, From: style.GradientStop{Color: ink(3)}, Via: style.GradientStop{Color: ink(4), Position: 0.5}, To: style.GradientStop{Color: ink(5), Position: 1}}
+	base.Border = scene.Border{Style: style.BorderSingle, Radius: 1, Top: true, Color: ink(6)}
+	changes := map[string]func(n *scene.Node){
+		"bounds x":        func(n *scene.Node) { n.Bounds.X++ },
+		"bounds h":        func(n *scene.Node) { n.Bounds.H++ },
+		"padding w":       func(n *scene.Node) { n.Padding.W++ },
+		"content y":       func(n *scene.Node) { n.Content.Y++ },
+		"clip w":          func(n *scene.Node) { n.Clip.W++ },
+		"background":      func(n *scene.Node) { n.Background.RGBA.G++ },
+		"background kind": func(n *scene.Node) { n.Background.Kind = color.Current },
+		"foreground":      func(n *scene.Node) { n.Foreground.RGBA.B++ },
+		"gradient kind":   func(n *scene.Node) { n.Gradient.Kind = 0 },
+		"gradient angle":  func(n *scene.Node) { n.Gradient.Angle = 0.25 },
+		"gradient dir":    func(n *scene.Node) { n.Gradient.Direction++ },
+		"gradient space":  func(n *scene.Node) { n.Gradient.Space++ },
+		"from colour":     func(n *scene.Node) { n.Gradient.From.Color.RGBA.A-- },
+		"from at":         func(n *scene.Node) { n.Gradient.From.Position = 0.1 },
+		"via colour":      func(n *scene.Node) { n.Gradient.Via.Color.RGBA.R++ },
+		"via at":          func(n *scene.Node) { n.Gradient.Via.Position = 0.6 },
+		"to colour":       func(n *scene.Node) { n.Gradient.To.Color.RGBA.G++ },
+		"to at":           func(n *scene.Node) { n.Gradient.To.Position = 0.9 },
+		"has via":         func(n *scene.Node) { n.Gradient.HasVia = true },
+		"border style":    func(n *scene.Node) { n.Border.Style = style.BorderDouble },
+		"border radius":   func(n *scene.Node) { n.Border.Radius++ },
+		"border top":      func(n *scene.Node) { n.Border.Top = false },
+		"border right":    func(n *scene.Node) { n.Border.Right = true },
+		"border bottom":   func(n *scene.Node) { n.Border.Bottom = true },
+		"border left":     func(n *scene.Node) { n.Border.Left = true },
+		"border colour":   func(n *scene.Node) { n.Border.Color.RGBA.R++ },
+		"bold":            func(n *scene.Node) { n.Bold = true },
+		"italic":          func(n *scene.Node) { n.Italic = true },
+		"underline":       func(n *scene.Node) { n.Underline = true },
+		"strikethrough":   func(n *scene.Node) { n.Strikethrough = true },
+		"truncate":        func(n *scene.Node) { n.Truncate = true },
+		"align":           func(n *scene.Node) { n.TextAlign = style.TextRight },
+		"shadow":          func(n *scene.Node) { n.Shadows = []style.Shadow{{Blur: 1}} },
+		"inset shadow":    func(n *scene.Node) { n.InsetShadows = []style.Shadow{{Blur: 1}} },
+	}
+	var p Painter
+	p.Paint(buffer.New(4, 4), &base, Composited)
+	want := p.box(&base)
+	for name, change := range changes {
+		n := base
+		change(&n)
+		if p.box(&n) == want {
+			t.Errorf("%s: the box signature did not change, so the box would not be repainted", name)
+		}
+	}
+	if again := base; p.box(&again) != want {
+		t.Error("the same box gave two signatures")
+	}
+}
+
 func count(n scene.Node) int {
 	total := 1
 	for _, c := range n.Children {

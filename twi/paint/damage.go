@@ -36,6 +36,7 @@ type Painter struct {
 	spans                  []layout.Rect
 	layers                 []*buffer.Buffer
 	walker                 scene.Walker
+	scrolls                bool
 }
 
 type shape struct {
@@ -59,13 +60,10 @@ type op struct {
 }
 
 type face struct {
-	bounds, padding, content, clip                   layout.Rect
-	background, foreground                           color.Color
-	gradient                                         style.Gradient
-	border                                           scene.Border
-	bold, italic, underline, strikethrough, truncate bool
-	align                                            style.TextAlign
-	shadows, insets                                  int
+	bounds, padding, content, clip                       layout.Rect
+	angle, fromAt, viaAt, toAt                           uint64
+	radius, shadows, insets                              int
+	background, foreground, from, via, to, border, flags uint64
 }
 
 func Paint(buf *buffer.Buffer, root scene.Node, look Look) {
@@ -87,12 +85,14 @@ func (p *Painter) Paint(buf *buffer.Buffer, root *scene.Node, look Look) {
 
 func (p *Painter) Repainted() []layout.Rect { return p.spans }
 
+func (p *Painter) Scrolls() bool { return p.scrolls }
+
 func (p *Painter) order(root *scene.Node, screen layout.Rect) {
 	if p.nodes == nil {
 		total := size(root)
 		p.nodes, p.areas, p.shapes, p.ops = make([]*scene.Node, 0, total), make([]layout.Rect, 0, total), make([]shape, 0, total), make([]op, 0, total)
 	}
-	p.nodes, p.areas, p.reshaped = p.nodes[:0], p.areas[:0], false
+	p.nodes, p.areas, p.reshaped, p.scrolls = p.nodes[:0], p.areas[:0], false, false
 	p.preorder(root, screen)
 	if !p.reshaped && len(p.nodes) == len(p.shapes) {
 		return
@@ -149,7 +149,7 @@ func (p *Painter) preorder(n *scene.Node, screen layout.Rect) {
 	case p.shapes[i] != s:
 		p.shapes[i], p.reshaped = s, true
 	}
-	p.nodes, p.areas = append(p.nodes, n), append(p.areas, overlap(overlap(p.extent(n), n.Clip), screen))
+	p.nodes, p.areas, p.scrolls = append(p.nodes, n), append(p.areas, overlap(overlap(p.extent(n), n.Clip), screen)), p.scrolls || n.Scroll
 	for i := range n.Children {
 		p.preorder(&n.Children[i], screen)
 	}
@@ -208,9 +208,15 @@ func (p *Painter) sign(buf *buffer.Buffer, root *scene.Node, look Look) {
 }
 
 func (p *Painter) box(n *scene.Node) uint64 {
+	g, b := &n.Gradient, &n.Border
 	h := maphash.Comparable(p.seed, face{
-		n.Bounds, n.Padding, n.Content, n.Clip, n.Background, n.Foreground, n.Gradient, n.Border,
-		n.Bold, n.Italic, n.Underline, n.Strikethrough, n.Truncate, n.TextAlign, len(n.Shadows), len(n.InsetShadows),
+		n.Bounds, n.Padding, n.Content, n.Clip,
+		math.Float64bits(g.Angle), math.Float64bits(g.From.Position), math.Float64bits(g.Via.Position), math.Float64bits(g.To.Position),
+		int(b.Radius), len(n.Shadows), len(n.InsetShadows),
+		word(n.Background), word(n.Foreground), word(g.From.Color), word(g.Via.Color), word(g.To.Color), word(b.Color),
+		uint64(g.Kind) | uint64(g.Direction)<<8 | uint64(g.Space)<<16 | uint64(b.Style)<<24 | uint64(n.TextAlign)<<32 |
+			bit(g.HasVia, 40) | bit(b.Top, 41) | bit(b.Right, 42) | bit(b.Bottom, 43) | bit(b.Left, 44) |
+			bit(n.Bold, 45) | bit(n.Italic, 46) | bit(n.Underline, 47) | bit(n.Strikethrough, 48) | bit(n.Truncate, 49),
 	})
 	for _, s := range n.Shadows {
 		h = mix(h, maphash.Comparable(p.seed, s))
@@ -219,6 +225,17 @@ func (p *Painter) box(n *scene.Node) uint64 {
 		h = mix(h, maphash.Comparable(p.seed, s))
 	}
 	return h
+}
+
+func word(c color.Color) uint64 {
+	return uint64(c.Kind)<<32 | uint64(c.RGBA.R)<<24 | uint64(c.RGBA.G)<<16 | uint64(c.RGBA.B)<<8 | uint64(c.RGBA.A)
+}
+
+func bit(b bool, at uint) uint64 {
+	if b {
+		return 1 << at
+	}
+	return 0
 }
 
 func (p *Painter) mark(area layout.Rect, h uint64, wide bool) {
