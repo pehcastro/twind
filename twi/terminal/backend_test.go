@@ -33,6 +33,9 @@ type fakeTTY struct {
 	exe       string
 	class     string
 	lookups   int
+	lacksFace string
+	coverage  func(face, cluster string, size image.Point, bold bool) []uint8
+	drawn     []string
 }
 
 func (f *fakeTTY) read(p []byte, wait time.Duration) (int, bool, error) {
@@ -68,7 +71,14 @@ func (f *fakeTTY) cancel()       { close(f.cancelled) }
 func (f *fakeTTY) font() Font    { return f.face }
 func (f *fakeTTY) lacks(face, cluster string) bool {
 	f.asked = append(f.asked, face+" "+cluster)
-	return strings.Contains(f.lacking, cluster)
+	return strings.Contains(f.lacking, cluster) && (f.lacksFace == "" || f.lacksFace == face)
+}
+func (f *fakeTTY) glyph(face, cluster string, size image.Point, bold bool) []uint8 {
+	f.drawn = append(f.drawn, face+" "+cluster)
+	if f.coverage == nil {
+		return nil
+	}
+	return f.coverage(face, cluster, size, bold)
 }
 func (f *fakeTTY) restore() error { f.restored++; return nil }
 func (f *fakeTTY) drawable() (window, error) {

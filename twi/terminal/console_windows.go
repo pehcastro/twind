@@ -85,6 +85,7 @@ type console interface {
 	windowClass() string
 	font(h windows.Handle) Font
 	lacks(face, cluster string) bool
+	glyph(face, cluster string, size image.Point, bold bool) []uint8
 	drawable() (window, error)
 	hostExe() string
 	overlay(tr *trace, id Identity) (host, error)
@@ -98,6 +99,7 @@ type win32 struct {
 	clientToScreen, iconic, findWindow, relative                             *windows.LazyProc
 	registerClass, createWindow, destroyWindow, showWindow, setWindowPos     *windows.LazyProc
 	updateLayered, getMessage, dispatchMessage, postThreadMessage, defProc   *windows.LazyProc
+	textColor, backColor, textAlign, textOut, flush                          *windows.LazyProc
 }
 
 func loadWin32() win32 {
@@ -135,6 +137,11 @@ func loadWin32() win32 {
 		dispatchMessage:   user.NewProc("DispatchMessageW"),
 		postThreadMessage: user.NewProc("PostThreadMessageW"),
 		defProc:           user.NewProc("DefWindowProcW"),
+		textColor:         gdi.NewProc("SetTextColor"),
+		backColor:         gdi.NewProc("SetBkColor"),
+		textAlign:         gdi.NewProc("SetTextAlign"),
+		textOut:           gdi.NewProc("ExtTextOutW"),
+		flush:             gdi.NewProc("GdiFlush"),
 	}
 }
 
@@ -371,6 +378,10 @@ func (t *consoleTTY) font() Font {
 
 func (t *consoleTTY) lacks(face, cluster string) bool {
 	return t.console.lacks(face, cluster)
+}
+
+func (t *consoleTTY) glyph(face, cluster string, size image.Point, bold bool) []uint8 {
+	return t.console.glyph(face, cluster, size, bold)
 }
 
 func (t *consoleTTY) drawable() (window, error) {

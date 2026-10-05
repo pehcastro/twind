@@ -3,16 +3,28 @@ package terminal
 import (
 	"errors"
 	"image"
+	"math"
+	"strings"
 	"sync"
 	"time"
 
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
 	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	"github.com/twind-dev/twind/twi/color"
 )
 
 type Tile struct {
-	Cells image.Rectangle
-	Pix   []byte
+	Cells  image.Rectangle
+	Pix    []byte
+	Glyphs []Glyph
+}
+
+type Glyph struct {
+	Cell    image.Point
+	Cluster string
+	Fg      color.RGBA
+	Bold    bool
+	Wide    bool
 }
 
 type Pixels struct {
@@ -232,14 +244,64 @@ func (c *canvas) close() {
 	c.win.release()
 }
 
+type glyphKey struct {
+	cluster string
+	size    image.Point
+	bold    bool
+}
+
+func (b *Backend) coverage(g Glyph, size image.Point) []uint8 {
+	key := glyphKey{g.Cluster, size, g.Bold}
+	if mask, drawn := b.glyphs[key]; drawn {
+		return mask
+	}
+	if b.glyphs == nil || len(b.glyphs) >= konst.GlyphCache {
+		b.glyphs = map[glyphKey][]uint8{}
+	}
+	for face := range strings.SplitSeq(konst.GlyphFaces, "|") {
+		if !b.tty.lacks(face, g.Cluster) {
+			b.glyphs[key] = b.tty.glyph(face, g.Cluster, size, g.Bold)
+			break
+		}
+	}
+	return b.glyphs[key]
+}
+
+func (b *Backend) ink(p Pixels) {
+	for _, tile := range p.Tiles {
+		width := tile.Cells.Dx() * p.Cell.X
+		for _, g := range tile.Glyphs {
+			size := p.Cell
+			if g.Wide {
+				size.X *= 2
+			}
+			mask, at := b.coverage(g, size), g.Cell.Sub(tile.Cells.Min)
+			for y := range len(mask) / size.X {
+				for x := range min(size.X, width-at.X*p.Cell.X) {
+					a := uint32(mask[y*size.X+x])
+					if a == 0 {
+						continue
+					}
+					px := tile.Pix[((at.Y*p.Cell.Y+y)*width+at.X*p.Cell.X+x)*graphicskonst.GDIBytes:][:graphicskonst.GDIBytes]
+					for i, v := range [4]uint32{uint32(g.Fg.B), uint32(g.Fg.G), uint32(g.Fg.R), math.MaxUint8} {
+						px[i] = uint8((v*a + uint32(px[i])*(math.MaxUint8-a) + math.MaxUint8/2) / math.MaxUint8)
+					}
+				}
+			}
+		}
+	}
+}
+
 func (b *Backend) Paint(p Pixels) bool {
 	if o := b.overlay.Load(); o != nil {
+		b.ink(p)
 		return o.paint(p)
 	}
 	c := b.canvas.Load()
 	if c == nil {
 		return true
 	}
+	b.ink(p)
 	cols, rows, err := b.tty.size()
 	return err == nil && c.paint(p, cols, rows)
 }

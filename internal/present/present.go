@@ -102,6 +102,9 @@ type Screen struct {
 	shifted      []bool
 	needs        []need
 	bridged      []bool
+	rings        rings
+	inks         [][]terminal.Glyph
+	inking       []terminal.Glyph
 	images       map[uint64]uint32
 	uses         []int
 	samples      []color.Color
@@ -203,6 +206,9 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 		look = paint.Composited
 	}
 	s.painter.Widths, s.painter.Profile, s.painter.Covers, s.painter.Identity, s.imageBytes = s.Widths, s.Profile, s.Covers, s.Identity, 0
+	if s.Graphics == terminal.GraphicsGDI {
+		s.painter.Covers = nil
+	}
 	s.pageBg, s.page = color.Color{}, 0
 	if bg := root.Background; (s.Graphics == terminal.GraphicsSixel || s.Graphics == terminal.GraphicsGDI) && bg.Kind == color.Literal && bg.RGBA.A == math.MaxUint8 {
 		s.pageBg, s.page = bg, uint32(bg.RGBA.R)|uint32(bg.RGBA.G)<<8|uint32(bg.RGBA.B)<<16|math.MaxUint8<<24
@@ -248,6 +254,9 @@ func (s *Screen) Frame(root scene.Node, cols, rows int) error {
 	}
 	for _, r := range s.runs {
 		copy(s.shown.Row(r.Y)[r.X:r.X+r.Len], s.want.Row(r.Y)[r.X:r.X+r.Len])
+	}
+	if s.Graphics == terminal.GraphicsSixel {
+		s.restoreRings()
 	}
 	s.fresh = false
 	if len(s.markers) > len(s.owners) {
@@ -328,7 +337,7 @@ func (s *Screen) reset(cols, rows int) {
 	s.samples, s.sampled, s.needs = make([]color.Color, cols*rows), make([]bool, cols*rows), make([]need, cols)
 	s.bridged = make([]bool, cols)
 	if s.Graphics == terminal.GraphicsGDI {
-		s.masks, s.shifted, s.painting.Clear = make([]uint64, n), make([]bool, n), true
+		s.masks, s.shifted, s.inks, s.painting.Clear = make([]uint64, n), make([]bool, n), make([][]terminal.Glyph, n), true
 	}
 	s.owners, s.markers = nil, nil
 	if s.cellBound() {
@@ -444,8 +453,8 @@ func (s *Screen) compose() {
 				c.Bg = s.sample(x, y)
 			case s.Graphics == terminal.GraphicsKitty:
 				c.Bg = color.Color{}
-			case s.Graphics == terminal.GraphicsGDI && blank(*c):
-				c.Fg, c.Bg, c.Attr, c.Width = color.Color{}, s.sample(x, y), 0, buffer.Narrow
+			case s.Graphics == terminal.GraphicsGDI && (blank(*c) || s.drawn(text, x)):
+				c.Grapheme, c.Fg, c.Bg, c.Attr, c.Width = " ", color.Color{}, s.sample(x, y), 0, buffer.Narrow
 				if s.besideSymbol(text, x, y) {
 					c.Bg = s.behind(x, y)
 				}

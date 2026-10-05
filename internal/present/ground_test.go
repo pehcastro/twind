@@ -2,7 +2,8 @@ package present
 
 import (
 	"bytes"
-	"regexp"
+	"image"
+	stdcolor "image/color"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,12 +18,11 @@ import (
 	"github.com/twind-dev/twind/twi/text"
 )
 
-var sixelRaster = regexp.MustCompile(`^\x1bP0;1q"1;1;(\d+);(\d+)`)
-
 type term struct {
 	x, y  int
 	pen   color.RGBA
 	cells [rows][cols]termCell
+	layer *image.RGBA
 }
 
 type termCell struct {
@@ -41,6 +41,88 @@ func (m *term) set(x, y int, c termCell) {
 		row[x+1] = termCell{bg: row[x+1].bg}
 	}
 	row[x] = c
+	if m.layer != nil && c.text != "" {
+		for py := y * wt.Y; py < (y+1)*wt.Y; py++ {
+			clear(m.layer.Pix[m.layer.PixOffset(x*wt.X, py):m.layer.PixOffset((x+1)*wt.X, py)])
+		}
+	}
+}
+
+func (m *term) seen(px, py int) color.RGBA {
+	if p := m.layer.RGBAAt(px, py); p.A == 255 {
+		return color.RGBA(p)
+	}
+	return m.cells[py/wt.Y][px/wt.X].bg
+}
+
+func (m *term) sixel(body []byte) {
+	if m.layer == nil {
+		m.layer = image.NewRGBA(image.Rect(0, 0, cols*wt.X, rows*wt.Y))
+	}
+	body = body[bytes.IndexByte(body, '"')+1:]
+	num := func() int {
+		i := 0
+		for i < len(body) && body[i] >= '0' && body[i] <= '9' {
+			i++
+		}
+		n, _ := strconv.Atoi(string(body[:i]))
+		body = body[i:]
+		return n
+	}
+	var size [4]int
+	for i := range size {
+		size[i] = num()
+		body = bytes.TrimPrefix(body, []byte(";"))
+	}
+	palette := map[int]stdcolor.RGBA{}
+	origin, cur, x, y, repeat := image.Pt(m.x*wt.X, m.y*wt.Y), 0, 0, 0, 1
+	for len(body) > 0 {
+		switch c := body[0]; c {
+		case '#':
+			body = body[1:]
+			cur = num()
+			if bytes.HasPrefix(body, []byte(";2;")) {
+				body = body[3:]
+				var ch [3]uint8
+				for i := range ch {
+					ch[i] = uint8((num()*255 + 50) / 100)
+					body = bytes.TrimPrefix(body, []byte(";"))
+				}
+				palette[cur] = stdcolor.RGBA{R: ch[0], G: ch[1], B: ch[2], A: 255}
+			}
+		case '!':
+			body = body[1:]
+			repeat = num()
+		case '$':
+			x, body = 0, body[1:]
+		case '-':
+			x, y, body = 0, y+6, body[1:]
+		default:
+			for range repeat {
+				for b := range 6 {
+					if (c-'?')&(1<<b) != 0 {
+						m.layer.SetRGBA(origin.X+x, origin.Y+y+b, palette[cur])
+					}
+				}
+				x++
+			}
+			repeat, body = 1, body[1:]
+		}
+	}
+	for cy := m.y; cy < min(m.y+(size[3]+wt.Y-1)/wt.Y, rows); cy++ {
+		for cx := m.x; cx < min(m.x+(size[2]+wt.X-1)/wt.X, cols); cx++ {
+			m.cells[cy][cx].image = true
+		}
+	}
+}
+
+func (m *term) hidden(x, y int) bool {
+	for px := x * wt.X; m.layer != nil && px < (x+1)*wt.X; px++ {
+		if m.layer.RGBAAt(px, y*wt.Y+wt.Y/2).A == 255 {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *term) write(t *testing.T, p []byte) {
@@ -49,14 +131,7 @@ func (m *term) write(t *testing.T, p []byte) {
 		switch {
 		case bytes.HasPrefix(p, []byte("\x1bP")):
 			end := bytes.Index(p, []byte("\x1b\\"))
-			size := sixelRaster.FindSubmatch(p[:end])
-			w, _ := strconv.Atoi(string(size[1]))
-			h, _ := strconv.Atoi(string(size[2]))
-			for y := m.y; y < min(m.y+(h+wt.Y-1)/wt.Y, rows); y++ {
-				for x := m.x; x < min(m.x+(w+wt.X-1)/wt.X, cols); x++ {
-					m.cells[y][x].image = true
-				}
-			}
+			m.sixel(p[:end])
 			p = p[end+2:]
 		case bytes.HasPrefix(p, []byte(termkonst.CSI)):
 			i := len(termkonst.CSI)
@@ -133,7 +208,7 @@ func grounded(t *testing.T, s *Screen, m *term, name string) {
 			}
 			switch {
 			case want.Width == buffer.Continuation:
-			case !blank(want) && (c.image || c.text != want.Grapheme):
+			case !blank(want) && (m.hidden(x, y) || c.text != want.Grapheme):
 				t.Fatalf("%s: cell %d,%d shows %+v, want the glyph %q over the image", name, x, y, c, want.Grapheme)
 			case !blank(want):
 			case c.image && c.bg != ground:

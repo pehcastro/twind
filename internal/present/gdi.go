@@ -1,10 +1,12 @@
 package present
 
 import (
+	"image"
 	"slices"
 
 	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
 	konst "github.com/twind-dev/twind/internal/konst/paint"
+	"github.com/twind-dev/twind/twi/buffer"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/graphics"
 	"github.com/twind-dev/twind/twi/terminal"
@@ -16,14 +18,20 @@ func (s *Screen) gdi() {
 		if s.shifted[t] && !dirty {
 			s.hashes[t], s.plain[t] = s.hash(t), s.Profile == color.TrueColor && s.plainTile(s.tileLines(t, s.lineRuns[:0]))
 		}
-		dirty = dirty || s.shifted[t]
+		s.inking = s.glyphs(t, s.inking[:0])
+		inked := !slices.Equal(s.inking, s.inks[t])
+		if inked {
+			s.inks[t] = slices.Clone(s.inking)
+		}
+		dirty = dirty || s.shifted[t] || inked
 		s.shifted[t] = false
+		plain := s.plain[t] && len(s.inking) == 0
 		switch {
-		case s.plain[t] && (!dirty || s.sent[t] == 0):
-		case s.plain[t]:
+		case plain && (!dirty || s.sent[t] == 0):
+		case plain:
 			s.painting.Tiles = append(s.painting.Tiles, terminal.Tile{Cells: s.tiles[t]})
 			s.sent[t] = 0
-		case dirty && s.hashes[t] != s.sent[t], s.sent[t] != 0 && s.mask(t) != s.masks[t]:
+		case dirty && (s.hashes[t] != s.sent[t] || inked), s.sent[t] != 0 && s.mask(t) != s.masks[t]:
 			s.sending = append(s.sending, t)
 		}
 	}
@@ -34,8 +42,32 @@ func (s *Screen) gdi() {
 		s.masks[t], s.sent[t] = s.mask(t), s.hashes[t]
 		s.gdiPix = graphics.GDIPixels(s.gdiPix, s.lineRuns, s.Cell, s.masks[t])
 		s.strips(t, s.gdiPix[at:])
-		s.painting.Tiles = append(s.painting.Tiles, terminal.Tile{Cells: s.tiles[t], Pix: s.gdiPix[at:len(s.gdiPix):len(s.gdiPix)]})
+		s.painting.Tiles = append(s.painting.Tiles, terminal.Tile{Cells: s.tiles[t], Pix: s.gdiPix[at:len(s.gdiPix):len(s.gdiPix)], Glyphs: s.inks[t]})
 	}
+}
+
+func (s *Screen) lacked(c buffer.Cell) bool {
+	return s.Covers != nil && len(c.Grapheme) > 1 && !s.Covers(c.Grapheme)
+}
+
+func (s *Screen) drawn(text []buffer.Cell, x int) bool {
+	return s.lacked(text[x]) || text[x].Width == buffer.Continuation && x > 0 && s.lacked(text[x-1])
+}
+
+func (s *Screen) glyphs(t int, dst []terminal.Glyph) []terminal.Glyph {
+	if s.Covers == nil {
+		return dst
+	}
+	cells := s.tiles[t]
+	for y := cells.Min.Y; y < cells.Max.Y; y++ {
+		text := s.text.Row(y)
+		for x := cells.Min.X; x < cells.Max.X; x++ {
+			if c := text[x]; s.lacked(c) {
+				dst = append(dst, terminal.Glyph{Cell: image.Pt(x, y), Cluster: c.Grapheme, Fg: c.Fg.RGBA, Bold: c.Attr&buffer.Bold != 0, Wide: c.Width == buffer.Wide})
+			}
+		}
+	}
+	return dst
 }
 
 func (s *Screen) mask(t int) uint64 {
@@ -43,7 +75,7 @@ func (s *Screen) mask(t int) uint64 {
 	for y := cells.Min.Y; y < cells.Max.Y; y++ {
 		text := s.text.Row(y)
 		for x := cells.Min.X; x < cells.Max.X; x++ {
-			if !blank(text[x]) || s.besideSymbol(text, x, y) {
+			if !blank(text[x]) && !s.drawn(text, x) || s.besideSymbol(text, x, y) {
 				mask |= 1 << ((y-cells.Min.Y)*cells.Dx() + x - cells.Min.X)
 			}
 		}

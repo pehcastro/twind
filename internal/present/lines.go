@@ -313,7 +313,10 @@ func (s *Screen) sample(x, y int) color.Color {
 }
 
 func (s *Screen) behind(x, y int) color.Color {
-	if s.edged(x, y) {
+	switch {
+	case s.Graphics == terminal.GraphicsSixel && s.edgedCell(x, y):
+		return s.mean(x, y, (s.Cell.Y-1)/2)
+	case s.edged(x, y):
 		return s.mean(x, y, s.inset())
 	}
 	return s.sample(x, y)

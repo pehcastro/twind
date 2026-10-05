@@ -10,6 +10,7 @@ import (
 	"github.com/twind-dev/twind/twi"
 	"github.com/twind-dev/twind/twi/color"
 	"github.com/twind-dev/twind/twi/input"
+	"github.com/twind-dev/twind/twi/runtime"
 	"github.com/twind-dev/twind/twi/terminal"
 )
 
@@ -31,6 +32,19 @@ func (be *docsBackend) Capabilities() terminal.Capabilities {
 	return terminal.Capabilities{Sync: true, Graphics: terminal.GraphicsSixel, CellPixels: image.Pt(10, 20)}
 }
 
+type conhostBackend struct{ docsBackend }
+
+func (be *conhostBackend) Capabilities() terminal.Capabilities {
+	return terminal.Capabilities{Sync: true, Graphics: terminal.GraphicsGDI, CellPixels: image.Pt(10, 20), Identity: terminal.IdentityConhost, Font: terminal.Font{Face: "Consolas", Size: image.Pt(10, 20)}}
+}
+
+func (be *conhostBackend) Paint(terminal.Pixels) bool { return true }
+
+func (be *conhostBackend) Covers(cluster string) bool {
+	r := []rune(cluster)
+	return len(r) != 1 || r[0] < 0x0590 || r[0] > 0x05ff
+}
+
 type docsClock struct{ calls int64 }
 
 func (c *docsClock) Now() time.Time {
@@ -41,6 +55,14 @@ func (c *docsClock) Now() time.Time {
 func (c *docsClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
 func BenchmarkFirstFrameDocs(b *testing.B) {
+	firstFrame(b, func(d docsBackend) runtime.Backend { return &d })
+}
+
+func BenchmarkFirstFrameDocsConhost(b *testing.B) {
+	firstFrame(b, func(d docsBackend) runtime.Backend { return &conhostBackend{d} })
+}
+
+func firstFrame(b *testing.B, backend func(docsBackend) runtime.Backend) {
 	sheet, err := docsapp.Styles()
 	if err != nil {
 		b.Fatal(err)
@@ -48,9 +70,9 @@ func BenchmarkFirstFrameDocs(b *testing.B) {
 	var samples []time.Duration
 	bytes := 0
 	for b.Loop() {
-		be := &docsBackend{events: make(chan input.Event), written: make(chan []byte)}
+		be := docsBackend{events: make(chan input.Event), written: make(chan []byte)}
 		start := time.Now()
-		rt := twi.New(twi.Backend(be, &docsClock{}), twi.Styles(sheet), twi.ColorProfile(color.TrueColor))
+		rt := twi.New(twi.Backend(backend(be), &docsClock{}), twi.Styles(sheet), twi.ColorProfile(color.TrueColor))
 		done := make(chan error, 1)
 		go func() { done <- rt.Run(docsapp.App(rt)) }()
 		bytes = len(<-be.written)

@@ -100,6 +100,14 @@ const (
 	MarkMissingGlyphs = 1
 	MissingGlyph      = 0xFFFF
 	GDIError          = 0xFFFFFFFF
+	GlyphFaces        = "Courier New|Segoe UI|Segoe UI Symbol|Arial|Segoe UI Emoji"
+	GlyphCache        = 4096
+	WeightNormal      = 400
+	WeightBold        = 700
+	AntialiasQuality  = 4
+	CentreAlign       = 6
+	OpaqueText        = 2
+	WhiteText         = 0xFFFFFF
 )
 
 const (

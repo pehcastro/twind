@@ -4,6 +4,7 @@ package terminal
 
 import (
 	"errors"
+	"image"
 	"io"
 	"maps"
 	"os"
@@ -34,6 +35,8 @@ func (f *fakeConsole) windowClass() string { return f.class }
 func (f *fakeConsole) font(windows.Handle) Font { return Font{} }
 
 func (f *fakeConsole) lacks(string, string) bool { return false }
+
+func (f *fakeConsole) glyph(string, string, image.Point, bool) []uint8 { return nil }
 
 func (f *fakeConsole) drawable() (window, error) { return nil, errNoWindow }
 

@@ -71,6 +71,7 @@ type Backend struct {
 	decoder     input.Decoder
 	answers     chan answer
 	covered     map[string]bool
+	glyphs      map[glyphKey][]uint8
 	leave       string
 	dev         bool
 	asking      atomic.Bool
@@ -110,6 +111,7 @@ type tty interface {
 	conhost() bool
 	font() Font
 	lacks(face, cluster string) bool
+	glyph(face, cluster string, size image.Point, bold bool) []uint8
 	cancel()
 	restore() error
 	drawable() (window, error)

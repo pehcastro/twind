@@ -78,14 +78,7 @@ func (m *screenModel) write(t *testing.T, p []byte, cell image.Point) {
 		switch {
 		case bytes.HasPrefix(p, []byte("\x1bP")):
 			end := bytes.Index(p, []byte("\x1b\\"))
-			size := sixelSize.FindSubmatch(p[:end])
-			w, _ := strconv.Atoi(string(size[1]))
-			h, _ := strconv.Atoi(string(size[2]))
-			for y := m.y; y < min(m.y+(h+cell.Y-1)/cell.Y, pageRows); y++ {
-				for x := m.x; x < min(m.x+(w+cell.X-1)/cell.X, pageCols); x++ {
-					m.cells[y][x].image = true
-				}
-			}
+			m.covered(p[sixelSize.FindIndex(p[:end])[1]:end], cell)
 			p = p[end+2:]
 		case bytes.HasPrefix(p, []byte(termkonst.CSI)):
 			i := len(termkonst.CSI)
@@ -130,6 +123,41 @@ func (m *screenModel) write(t *testing.T, p []byte, cell image.Point) {
 				}
 			}
 			p = p[end:]
+		}
+	}
+}
+
+func (m *screenModel) covered(body []byte, cell image.Point) {
+	x, band, repeat := 0, 0, 1
+	for len(body) > 0 {
+		c := body[0]
+		body = body[1:]
+		switch {
+		case c == '#' || c == '!':
+			i := 0
+			for i < len(body) && (body[i] >= '0' && body[i] <= '9' || c == '#' && body[i] == ';') {
+				i++
+			}
+			if c == '!' {
+				repeat, _ = strconv.Atoi(string(body[:i]))
+			}
+			body = body[i:]
+		case c == '$':
+			x = 0
+		case c == '-':
+			x, band = 0, band+6
+		case c >= '?' && c <= '~':
+			for range repeat {
+				for b := range 6 {
+					if py := band + b; (c-'?')&(1<<b) != 0 && py%cell.Y == cell.Y/2 {
+						if cy, cx := m.y+py/cell.Y, m.x+x/cell.X; cy < pageRows && cx < pageCols {
+							m.cells[cy][cx].image = true
+						}
+					}
+				}
+				x++
+			}
+			repeat = 1
 		}
 	}
 }

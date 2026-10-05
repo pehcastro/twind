@@ -4,6 +4,7 @@ package terminal
 
 import (
 	"errors"
+	"image"
 	"io"
 	"os"
 	"os/signal"
@@ -126,6 +127,10 @@ func (t *unixTTY) font() Font {
 
 func (t *unixTTY) lacks(string, string) bool {
 	return false
+}
+
+func (t *unixTTY) glyph(string, string, image.Point, bool) []uint8 {
+	return nil
 }
 
 func (t *unixTTY) drawable() (window, error) {
