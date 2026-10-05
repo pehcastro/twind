@@ -8,7 +8,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/text"
+	konst "github.com/pehcastro/twind/internal/konst/text"
 )
 
 func TestBidiCharacterTest(t *testing.T) {

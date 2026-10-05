@@ -3,7 +3,7 @@ package runtime
 import (
 	"time"
 
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type tracer interface {

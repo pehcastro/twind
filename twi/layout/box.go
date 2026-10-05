@@ -5,7 +5,7 @@ import (
 	"math"
 	"slices"
 
-	konst "github.com/twind-dev/twind/internal/konst/layout"
+	konst "github.com/pehcastro/twind/internal/konst/layout"
 )
 
 type Display uint8

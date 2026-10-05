@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 func TestWordBreakReachesLines(t *testing.T) {

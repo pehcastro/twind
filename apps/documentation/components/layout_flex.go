@@ -1,6 +1,6 @@
 package components
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func LayoutFlex(*twi.Runtime) func() twi.Node {
 	box := func(classes, label string) twi.Node {

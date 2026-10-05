@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func Kbd(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-row min-w-3 items-center justify-center gap-1 rounded-sm bg-muted px-1 font-medium text-muted-foreground select-none", children)

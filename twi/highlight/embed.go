@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unsafe"
 
-	konst "github.com/twind-dev/twind/internal/konst/highlight"
+	konst "github.com/pehcastro/twind/internal/konst/highlight"
 )
 
 type region struct {

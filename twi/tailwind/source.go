@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi/style"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 //go:embed testdata/tailwind-4.3.3/app/output.css

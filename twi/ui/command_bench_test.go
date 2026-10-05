@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 func TestCommandAllocsDoNotGrowWithItems(t *testing.T) {

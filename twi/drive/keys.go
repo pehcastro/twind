@@ -7,7 +7,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 func namedKeys() map[string]input.KeyEvent {

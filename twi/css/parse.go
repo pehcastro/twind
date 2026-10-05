@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/css"
+	konst "github.com/pehcastro/twind/internal/konst/css"
 )
 
 type Pos struct {

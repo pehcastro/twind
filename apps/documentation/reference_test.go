@@ -16,7 +16,7 @@ import (
 	"testing"
 )
 
-const module = "github.com/twind-dev/twind/"
+const module = "github.com/pehcastro/twind/"
 
 func TestReference(t *testing.T) {
 	write := os.Getenv("TWIND_WRITE_REFERENCE") == "1"

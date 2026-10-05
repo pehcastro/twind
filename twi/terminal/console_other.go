@@ -5,7 +5,7 @@ package terminal
 import (
 	"os"
 
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 func size(uintptr) (width, height int, err error) {

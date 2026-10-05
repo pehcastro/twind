@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 const menuContent = "flex flex-col min-w-16 shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md " + popMotion

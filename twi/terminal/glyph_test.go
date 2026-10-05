@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 func TestGlyphsBlendIntoTheirCell(t *testing.T) {

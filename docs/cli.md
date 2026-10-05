@@ -3,7 +3,7 @@
 The `twind` command creates, builds, checks and drives Twind programs. Run it from a clone with `go run ./cmd/twind`, or install it:
 
 ```bash
-go install github.com/twind-dev/twind/cmd/twind@latest
+go install github.com/pehcastro/twind/cmd/twind@latest
 ```
 
 Every verb prints its own help with `twind <verb> -h`. Packages are `go list` patterns, the current directory by default.

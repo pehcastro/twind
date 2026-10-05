@@ -5,13 +5,13 @@ import (
 	"strings"
 	"unicode"
 
-	tkonst "github.com/twind-dev/twind/internal/konst/terminal"
-	konst "github.com/twind-dev/twind/internal/konst/ui"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/edit"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/text"
+	tkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	konst "github.com/pehcastro/twind/internal/konst/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/edit"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 const (

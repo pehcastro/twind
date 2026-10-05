@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestAccordionKeysAndClicks(t *testing.T) {

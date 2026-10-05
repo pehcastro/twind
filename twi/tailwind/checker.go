@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
+	konst "github.com/pehcastro/twind/internal/konst/style"
 )
 
 type Checker struct {
@@ -121,7 +121,7 @@ func (c *Checker) graph(dir string) (graph, error) {
 		return g, nil
 	}
 	c.lists++
-	out, err := exec.Command("go", "list", "-C", dir, "-deps", "-f", `{{if not .Standard}}{{.Dir}}{{"\t"}}{{if .DepOnly}}{{range .Imports}}{{if eq . "github.com/twind-dev/twind/twi"}}twi{{end}}{{end}}{{end}}{{"\t"}}{{with .Module}}{{if or .Main .Replace}}live{{end}}{{"\t"}}{{.GoMod}}{{else}}live{{"\t"}}{{end}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .IgnoredGoFiles}}{{"\t"}}{{.}}{{end}}{{"\n"}}{{end}}`, ".").CombinedOutput()
+	out, err := exec.Command("go", "list", "-C", dir, "-deps", "-f", `{{if not .Standard}}{{.Dir}}{{"\t"}}{{if .DepOnly}}{{range .Imports}}{{if eq . "github.com/pehcastro/twind/twi"}}twi{{end}}{{end}}{{end}}{{"\t"}}{{with .Module}}{{if or .Main .Replace}}live{{end}}{{"\t"}}{{.GoMod}}{{else}}live{{"\t"}}{{end}}{{range .GoFiles}}{{"\t"}}{{.}}{{end}}{{range .IgnoredGoFiles}}{{"\t"}}{{.}}{{end}}{{"\n"}}{{end}}`, ".").CombinedOutput()
 	if err != nil {
 		return graph{}, fmt.Errorf("go list: %w\n%s", err, out)
 	}

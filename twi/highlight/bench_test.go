@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/highlight"
+	"github.com/pehcastro/twind/twi/highlight"
 )
 
 func benchSpans(b *testing.B, src string, g *highlight.Grammar) {

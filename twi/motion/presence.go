@@ -3,7 +3,7 @@ package motion
 import (
 	"time"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 type Offset struct{ Opacity, Scale, X, Y float64 }

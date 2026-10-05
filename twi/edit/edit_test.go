@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	konst "github.com/twind-dev/twind/internal/konst/edit"
-	"github.com/twind-dev/twind/twi/input"
+	konst "github.com/pehcastro/twind/internal/konst/edit"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 const (

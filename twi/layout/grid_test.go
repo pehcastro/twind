@@ -4,7 +4,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/layout"
+	konst "github.com/pehcastro/twind/internal/konst/layout"
 )
 
 var (

@@ -1,6 +1,6 @@
 package components
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func LayoutGrid(*twi.Runtime) func() twi.Node {
 	cell := func(classes, label string) twi.Node {

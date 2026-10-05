@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/highlight"
+	konst "github.com/pehcastro/twind/internal/konst/highlight"
 )
 
 type frameKind uint8

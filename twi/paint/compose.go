@@ -5,11 +5,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/paint"
+	konst "github.com/pehcastro/twind/internal/konst/paint"
 
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/layout"
 )
 
 func translucent(c color.Color) bool { return c.Kind == color.Literal && c.RGBA.A < math.MaxUint8 }

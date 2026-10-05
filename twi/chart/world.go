@@ -5,10 +5,10 @@ import (
 	"encoding/binary"
 	"image"
 
-	konst "github.com/twind-dev/twind/internal/konst/chart"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/text"
-	"github.com/twind-dev/twind/twi/theme"
+	konst "github.com/pehcastro/twind/internal/konst/chart"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/text"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 //go:embed world.bin

@@ -1,5 +1,5 @@
 {
-  "name": "twind-dev",
+  "name": "twind",
   "private": true,
   "packageManager": "pnpm@10.27.0",
   "scripts": {
@@ -21,8 +21,8 @@
     "test:dev": "go test -p 8 ./...",
     "test:race": "CGO_ENABLED=1 node scripts/head.mjs go test -p 8 -race ./twi/runtime/...",
     "vet": "node scripts/head.mjs go vet ./...",
-    "lint": "node scripts/head.mjs go tool golangci-lint run ./...",
-    "deadcode": "node scripts/head.mjs go tool deadcode ./...",
+    "lint": "node scripts/head.mjs go tool -modfile=tools/go.mod golangci-lint run ./...",
+    "deadcode": "node scripts/head.mjs go tool -modfile=tools/go.mod deadcode ./...",
     "check": "pnpm vet && pnpm lint && pnpm test",
     "bench": "node scripts/head.mjs go test -p 1 ./bench/... -run ^$ -bench . -count 5",
     "gen": "go generate ./examples/hello ./twi/testdata/hello ./bench/budgets ./internal/twirgen/testdata/hello",

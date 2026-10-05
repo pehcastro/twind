@@ -6,10 +6,10 @@ import (
 	"slices"
 	"time"
 
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/motion"
-	"github.com/twind-dev/twind/twi/scene"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/motion"
+	"github.com/pehcastro/twind/twi/scene"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func (t *Tree) Wake() (time.Duration, bool) {

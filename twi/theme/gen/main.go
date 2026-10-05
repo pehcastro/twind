@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/twind-dev/twind/twi/theme/shadcn"
+	"github.com/pehcastro/twind/twi/theme/shadcn"
 )
 
 func main() {

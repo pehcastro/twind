@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/runtime"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/runtime"
 )
 
 type tracing struct {

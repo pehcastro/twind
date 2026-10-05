@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func Button(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 	return part(button(v, s, idleRing(v)+" "+focusRing), append([]twi.NodeOption{twi.Focusable()}, children...))

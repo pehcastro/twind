@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 type recorder struct{ writes []string }

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/paint"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/icon"
+	konst "github.com/pehcastro/twind/internal/konst/paint"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/icon"
 )
 
 func TestCoverageStandInsForLackedGlyphs(t *testing.T) {

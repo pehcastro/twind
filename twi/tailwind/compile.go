@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/twind-dev/twind/twi/css"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/css"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 type Category uint8

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/internal/render"
-	"github.com/twind-dev/twind/internal/render/testdata/sheet"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/internal/render/testdata/sheet"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func seams(labels ...string) []render.Node {

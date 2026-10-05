@@ -3,12 +3,12 @@ package paint
 import (
 	"testing"
 
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/scene"
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/scene"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func bgAcross(t *testing.T, name string, buf *buffer.Buffer, to int, inside, outside color.Color) {

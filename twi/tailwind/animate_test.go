@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func still() style.Pose { return style.Pose{Opacity: 1, Scale: 1} }

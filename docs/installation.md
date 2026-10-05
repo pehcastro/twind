@@ -7,7 +7,7 @@ Twind needs Go and nothing else. A program that uses it builds from a clean chec
 The `twind` command writes a working fullscreen app into an empty directory:
 
 ```bash
-go run github.com/twind-dev/twind/cmd/twind new myapp
+go run github.com/pehcastro/twind/cmd/twind new myapp
 cd myapp
 go run .
 ```
@@ -17,7 +17,7 @@ The app has a sidebar, cards, a dialog and a theme picker. Its `README.md` says 
 ## Add Twind to a module
 
 ```bash
-go get github.com/twind-dev/twind
+go get github.com/pehcastro/twind
 ```
 
 Then render a tree:
@@ -36,7 +36,7 @@ func main() {
 Tailwind classes are compiled when you build, not when the program runs. Add this line to the package that holds your classes:
 
 ```go
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 ```
 
 Then run `twind build`. It writes `twir_gen.go`, a `Styles()` function with every rule your classes need. Commit it: the program then builds without Tailwind. `twind check` says whether it is stale, and a test can say the same.

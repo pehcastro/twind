@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 func main() {
 	name := flag.String("style", "platform", "page style open at start: platform, product, studio, event, store or project")

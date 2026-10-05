@@ -3,10 +3,10 @@ package pill
 import (
 	"strconv"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 func pill(name string, options ...twi.NodeOption) twi.Node {
 	return twi.Element(append([]twi.NodeOption{

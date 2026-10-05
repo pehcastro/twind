@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/internal/render"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/runtime"
+	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/runtime"
 )
 
 func TestPageKeysScrollThePageFromOutsideIt(t *testing.T) {

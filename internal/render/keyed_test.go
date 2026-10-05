@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/internal/render"
+	"github.com/pehcastro/twind/internal/render"
 )
 
 func keyed(key, label string) render.Node {

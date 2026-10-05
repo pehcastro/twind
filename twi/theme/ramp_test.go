@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func lightness(c color.RGBA) float64 {

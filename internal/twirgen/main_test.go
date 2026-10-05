@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi/tailwind"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi/tailwind"
 )
 
 func TestGeneratedTakesImportedComponentClasses(t *testing.T) {

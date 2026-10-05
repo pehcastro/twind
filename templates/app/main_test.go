@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/tailwind"
 )
 
 func TestStylesFresh(t *testing.T) {

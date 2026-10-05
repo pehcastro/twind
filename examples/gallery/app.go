@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/icon"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/icon"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 const focusRing = "focus-visible:shadow-[0_0_0_1px_var(--color-ring),0_0_0_3px_color-mix(in_oklab,var(--color-ring)_50%,transparent)]"

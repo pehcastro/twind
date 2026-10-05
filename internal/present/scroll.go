@@ -6,13 +6,13 @@ import (
 	"math"
 	"slices"
 
-	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
-	konst "github.com/twind-dev/twind/internal/konst/scene"
-	termkonst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/scene"
-	"github.com/twind-dev/twind/twi/terminal"
+	paintkonst "github.com/pehcastro/twind/internal/konst/paint"
+	konst "github.com/pehcastro/twind/internal/konst/scene"
+	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/scene"
+	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func (s *Screen) scroll(f *scene.Frame, sc scene.Scroll) {

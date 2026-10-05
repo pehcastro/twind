@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	devkonst "github.com/twind-dev/twind/internal/dev/konst"
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	devkonst "github.com/pehcastro/twind/internal/dev/konst"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
 )
 
 func TestDevChildKeepsTheScreen(t *testing.T) {

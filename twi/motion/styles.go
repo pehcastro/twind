@@ -6,9 +6,9 @@ import (
 	"slices"
 	"time"
 
-	konst "github.com/twind-dev/twind/internal/konst/motion"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/style"
+	konst "github.com/pehcastro/twind/internal/konst/motion"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 type Key uint32

@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func Badge(v Variant, children ...twi.NodeOption) twi.Node {
 	return part("flex flex-row shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full px-1 font-medium "+

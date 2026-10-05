@@ -2,7 +2,7 @@ package theme
 
 //go:generate go run ./gen -pkg theme -out builtin_gen.go css
 
-import "github.com/twind-dev/twind/twi/color"
+import "github.com/pehcastro/twind/twi/color"
 
 type Token uint8
 

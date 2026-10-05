@@ -3,7 +3,7 @@ package graphics
 import (
 	"testing"
 
-	"github.com/twind-dev/twind/internal/konst/graphics"
+	"github.com/pehcastro/twind/internal/konst/graphics"
 )
 
 func TestHuffmanLengthsAreLimitedAndComplete(t *testing.T) {

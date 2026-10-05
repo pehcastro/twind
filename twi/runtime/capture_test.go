@@ -5,10 +5,10 @@ import (
 	"slices"
 	"testing"
 
-	termkonst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/input"
+	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type pointerLog []string

@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/highlight"
+	"github.com/pehcastro/twind/twi/highlight"
 )
 
 func spansOf(src string, g *highlight.Grammar) string {

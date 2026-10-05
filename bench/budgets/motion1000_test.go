@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	runkonst "github.com/twind-dev/twind/internal/konst/runtime"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/motion"
+	runkonst "github.com/pehcastro/twind/internal/konst/runtime"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/motion"
 )
 
 const (

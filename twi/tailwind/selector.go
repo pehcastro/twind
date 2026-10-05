@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func selector(sel string, when style.Condition) (style.Rule, string) {

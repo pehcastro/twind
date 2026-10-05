@@ -7,9 +7,9 @@ import (
 	"strings"
 	"unicode"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 type Writer struct {

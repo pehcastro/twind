@@ -1,6 +1,6 @@
 package highlight
 
-import "github.com/twind-dev/twind/twi/theme"
+import "github.com/pehcastro/twind/twi/theme"
 
 type Palette [kindEnd]theme.Token
 

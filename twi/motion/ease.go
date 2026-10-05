@@ -3,7 +3,7 @@ package motion
 import (
 	"math"
 
-	konst "github.com/twind-dev/twind/internal/konst/motion"
+	konst "github.com/pehcastro/twind/internal/konst/motion"
 )
 
 type easingKind uint8

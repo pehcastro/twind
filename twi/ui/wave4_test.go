@@ -7,10 +7,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/ui"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/theme"
+	konst "github.com/pehcastro/twind/internal/konst/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func toggleOn(rt *twi.Runtime, r rune, on *bool) twi.NodeOption {

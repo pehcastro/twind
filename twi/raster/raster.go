@@ -8,8 +8,8 @@ import (
 	"math"
 	"slices"
 
-	konst "github.com/twind-dev/twind/internal/konst/raster"
-	"github.com/twind-dev/twind/twi/color"
+	konst "github.com/pehcastro/twind/internal/konst/raster"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 //go:generate go run gen.go

@@ -1,6 +1,6 @@
 package layout
 
-import konst "github.com/twind-dev/twind/internal/konst/layout"
+import konst "github.com/pehcastro/twind/internal/konst/layout"
 
 func (it *gridItem) minimum(definite bool, under sizing) int {
 	switch {

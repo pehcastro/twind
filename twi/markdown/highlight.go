@@ -3,9 +3,9 @@ package markdown
 import (
 	"strings"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/highlight"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/highlight"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 const tabCells = "  "

@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 var errNotConsole = errors.New("terminal: writer is not a console")

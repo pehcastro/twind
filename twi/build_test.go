@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 func BenchmarkBuildTree1000(b *testing.B) {

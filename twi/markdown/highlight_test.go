@@ -3,11 +3,11 @@ package markdown
 import (
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/highlight"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/highlight"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestFenceLanguages(t *testing.T) {

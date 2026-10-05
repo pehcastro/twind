@@ -11,12 +11,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/tailwind"
-	"github.com/twind-dev/twind/twi/theme"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestStylesFresh(t *testing.T) {

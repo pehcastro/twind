@@ -15,10 +15,10 @@ import (
 
 	"golang.org/x/mod/module"
 
-	"github.com/twind-dev/twind/templates"
+	"github.com/pehcastro/twind/templates"
 )
 
-const twindModule = "github.com/twind-dev/twind"
+const twindModule = "github.com/pehcastro/twind"
 
 const newHelp = `Writes a fullscreen app into dir: a sidebar, cards, a dialog and a theme picker, its Style IR,
 a driver script with a test that replays it, a go.mod and a README.

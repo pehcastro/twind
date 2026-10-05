@@ -4,7 +4,7 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 //go:embed *.go

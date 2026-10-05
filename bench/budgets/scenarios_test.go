@@ -4,12 +4,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/tailwind"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen -o twir_gen_test.go
+//go:generate go run github.com/pehcastro/twind/internal/twirgen -o twir_gen_test.go
 
 const generated = "twir_gen_test.go"
 

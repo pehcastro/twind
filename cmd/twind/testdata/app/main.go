@@ -1,8 +1,8 @@
 package main
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 const drive, os, testing = "a package-level drive", "os", "testing"
 

@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func FieldSet(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-col gap-1", children)

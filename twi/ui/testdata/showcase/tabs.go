@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 func tabsPage(rt *twi.Runtime, open string) func() twi.Node {

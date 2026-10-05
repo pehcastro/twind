@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func Avatar(s Size, children ...twi.NodeOption) twi.Node {
 	return part("relative flex shrink-0 overflow-hidden rounded-full select-none "+pick("avatar", s, map[Size]string{

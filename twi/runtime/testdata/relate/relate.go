@@ -1,11 +1,11 @@
 package relate
 
 import (
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/style"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 const (
 	Lit     = "bg-sky-500"

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
 )
 
 func TestRestoredPageAndThemeShow(t *testing.T) {

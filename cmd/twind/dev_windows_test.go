@@ -22,7 +22,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type console struct {
@@ -634,7 +634,7 @@ func TestDevOutsideTheRepo(t *testing.T) {
 	}
 	env := scratchEnv(root, temp)
 	for _, args := range [][]string{
-		{"mod", "edit", "-replace", "github.com/twind-dev/twind=" + twind},
+		{"mod", "edit", "-replace", "github.com/pehcastro/twind=" + twind},
 		{"mod", "tidy"},
 		{"tool", "twind", "check", "."},
 	} {

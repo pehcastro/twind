@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	style "github.com/twind-dev/twind/internal/konst/style"
+	style "github.com/pehcastro/twind/internal/konst/style"
 )
 
 func TestTwirgenLinesTakeTestFiles(t *testing.T) {

@@ -1,6 +1,6 @@
 package buffer
 
-import "github.com/twind-dev/twind/twi/color"
+import "github.com/pehcastro/twind/twi/color"
 
 type Attr uint8
 

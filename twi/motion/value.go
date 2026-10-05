@@ -4,9 +4,9 @@ import (
 	"math"
 	"slices"
 
-	konst "github.com/twind-dev/twind/internal/konst/motion"
+	konst "github.com/pehcastro/twind/internal/konst/motion"
 
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 type Value struct{ ch [4]float64 }

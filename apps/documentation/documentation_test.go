@@ -17,17 +17,17 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/twind-dev/twind/apps/documentation/blocks"
-	"github.com/twind-dev/twind/apps/documentation/components"
-	"github.com/twind-dev/twind/docs"
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/markdown"
-	"github.com/twind-dev/twind/twi/tailwind"
-	"github.com/twind-dev/twind/twi/terminal"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/apps/documentation/blocks"
+	"github.com/pehcastro/twind/apps/documentation/components"
+	"github.com/pehcastro/twind/docs"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/markdown"
+	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestStylesFresh(t *testing.T) {
@@ -394,7 +394,7 @@ func TestCodeBlockCopy(t *testing.T) {
 	jump(t, d, "Button")
 	x, y := spot(t, d, "Copy")
 	d.Click(x+1, y)
-	if got, want := d.Clipboard(), `import "github.com/twind-dev/twind/twi/ui"`; got != want {
+	if got, want := d.Clipboard(), `import "github.com/pehcastro/twind/twi/ui"`; got != want {
 		t.Fatalf("the Usage block's copy area copied %q, want %q\n%s", got, want, d.Frame().Text())
 	}
 	if _, at := spot(t, d, "Copied"); at != y {

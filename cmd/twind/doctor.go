@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/fix"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/terminal"
-	"github.com/twind-dev/twind/twi/text"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/fix"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 const doctorHelp = `Asks the terminal on stdin and stdout what it supports and prints the answers and how long they took.

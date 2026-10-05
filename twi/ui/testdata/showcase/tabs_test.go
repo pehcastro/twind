@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestTabsPage(t *testing.T) {

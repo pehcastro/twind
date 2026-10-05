@@ -53,7 +53,7 @@ func TestNewAppOutsideTheModule(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{
-		{"mod", "edit", "-replace", "github.com/twind-dev/twind=" + twind},
+		{"mod", "edit", "-replace", "github.com/pehcastro/twind=" + twind},
 		{"mod", "tidy"},
 		{"vet", "./..."},
 		{"test", "-count=1", "./..."},

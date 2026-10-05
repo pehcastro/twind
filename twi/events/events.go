@@ -3,7 +3,7 @@ package events
 import (
 	"image"
 
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type Type uint8

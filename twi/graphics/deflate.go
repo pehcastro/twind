@@ -6,7 +6,7 @@ import (
 	"math/bits"
 	"slices"
 
-	"github.com/twind-dev/twind/internal/konst/graphics"
+	"github.com/pehcastro/twind/internal/konst/graphics"
 )
 
 type huffman struct {

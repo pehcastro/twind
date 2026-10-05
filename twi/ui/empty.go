@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func Empty(children ...twi.NodeOption) twi.Node {
 	return part("flex flex-1 flex-col min-w-0 items-center justify-center gap-1 rounded-lg px-3 py-1 text-center md:px-6 md:py-3", children)

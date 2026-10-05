@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/runtime/testdata/pill"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/runtime/testdata/pill"
 )
 
 type backend struct {
@@ -138,7 +138,7 @@ func BenchmarkAppIdle(b *testing.B) { idle(b, "-app", "surfaces", "-window", "60
 
 func idle(b *testing.B, args ...string) {
 	exe := filepath.Join(b.TempDir(), "idle.exe")
-	if out, err := exec.Command("go", "build", "-o", exe, "github.com/twind-dev/twind/bench/scenarios/idle").CombinedOutput(); err != nil {
+	if out, err := exec.Command("go", "build", "-o", exe, "github.com/pehcastro/twind/bench/scenarios/idle").CombinedOutput(); err != nil {
 		b.Fatalf("%v\n%s", err, out)
 	}
 	var cpu, wall, wakes, bytes, resident, private, heap, fired, spent float64

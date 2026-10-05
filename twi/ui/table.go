@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func Table(children ...twi.NodeOption) twi.Node {
 	return part("relative w-full overflow-x-auto", []twi.NodeOption{part("flex flex-col w-full", children)})

@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/css"
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/css"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func quiet(t *testing.T, match func(class string) bool) {

@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi/tailwind"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi/tailwind"
 )
 
 func TestStylesFresh(t *testing.T) {

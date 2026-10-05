@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/highlight"
+	"github.com/pehcastro/twind/twi/highlight"
 )
 
 func TestGo(t *testing.T)            { matchTwinkleplop(t, "go", highlight.Go()) }

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	konst "github.com/twind-dev/twind/internal/konst/markdown"
-	"github.com/twind-dev/twind/twi/text"
+	konst "github.com/pehcastro/twind/internal/konst/markdown"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 const item = Tag + 1

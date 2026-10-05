@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func TestAnimateReadsTailwindDuration(t *testing.T) {

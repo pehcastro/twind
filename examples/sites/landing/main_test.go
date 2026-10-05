@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/tailwind"
-	"github.com/twind-dev/twind/twi/theme"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 const width, height = 120, 40

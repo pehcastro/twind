@@ -12,8 +12,8 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/twind-dev/twind/twi/icon"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/icon"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 func reference(t *testing.T, size int) *image.Gray {

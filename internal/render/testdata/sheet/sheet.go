@@ -1,6 +1,6 @@
 package sheet
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 const (
 	Page     = "bg-zinc-950 text-zinc-100"

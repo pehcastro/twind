@@ -1,8 +1,8 @@
 package selection
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 const (
 	Card    = "flex flex-col w-24 border border-zinc-500 bg-zinc-900 px-1"

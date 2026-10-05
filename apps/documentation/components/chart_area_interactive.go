@@ -3,9 +3,9 @@ package components
 import (
 	"strconv"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/chart"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/chart"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func ChartAreaInteractive(rt *twi.Runtime) func() twi.Node {

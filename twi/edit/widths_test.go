@@ -3,7 +3,7 @@ package edit
 import (
 	"testing"
 
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 func TestWidthsCursorAfterFlag(t *testing.T) {

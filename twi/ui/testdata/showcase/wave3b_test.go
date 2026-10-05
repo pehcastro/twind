@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/theme"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 func BenchmarkCommandKeyToFrame(b *testing.B) {

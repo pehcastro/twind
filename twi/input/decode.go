@@ -5,7 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/input"
+	konst "github.com/pehcastro/twind/internal/konst/input"
 )
 
 type Decoder struct {

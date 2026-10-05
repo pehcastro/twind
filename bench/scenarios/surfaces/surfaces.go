@@ -4,12 +4,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen -o twir_gen.go
+//go:generate go run github.com/pehcastro/twind/internal/twirgen -o twir_gen.go
 
 const (
 	Columns  = 120

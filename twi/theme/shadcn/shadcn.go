@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/theme"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 //go:embed base.css
@@ -405,11 +405,11 @@ func goName(tok theme.Token) string {
 func Generate(pkg string, files []File) ([]byte, []Warning, error) {
 	q := "theme."
 	var b strings.Builder
-	fmt.Fprintf(&b, "package %s\n\nimport (\n\"github.com/twind-dev/twind/twi/color\"\n", pkg)
+	fmt.Fprintf(&b, "package %s\n\nimport (\n\"github.com/pehcastro/twind/twi/color\"\n", pkg)
 	if pkg == "theme" {
 		q = ""
 	} else {
-		b.WriteString("\"github.com/twind-dev/twind/twi/theme\"\n")
+		b.WriteString("\"github.com/pehcastro/twind/twi/theme\"\n")
 	}
 	b.WriteString(")\n")
 	var warnings []Warning

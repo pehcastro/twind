@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/raster"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/raster"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func benchTrees() [2]Node {

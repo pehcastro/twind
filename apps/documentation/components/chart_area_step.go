@@ -1,9 +1,9 @@
 package components
 
 import (
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/chart"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/chart"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func ChartAreaStep(rt *twi.Runtime) func() twi.Node {

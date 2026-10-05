@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 //go:embed posts/*.md
 var postFiles embed.FS

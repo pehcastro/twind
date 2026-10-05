@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/raster"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/raster"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 var (

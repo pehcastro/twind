@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"unicode"
 
-	konst "github.com/twind-dev/twind/internal/konst/input"
+	konst "github.com/pehcastro/twind/internal/konst/input"
 )
 
 type cmd struct{ prefix, inter, final byte }

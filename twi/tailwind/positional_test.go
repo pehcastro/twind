@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func TestFirst(t *testing.T) {

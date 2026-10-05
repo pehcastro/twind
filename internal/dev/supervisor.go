@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/twind-dev/twind/internal/dev/konst"
+	"github.com/pehcastro/twind/internal/dev/konst"
 )
 
 type Child interface {

@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	devkonst "github.com/twind-dev/twind/internal/dev/konst"
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/text"
+	devkonst "github.com/pehcastro/twind/internal/dev/konst"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type Options struct{ NoMouse bool }

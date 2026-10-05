@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 func shortField(t *testing.T, classes func(in *Input) string) *field {

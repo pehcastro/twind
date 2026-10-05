@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/tailwind"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen -o twir_gen_test.go -func styles
+//go:generate go run github.com/pehcastro/twind/internal/twirgen -o twir_gen_test.go -func styles
 
 func TestRenderStylesFresh(t *testing.T) {
 	stale, err := tailwind.Stale(".", "twir_gen_test.go")

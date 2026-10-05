@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type recordingConsole struct {

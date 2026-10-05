@@ -6,9 +6,9 @@ import (
 	"slices"
 	"testing"
 
-	termkonst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
+	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 func TestOnScrollFiresOnceWithTheNewOffset(t *testing.T) {

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/theme"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 func newSettings(rt *twi.Runtime, start theme.Theme, toaster *ui.Toaster, dark *ui.Switch) func() twi.Node {

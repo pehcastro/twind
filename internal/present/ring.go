@@ -1,10 +1,10 @@
 package present
 
 import (
-	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/graphics"
-	"github.com/twind-dev/twind/twi/terminal"
+	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/graphics"
+	"github.com/pehcastro/twind/twi/terminal"
 )
 
 type rings struct {

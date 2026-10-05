@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
 )
 
 func hiddenOwner(t *testing.T, k win32) uintptr {

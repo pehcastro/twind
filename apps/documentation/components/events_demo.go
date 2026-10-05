@@ -3,8 +3,8 @@ package components
 import (
 	"strconv"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 func EventsDemo(rt *twi.Runtime) func() twi.Node {

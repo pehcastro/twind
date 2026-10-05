@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 func newStudio(k kit) page {

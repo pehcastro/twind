@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/chart"
+	konst "github.com/pehcastro/twind/internal/konst/chart"
 )
 
 type plot struct {

@@ -3,8 +3,8 @@ package blocks
 import (
 	"embed"
 
-	"github.com/twind-dev/twind/apps/documentation/components"
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/apps/documentation/components"
+	"github.com/pehcastro/twind/twi"
 )
 
 //go:embed *.go

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 func RunScript(r io.Reader, app App, out string, opts ...Option) (err error) {

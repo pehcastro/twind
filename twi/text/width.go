@@ -4,7 +4,7 @@ import (
 	"iter"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/text"
+	konst "github.com/pehcastro/twind/internal/konst/text"
 )
 
 //go:generate go run gen.go -version 17.0.0

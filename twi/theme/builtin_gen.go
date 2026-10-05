@@ -1,7 +1,7 @@
 package theme
 
 import (
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 func cloud() Theme {

@@ -3,9 +3,9 @@ package paint
 import (
 	"testing"
 
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func TestCornerHidesThePage(t *testing.T) {

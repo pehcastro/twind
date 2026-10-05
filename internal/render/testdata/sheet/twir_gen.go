@@ -4,9 +4,9 @@
 package sheet
 
 import (
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func Styles() (style.Sheet, error) {

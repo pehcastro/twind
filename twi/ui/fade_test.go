@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
 )
 
 const pageLetter = "q"

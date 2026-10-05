@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/text"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type fakeTTY struct {

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/terminal"
 )
 
 const (

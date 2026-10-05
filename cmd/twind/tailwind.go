@@ -17,14 +17,14 @@ import (
 	"strings"
 	"sync"
 
-	devkonst "github.com/twind-dev/twind/internal/dev/konst"
-	style "github.com/twind-dev/twind/internal/konst/style"
+	devkonst "github.com/pehcastro/twind/internal/dev/konst"
+	style "github.com/pehcastro/twind/internal/konst/style"
 )
 
 //go:embed tailwind-sha256sums.txt
 var pinnedSums string
 
-const twirgenPath = "github.com/twind-dev/twind/internal/twirgen"
+const twirgenPath = "github.com/pehcastro/twind/internal/twirgen"
 
 type styler struct {
 	tailwind, twirgen func() (string, error)

@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/runtime/testdata/relate"
-	"github.com/twind-dev/twind/twi/tailwind"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/runtime/testdata/relate"
+	"github.com/pehcastro/twind/twi/tailwind"
 )
 
 func TestElementTagSizesAnSvgChild(t *testing.T) {

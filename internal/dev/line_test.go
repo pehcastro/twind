@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/internal/dev/konst"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/internal/dev/konst"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 func TestErrorLineIsSanitisedAndFits(t *testing.T) {
-	compiler := errors.New("exit status 1\n# github.com/twind-dev/twind/twi/ui\ntwi\\ui\\input.go:32:5:\tundefined: \x1b]0;pwned\x07fieldEdgeX \x1b[2J" + strings.Repeat("界", 80) + "\nsecond error")
+	compiler := errors.New("exit status 1\n# github.com/pehcastro/twind/twi/ui\ntwi\\ui\\input.go:32:5:\tundefined: \x1b]0;pwned\x07fieldEdgeX \x1b[2J" + strings.Repeat("界", 80) + "\nsecond error")
 	line := ErrorLine(compiler, 61, 24)
 	if !strings.HasPrefix(line, konst.SaveCursor+"\x1b[24;1H"+konst.ErrorStyle) || !strings.HasSuffix(line, konst.EraseRight+"\x1b[0m"+konst.RestoreCursor) {
 		t.Fatalf("line is not framed to row 24: %q", line)

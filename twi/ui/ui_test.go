@@ -7,16 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/internal/render"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/tailwind"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen -o twir_gen_test.go -func styles
+//go:generate go run github.com/pehcastro/twind/internal/twirgen -o twir_gen_test.go -func styles
 
 func zinc(_ *testing.T, scheme theme.Scheme) theme.Theme {
 	return theme.Default().WithScheme(scheme)

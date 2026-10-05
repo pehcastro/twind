@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func TestPositionOf(t *testing.T) {

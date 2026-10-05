@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 type MessageScroller struct {

@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/theme"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 func main() {
 	scheme := flag.String("theme", "Light", "theme to open with, Light or Dark")

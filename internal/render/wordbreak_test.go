@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/internal/render"
-	"github.com/twind-dev/twind/internal/render/testdata/sheet"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/paint"
+	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/internal/render/testdata/sheet"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/paint"
 )
 
 func TestWordBreakReachesThePage(t *testing.T) {

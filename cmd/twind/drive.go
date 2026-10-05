@@ -31,7 +31,7 @@ import (
 	twindos "os"
 	twindtesting "testing"
 
-	twinddrive "github.com/twind-dev/twind/twi/drive"
+	twinddrive "github.com/pehcastro/twind/twi/drive"
 )
 
 func TestTwindDrive(t *twindtesting.T) {

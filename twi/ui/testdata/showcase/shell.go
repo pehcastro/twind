@@ -3,8 +3,8 @@ package main
 import (
 	"strconv"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 func shell(rt *twi.Runtime, open string) func() twi.Node {

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/theme"
-	"github.com/twind-dev/twind/twi/theme/shadcn"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/theme/shadcn"
 )
 
 var owners = []string{"twind", "dream", "mono", "minimal", "dew", "cloud", "sukuna"}

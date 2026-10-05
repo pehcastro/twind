@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/twind-dev/twind/twi/text"
+import "github.com/pehcastro/twind/twi/text"
 
 type Unit uint8
 

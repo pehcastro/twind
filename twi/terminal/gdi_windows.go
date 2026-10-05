@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
 )
 
 type bitmapHeader struct {

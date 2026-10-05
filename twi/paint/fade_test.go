@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/scene"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/scene"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func faded(opacity float64, children ...scene.Node) scene.Node {

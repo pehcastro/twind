@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestShellScript(t *testing.T) {

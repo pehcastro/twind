@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 func main() {
 	sheet, err := Styles()

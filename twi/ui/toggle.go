@@ -3,8 +3,8 @@ package ui
 import (
 	"slices"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 func toggle(c *control, v Variant, s Size, on bool, at ringAt) string {

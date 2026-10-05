@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/icon"
+	konst "github.com/pehcastro/twind/internal/konst/icon"
 )
 
 func list() [][2]string {

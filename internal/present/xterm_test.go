@@ -8,8 +8,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type xtCell struct {

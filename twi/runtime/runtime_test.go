@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
-	rkonst "github.com/twind-dev/twind/internal/konst/runtime"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/runtime"
-	"github.com/twind-dev/twind/twi/terminal"
-	"github.com/twind-dev/twind/twi/testdata/counter"
-	"github.com/twind-dev/twind/twi/testdata/hello"
-	"github.com/twind-dev/twind/twi/theme"
+	rkonst "github.com/pehcastro/twind/internal/konst/runtime"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/runtime"
+	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi/testdata/counter"
+	"github.com/pehcastro/twind/twi/testdata/hello"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 type backend struct {
@@ -144,7 +144,7 @@ func runtimeAllocations() int64 {
 		for more := true; more; {
 			var f goruntime.Frame
 			f, more = frames.Next()
-			if strings.HasPrefix(f.Function, "github.com/twind-dev/twind/twi/runtime.") {
+			if strings.HasPrefix(f.Function, "github.com/pehcastro/twind/twi/runtime.") {
 				total += rec.AllocObjects
 				break
 			}

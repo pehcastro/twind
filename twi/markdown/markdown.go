@@ -3,7 +3,7 @@ package markdown
 import (
 	"fmt"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 type Kind uint8

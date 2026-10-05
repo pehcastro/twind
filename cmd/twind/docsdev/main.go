@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	docsapp "github.com/twind-dev/twind/apps/documentation"
-	"github.com/twind-dev/twind/twi"
+	docsapp "github.com/pehcastro/twind/apps/documentation"
+	"github.com/pehcastro/twind/twi"
 )
 
 func main() {

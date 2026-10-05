@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestPointer(t *testing.T) {

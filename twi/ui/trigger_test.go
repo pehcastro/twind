@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
 )
 
 func opensFromAnywhere(t *testing.T, d *drive.Driver, label, chevron string, open func() bool, shut func(x, y int)) {

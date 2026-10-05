@@ -1,8 +1,8 @@
 package runtime
 
 import (
-	"github.com/twind-dev/twind/internal/render"
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func (r *Runtime) restyles(old, next []int, bit style.State) bool {

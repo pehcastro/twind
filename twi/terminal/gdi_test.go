@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/input"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type fakeWindow struct {

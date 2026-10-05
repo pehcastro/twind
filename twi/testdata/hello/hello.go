@@ -3,11 +3,11 @@ package hello
 import (
 	"strconv"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 func App() twi.Node {
 	return twi.Element(

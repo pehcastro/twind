@@ -8,10 +8,10 @@ import (
 	"os"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/chart"
-	stylekonst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/theme"
+	konst "github.com/pehcastro/twind/internal/konst/chart"
+	stylekonst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 var visitors = []float64{186, 305, 237, 73, 209, 214, 190, 250, 160, 280, 120, 230}

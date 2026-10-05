@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/twind-dev/twind/internal/dev/konst"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/internal/dev/konst"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 func ErrorLine(err error, width, height int) string {

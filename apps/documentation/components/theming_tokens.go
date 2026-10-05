@@ -1,6 +1,6 @@
 package components
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func ThemingTokens(*twi.Runtime) func() twi.Node {
 	swatch := func(classes, token string) twi.Node {

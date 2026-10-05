@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/fix"
+	konst "github.com/pehcastro/twind/internal/konst/fix"
 )
 
 func fakeExe(machine uint16) []byte {

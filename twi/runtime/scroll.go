@@ -4,10 +4,10 @@ import (
 	"image"
 	"slices"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/layout"
-	"github.com/twind-dev/twind/twi/scene"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/layout"
+	"github.com/pehcastro/twind/twi/scene"
 )
 
 type scroller struct {

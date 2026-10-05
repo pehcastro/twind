@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/style"
-	"github.com/twind-dev/twind/twi/tailwind"
+	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/twi/tailwind"
 )
 
 func main() {
@@ -121,10 +121,10 @@ func generate(out, pkg, name, bin string) error {
 	src.WriteString(tailwind.Header(hash) + "package " + pkg + "\n\nimport (\n")
 	for _, dep := range []string{"color", "theme"} {
 		if strings.Contains(body, dep+".") {
-			src.WriteString("\"github.com/twind-dev/twind/twi/" + dep + "\"\n")
+			src.WriteString("\"github.com/pehcastro/twind/twi/" + dep + "\"\n")
 		}
 	}
-	fmt.Fprintf(&src, "\"github.com/twind-dev/twind/twi/style\"\n)\n\nfunc %s() (style.Sheet, error) {\nreturn style.NewSheet(%d, %s)\n}\n", name, konst.IRVersion, body)
+	fmt.Fprintf(&src, "\"github.com/pehcastro/twind/twi/style\"\n)\n\nfunc %s() (style.Sheet, error) {\nreturn style.NewSheet(%d, %s)\n}\n", name, konst.IRVersion, body)
 	formatted, err := format.Source(src.Bytes())
 	if err != nil {
 		return err
@@ -133,7 +133,7 @@ func generate(out, pkg, name, bin string) error {
 }
 
 func constNames() (map[string]string, error) {
-	paths := []string{"github.com/twind-dev/twind/twi/style", "github.com/twind-dev/twind/twi/color", "github.com/twind-dev/twind/twi/theme"}
+	paths := []string{"github.com/pehcastro/twind/twi/style", "github.com/pehcastro/twind/twi/color", "github.com/pehcastro/twind/twi/theme"}
 	out, err := exec.Command("go", append([]string{"list", "-export", "-deps", "-f", "{{.ImportPath}}\t{{.Export}}"}, paths...)...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("go list -export: %w", err)

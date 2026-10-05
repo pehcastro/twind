@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func BenchmarkCompute(b *testing.B) {

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	konst "github.com/twind-dev/twind/internal/konst/motion"
-	"github.com/twind-dev/twind/twi/color"
+	konst "github.com/pehcastro/twind/internal/konst/motion"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 const frame = 16 * time.Millisecond

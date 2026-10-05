@@ -1,8 +1,8 @@
 package hover
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 const Pill = "px-1 bg-zinc-700 hover:bg-sky-500 active:bg-red-500 focus-visible:underline"
 

@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/tailwind"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func TestPresetThemeSyntaxTokens(t *testing.T) {

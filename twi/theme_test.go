@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/testdata/hello"
-	"github.com/twind-dev/twind/twi/theme"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/testdata/hello"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 type frames chan string

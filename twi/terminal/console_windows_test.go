@@ -15,9 +15,9 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/input"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 const fakeIn, fakeOut windows.Handle = 10, 11

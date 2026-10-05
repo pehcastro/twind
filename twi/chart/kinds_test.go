@@ -8,11 +8,11 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/chart"
-	paintkonst "github.com/twind-dev/twind/internal/konst/paint"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/text"
-	"github.com/twind-dev/twind/twi/theme"
+	konst "github.com/pehcastro/twind/internal/konst/chart"
+	paintkonst "github.com/pehcastro/twind/internal/konst/paint"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/text"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func clock(c point, radius, angle float32) point {

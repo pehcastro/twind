@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/input"
+	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type Mark struct {

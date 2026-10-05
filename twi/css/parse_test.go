@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/css"
+	konst "github.com/pehcastro/twind/internal/konst/css"
 )
 
 func readFixture(t *testing.T, name string) []Node {

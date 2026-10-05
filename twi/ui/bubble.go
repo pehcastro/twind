@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func BubbleGroup(children ...twi.NodeOption) twi.Node {
 	return part("flex min-w-0 flex-col gap-1", children)

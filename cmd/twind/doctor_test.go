@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/terminal"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func TestDoctorAsksConhostNothingItPrints(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/twind-dev/twind/twi/edit"
-	"github.com/twind-dev/twind/twi/runtime"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/edit"
+	"github.com/pehcastro/twind/twi/runtime"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type Input struct {

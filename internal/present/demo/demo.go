@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/twind-dev/twind/internal/render"
+	"github.com/pehcastro/twind/internal/render"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 func el(classes string, children ...render.Node) render.Node {
 	return render.Node{Classes: strings.Fields(classes), Children: children}

@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 const indicatorWidths = `w-[0%]

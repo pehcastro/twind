@@ -6,9 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	rkonst "github.com/twind-dev/twind/internal/konst/runtime"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
+	rkonst "github.com/pehcastro/twind/internal/konst/runtime"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type tipApp struct {

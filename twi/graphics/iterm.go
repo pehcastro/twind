@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"hash/crc32"
 
-	"github.com/twind-dev/twind/internal/konst/graphics"
+	"github.com/pehcastro/twind/internal/konst/graphics"
 )
 
 type ITerm struct {

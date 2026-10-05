@@ -17,7 +17,7 @@ import (
 	"strings"
 	"unicode"
 
-	konst "github.com/twind-dev/twind/internal/konst/text"
+	konst "github.com/pehcastro/twind/internal/konst/text"
 )
 
 func main() {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
 )
 
 func TestTraceEachTerminalPhase(t *testing.T) {

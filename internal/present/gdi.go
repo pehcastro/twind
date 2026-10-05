@@ -4,12 +4,12 @@ import (
 	"image"
 	"slices"
 
-	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
-	konst "github.com/twind-dev/twind/internal/konst/paint"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/graphics"
-	"github.com/twind-dev/twind/twi/terminal"
+	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
+	konst "github.com/pehcastro/twind/internal/konst/paint"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/graphics"
+	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func (s *Screen) gdi() {

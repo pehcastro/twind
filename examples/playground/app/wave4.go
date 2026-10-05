@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/text"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/text"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 func directionPage(controls) twi.Node {

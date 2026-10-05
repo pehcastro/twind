@@ -8,10 +8,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/edit"
-	ukonst "github.com/twind-dev/twind/internal/konst/ui"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/text"
+	konst "github.com/pehcastro/twind/internal/konst/edit"
+	ukonst "github.com/pehcastro/twind/internal/konst/ui"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type Mode uint8

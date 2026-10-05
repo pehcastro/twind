@@ -9,10 +9,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/raster"
-	"github.com/twind-dev/twind/twi/scene"
-	"github.com/twind-dev/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/raster"
+	"github.com/pehcastro/twind/twi/scene"
+	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func TestSharedJobsDrawTheSamePixels(t *testing.T) {

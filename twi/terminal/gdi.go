@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	graphicskonst "github.com/twind-dev/twind/internal/konst/graphics"
-	konst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/color"
+	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
+	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 type Tile struct {

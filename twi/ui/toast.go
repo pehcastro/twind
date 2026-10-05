@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	konst "github.com/twind-dev/twind/internal/konst/ui"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
+	konst "github.com/pehcastro/twind/internal/konst/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 type ToastKind uint8

@@ -1,5 +1,5 @@
 $ go test ./twi/highlight/ -run 'Console'
-ok  	github.com/twind-dev/twind/twi/highlight	0.412s
+ok  	github.com/pehcastro/twind/twi/highlight	0.412s
 $ export PATH="$HOME/go/bin:$PATH" && echo $PATH
 /home/me/go/bin:/usr/bin
 $ for f in *.go; do gofmt -l "$f"; done

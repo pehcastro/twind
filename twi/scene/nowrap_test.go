@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 func TestNoWrapClipsInsteadOfWrapping(t *testing.T) {

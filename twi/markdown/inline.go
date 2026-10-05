@@ -5,7 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/markdown"
+	konst "github.com/pehcastro/twind/internal/konst/markdown"
 )
 
 type piece struct {

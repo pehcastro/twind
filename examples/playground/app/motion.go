@@ -5,10 +5,10 @@ import (
 	"slices"
 	"time"
 
-	runkonst "github.com/twind-dev/twind/internal/konst/runtime"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/motion"
-	"github.com/twind-dev/twind/twi/ui"
+	runkonst "github.com/pehcastro/twind/internal/konst/runtime"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/motion"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 type sprung struct {

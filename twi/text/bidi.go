@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/text"
+	konst "github.com/pehcastro/twind/internal/konst/text"
 )
 
 type Direction uint8

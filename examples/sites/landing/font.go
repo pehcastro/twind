@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	"github.com/twind-dev/twind/twi"
+	"github.com/pehcastro/twind/twi"
 )
 
 func pixels(picture []string, scale, gap int) []twi.NodeOption {

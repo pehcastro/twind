@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func corners(r style.Radius) [4]style.Radius {

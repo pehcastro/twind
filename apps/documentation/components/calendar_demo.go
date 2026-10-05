@@ -3,8 +3,8 @@ package components
 import (
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/ui"
 )
 
 func CalendarDemo(rt *twi.Runtime) func() twi.Node {

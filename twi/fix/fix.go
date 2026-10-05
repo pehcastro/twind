@@ -18,8 +18,8 @@ import (
 	"slices"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/fix"
-	"github.com/twind-dev/twind/twi/text"
+	konst "github.com/pehcastro/twind/internal/konst/fix"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type Plan struct {

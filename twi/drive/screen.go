@@ -9,12 +9,12 @@ import (
 	"strings"
 	"unicode"
 
-	konst "github.com/twind-dev/twind/internal/konst/drive"
-	tkonst "github.com/twind-dev/twind/internal/konst/terminal"
-	"github.com/twind-dev/twind/twi/buffer"
-	"github.com/twind-dev/twind/twi/color"
-	"github.com/twind-dev/twind/twi/terminal"
-	"github.com/twind-dev/twind/twi/text"
+	konst "github.com/pehcastro/twind/internal/konst/drive"
+	tkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/twi/color"
+	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type screen struct {

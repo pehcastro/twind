@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/ui"
+	konst "github.com/pehcastro/twind/internal/konst/ui"
 )
 
 type classKey struct {

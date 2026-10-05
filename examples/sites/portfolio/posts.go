@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/markdown"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/markdown"
 )
 
 type post struct {

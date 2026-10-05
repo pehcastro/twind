@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	devkonst "github.com/twind-dev/twind/internal/dev/konst"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/runtime"
-	"github.com/twind-dev/twind/twi/terminal"
-	"github.com/twind-dev/twind/twi/theme"
+	devkonst "github.com/pehcastro/twind/internal/dev/konst"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/runtime"
+	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi/theme"
 )
 
 func Fullscreen() RenderOption { return func(c *renderConfig) { c.fullscreen = true } }

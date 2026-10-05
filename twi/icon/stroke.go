@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strconv"
 
-	konst "github.com/twind-dev/twind/internal/konst/icon"
+	konst "github.com/pehcastro/twind/internal/konst/icon"
 )
 
 type point struct{ x, y float32 }

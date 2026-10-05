@@ -3,8 +3,8 @@ package main
 import (
 	"io"
 
-	docsapp "github.com/twind-dev/twind/apps/documentation"
-	"github.com/twind-dev/twind/twi"
+	docsapp "github.com/pehcastro/twind/apps/documentation"
+	"github.com/pehcastro/twind/twi"
 )
 
 const docsHelp = `Opens the Twind documentation, itself a fullscreen Twind app: pages in a sidebar, live

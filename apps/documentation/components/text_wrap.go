@@ -1,6 +1,6 @@
 package components
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func TextWrap(*twi.Runtime) func() twi.Node {
 	sentence := "A long sentence wraps at word boundaries, measured in cells."

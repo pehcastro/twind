@@ -13,8 +13,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
 )
 
 func parsed(t *testing.T, dir string) []*ast.File {

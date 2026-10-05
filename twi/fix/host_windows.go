@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	konst "github.com/twind-dev/twind/internal/konst/fix"
+	konst "github.com/pehcastro/twind/internal/konst/fix"
 )
 
 func process() ([]string, uint32, error) {

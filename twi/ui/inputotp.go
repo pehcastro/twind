@@ -5,10 +5,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/input"
-	"github.com/twind-dev/twind/twi/style"
-	"github.com/twind-dev/twind/twi/text"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/input"
+	"github.com/pehcastro/twind/twi/style"
+	"github.com/pehcastro/twind/twi/text"
 )
 
 type InputOTP struct {

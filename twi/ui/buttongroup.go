@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/twind-dev/twind/twi"
+import "github.com/pehcastro/twind/twi"
 
 func ButtonGroup(o Orientation, children ...twi.NodeOption) twi.Node {
 	return part("flex w-fit items-stretch "+pick("button group", o, map[Orientation]string{

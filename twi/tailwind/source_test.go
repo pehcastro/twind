@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func TestStale(t *testing.T) {
@@ -133,23 +133,23 @@ func TestSourceFollowsPackagesThatBuildNodes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	const node = "\n\nimport \"github.com/twind-dev/twind/twi\"\n\nvar _ twi.Node\n"
+	const node = "\n\nimport \"github.com/pehcastro/twind/twi\"\n\nvar _ twi.Node\n"
 	module := func(button, prose, code string) string {
 		dir := t.TempDir()
-		write(filepath.Join(dir, "go.mod"), "module github.com/twind-dev/twind\n\ngo 1.26\n")
-		write(filepath.Join(dir, "twi", "twi.go"), "package twi\n\nimport _ \"github.com/twind-dev/twind/twi/style\"\n\ntype Node struct{}\n\nconst core = \"underline\"\n")
+		write(filepath.Join(dir, "go.mod"), "module github.com/pehcastro/twind\n\ngo 1.26\n")
+		write(filepath.Join(dir, "twi", "twi.go"), "package twi\n\nimport _ \"github.com/pehcastro/twind/twi/style\"\n\ntype Node struct{}\n\nconst core = \"underline\"\n")
 		write(filepath.Join(dir, "twi", "style", "style.go"), "package style\n\nconst hidden = \"block\"\n")
 		write(filepath.Join(dir, "twi", "ui", "button.go"), "package ui"+node+"\nconst Destructive = \""+button+"\"\n"+code)
 		write(filepath.Join(dir, "twi", "ui", "button_plan9.go"), "package ui\n\nconst plan9 = \"bg-amber-500\"\n")
 		write(filepath.Join(dir, "twi", "ui", "button_test.go"), "package ui\n\nconst testOnly = \"bg-lime-500\"\n")
 		write(filepath.Join(dir, "twi", "markdown", "markdown.go"), "package markdown"+node+"\nconst Prose = \""+prose+"\"\n")
 		write(filepath.Join(dir, "twi", "markdown", "markdown_test.go"), "package markdown\n\nconst testOnly = \"bg-teal-500\"\n")
-		write(filepath.Join(dir, "twi", "uikit", "kit.go"), "package uikit\n\nimport \"github.com/twind-dev/twind/twi/ui\"\n\nconst Kit = \"bg-sky-500\" + ui.Destructive\n")
+		write(filepath.Join(dir, "twi", "uikit", "kit.go"), "package uikit\n\nimport \"github.com/pehcastro/twind/twi/ui\"\n\nconst Kit = \"bg-sky-500\" + ui.Destructive\n")
 		return dir
 	}
 	app := t.TempDir()
 	point := func(twind string) {
-		write(filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.26\n\nrequire github.com/twind-dev/twind v0.0.0\n\nreplace github.com/twind-dev/twind => "+filepath.ToSlash(twind)+"\n")
+		write(filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.26\n\nrequire github.com/pehcastro/twind v0.0.0\n\nreplace github.com/pehcastro/twind => "+filepath.ToSlash(twind)+"\n")
 	}
 	main := func(imports ...string) {
 		body := "package main\n\nimport (\n"
@@ -170,14 +170,14 @@ func TestSourceFollowsPackagesThatBuildNodes(t *testing.T) {
 		return hash
 	}
 	point(module("bg-destructive text-white", "prose-p", ""))
-	main("github.com/twind-dev/twind/twi", "github.com/twind-dev/twind/twi/style")
+	main("github.com/pehcastro/twind/twi", "github.com/pehcastro/twind/twi/style")
 	candidates("p-4", "an app importing neither twi/ui nor twi/markdown")
-	main("github.com/twind-dev/twind/twi/markdown")
+	main("github.com/pehcastro/twind/twi/markdown")
 	candidates("p-4 prose-p", "an app importing twi/markdown")
-	main("github.com/twind-dev/twind/twi/uikit")
+	main("github.com/pehcastro/twind/twi/uikit")
 	candidates("bg-amber-500 bg-destructive p-4 text-white", "twi/uikit reaches twi only through twi/ui")
 	write(filepath.Join(app, "lib", "lib.go"), "package lib"+node+"\nconst Card = \"rounded-lg\"\n")
-	main("example.com/app/lib", "github.com/twind-dev/twind/twi/markdown")
+	main("example.com/app/lib", "github.com/pehcastro/twind/twi/markdown")
 	hash := candidates("p-4 prose-p rounded-lg", "a library package of the app's own module")
 	write(filepath.Join(app, "twir_gen.go"), Header(hash)+"package main\n")
 	check := func(want bool, why string) {
@@ -202,7 +202,7 @@ func TestSourceFollowsPackagesThatBuildNodes(t *testing.T) {
 	check(true, "a class added to twi/markdown")
 	point(module("bg-destructive text-white", "", ""))
 	check(true, "a class removed from twi/markdown")
-	main("github.com/twind-dev/twind/twi/ui")
+	main("github.com/pehcastro/twind/twi/ui")
 	point(module("bg-destructive text-white", "prose-p", ""))
 	hash = candidates("bg-amber-500 bg-destructive p-4 text-white", "an app importing twi/ui")
 	write(filepath.Join(app, "twir_gen.go"), Header(hash)+"package main\n")

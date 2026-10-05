@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi/color"
 )
 
 var red = color.Color{Kind: color.Literal, RGBA: color.RGBA{R: 0xff, A: 0xff}}

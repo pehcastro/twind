@@ -4,9 +4,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	konst "github.com/twind-dev/twind/internal/konst/ui"
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/style"
+	konst "github.com/pehcastro/twind/internal/konst/ui"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 const spinnerFrames = "⣾⣽⣻⢿⡿⣟⣯⣷"

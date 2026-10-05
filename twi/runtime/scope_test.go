@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/drive"
-	"github.com/twind-dev/twind/twi/input"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/drive"
+	"github.com/pehcastro/twind/twi/input"
 )
 
 func (a *focusApp) popover(t *testing.T, modal bool) *drive.Driver {

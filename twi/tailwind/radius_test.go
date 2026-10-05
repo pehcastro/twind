@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/twind-dev/twind/twi/style"
+	"github.com/pehcastro/twind/twi/style"
 )
 
 func TestRadiusCorners(t *testing.T) {

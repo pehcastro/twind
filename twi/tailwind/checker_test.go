@@ -8,7 +8,7 @@ import (
 )
 
 func TestCheckerListsOnlyWhenTheGraphChanges(t *testing.T) {
-	const node = "\n\nimport \"github.com/twind-dev/twind/twi\"\n\nvar _ twi.Node\n"
+	const node = "\n\nimport \"github.com/pehcastro/twind/twi\"\n\nvar _ twi.Node\n"
 	app, twind := t.TempDir(), t.TempDir()
 	put := func(root, name, body string) {
 		t.Helper()
@@ -21,9 +21,9 @@ func TestCheckerListsOnlyWhenTheGraphChanges(t *testing.T) {
 		}
 	}
 	write := func(name, body string) { put(app, name, body) }
-	put(twind, "go.mod", "module github.com/twind-dev/twind\n\ngo 1.26\n")
+	put(twind, "go.mod", "module github.com/pehcastro/twind\n\ngo 1.26\n")
 	put(twind, "twi/twi.go", "package twi\n\ntype Node struct{}\n")
-	write("go.mod", "module example.com/app\n\ngo 1.26\n\nrequire github.com/twind-dev/twind v0.0.0\n\nreplace github.com/twind-dev/twind => "+filepath.ToSlash(twind)+"\n")
+	write("go.mod", "module example.com/app\n\ngo 1.26\n\nrequire github.com/pehcastro/twind v0.0.0\n\nreplace github.com/pehcastro/twind => "+filepath.ToSlash(twind)+"\n")
 	write("main.go", "package main\n\nimport _ \"example.com/app/lib\"\n\nconst own = \"p-4\"\n\nfunc main() {}\n")
 	write("lib/lib.go", "package lib"+node+"\nconst Card = \"rounded-lg\"\n")
 	write("plain/plain.go", "package plain\n\nconst Words = \"not classes\"\n")

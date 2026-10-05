@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/internal/dev/konst"
+	"github.com/pehcastro/twind/internal/dev/konst"
 )
 
 func TestWatchWakesBeforeThePoll(t *testing.T) {

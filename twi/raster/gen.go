@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	konst "github.com/twind-dev/twind/internal/konst/raster"
+	konst "github.com/pehcastro/twind/internal/konst/raster"
 )
 
 func main() {

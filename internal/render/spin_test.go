@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/twind-dev/twind/internal/render"
-	"github.com/twind-dev/twind/internal/render/testdata/sheet"
+	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/internal/render/testdata/sheet"
 )
 
 const ms = time.Millisecond

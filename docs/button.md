@@ -7,7 +7,7 @@ Displays a button or a component that looks like a button.
 ## Usage
 
 ```go
-import "github.com/twind-dev/twind/twi/ui"
+import "github.com/pehcastro/twind/twi/ui"
 ```
 
 ```go

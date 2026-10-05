@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	konst "github.com/twind-dev/twind/internal/konst/raster"
+	konst "github.com/pehcastro/twind/internal/konst/raster"
 )
 
 func TestPhiTableIsTheNormalCDF(t *testing.T) {

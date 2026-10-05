@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/twind-dev/twind/twi"
-	"github.com/twind-dev/twind/twi/color"
+	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/twi/color"
 )
 
-//go:generate go run github.com/twind-dev/twind/internal/twirgen
+//go:generate go run github.com/pehcastro/twind/internal/twirgen
 
 func main() {
 	width := flag.Int("width", 0, "columns; 0 is the terminal width, or 80 when not a terminal")
