@@ -282,6 +282,42 @@ func TestEveryPage(t *testing.T) {
 	}
 }
 
+func TestChartBrushTakesAnyPointer(t *testing.T) {
+	sheet, err := Styles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := drive.New(App, drive.Size(120, 60), drive.Styles(sheet))
+	defer func() {
+		if err := d.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	jump(t, d, "Chart")
+	x, y := spot(t, d, "Interactive")
+	d.Click(x+1, y)
+	d.Advance(settle)
+	_, top := spot(t, d, "Brush adds an overview")
+	lines := strings.Split(d.Frame().Text(), "\n")
+	legend := top + slices.IndexFunc(lines[top:], func(line string) bool { return strings.Contains(line, "■ Desktop") })
+	strip := top + slices.IndexFunc(lines[top:legend], func(line string) bool { return strings.Contains(line, "│       ▀") })
+	before, _, _ := strings.Cut(lines[strip], "▀")
+	left := utf8.RuneCountInString(before)
+	d.Move(left+20, strip)
+	d.Move(left+40, strip)
+	d.Down(left+30, strip)
+	d.Move(0, strip)
+	d.Move(119, strip)
+	d.Move(0, strip)
+	d.Up(119, strip)
+	dragged := strings.Join(strings.Split(d.Frame().Text(), "\n")[top:strip+2], "\n")
+	d.Click(left+10, strip)
+	if err := d.Err(); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Chart page, 120x60, the brush dragged past both edges:\n%s", dragged)
+}
+
 func TestSidebarScrolls(t *testing.T) {
 	d := open(t)
 	if strings.Contains(d.Frame().Text(), "Accordion") {

@@ -381,7 +381,9 @@ func TestBrushDragZoomsAndClickResets(t *testing.T) {
 			labels = append(labels, "D"+string(rune('a'+i/26))+string(rune('a'+i%26)))
 			values = append(values, float64(100+i*i%70))
 		}
-		return sized(rt, &Chart{Kind: Area, Brush: true, Labels: labels, Series: []Series{{Label: "Visitors", Color: theme.Chart1, Values: values}}})
+		c := New(rt)
+		c.Kind, c.Brush, c.Labels, c.Series = Area, true, labels, []Series{{Label: "Visitors", Color: theme.Chart1, Values: values}}
+		return sized(rt, c)
 	})
 	lines := strings.Split(d.Frame().Text(), "\n")
 	strip := len(lines) - 1
@@ -389,6 +391,18 @@ func TestBrushDragZoomsAndClickResets(t *testing.T) {
 		strip--
 	}
 	axis := 7
+	d.Move(axis+30, strip)
+	if c.From != 0 || c.To != 0 {
+		t.Fatalf("a pointer passing over the brush with no button moved the window to %d to %d", c.From, c.To)
+	}
+	d.Down(axis+30, strip)
+	d.Move(0, strip)
+	d.Move(99, strip)
+	d.Move(0, strip)
+	d.Up(0, strip)
+	if c.From != 0 || c.To == 0 || c.To > 40 {
+		t.Errorf("a drag past both edges left the window at %d to %d, want 0 to under 40", c.From, c.To)
+	}
 	d.Down(axis+20, strip)
 	d.Move(axis+40, strip)
 	d.Up(axis+40, strip)
@@ -409,5 +423,27 @@ func TestBrushDragZoomsAndClickResets(t *testing.T) {
 	if c.From != 0 || c.To != 0 {
 		t.Errorf("a click without a drag leaves the window at %d to %d, want everything", c.From, c.To)
 	}
+	d.Down(98, strip)
+	d.Resize(50, 30)
+	d.Move(49, strip)
+	d.Move(0, strip)
+	d.Up(0, strip)
+	if c.From < 0 || c.To > 40 {
+		t.Errorf("a drag held across a resize left the window at %d to %d", c.From, c.To)
+	}
 	t.Logf("brush zoomed, 100x30:\n%s", zoomed)
+}
+
+func TestWindowSetByTheCallerOutsideTheLabelsPanics(t *testing.T) {
+	for _, w := range [][2]int{{-2, 30}, {30, 61}, {40, 40}} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("From %d To %d over 60 labels did not panic", w[0], w[1])
+				}
+			}()
+			c := &Chart{Kind: Area, Labels: make([]string, 60), Series: []Series{{Values: make([]float64, 60)}}, From: w[0], To: w[1]}
+			c.model()
+		}()
+	}
 }

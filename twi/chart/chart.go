@@ -57,7 +57,7 @@ type Chart struct {
 	world             *atlas
 }
 
-func New(rt *twi.Runtime) *Chart { return &Chart{rt: rt, anchor: -1} }
+func New(rt *twi.Runtime) *Chart { return &Chart{rt: rt} }
 
 type level uint8
 
