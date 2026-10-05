@@ -139,7 +139,11 @@ type Tree struct {
 }
 
 type cascade struct {
-	parent              *style.ComputedStyle
+	inherited           style.Inheritance
+	display             style.Display
+	direction           style.Direction
+	items, justify      style.Align
+	dir                 text.Direction
 	hash                uint64
 	states              style.State
 	places              style.Place
@@ -192,7 +196,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	}
 	layout.Layout(&styled.box, f.Width, height)
 	viewport, _ := t.outer(styled.box.Clip)
-	t.drawn = t.scene(styled, reclip{viewport: viewport})
+	t.scene(styled, reclip{viewport: viewport}, &t.drawn)
 	styled.node = &t.drawn
 	return t.drawn, nil
 }
@@ -221,7 +225,7 @@ func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, dir 
 	for _, v := range [...]int{placed.At.X, placed.At.Y, placed.Min.X, placed.Min.Y, placed.Max.X, placed.Max.Y} {
 		put(v)
 	}
-	k := cascade{parent, h.Sum64(), state.States, state.Places, s.enter != nil, s.exit != nil, placed.Positioned}
+	k := cascade{parent.Inheritance(), parent.Display, parent.Direction, parent.AlignItems, parent.JustifyItems, dir, h.Sum64(), state.States, state.Places, s.enter != nil, s.exit != nil, placed.Positioned}
 	if m := t.styles[k]; m != nil && m.placed == placed && slices.Equal(m.classes, n.Classes) && slices.Equal(m.state.Attrs, state.Attrs) && slices.Equal(m.related, related) {
 		return m.computed, m.box.Style, nil
 	}
@@ -335,16 +339,17 @@ type reclip struct {
 	flow, absolute, viewport layout.Rect
 }
 
-func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
+func (t *Tree) scene(s *styledBox, r reclip, n *scene.Node) {
 	if s.painted && !s.box.Moved && r == s.reclip {
-		return *s.node
+		*n = *s.node
+		return
 	}
 	s.reclip, s.box.Moved = r, false
 	st, m := s.computed, s.current()
 	if s.animated {
 		st = m.shown
 	}
-	n := scene.New(&s.box, *st, s.text)
+	*n = scene.New(&s.box, *st, s.text)
 	n.Direct(s.wrapping.Dir)
 	n.Truncate, n.NoWrap, n.TopLayer = s.truncate, s.nowrap, s.top
 	n.Bounds, n.Halves.Bounds = t.outer(n.Bounds)
@@ -383,12 +388,15 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 		}
 		n.Pixels = s.pixels
 	}
-	n.Children = make([]scene.Node, 0, len(s.children)+len(s.exiting))
-	for _, list := range [2][]*styledBox{s.children, s.exiting} {
-		if n.Pixels != nil {
-			break
-		}
-		for _, c := range list {
+	if n.Pixels == nil {
+		n.Children = make([]scene.Node, len(s.children)+len(s.exiting))
+		for i := range n.Children {
+			var c *styledBox
+			if i < len(s.children) {
+				c = s.children[i]
+			} else {
+				c = s.exiting[i-len(s.children)]
+			}
 			inner := r
 			switch c.box.Style.Position {
 			case layout.PositionStatic, layout.PositionRelative, layout.PositionSticky:
@@ -400,13 +408,13 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 			if c.box.Style.Display == layout.DisplayNone {
 				inner.on, inner.viewport = false, layout.Rect{}
 			}
-			n.Children = append(n.Children, t.scene(c, inner))
-			c.node = &n.Children[len(n.Children)-1]
+			t.scene(c, inner, &n.Children[i])
+			c.node = &n.Children[i]
 		}
 	}
 	n.Opacity *= m.lift.Opacity
 	if transformed {
-		transform(&n, dx, dy, sx, sy)
+		transform(n, dx, dy, sx, sy)
 	}
 	n.Turn, n.Shrink = m.pose.Turn, 1-m.lift.Scale*m.pose.Scale
 	n.Enclose()
@@ -414,7 +422,6 @@ func (t *Tree) scene(s *styledBox, r reclip) scene.Node {
 		t.motion.Unseen(s.key, n.Visibility == style.Hidden || n.Bounds.W <= 0 || n.Bounds.H <= 0 || k == style.KeyframesSpin && !t.graphics)
 	}
 	s.painted = true
-	return n
 }
 
 func rescale(s *styledBox, rows int) {
@@ -486,7 +493,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 	}
 	reclassed := fresh || !slices.Equal(s.classes, n.Classes)
 	if reclassed {
-		s.marks, s.near = f.Sheet.Marks(n.Classes), f.Sheet.Near(n.Classes, s.near[:0])
+		s.marks, s.near = f.Sheet.MarksNear(n.Classes, s.near[:0])
 	}
 	s.classes = n.Classes
 	var placed Placement
@@ -496,8 +503,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 	}
 	related := t.relate(f.Sheet, s, n, state, siblings)
 	restate := s.state.States != state.States || s.state.Places != state.Places || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related) || placed != s.placed || dir != s.wrapping.Dir
-	crossed := t.crossed && f.Sheet.Responsive(n.Classes)
-	if reclassed || t.restyle || parentChanged || restate || crossed {
+	if reclassed || t.restyle || parentChanged || restate || t.crossed && f.Sheet.Responsive(n.Classes) {
 		t.cascades++
 		computed, ls, err := t.cascade(f, s, parent, dir, &n, &state, related, placed)
 		if err != nil {
@@ -561,7 +567,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 	}
 	if !kept {
 		s.children, s.box.Children = make([]*styledBox, len(n.Children)), make([]*layout.Box, len(n.Children))
-		taken := make([]bool, len(old))
+		taken, born := make([]bool, len(old)), 0
 		for i, c := range n.Children {
 			at := i
 			if c.Key != "" {
@@ -570,7 +576,14 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 			if at >= 0 && at < len(old) && !taken[at] && old[at].id == c.Key {
 				s.children[i], taken[at] = old[at], true
 			} else {
-				s.children[i] = &styledBox{id: c.Key}
+				born++
+			}
+		}
+		slab := make([]styledBox, born)
+		for i, c := range s.children {
+			if c == nil {
+				slab[0].id = n.Children[i].Key
+				s.children[i], slab = &slab[0], slab[1:]
 			}
 		}
 		for i, gone := range old {

@@ -486,6 +486,29 @@ type ComputedStyle struct {
 	Animation  Animation
 }
 
+type Inheritance struct {
+	Color                                  color.Color
+	Bold, Italic, Underline, Strikethrough bool
+	TextAlign                              TextAlign
+	Visibility                             Visibility
+	Cursor                                 Cursor
+	UserSelect                             UserSelect
+	WhiteSpace                             WhiteSpace
+	OverflowWrap                           OverflowWrap
+	WordBreak                              WordBreak
+	PointerEvents                          PointerEvents
+}
+
+func (s *ComputedStyle) Inheritance() Inheritance {
+	return Inheritance{s.Color, s.Bold, s.Italic, s.Underline, s.Strikethrough, s.TextAlign, s.Visibility, s.Cursor, s.UserSelect, s.WhiteSpace, s.OverflowWrap, s.WordBreak, s.PointerEvents}
+}
+
+func (s *ComputedStyle) inherit(from Inheritance) {
+	s.Color, s.Bold, s.Italic, s.Underline, s.Strikethrough = from.Color, from.Bold, from.Italic, from.Underline, from.Strikethrough
+	s.TextAlign, s.Visibility, s.Cursor, s.UserSelect = from.TextAlign, from.Visibility, from.Cursor, from.UserSelect
+	s.WhiteSpace, s.OverflowWrap, s.WordBreak, s.PointerEvents = from.WhiteSpace, from.OverflowWrap, from.WordBreak, from.PointerEvents
+}
+
 func (s *ComputedStyle) Equal(o *ComputedStyle) bool {
 	return s.Display == o.Display && s.Direction == o.Direction && s.Wrap == o.Wrap && s.Grow == o.Grow && s.Shrink == o.Shrink &&
 		s.Basis == o.Basis && s.AlignItems == o.AlignItems && s.AlignSelf == o.AlignSelf && s.Justify == o.Justify &&

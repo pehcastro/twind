@@ -2,6 +2,7 @@ package scene
 
 import (
 	"math"
+	"strings"
 
 	lkonst "github.com/pehcastro/twind/internal/konst/layout"
 
@@ -92,16 +93,32 @@ type Text struct {
 }
 
 type wrapped struct {
-	wrapping text.Wrapping
-	lines    map[int][]string
+	wrapping  text.Wrapping
+	unbounded []string
+	natural   int
+	narrower  map[int][]string
+	oneLine   bool
+	line      [1]string
 }
 
 func Sanitize(raw string) Text {
-	clean := text.Sanitize(raw, text.RemoveBidi)
+	clean, ascii := raw, printable(raw)
+	if !ascii {
+		clean = text.Sanitize(raw, text.RemoveBidi)
+	}
 	if clean == "" {
 		return Text{}
 	}
-	return Text{clean, &wrapped{lines: map[int][]string{}}}
+	return Text{clean, &wrapped{oneLine: ascii && clean[0] != ' ' && clean[len(clean)-1] != ' ' && !strings.Contains(clean, "  ")}}
+}
+
+func printable(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < ' ' || s[i] > '~' {
+			return false
+		}
+	}
+	return true
 }
 
 func Wrapping(s *style.ComputedStyle) text.Wrapping {
@@ -130,20 +147,37 @@ func (t Text) wrap(b text.Wrapping, width int) []string {
 	if t.wrapped == nil {
 		return b.Wrap(t.clean, width)
 	}
-	if t.wrapped.wrapping != b {
-		t.wrapped.wrapping = b
-		clear(t.wrapped.lines)
+	w := t.wrapped
+	if w.unbounded == nil || w.wrapping != b {
+		*w = wrapped{wrapping: b, oneLine: w.oneLine, line: [1]string{t.clean}}
+		if w.oneLine && b.Dir != text.DirRTL {
+			w.unbounded, w.natural = w.line[:], len(t.clean)
+		} else {
+			w.unbounded = b.Wrap(t.clean, math.MaxInt)
+			for _, line := range w.unbounded {
+				w.natural = max(w.natural, b.Widths.Width(line))
+			}
+		}
 	}
-	lines, ok := t.wrapped.lines[width]
+	if width >= w.natural {
+		return w.unbounded
+	}
+	lines, ok := w.narrower[width]
 	if !ok {
+		if w.narrower == nil {
+			w.narrower = map[int][]string{}
+		}
 		lines = b.Wrap(t.clean, width)
-		t.wrapped.lines[width] = lines
+		w.narrower[width] = lines
 	}
 	return lines
 }
 
 func (t Text) Size(b text.Wrapping, availableWidth int) (width, height int) {
 	lines := t.wrap(b, availableWidth)
+	if t.wrapped != nil && availableWidth >= t.wrapped.natural {
+		return t.wrapped.natural, len(lines)
+	}
 	for _, line := range lines {
 		width = max(width, b.Widths.Width(line))
 	}

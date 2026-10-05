@@ -423,6 +423,17 @@ func (s Sheet) Near(classes []string, into []int) []int {
 	return into
 }
 
+func (s *Sheet) MarksNear(classes []string, into []int) (Markers, []int) {
+	var marks Markers
+	for _, name := range classes {
+		if c := s.class(name); c != nil {
+			marks |= c.mark
+			into = append(into, c.near...)
+		}
+	}
+	return marks, into
+}
+
 func (s Sheet) Hands(classes []string, node NodeState, into []int) []int {
 	scheme := s.scheme()
 	for _, name := range classes {
@@ -714,9 +725,7 @@ func (s *Sheet) compute(out *ComputedStyle, part Part, parent *ComputedStyle, cl
 	} else {
 		*out = *s.start
 	}
-	out.Color, out.Bold, out.Italic, out.Underline, out.Strikethrough = parent.Color, parent.Bold, parent.Italic, parent.Underline, parent.Strikethrough
-	out.TextAlign, out.Visibility, out.Cursor, out.UserSelect = parent.TextAlign, parent.Visibility, parent.Cursor, parent.UserSelect
-	out.WhiteSpace, out.OverflowWrap, out.WordBreak, out.PointerEvents = parent.WhiteSpace, parent.OverflowWrap, parent.WordBreak, parent.PointerEvents
+	out.inherit(parent.Inheritance())
 	var won winners
 	scheme, steps := s.scheme(), s.universal
 	if part != PartNode {
