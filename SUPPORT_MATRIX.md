@@ -83,7 +83,7 @@ Env vars (`TERM_PROGRAM`, `ZED_TERM`, `WT_SESSION`) leak into child windows star
 ## Open
 
 - Overlay: done for Zed on Windows (TWI-207). Display scale 125%: checked by eye in WT and the PowerShell window on 2026-10-05, borders sit on their cells. Two Twind apps in one Zed window fight (TWI-257); several Zed windows not measured.
-- Contour clicks work (TWI-199, 2026-10-01): the earlier failure was the tour clicking between two sidebar rows. `twi/terminal/record_windows_test.go` records raw console input inside any terminal (`TWIND_RECORD=<file>`).
+- Contour clicks work (TWI-199, 2026-10-01): the earlier failure was the tour clicking between two sidebar rows. `internal/terminal/record_windows_test.go` records raw console input inside any terminal (`TWIND_RECORD=<file>`).
 - VS Code with images off: not measured.
 
 

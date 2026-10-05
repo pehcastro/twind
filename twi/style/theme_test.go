@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/tailwind"
 	"github.com/pehcastro/twind/twi/theme"
 )
 
@@ -33,7 +33,7 @@ func builtin(t testing.TB, name string, scheme theme.Scheme) *theme.Theme {
 
 func appSheet(t testing.TB) style.Sheet {
 	t.Helper()
-	src, err := os.ReadFile("../tailwind/testdata/tailwind-4.3.3/app/output.css")
+	src, err := os.ReadFile("../../internal/tailwind/testdata/tailwind-4.3.3/app/output.css")
 	if err != nil {
 		t.Fatal(err)
 	}

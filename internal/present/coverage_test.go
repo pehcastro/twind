@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/pehcastro/twind/internal/render"
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/internal/terminal"
 )
 
 func TestCoverageFontChangeRepaints(t *testing.T) {

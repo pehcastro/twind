@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/internal/terminal"
 )
 
 func applied(calls []terminal.Pixels) []byte {

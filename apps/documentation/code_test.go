@@ -3,7 +3,7 @@ package docsapp
 import (
 	"testing"
 
-	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/internal/buffer"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/theme"

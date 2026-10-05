@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pehcastro/twind/internal/layout"
 	"github.com/pehcastro/twind/internal/render"
 	"github.com/pehcastro/twind/internal/render/testdata/sheet"
+	"github.com/pehcastro/twind/internal/scene"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/layout"
 	"github.com/pehcastro/twind/twi/motion"
-	"github.com/pehcastro/twind/twi/scene"
 )
 
 type motionRun struct {

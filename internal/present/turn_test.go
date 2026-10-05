@@ -6,10 +6,10 @@ import (
 	"image"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/raster"
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/raster"
-	"github.com/pehcastro/twind/twi/scene"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func TestTurnAnglesKeepTheirOwnRows(t *testing.T) {

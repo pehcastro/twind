@@ -9,10 +9,10 @@ import (
 
 	"github.com/pehcastro/twind/bench/scenarios/surfaces"
 	playground "github.com/pehcastro/twind/examples/playground/app"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 type surfaceBackend struct {

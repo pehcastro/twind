@@ -13,15 +13,15 @@ import (
 
 	docsapp "github.com/pehcastro/twind/apps/documentation"
 	playground "github.com/pehcastro/twind/examples/playground/app"
+	"github.com/pehcastro/twind/internal/buffer"
 	runkonst "github.com/pehcastro/twind/internal/konst/runtime"
 	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/buffer"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 )
 

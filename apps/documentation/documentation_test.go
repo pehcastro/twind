@@ -21,12 +21,12 @@ import (
 	"github.com/pehcastro/twind/apps/documentation/components"
 	"github.com/pehcastro/twind/docs"
 	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/internal/tailwind"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/markdown"
-	"github.com/pehcastro/twind/twi/tailwind"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/theme"
 )
 

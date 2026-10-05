@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	konst "github.com/pehcastro/twind/internal/konst/style"
-	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/internal/tailwind"
 )
 
 func main() {

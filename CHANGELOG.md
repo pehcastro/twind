@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Breaking
+
+- The pipeline packages are no longer importable. Moved under `internal/`: `twi/buffer`, `twi/css`, `twi/edit`, `twi/events`, `twi/fix`, `twi/graphics`, `twi/highlight`, `twi/layout`, `twi/paint`, `twi/raster`, `twi/runtime`, `twi/scene`, `twi/theme/shadcn`, `twi/theme/gen`, `twi/icon/gen`.
+- `twi/terminal` keeps only `Graphics` and its values (`GraphicsNone`, `GraphicsSixel`, `GraphicsITerm2`, `GraphicsKitty`, `GraphicsGDI`); the backend, detection and the rest moved under `internal/`.
+- `twi/tailwind` keeps only `Stale`; the compiler and `Checker` moved under `internal/`.
+- `twi.Runtime` no longer embeds the runtime. It keeps `Run`, `SetTheme`, `Theme`, `Invalidate`, `Quit`, `Dispatch`, `After`, `Focus`, `HideFocusRings`, `ScrollIntoView`, `Viewport`, `ContentBox`, `Clicks`, `Copy`, `Widths` and `Remember`; `Restyle` and the embedded `Runtime` field are gone.
+- The `twi/fix` API reference page is removed; `twind doctor -fix` is unchanged.
+
 ## v0.5.0 (2026-10-05)
 
 The first public release: try every demo with one command, right-to-left text, pixel charts, forms.

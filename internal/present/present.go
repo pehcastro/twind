@@ -13,17 +13,17 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/pehcastro/twind/internal/buffer"
+	"github.com/pehcastro/twind/internal/graphics"
 	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
 	konst "github.com/pehcastro/twind/internal/konst/paint"
 	presentkonst "github.com/pehcastro/twind/internal/konst/present"
 	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
-	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/internal/paint"
+	"github.com/pehcastro/twind/internal/raster"
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/graphics"
-	"github.com/pehcastro/twind/twi/paint"
-	"github.com/pehcastro/twind/twi/raster"
-	"github.com/pehcastro/twind/twi/scene"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 )
 

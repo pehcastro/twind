@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/internal/runtime/testdata/relate"
+	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/runtime/testdata/relate"
-	"github.com/pehcastro/twind/twi/tailwind"
 )
 
 func TestElementTagSizesAnSvgChild(t *testing.T) {
@@ -64,11 +64,11 @@ func TestElementClassesSplitsTheCallersClasses(t *testing.T) {
 }
 
 func TestElementFixtureFresh(t *testing.T) {
-	stale, err := tailwind.Stale("runtime/testdata/relate", konst.GeneratedFile)
+	stale, err := tailwind.Stale("../internal/runtime/testdata/relate", konst.GeneratedFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if stale {
-		t.Error("twi/runtime/testdata/relate IR is stale: run go generate there")
+		t.Error("internal/runtime/testdata/relate IR is stale: run go generate there")
 	}
 }

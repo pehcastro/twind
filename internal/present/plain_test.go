@@ -8,14 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/buffer"
 	konst "github.com/pehcastro/twind/internal/konst/paint"
 	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
-	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/internal/layout"
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/layout"
-	"github.com/pehcastro/twind/twi/scene"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 var white = color.RGBA{R: 255, G: 255, B: 255, A: 255}

@@ -7,10 +7,10 @@ import (
 	"runtime/metrics"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/buffer"
 	"github.com/pehcastro/twind/internal/present/demo"
-	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 )
 

@@ -12,14 +12,14 @@ import (
 
 	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
 	konst "github.com/pehcastro/twind/internal/konst/twi"
+	"github.com/pehcastro/twind/internal/paint"
 	"github.com/pehcastro/twind/internal/present"
 	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/internal/runtime"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/paint"
-	"github.com/pehcastro/twind/twi/runtime"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 	"github.com/pehcastro/twind/twi/theme"
 )

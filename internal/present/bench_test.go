@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/pehcastro/twind/internal/present/demo"
-	"github.com/pehcastro/twind/twi/scene"
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 )
 
 func p95(b *testing.B, samples []time.Duration) {

@@ -4,10 +4,10 @@ import (
 	"image"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/scene"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 var pageInk = ink(9, 9, 11, 255)

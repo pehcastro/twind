@@ -9,11 +9,11 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/pehcastro/twind/internal/buffer"
 	konst "github.com/pehcastro/twind/internal/konst/drive"
 	tkonst "github.com/pehcastro/twind/internal/konst/terminal"
-	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 )
 

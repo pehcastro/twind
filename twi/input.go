@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/pehcastro/twind/twi/edit"
-	"github.com/pehcastro/twind/twi/runtime"
+	"github.com/pehcastro/twind/internal/edit"
+	"github.com/pehcastro/twind/internal/runtime"
 	"github.com/pehcastro/twind/twi/text"
 )
 
@@ -17,7 +17,7 @@ type Input struct {
 	focused                                       bool
 }
 
-func NewInput(rt *Runtime) *Input { return &Input{owner: rt.Runtime} }
+func NewInput(rt *Runtime) *Input { return &Input{owner: rt.rt} }
 
 func (in *Input) Node(options ...NodeOption) Node {
 	in.Widths = in.owner.Widths()

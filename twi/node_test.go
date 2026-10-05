@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pehcastro/twind/twi/events"
+	"github.com/pehcastro/twind/internal/events"
+	"github.com/pehcastro/twind/internal/runtime"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/runtime"
 )
 
 func paths(n runtime.Node) []string {

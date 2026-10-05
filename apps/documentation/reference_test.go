@@ -20,7 +20,7 @@ const module = "github.com/pehcastro/twind/"
 
 func TestReference(t *testing.T) {
 	write := os.Getenv("TWIND_WRITE_REFERENCE") == "1"
-	for _, pkg := range []string{"twi", "twi/ui", "twi/drive", "twi/theme", "twi/markdown", "twi/chart", "twi/fix"} {
+	for _, pkg := range []string{"twi", "twi/ui", "twi/drive", "twi/theme", "twi/markdown", "twi/chart"} {
 		want := reference(t, pkg)
 		file := filepath.Join("..", "..", "docs", "api-"+path.Base(pkg)+".md")
 		if write {

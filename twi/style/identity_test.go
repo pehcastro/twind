@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	konst "github.com/pehcastro/twind/internal/konst/style"
+	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/style"
 	"github.com/pehcastro/twind/twi/style/testdata/uikit"
-	"github.com/pehcastro/twind/twi/tailwind"
 	"github.com/pehcastro/twind/twi/theme"
 )
 
@@ -34,7 +34,7 @@ func TestLeadingUniversalOverridesInheritance(t *testing.T) {
 }
 
 func TestComputeMatchesFixture(t *testing.T) {
-	src, err := os.ReadFile("../tailwind/testdata/tailwind-4.3.3/app/output.css")
+	src, err := os.ReadFile("../../internal/tailwind/testdata/tailwind-4.3.3/app/output.css")
 	if err != nil {
 		t.Fatal(err)
 	}

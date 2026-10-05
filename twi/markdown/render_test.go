@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/drive"
-	"github.com/pehcastro/twind/twi/tailwind"
 )
 
 //go:generate go run github.com/pehcastro/twind/internal/twirgen -o twir_gen_test.go -func styles

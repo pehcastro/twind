@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/tailwind"
 	"github.com/pehcastro/twind/twi/theme"
 )
 

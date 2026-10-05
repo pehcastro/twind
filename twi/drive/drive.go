@@ -9,16 +9,16 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/pehcastro/twind/internal/buffer"
 	konst "github.com/pehcastro/twind/internal/konst/drive"
 	ikonst "github.com/pehcastro/twind/internal/konst/input"
 	rkonst "github.com/pehcastro/twind/internal/konst/runtime"
 	tkonst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/buffer"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 )
 

@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/pehcastro/twind/internal/render"
+	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/tailwind"
 	"github.com/pehcastro/twind/twi/theme"
 )
 

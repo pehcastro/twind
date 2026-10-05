@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pehcastro/twind/internal/runtime/testdata/pill"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/runtime/testdata/pill"
 )
 
 type backend struct {

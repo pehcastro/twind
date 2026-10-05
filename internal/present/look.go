@@ -13,8 +13,8 @@ import (
 	paintkonst "github.com/pehcastro/twind/internal/konst/paint"
 	presentkonst "github.com/pehcastro/twind/internal/konst/present"
 	rasterkonst "github.com/pehcastro/twind/internal/konst/raster"
-	"github.com/pehcastro/twind/twi/raster"
-	"github.com/pehcastro/twind/twi/scene"
+	"github.com/pehcastro/twind/internal/raster"
+	"github.com/pehcastro/twind/internal/scene"
 )
 
 type pending struct {

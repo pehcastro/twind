@@ -2,6 +2,7 @@ package twi
 
 import (
 	"errors"
+	"image"
 	"os"
 	"slices"
 	"strconv"
@@ -11,9 +12,10 @@ import (
 	devkonst "github.com/pehcastro/twind/internal/dev/konst"
 	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
 	konst "github.com/pehcastro/twind/internal/konst/twi"
+	"github.com/pehcastro/twind/internal/runtime"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/runtime"
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/twi/text"
 	"github.com/pehcastro/twind/twi/theme"
 )
 
@@ -32,7 +34,7 @@ func Backend(b runtime.Backend, c runtime.Clock) RenderOption {
 type Timer = runtime.Timer
 
 type Runtime struct {
-	*runtime.Runtime
+	rt    *runtime.Runtime
 	cfg   renderConfig
 	theme theme.Theme
 }
@@ -56,15 +58,43 @@ func New(opts ...RenderOption) *Runtime {
 	if cfg.theme != nil {
 		r.theme = *cfg.theme
 	}
-	r.Runtime = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics, NoClipboard: cfg.noClipboard, DevState: devState})
+	r.rt = runtime.New(runtime.Config{Clock: cfg.clock, Sheet: cfg.sheet.WithTheme(&r.theme), Profile: cfg.profile, Graphics: cfg.graphics, NoClipboard: cfg.noClipboard, DevState: devState})
 	return r
 }
 
 func (r *Runtime) SetTheme(t theme.Theme) {
-	r.Restyle(func() { r.theme = t })
+	r.rt.Restyle(func() { r.theme = t })
 }
 
 func (r *Runtime) Theme() theme.Theme { return r.theme }
+
+func (r *Runtime) Invalidate() { r.rt.Invalidate() }
+
+func (r *Runtime) Quit() { r.rt.Quit() }
+
+func (r *Runtime) Dispatch(f func()) { r.rt.Dispatch(f) }
+
+func (r *Runtime) After(d time.Duration, fn func()) *Timer { return r.rt.After(d, fn) }
+
+func (r *Runtime) Focus(key string) bool { return r.rt.Focus(key) }
+
+func (r *Runtime) HideFocusRings() { r.rt.HideFocusRings() }
+
+func (r *Runtime) ScrollIntoView(key string) { r.rt.ScrollIntoView(key) }
+
+func (r *Runtime) Viewport() image.Rectangle { return r.rt.Viewport() }
+
+func (r *Runtime) ContentBox(e *runtime.Elem) image.Rectangle { return r.rt.ContentBox(e) }
+
+func (r *Runtime) Clicks() int { return r.rt.Clicks() }
+
+func (r *Runtime) Copy(text string) error { return r.rt.Copy(text) }
+
+func (r *Runtime) Widths() text.Widths { return r.rt.Widths() }
+
+func (r *Runtime) Remember(key string, save func() string, restore func(string)) {
+	r.rt.Remember(key, save, restore)
+}
 
 func (r *Runtime) Run(app func() Node) error {
 	if !r.cfg.profileSet {
@@ -81,8 +111,8 @@ func (r *Runtime) Run(app func() Node) error {
 		}
 		b = terminalBackend{t}
 	}
-	return r.Runtime.Run(b, func() runtime.Tree {
-		r.Remember(konst.ThemeState, func() string { return themeKey(r.theme) }, r.restoreTheme)
+	return r.rt.Run(b, func() runtime.Tree {
+		r.rt.Remember(konst.ThemeState, func() string { return themeKey(r.theme) }, r.restoreTheme)
 		return app().runtimeTree()
 	})
 }
@@ -122,7 +152,7 @@ type Signal[T any] struct {
 }
 
 func NewSignal[T any](rt *Runtime, value T) *Signal[T] {
-	return &Signal[T]{owner: rt.Runtime, value: value}
+	return &Signal[T]{owner: rt.rt, value: value}
 }
 
 func (s *Signal[T]) Get() T {

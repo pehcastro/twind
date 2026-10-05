@@ -9,13 +9,13 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/pehcastro/twind/internal/graphics"
 	colorkonst "github.com/pehcastro/twind/internal/konst/color"
 	graphicskonst "github.com/pehcastro/twind/internal/konst/graphics"
 	konst "github.com/pehcastro/twind/internal/konst/paint"
 	scenekonst "github.com/pehcastro/twind/internal/konst/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/graphics"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 type column struct {

@@ -41,7 +41,7 @@ func main() {
 		"Surface/kitty/first":    {[]check{p95(30)}, "p95 < 30 ms"},
 		"Playground/sixel/first": {[]check{p95(50), {"bytes/frame", 300e3}}, "p95 < 50 ms, bytes < 300 KB"},
 		"Playground/sixel/type":  {[]check{{"image-bytes/frame", 1e-9}, p95(8)}, "0 image bytes, p95 < 8 ms"},
-		"raster card 440x168px":  {nil, "< 1 ms, 0 allocs; measured by twi/raster BenchmarkCard, not in bench/"},
+		"raster card 440x168px":  {nil, "< 1 ms, 0 allocs; measured by internal/raster BenchmarkCard, not in bench/"},
 	}
 	header := map[string]string{}
 	samples := map[string]map[string][]float64{}

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pehcastro/twind/internal/edit"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/edit"
 	"github.com/pehcastro/twind/twi/icon"
 	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/text"

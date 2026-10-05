@@ -3,8 +3,8 @@ package markdown
 import (
 	"strings"
 
+	"github.com/pehcastro/twind/internal/highlight"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/highlight"
 	"github.com/pehcastro/twind/twi/theme"
 )
 

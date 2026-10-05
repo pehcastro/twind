@@ -3,10 +3,10 @@ package markdown
 import (
 	"testing"
 
+	"github.com/pehcastro/twind/internal/buffer"
+	"github.com/pehcastro/twind/internal/highlight"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/buffer"
 	"github.com/pehcastro/twind/twi/drive"
-	"github.com/pehcastro/twind/twi/highlight"
 	"github.com/pehcastro/twind/twi/theme"
 )
 

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pehcastro/twind/twi/edit"
+	"github.com/pehcastro/twind/internal/edit"
 )
 
 type fieldMemo struct {

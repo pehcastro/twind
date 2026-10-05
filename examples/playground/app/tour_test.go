@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/drive"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func TestTour(t *testing.T) {

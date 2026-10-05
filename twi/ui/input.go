@@ -5,10 +5,10 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/pehcastro/twind/internal/edit"
 	tkonst "github.com/pehcastro/twind/internal/konst/terminal"
 	konst "github.com/pehcastro/twind/internal/konst/ui"
 	"github.com/pehcastro/twind/twi"
-	"github.com/pehcastro/twind/twi/edit"
 	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
 	"github.com/pehcastro/twind/twi/text"

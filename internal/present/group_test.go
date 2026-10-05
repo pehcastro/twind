@@ -9,11 +9,11 @@ import (
 	"math"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/layout"
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/layout"
-	"github.com/pehcastro/twind/twi/scene"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func paintLook(dst *image.RGBA, r image.Rectangle, c *cached, at image.Point) {

@@ -3,14 +3,14 @@ Twind includes third-party material under its own licence:
 tw-animate-css 1.4.0
 Copyright (c) 2025 Wombosvideo
 MIT License
-Embedded by twi/tailwind (the compiler input used by cmd/twind and internal/twirgen).
-The full licence text is in twi/tailwind/testdata/tailwind-4.3.3/tw-animate-css-LICENSE.
+Embedded by internal/tailwind (the compiler input used by cmd/twind and internal/twirgen).
+The full licence text is in internal/tailwind/testdata/tailwind-4.3.3/tw-animate-css-LICENSE.
 
 twinkleplop (https://github.com/pngwn/twinkleplop)
 Copyright (c) 2025 pngwn
 MIT License
-twi/highlight is heavily inspired by it: its grammar model and the Go, bash, JSON, TOML, CSS, YAML, Markdown, shell session, JavaScript, TypeScript, TSX, JSDoc and HTML grammars are ported from @twinkleplop 0.1.5 (core 0.2.2), and the benchmark inputs in twi/highlight/testdata/bench are taken from its corpus.
-The full licence text is in twi/highlight/README.md.
+internal/highlight is heavily inspired by it: its grammar model and the Go, bash, JSON, TOML, CSS, YAML, Markdown, shell session, JavaScript, TypeScript, TSX, JSDoc and HTML grammars are ported from @twinkleplop 0.1.5 (core 0.2.2), and the benchmark inputs in internal/highlight/testdata/bench are taken from its corpus.
+The full licence text is in internal/highlight/README.md.
 
 Natural Earth 1:110m Admin 0 countries (https://www.naturalearthdata.com)
 Public domain

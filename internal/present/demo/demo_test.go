@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	konst "github.com/pehcastro/twind/internal/konst/style"
-	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/internal/tailwind"
 )
 
 func TestStylesFresh(t *testing.T) {

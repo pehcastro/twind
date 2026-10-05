@@ -41,11 +41,7 @@ func (\*Input) Value() string
 type Timer = runtime.Timer\
 type Runtime struct\
 func New(opts ...RenderOption) \*Runtime\
-Runtime embeds \*runtime.Runtime\
-func (\*Runtime) Run(app func() Node) error\
-func (\*Runtime) SetTheme(t theme.Theme)\
-func (\*Runtime) Theme() theme.Theme\
-func (\*Runtime) After(d time.Duration, fn func()) \*runtime.Timer\
+func (\*Runtime) After(d time.Duration, fn func()) \*Timer\
 func (\*Runtime) Clicks() int\
 func (\*Runtime) ContentBox(e \*runtime.Elem) image.Rectangle\
 func (\*Runtime) Copy(text string) error\
@@ -55,8 +51,10 @@ func (\*Runtime) HideFocusRings()\
 func (\*Runtime) Invalidate()\
 func (\*Runtime) Quit()\
 func (\*Runtime) Remember(key string, save func() string, restore func(string))\
-func (\*Runtime) Restyle(apply func())\
+func (\*Runtime) Run(app func() Node) error\
 func (\*Runtime) ScrollIntoView(key string)\
+func (\*Runtime) SetTheme(t theme.Theme)\
+func (\*Runtime) Theme() theme.Theme\
 func (\*Runtime) Viewport() image.Rectangle\
 func (\*Runtime) Widths() text.Widths\
 type Signal\[T any\] struct\

@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 func Run(args []string) error {

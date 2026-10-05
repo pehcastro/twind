@@ -3,9 +3,9 @@ package twi
 import (
 	"image"
 
-	"github.com/pehcastro/twind/twi/events"
+	"github.com/pehcastro/twind/internal/events"
+	"github.com/pehcastro/twind/internal/runtime"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/runtime"
 	"github.com/pehcastro/twind/twi/style"
 )
 

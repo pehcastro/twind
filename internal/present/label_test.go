@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/layout"
 	"github.com/pehcastro/twind/internal/present/demo"
 	"github.com/pehcastro/twind/internal/render"
-	"github.com/pehcastro/twind/twi/layout"
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/internal/terminal"
 )
 
 func TestTextOnAThinLineThroughItsRowStaysVisible(t *testing.T) {

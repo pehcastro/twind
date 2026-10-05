@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/testdata/hello"
 )
 

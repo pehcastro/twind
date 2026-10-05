@@ -9,12 +9,12 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/pehcastro/twind/internal/buffer"
 	termkonst "github.com/pehcastro/twind/internal/konst/terminal"
 	"github.com/pehcastro/twind/internal/present/demo"
-	"github.com/pehcastro/twind/twi/buffer"
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/scene"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 )
 

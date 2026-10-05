@@ -4,3 +4,4 @@
 *.png binary
 twi/**/testdata/** -text
 *.bin binary
+internal/**/testdata/** -text

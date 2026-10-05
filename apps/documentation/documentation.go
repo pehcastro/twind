@@ -66,7 +66,7 @@ func newSite(rt *twi.Runtime, catalogs ...components.Catalog) *site {
 			"navigation-menu", "pagination", "popover", "progress", "radio-group", "resizable", "scroll-area", "select", "separator", "sheet",
 			"sidebar", "skeleton", "slider", "spinner", "switch", "table", "tabs", "textarea", "toaster", "toggle", "toggle-group", "tooltip"},
 		{"Examples", "blocks"},
-		{"Reference", "api-twi", "api-ui", "api-drive", "api-theme", "api-markdown", "api-chart", "api-fix"},
+		{"Reference", "api-twi", "api-ui", "api-drive", "api-theme", "api-markdown", "api-chart"},
 	} {
 		for _, slug := range group[1:] {
 			entries = append(entries, entry{group: group[0], slug: slug})

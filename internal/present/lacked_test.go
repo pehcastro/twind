@@ -5,8 +5,8 @@ import (
 	"image"
 	"testing"
 
-	"github.com/pehcastro/twind/twi/scene"
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/internal/scene"
+	"github.com/pehcastro/twind/internal/terminal"
 )
 
 func TestLackedLettersArePixelGlyphsUnderGDI(t *testing.T) {

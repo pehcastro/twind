@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/pehcastro/twind/bench/scenarios/surfaces"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/testdata/counter"
 )
 

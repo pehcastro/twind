@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/internal/tailwind"
 )
 
 func scratch(t *testing.T, prefix string) string {

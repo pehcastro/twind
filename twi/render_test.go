@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	konst "github.com/pehcastro/twind/internal/konst/style"
+	entering "github.com/pehcastro/twind/internal/runtime/testdata/frames"
+	"github.com/pehcastro/twind/internal/tailwind"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
-	entering "github.com/pehcastro/twind/twi/runtime/testdata/frames"
-	"github.com/pehcastro/twind/twi/tailwind"
 	"github.com/pehcastro/twind/twi/testdata/hello"
 	"github.com/pehcastro/twind/twi/text"
 )

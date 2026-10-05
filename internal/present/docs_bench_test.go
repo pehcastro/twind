@@ -7,11 +7,11 @@ import (
 	"time"
 
 	docsapp "github.com/pehcastro/twind/apps/documentation"
+	"github.com/pehcastro/twind/internal/runtime"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/runtime"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 type docsBackend struct {

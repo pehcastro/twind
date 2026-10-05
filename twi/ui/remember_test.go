@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pehcastro/twind/twi/edit"
+	"github.com/pehcastro/twind/internal/edit"
 )
 
 func TestFieldMemoComesBack(t *testing.T) {

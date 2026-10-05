@@ -1,6 +1,6 @@
 package theme
 
-//go:generate go run ./gen -pkg theme -out builtin_gen.go css
+//go:generate go run ../../internal/themegen -pkg theme -out builtin_gen.go css
 
 import "github.com/pehcastro/twind/twi/color"
 

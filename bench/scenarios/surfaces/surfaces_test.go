@@ -3,7 +3,7 @@ package surfaces
 import (
 	"testing"
 
-	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/internal/tailwind"
 )
 
 func TestStylesFresh(t *testing.T) {

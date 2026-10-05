@@ -9,9 +9,9 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/pehcastro/twind/internal/layout"
 	"github.com/pehcastro/twind/internal/render"
-	"github.com/pehcastro/twind/twi/layout"
-	"github.com/pehcastro/twind/twi/scene"
+	"github.com/pehcastro/twind/internal/scene"
 	"github.com/pehcastro/twind/twi/theme"
 )
 

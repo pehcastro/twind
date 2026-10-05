@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	konst "github.com/pehcastro/twind/internal/konst/terminal"
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/internal/terminal"
 )
 
 func TestDoctorAsksConhostNothingItPrints(t *testing.T) {

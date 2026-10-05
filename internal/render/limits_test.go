@@ -4,9 +4,9 @@ import (
 	"image"
 	"testing"
 
+	"github.com/pehcastro/twind/internal/layout"
 	"github.com/pehcastro/twind/internal/render"
 	"github.com/pehcastro/twind/internal/render/testdata/sheet"
-	"github.com/pehcastro/twind/twi/layout"
 )
 
 func limited(classes string, limits *render.Placement, children ...render.Node) render.Node {

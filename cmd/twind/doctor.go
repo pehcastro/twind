@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pehcastro/twind/internal/fix"
 	konst "github.com/pehcastro/twind/internal/konst/terminal"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi/color"
-	"github.com/pehcastro/twind/twi/fix"
 	"github.com/pehcastro/twind/twi/input"
-	"github.com/pehcastro/twind/twi/terminal"
 	"github.com/pehcastro/twind/twi/text"
 )
 

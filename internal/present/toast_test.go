@@ -10,12 +10,12 @@ import (
 
 	docsapp "github.com/pehcastro/twind/apps/documentation"
 	"github.com/pehcastro/twind/internal/present"
+	"github.com/pehcastro/twind/internal/terminal"
 	"github.com/pehcastro/twind/twi"
 	"github.com/pehcastro/twind/twi/color"
 	"github.com/pehcastro/twind/twi/drive"
 	"github.com/pehcastro/twind/twi/input"
 	"github.com/pehcastro/twind/twi/style"
-	"github.com/pehcastro/twind/twi/terminal"
 )
 
 var toastGrid = image.Pt(187, 40)

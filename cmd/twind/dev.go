@@ -20,8 +20,8 @@ import (
 	"github.com/pehcastro/twind/internal/dev/snapshot"
 	style "github.com/pehcastro/twind/internal/konst/style"
 	term "github.com/pehcastro/twind/internal/konst/terminal"
-	"github.com/pehcastro/twind/twi/tailwind"
-	"github.com/pehcastro/twind/twi/terminal"
+	"github.com/pehcastro/twind/internal/tailwind"
+	"github.com/pehcastro/twind/internal/terminal"
 )
 
 const devHelp = `Builds the package and runs it. On every save of a Go or embedded file the package imports from

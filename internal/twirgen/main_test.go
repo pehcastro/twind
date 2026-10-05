@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	konst "github.com/pehcastro/twind/internal/konst/style"
-	"github.com/pehcastro/twind/twi/tailwind"
+	"github.com/pehcastro/twind/internal/tailwind"
 )
 
 func TestGeneratedTakesImportedComponentClasses(t *testing.T) {
@@ -51,7 +51,7 @@ func TestGeneratedHello(t *testing.T) {
 	if !strings.HasPrefix(string(src), "// "+konst.IRMagic+" version=1 ") {
 		t.Errorf("generated file does not start with the magic and version:\n%.120s", src)
 	}
-	for _, runtimeParse := range []string{"twi/css", "twi/tailwind", "Parse(", "strings."} {
+	for _, runtimeParse := range []string{"internal/css", "internal/tailwind", "Parse(", "strings."} {
 		if strings.Contains(string(src), runtimeParse) {
 			t.Errorf("generated file contains %q", runtimeParse)
 		}
