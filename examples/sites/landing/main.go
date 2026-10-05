@@ -1,38 +1,15 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
-	"github.com/pehcastro/twind/twi"
+	"github.com/pehcastro/twind/examples/sites/landing/app"
 )
 
-//go:generate go run github.com/pehcastro/twind/internal/twirgen
-
 func main() {
-	name := flag.String("style", "platform", "page style open at start: platform, product, studio, event, store or project")
-	at := flag.String("section", "", "section to open at, like a #fragment: Features, Pricing, Work")
-	flag.Parse()
-	s, ok := named(*name)
-	if !ok {
-		fail(fmt.Errorf("-style %q: want platform, product, studio, event, store or project", *name))
+	if err := app.Run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	sheet, err := Styles()
-	if err != nil {
-		fail(err)
-	}
-	rt := twi.New(twi.Fullscreen(), twi.Styles(sheet))
-	app := landing(rt, s)
-	if *at != "" {
-		rt.ScrollIntoView(sectionKey + *at)
-	}
-	if err := rt.Run(app); err != nil {
-		fail(err)
-	}
-}
-
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
 }

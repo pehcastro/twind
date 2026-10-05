@@ -75,11 +75,25 @@ twind docs
 twind docs -page button -theme dream-light
 ```
 
+## twind try
+
+Runs one of the demos built into the binary, so trying Twind needs nothing but `twind`:
+
+```bash
+twind try
+twind try landing -style store
+twind try portfolio -theme dream-light
+```
+
+With no name it lists them: `docs`, `landing` (six landing pages), `portfolio` (a personal site and blog), `playground` (every component, with a theme picker) and `gallery` (a dashboard). Arguments after the name go to the demo; `twind try landing -h` prints its flags. An unknown name exits with status 2 and the list.
+
+From a clone, `go run ./examples/sites/landing` runs the same code: each example keeps its program in an `app` package, which both its own `main` and `twind try` call.
+
 ## twind doctor
 
 Prints what the current terminal supports: colour depth, synchronized output, graphics protocols and the cell size in pixels.
 
-On Windows 10, Alacritty and Rio run through the ConPTY built into Windows, which drops mouse input, colour replies and images. `twind doctor -fix` puts Microsoft's newer ConPTY (`conpty.dll` and `OpenConsole.exe`, from a pinned and checksummed package) beside the terminal's exe, after you type `yes`. Restart the terminal afterwards.
+On Windows 10, Alacritty and Rio run through the ConPTY built into Windows, which drops mouse input, colour replies and images. `twind doctor -fix` puts Microsoft's newer ConPTY (`conpty.dll` and `OpenConsole.exe`, from a pinned and checksummed package) beside the terminal's exe, after you type `y` or `yes`. Restart the terminal afterwards.
 
 ```bash
 twind doctor -fix
@@ -102,7 +116,7 @@ if *fixTerminal {
 }
 ```
 
-`fix.Ask` prints what will happen (both files, the folder, the package and its sha256) and goes ahead only on `yes`. `fix.Undo("")` undoes the fix in the folder of the terminal it runs in, and `fix.Undo(dir)` undoes it in a named folder. Anything it will not do comes back as a `fix.Refused`: a terminal that ships its own ConPTY (Windows Terminal, WezTerm, VS Code, Zed), a Windows build whose own ConPTY is already new, an answer other than `yes`, or a folder that was already fixed. Twind never runs the fix on its own; only your flag does.
+`fix.Ask` prints what will happen (both files, the folder, the package and its sha256) and goes ahead only on `y` or `yes`. `fix.Undo("")` undoes the fix in the folder of the terminal it runs in, and `fix.Undo(dir)` undoes it in a named folder. Anything it will not do comes back as a `fix.Refused`: a terminal that ships its own ConPTY (Windows Terminal, WezTerm, VS Code, Zed), a Windows build whose own ConPTY is already new, any other answer, or a folder that was already fixed. Twind never runs the fix on its own; only your flag does.
 
 ## Exit status
 

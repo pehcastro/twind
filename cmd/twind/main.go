@@ -21,6 +21,7 @@ usage: twind <verb> [arguments]
   dev    [-log file] [package] [args]  run a package, rebuild and swap it on every save
   doctor [-fix | -undo [folder]]       print what this terminal supports, or fix its ConPTY
   docs   [-page name] [-theme name]    open the documentation
+  try    [name] [arguments]            list the built-in demos, or run one: landing, portfolio, playground, gallery
 
 Packages are go list patterns, the current directory by default.
 twind <verb> -h prints the verb's help.
@@ -29,7 +30,7 @@ Exit status: 0 done, 1 a stale IR or a failed build, run or query, 2 a usage err
 `
 
 func main() {
-	verbs := map[string]func([]string, io.Writer) error{"new": newApp, "build": build, "check": check, "drive": drive, "dev": devRun, "doctor": doctor, "docs": docs}
+	verbs := map[string]func([]string, io.Writer) error{"new": newApp, "build": build, "check": check, "drive": drive, "dev": devRun, "doctor": doctor, "docs": docs, "try": try}
 	if len(os.Args) < 2 || verbs[os.Args[1]] == nil {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
