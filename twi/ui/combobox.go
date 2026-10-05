@@ -25,7 +25,7 @@ type Combobox struct {
 
 func NewCombobox(rt *twi.Runtime) *Combobox {
 	c := &Combobox{anchored: newAnchored(rt, Bottom, Start), Empty: "No items found.", field: NewInput(rt)}
-	c.anchorWidth, c.sideOffset = true, 1
+	c.sizing, c.sideOffset = triggerWidth, 1
 	return c
 }
 
@@ -58,11 +58,11 @@ func (c *Combobox) Content(children ...twi.NodeOption) twi.Node {
 		c.rt.Invalidate()
 	}
 	at := c.phase()
-	return c.place(at, func(placed []twi.NodeOption) twi.Node {
+	return c.place(at, func(placed, last []twi.NodeOption) twi.Node {
 		if shown(c.items) == 0 {
 			children = append(children, part("py-1 text-center text-muted-foreground", []twi.NodeOption{twi.Text(c.Empty)}))
 		}
-		return part("flex flex-col shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md "+popMotion, slices.Concat([]twi.NodeOption{at.state()}, placed, children))
+		return part("relative flex flex-col shrink-0 overflow-x-hidden overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md "+popMotion, slices.Concat([]twi.NodeOption{at.state()}, placed, children, last))
 	})
 }
 
@@ -90,7 +90,7 @@ func (c *Combobox) chosen() int {
 }
 
 func (c *Combobox) show() {
-	c.filter, c.active = "", max(c.chosen(), 0)
+	c.filter, c.active, c.reveal = "", max(c.chosen(), 0), true
 	c.set(true)
 }
 
@@ -118,8 +118,10 @@ func (c *Combobox) key(k input.KeyEvent) bool {
 		c.fill()
 	case k.Key == input.KeyArrowDown:
 		c.active = min(c.active+1, max(shown(c.items)-1, 0))
+		return c.revealing()
 	case k.Key == input.KeyArrowUp:
 		c.active = max(c.active-1, 0)
+		return c.revealing()
 	case k.Key == input.KeyEnter && k.Modifiers == 0:
 		if shown(c.items) > 0 {
 			c.choose(c.visible(c.active))

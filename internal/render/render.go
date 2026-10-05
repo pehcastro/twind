@@ -33,8 +33,17 @@ type Node struct {
 	Children []Node
 	Enter    *motion.Presence
 	Exit     *motion.Presence
-	At       *image.Point
-	Canvas   *Canvas
+	Extra    *Extra
+}
+
+type Extra struct {
+	Placement
+	Canvas *Canvas
+}
+
+type Placement struct {
+	Positioned   bool
+	At, Min, Max image.Point
 }
 
 type Canvas struct {
@@ -65,7 +74,6 @@ type styledBox struct {
 	element  style.Element
 	truncate bool
 	nowrap   bool
-	placed   bool
 	reverse  bool
 	painted  bool
 	animated bool
@@ -74,7 +82,7 @@ type styledBox struct {
 	hands    []int
 	related  []int
 	wrapping text.Wrapping
-	at       image.Point
+	placed   Placement
 	top      int
 	raw      string
 	text     scene.Text
@@ -189,7 +197,7 @@ func (t *Tree) Scene(root Node, f Frame) (scene.Node, error) {
 	return t.drawn, nil
 }
 
-func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, dir text.Direction, n *Node, state *style.NodeState, related []int, placed bool, at image.Point) (*style.ComputedStyle, layout.Style, error) {
+func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, dir text.Direction, n *Node, state *style.NodeState, related []int, placed Placement) (*style.ComputedStyle, layout.Style, error) {
 	var h maphash.Hash
 	h.SetSeed(t.seed)
 	for _, c := range n.Classes {
@@ -210,25 +218,35 @@ func (t *Tree) cascade(f *Frame, s *styledBox, parent *style.ComputedStyle, dir 
 	for _, r := range related {
 		put(r)
 	}
-	put(at.X)
-	put(at.Y)
-	k := cascade{parent, h.Sum64(), state.States, state.Places, n.Enter != nil, n.Exit != nil, placed}
-	if m := t.styles[k]; m != nil && m.at == at && slices.Equal(m.classes, n.Classes) && slices.Equal(m.state.Attrs, state.Attrs) && slices.Equal(m.related, related) {
+	for _, v := range [...]int{placed.At.X, placed.At.Y, placed.Min.X, placed.Min.Y, placed.Max.X, placed.Max.Y} {
+		put(v)
+	}
+	k := cascade{parent, h.Sum64(), state.States, state.Places, s.enter != nil, s.exit != nil, placed.Positioned}
+	if m := t.styles[k]; m != nil && m.placed == placed && slices.Equal(m.classes, n.Classes) && slices.Equal(m.state.Attrs, state.Attrs) && slices.Equal(m.related, related) {
 		return m.computed, m.box.Style, nil
 	}
 	t.styles[k] = s
 	computed := new(style.ComputedStyle)
 	*computed = f.Sheet.ComputeRelated(*parent, n.Classes, *state, related)
-	if k := computed.Animation.Keyframes; k == style.KeyframesEnter && n.Enter != nil || k == style.KeyframesExit && n.Exit != nil {
+	if k := computed.Animation.Keyframes; k == style.KeyframesEnter && s.enter != nil || k == style.KeyframesExit && s.exit != nil {
 		computed.Animation = style.Animation{}
 	}
-	if placed {
+	if at := placed.At; placed.Positioned {
 		if computed.Position != style.PositionFixed {
 			computed.Position = style.PositionAbsolute
 		}
 		auto := style.Length{Unit: style.Auto}
 		computed.Inset = style.Edges{Top: style.Length{Value: float64(at.Y)}, Left: style.Length{Value: float64(at.X)}, Right: auto, Bottom: auto}
 	}
+	limit := func(cells int, to *style.Length) {
+		if cells > 0 {
+			*to = style.Length{Value: float64(cells)}
+		}
+	}
+	limit(placed.Min.X, &computed.MinWidth)
+	limit(placed.Min.Y, &computed.MinHeight)
+	limit(placed.Max.X, &computed.MaxWidth)
+	limit(placed.Max.Y, &computed.MaxHeight)
 	ls, err := boxStyle(parent, computed, dir, f.Cell, t.rows)
 	return computed, ls, err
 }
@@ -471,16 +489,17 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		s.marks, s.near = f.Sheet.Marks(n.Classes), f.Sheet.Near(n.Classes, s.near[:0])
 	}
 	s.classes = n.Classes
-	placed, at := n.At != nil, image.Point{}
-	if placed {
-		at = *n.At
+	var placed Placement
+	var painter *Canvas
+	if n.Extra != nil {
+		placed, painter = n.Extra.Placement, n.Extra.Canvas
 	}
 	related := t.relate(f.Sheet, s, n, state, siblings)
-	restate := s.state.States != state.States || s.state.Places != state.Places || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related) || placed != s.placed || at != s.at || dir != s.wrapping.Dir
+	restate := s.state.States != state.States || s.state.Places != state.Places || !slices.Equal(s.state.Attrs, state.Attrs) || n.Element != s.element || !slices.Equal(related, s.related) || placed != s.placed || dir != s.wrapping.Dir
 	crossed := t.crossed && f.Sheet.Responsive(n.Classes)
 	if reclassed || t.restyle || parentChanged || restate || crossed {
 		t.cascades++
-		computed, ls, err := t.cascade(f, s, parent, dir, &n, &state, related, placed, at)
+		computed, ls, err := t.cascade(f, s, parent, dir, &n, &state, related, placed)
 		if err != nil {
 			return err
 		}
@@ -513,7 +532,7 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 		if truncate := ellipsis && s.nowrap; truncate != s.truncate {
 			s.truncate, s.painted = truncate, false
 		}
-		s.state, s.element, s.placed, s.at = state, n.Element, placed, at
+		s.state, s.element, s.placed = state, n.Element, placed
 	}
 	if !animating && (s.animated || t.motion.Holds(s.key)) {
 		t.animate(s, s.computed, s.computed)
@@ -528,10 +547,10 @@ func (t *Tree) build(f *Frame, s *styledBox, fresh bool, parent *style.ComputedS
 	if n.TopLayer != s.top {
 		s.top, s.painted = n.TopLayer, false
 	}
-	if (n.Canvas == nil) != (s.canvas == nil) || n.Canvas != nil && n.Canvas.Key != s.canvas.Key {
+	if (painter == nil) != (s.canvas == nil) || painter != nil && painter.Key != s.canvas.Key {
 		s.painted = false
 	}
-	s.canvas = n.Canvas
+	s.canvas = painter
 	if (n.Text != s.raw || n.Text != "" && f.Widths != s.wrapping.Widths) && s.retext(f, n.Text) {
 		s.box.Invalidate()
 	}

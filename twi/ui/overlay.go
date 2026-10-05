@@ -1,9 +1,9 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"slices"
-	"strings"
 
 	konst "github.com/pehcastro/twind/internal/konst/ui"
 	"github.com/pehcastro/twind/twi"
@@ -139,31 +139,105 @@ func escape(k input.KeyEvent) bool { return k.Key == input.KeyEscape }
 
 func closed() twi.Node { return part("hidden", []twi.NodeOption{twi.Key("closed")}) }
 
+type sizing uint8
+
+const (
+	naturalSize sizing = iota
+	availableHeight
+	triggerWidth
+)
+
 type floating struct {
-	anchor, box             *twi.Ref
+	anchor, box, item, mark *twi.Ref
 	sideOffset, alignOffset int
-	anchorWidth             bool
+	sizing                  sizing
 	at                      image.Point
+	height, uncapped        int
+	reveal                  bool
+	itemAt, lastItemAt      int
+	scrolled, markAt        int
+	markKey                 string
+	placedFrom              [2]image.Rectangle
 }
 
-func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align Alignment, at phase, content func(placed []twi.NodeOption) twi.Node) twi.Node {
+func newFloating(rt *twi.Runtime) floating {
+	return floating{anchor: twi.NewRef(rt), box: twi.NewRef(rt), item: twi.NewRef(rt), mark: twi.NewRef(rt)}
+}
+
+func (f *floating) highlighted(at int) twi.NodeOption {
+	f.itemAt = at
+	return twi.Measure(f.item)
+}
+
+func (f *floating) revealing() bool {
+	f.reveal = true
+	return true
+}
+
+func (f *floating) marker(rt *twi.Runtime) twi.Node {
+	if f.markKey == "" {
+		f.markKey = fmt.Sprintf("\x00%p", f)
+	}
+	item, box, mark := f.item.Bounds(), f.box.Bounds(), f.mark.Bounds()
+	if f.reveal && f.itemAt == f.lastItemAt && item != (image.Rectangle{}) && mark != (image.Rectangle{}) {
+		f.reveal = false
+		top := mark.Min.Y - f.markAt + f.scrolled
+		bottom := box.Max.Y - (top - box.Min.Y)
+		switch {
+		case item.Min.Y < top:
+			f.markAt = f.scrolled - (top - item.Min.Y)
+			rt.ScrollIntoView(f.markKey)
+		case item.Max.Y > bottom:
+			f.markAt = f.scrolled + item.Max.Y - bottom
+			rt.ScrollIntoView(f.markKey)
+		}
+	}
+	f.lastItemAt = f.itemAt
+	return part("", []twi.NodeOption{twi.Key(f.markKey), twi.Measure(f.mark), twi.At(0, f.markAt)})
+}
+
+func (f *floating) float(rt *twi.Runtime, from image.Rectangle, side Side, align Alignment, at phase, content func(placed, last []twi.NodeOption) twi.Node) twi.Node {
 	var children []twi.NodeOption
-	if at != gone {
+	if at == gone {
+		f.scrolled, f.markAt = 0, 0
+	} else {
+		if placedFrom := [2]image.Rectangle{from, f.box.Bounds()}; placedFrom != f.placedFrom {
+			f.placedFrom = placedFrom
+			rt.Invalidate()
+		}
 		f.at, side = f.spot(rt.Viewport(), from, side, align)
-		held := []twi.NodeOption{twi.Measure(f.box), content([]twi.NodeOption{
+		placed := []twi.NodeOption{
 			twi.Data("side", pick("side", side, map[Side]string{Bottom: "bottom", Top: "top", Right: "right", Left: "left"})),
 			twi.Data("align", pick("align", align, map[Alignment]string{Start: "start", Center: "center", End: "end"})),
-		})}
-		if f.anchorWidth {
-			held = append(held, part("h-0 overflow-hidden whitespace-pre", []twi.NodeOption{twi.Text(strings.Repeat(" ", from.Dx()))}))
 		}
-		children = []twi.NodeOption{part("flex flex-col shrink-0", held)}
+		var last []twi.NodeOption
+		switch f.sizing {
+		case naturalSize:
+		case availableHeight, triggerWidth:
+			placed = append(placed, twi.MaxSize(0, f.height), twi.OnScroll(func(offset image.Point) { f.scrolled = offset.Y }))
+			last = []twi.NodeOption{f.marker(rt)}
+		default:
+			panic("ui: unknown overlay sizing")
+		}
+		if f.sizing == triggerWidth {
+			placed = append(placed, twi.MinSize(from.Dx(), 0))
+		}
+		children = []twi.NodeOption{part("flex flex-col shrink-0", []twi.NodeOption{twi.Measure(f.box), content(placed, last)})}
 	}
 	return part("fixed z-50 flex", append([]twi.NodeOption{twi.At(f.at.X, f.at.Y)}, children...))
 }
 
 func (f *floating) spot(view, anchor image.Rectangle, side Side, align Alignment) (image.Point, Side) {
 	size := f.box.Bounds().Size()
+	switch {
+	case f.sizing == naturalSize:
+	case size.Y < f.height:
+		f.uncapped = size.Y
+	case f.uncapped >= f.height:
+		size.Y = f.uncapped
+	default:
+		size.Y = f.height + 1
+	}
 	room := image.Rect(view.Min.X+konst.CollisionPadX, view.Min.Y+konst.CollisionPadY, view.Max.X-konst.CollisionPadX, view.Max.Y-konst.CollisionPadY)
 	gap := func(s Side) int {
 		if s == Right || s == Left {
@@ -185,6 +259,14 @@ func (f *floating) spot(view, anchor image.Rectangle, side Side, align Alignment
 	}
 	if opposite := map[Side]Side{Bottom: Top, Top: Bottom, Right: Left, Left: Right}[side]; spare(side) < 0 && spare(opposite) > spare(side) {
 		side = opposite
+	}
+	if f.sizing != naturalSize {
+		height := room.Dy()
+		if side == Bottom || side == Top {
+			height = spare(side) + size.Y
+		}
+		f.height = max(height, 1)
+		size.Y = min(size.Y, f.height)
 	}
 	across := func(start, length, size int) int {
 		return f.alignOffset + start + map[Alignment]int{Start: 0, Center: (length - size) / 2, End: length - size}[align]
@@ -211,7 +293,7 @@ type anchored struct {
 }
 
 func newAnchored(rt *twi.Runtime, side Side, align Alignment) anchored {
-	return anchored{overlay: overlay{control: control{rt: rt}}, floating: floating{anchor: twi.NewRef(rt), box: twi.NewRef(rt)}, Side: side, Align: align}
+	return anchored{overlay: overlay{control: control{rt: rt}}, floating: newFloating(rt), Side: side, Align: align}
 }
 
 func (a *anchored) Node(children ...twi.NodeOption) twi.Node {
@@ -228,7 +310,7 @@ func (a *anchored) toggle(show func()) twi.NodeOption {
 	})
 }
 
-func (a *anchored) place(at phase, content func(placed []twi.NodeOption) twi.Node) twi.Node {
+func (a *anchored) place(at phase, content func(placed, last []twi.NodeOption) twi.Node) twi.Node {
 	return a.float(a.rt, a.anchor.Bounds(), a.Side, a.Align, at, content)
 }
 
@@ -240,7 +322,7 @@ func NewPopover(rt *twi.Runtime) *Popover {
 
 func (p *Popover) Content(children ...twi.NodeOption) twi.Node {
 	at := p.phase()
-	return p.place(at, func(placed []twi.NodeOption) twi.Node {
+	return p.place(at, func(placed, _ []twi.NodeOption) twi.Node {
 		return p.dismissable("flex flex-col w-36 shrink-0 rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md "+popMotion, at, append(placed, children...))
 	})
 }
@@ -273,7 +355,7 @@ func (h *hint) Trigger(v Variant, s Size, children ...twi.NodeOption) twi.Node {
 
 func (h *hint) content(classes string, children []twi.NodeOption) twi.Node {
 	at := h.phase()
-	return h.place(at, func(placed []twi.NodeOption) twi.Node {
+	return h.place(at, func(placed, _ []twi.NodeOption) twi.Node {
 		return part("shrink-0 "+classes, slices.Concat([]twi.NodeOption{at.state()}, placed, children))
 	})
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/pehcastro/twind/twi/input"
 )
 
-const menuContent = "flex flex-col min-w-16 shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md " + popMotion
+const menuContent = "relative flex flex-col min-w-16 shrink-0 overflow-x-hidden overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md " + popMotion
 
 type menuItem struct {
 	text    string
@@ -20,6 +20,7 @@ type menuItem struct {
 
 type menuLevel struct {
 	root         *DropdownMenu
+	popup        *floating
 	active       int
 	items, built []menuItem
 }
@@ -34,7 +35,7 @@ type DropdownMenu struct {
 
 func NewDropdownMenu(rt *twi.Runtime) *DropdownMenu {
 	m := &DropdownMenu{anchored: newAnchored(rt, Bottom, Center)}
-	m.root = m
+	m.root, m.popup, m.sizing = m, &m.floating, availableHeight
 	return m
 }
 
@@ -65,14 +66,14 @@ func (m *DropdownMenu) Content(children ...twi.NodeOption) twi.Node {
 func (m *DropdownMenu) menu(from image.Rectangle, classes string, children []twi.NodeOption) twi.Node {
 	m.settle()
 	at := m.phase()
-	return m.float(m.rt, from, m.Side, m.Align, at, func(placed []twi.NodeOption) twi.Node {
+	return m.float(m.rt, from, m.Side, m.Align, at, func(placed, last []twi.NodeOption) twi.Node {
 		return m.content(classes, at, func(k input.KeyEvent) bool {
 			if escape(k) {
 				m.dismiss()
 				return true
 			}
 			return m.key(k)
-		}, append(placed, children...))
+		}, slices.Concat(placed, children, last))
 	})
 }
 
@@ -116,7 +117,7 @@ type ContextMenu struct {
 
 func NewContextMenu(rt *twi.Runtime) *ContextMenu {
 	c := &ContextMenu{DropdownMenu: DropdownMenu{anchored: newAnchored(rt, Bottom, Start)}}
-	c.root = &c.DropdownMenu
+	c.root, c.popup, c.sizing = &c.DropdownMenu, &c.floating, availableHeight
 	return c
 }
 
@@ -169,7 +170,8 @@ type DropdownMenuSub struct {
 
 func (l *menuLevel) Sub() *DropdownMenuSub {
 	rt := l.root.rt
-	s := &DropdownMenuSub{menuLevel: menuLevel{root: l.root}, floating: floating{anchor: twi.NewRef(rt), box: twi.NewRef(rt), alignOffset: -1}, parent: l}
+	s := &DropdownMenuSub{menuLevel: menuLevel{root: l.root}, floating: newFloating(rt), parent: l}
+	s.popup, s.alignOffset, s.sizing = &s.floating, -1, availableHeight
 	l.root.subs = append(l.root.subs, s)
 	return s
 }
@@ -185,15 +187,15 @@ func (s *DropdownMenuSub) Trigger(text string, children ...twi.NodeOption) twi.N
 func (s *DropdownMenuSub) Content(children ...twi.NodeOption) twi.Node {
 	s.settle()
 	at := s.next(s.root.rt, s.Open)
-	return s.float(s.root.rt, s.anchor.Bounds(), Right, Start, at, func(placed []twi.NodeOption) twi.Node {
-		return s.content("flex flex-col min-w-16 rounded-md whitespace-nowrap border bg-popover text-popover-foreground shadow-lg "+popMotion, at, func(k input.KeyEvent) bool {
+	return s.float(s.root.rt, s.anchor.Bounds(), Right, Start, at, func(placed, last []twi.NodeOption) twi.Node {
+		return s.content("relative flex flex-col min-w-16 overflow-x-hidden overflow-y-auto rounded-md whitespace-nowrap border bg-popover text-popover-foreground shadow-lg "+popMotion, at, func(k input.KeyEvent) bool {
 			if k.Key == input.KeyArrowLeft {
 				s.Open = false
 				s.root.close(&s.menuLevel)
 				return true
 			}
 			return s.key(k)
-		}, append(placed, children...))
+		}, slices.Concat(placed, children, last))
 	})
 }
 
@@ -235,8 +237,11 @@ func (l *menuLevel) add(it menuItem, classes string, children []twi.NodeOption) 
 		}
 		m.rt.Invalidate()
 	})
-	choose := m.click(func() { l.choose(it) })
-	return part("relative flex flex-row items-center gap-1 rounded-sm px-1 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none "+classes, slotted([]twi.NodeOption{highlight, choose}, children, part("grow", []twi.NodeOption{twi.Text(it.text)})))
+	options := []twi.NodeOption{highlight, m.click(func() { l.choose(it) })}
+	if at == l.active {
+		options = append(options, l.popup.highlighted(at))
+	}
+	return part("relative flex flex-row items-center gap-1 rounded-sm px-1 select-none [&_svg]:shrink-0 [&_svg]:pointer-events-none "+classes, slotted(options, children, part("grow", []twi.NodeOption{twi.Text(it.text)})))
 }
 
 func (l *menuLevel) Item(text string, children ...twi.NodeOption) twi.Node {
@@ -281,7 +286,7 @@ func (l *menuLevel) key(k input.KeyEvent) bool {
 	default:
 		return false
 	}
-	return true
+	return l.popup.revealing()
 }
 
 func (l *menuLevel) choose(it menuItem) {

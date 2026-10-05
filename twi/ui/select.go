@@ -20,7 +20,7 @@ type Select struct {
 
 func NewSelect(rt *twi.Runtime) *Select {
 	s := &Select{anchored: newAnchored(rt, Bottom, Start)}
-	s.anchorWidth = true
+	s.sizing = triggerWidth
 	return s
 }
 
@@ -60,9 +60,9 @@ func (s *Select) itemLabel(i int) string { return s.items[i].label }
 
 func (a *anchored) list(keys func(input.KeyEvent) bool, children []twi.NodeOption) twi.Node {
 	at := a.phase()
-	return a.place(at, func(placed []twi.NodeOption) twi.Node {
-		return part("flex flex-col shrink-0 rounded-md border bg-popover text-popover-foreground shadow-md "+popMotion,
-			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(a.rt, keys), placed, children))
+	return a.place(at, func(placed, last []twi.NodeOption) twi.Node {
+		return part("relative flex flex-col shrink-0 overflow-x-hidden overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md "+popMotion,
+			slices.Concat([]twi.NodeOption{at.state(), twi.Focusable()}, at.trap(a.rt, keys), placed, children, last))
 	})
 }
 
@@ -89,7 +89,7 @@ func (a *anchored) listKey(k input.KeyEvent, active *int, n int, label func(int)
 	default:
 		return false
 	}
-	return true
+	return a.revealing()
 }
 
 func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node {
@@ -97,10 +97,12 @@ func (s *Select) Item(value, label string, children ...twi.NodeOption) twi.Node 
 	return s.option(label, len(s.built)-1, &s.active, value == s.Value, func() { s.choose(value) }, children)
 }
 
-func (c *control) option(label string, at int, active *int, checked bool, choose func(), children []twi.NodeOption) twi.Node {
+func (a *anchored) option(label string, at int, active *int, checked bool, choose func(), children []twi.NodeOption) twi.Node {
 	classes := "relative flex flex-row items-center gap-1 rounded-sm pr-3 pl-1 select-none"
+	options := []twi.NodeOption{a.click(choose)}
 	if at == *active {
 		classes += " bg-accent text-accent-foreground"
+		options = append(options, a.highlighted(at))
 	}
 	var mark []twi.NodeOption
 	if checked {
@@ -109,10 +111,10 @@ func (c *control) option(label string, at int, active *int, checked bool, choose
 	highlight := twi.OnPointerEnter(func() {
 		if *active != at {
 			*active = at
-			c.rt.Invalidate()
+			a.rt.Invalidate()
 		}
 	})
-	return part(classes, slotted([]twi.NodeOption{highlight, c.click(choose), part("absolute right-1 flex", mark)}, children, part("grow", []twi.NodeOption{twi.Text(label)})))
+	return part(classes, slotted(append(options, highlight, part("absolute right-1 flex", mark)), children, part("grow", []twi.NodeOption{twi.Text(label)})))
 }
 
 func SelectLabel(children ...twi.NodeOption) twi.Node {
@@ -124,7 +126,7 @@ func SelectSeparator() twi.Node {
 }
 
 func (s *Select) open() {
-	s.active = max(s.index(), 0)
+	s.active, s.reveal = max(s.index(), 0), true
 	s.set(true)
 }
 

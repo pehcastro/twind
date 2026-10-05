@@ -17,11 +17,13 @@ func TestPlacementInsideRelativeParent(t *testing.T) {
 	var tree render.Tree
 	f := cssFrame(t, 70)
 	f.Height = layout.Length{Unit: layout.Cells, Value: 16}
-	at := func(x, y int) *image.Point { return &image.Point{X: x, Y: y} }
+	at := func(x, y int) *render.Extra {
+		return &render.Extra{Placement: render.Placement{Positioned: true, At: image.Pt(x, y)}}
+	}
 	for _, step := range []struct {
 		name     string
 		classes  string
-		at       *image.Point
+		at       *render.Extra
 		menu     image.Point
 		row      image.Point
 		cascades int
@@ -35,7 +37,7 @@ func TestPlacementInsideRelativeParent(t *testing.T) {
 		{"back in flow", sheet.Button, nil, image.Pt(5, 2), image.Pt(5, 3), -1},
 	} {
 		menu := node(step.classes, text("Copy"))
-		menu.At = step.at
+		menu.Extra = step.at
 		before := tree.Cascades()
 		root, err := tree.Scene(node(sheet.Page, node(sheet.Context, menu, text("row"))), f)
 		if err != nil {

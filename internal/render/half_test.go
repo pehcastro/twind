@@ -208,7 +208,7 @@ func TestHalfRowsWrapMeasuresWholeLines(t *testing.T) {
 func TestHalfRowsKeepShapesAndPlaces(t *testing.T) {
 	sheet := halfSheet(t)
 	placed := el("h-1")
-	placed.At = &image.Point{X: 3, Y: 5}
+	placed.Extra = &render.Extra{Placement: render.Placement{Positioned: true, At: image.Pt(3, 5)}}
 	for _, graphics := range []bool{false, true} {
 		root, err := render.Scene(el("page", el("square"), placed), halfFrame(sheet, graphics))
 		if err != nil {

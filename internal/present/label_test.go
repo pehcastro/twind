@@ -22,10 +22,10 @@ func TestTextOnAThinLineThroughItsRowStaysVisible(t *testing.T) {
 	for i := range blanks {
 		blanks[i] = render.Node{Text: strings.Repeat(" ", 30)}
 	}
-	plot := render.Node{Canvas: &render.Canvas{Key: 1, Paint: gridded}, Children: blanks}
+	plot := render.Node{Extra: &render.Extra{Canvas: &render.Canvas{Key: 1, Paint: gridded}}, Children: blanks}
 	root := render.Node{Classes: strings.Fields("flex flex-col gap-1 p-2 bg-background text-foreground"), Children: []render.Node{
 		plot,
-		{At: &image.Point{X: 6, Y: line}, Children: []render.Node{{Text: label}}},
+		{Extra: &render.Extra{Placement: render.Placement{Positioned: true, At: image.Pt(6, line)}}, Children: []render.Node{{Text: label}}},
 	}}
 	sheet, err := demo.Styles()
 	if err != nil {

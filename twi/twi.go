@@ -158,18 +158,39 @@ func (t tag) apply(n *node) { n.tree.Element = style.Element(t) }
 
 func Tag(element style.Element) NodeOption { return tag(element) }
 
+func (n *node) extra() *render.Extra {
+	if n.tree.Extra == nil {
+		n.tree.Extra = &render.Extra{}
+	}
+	return n.tree.Extra
+}
+
+func (n *node) place() *render.Placement { return &n.extra().Placement }
+
 type at image.Point
 
 func (p at) apply(n *node) {
-	cell := image.Point(p)
-	n.tree.At = &cell
+	place := n.place()
+	place.Positioned, place.At = true, image.Point(p)
 }
 
 func At(x, y int) NodeOption { return at{X: x, Y: y} }
 
+type minSize image.Point
+
+func (s minSize) apply(n *node) { n.place().Min = image.Point(s) }
+
+func MinSize(width, height int) NodeOption { return minSize{X: width, Y: height} }
+
+type maxSize image.Point
+
+func (s maxSize) apply(n *node) { n.place().Max = image.Point(s) }
+
+func MaxSize(width, height int) NodeOption { return maxSize{X: width, Y: height} }
+
 type canvas render.Canvas
 
-func (c *canvas) apply(n *node) { n.tree.Canvas = (*render.Canvas)(c) }
+func (c *canvas) apply(n *node) { n.extra().Canvas = (*render.Canvas)(c) }
 
 func Canvas(key uint64, paint func(dst *image.RGBA, cell image.Point)) NodeOption {
 	return &canvas{Key: key, Paint: paint}
@@ -199,22 +220,14 @@ func Element(options ...NodeOption) Node {
 func Text(s string) Node { return Node{&node{tree: render.Node{Text: s}}} }
 
 func Class(classes ...string) NodeOption {
-	count := 0
-	for _, c := range classes {
-		for range strings.FieldsSeq(c) {
-			count++
-		}
-	}
 	list := &classList{}
-	list.names = list.inline[:0:min(count, konst.InlineClasses)]
-	if count > konst.InlineClasses {
-		list.names = make([]string, 0, count)
-	}
+	list.names = list.inline[:0]
 	for _, c := range classes {
 		for name := range strings.FieldsSeq(c) {
 			list.names = append(list.names, name)
 		}
 	}
+	list.names = slices.Clip(list.names)
 	return list
 }
 

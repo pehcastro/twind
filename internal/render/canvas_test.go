@@ -13,13 +13,13 @@ func TestCanvasRedrawsOnlyWhenItsKeyOrSizeChanges(t *testing.T) {
 	r.frame.Graphics, r.frame.Cell = true, image.Pt(10, 20)
 	paints := 0
 	page := func(key uint64, note string) render.Node {
-		canvas := render.Node{Classes: classes(sheet.Dialog), Canvas: &render.Canvas{Key: key, Paint: func(dst *image.RGBA, cell image.Point) {
+		canvas := render.Node{Classes: classes(sheet.Dialog), Extra: &render.Extra{Canvas: &render.Canvas{Key: key, Paint: func(dst *image.RGBA, cell image.Point) {
 			paints++
 			if cell != r.frame.Cell {
 				t.Errorf("painted at cell %v, want %v", cell, r.frame.Cell)
 			}
 			dst.Pix[3] = 255
-		}}, Children: []render.Node{{Text: "cells"}}}
+		}}}, Children: []render.Node{{Text: "cells"}}}
 		return screen(canvas, render.Node{Text: note})
 	}
 	var last *image.RGBA

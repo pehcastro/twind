@@ -75,9 +75,9 @@ func editNode(r *rand.Rand, root *render.Node) string {
 		n.TopLayer = r.IntN(2) * (1 + r.IntN(2))
 		return "top layer"
 	}
-	n.At = nil
+	n.Extra = nil
 	if r.IntN(2) == 0 {
-		n.At = &image.Point{X: r.IntN(30), Y: r.IntN(12)}
+		n.Extra = &render.Extra{Placement: render.Placement{Positioned: true, At: image.Pt(r.IntN(30), r.IntN(12))}}
 	}
 	return "placed"
 }

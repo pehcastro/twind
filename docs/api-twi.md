@@ -81,7 +81,9 @@ func Disabled() NodeOption\
 func FocusScope() NodeOption\
 func Focusable() NodeOption\
 func Key(key string) NodeOption\
+func MaxSize(width, height int) NodeOption\
 func Measure(ref \*Ref) NodeOption\
+func MinSize(width, height int) NodeOption\
 func NonModalFocusScope() NodeOption\
 func OnBlur(handler func()) NodeOption\
 func OnClick(handler func(\*Event)) NodeOption\

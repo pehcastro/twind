@@ -17,7 +17,7 @@ type NativeSelect struct {
 
 func NewNativeSelect(rt *twi.Runtime) *NativeSelect {
 	s := &NativeSelect{anchored: newAnchored(rt, Bottom, Start)}
-	s.anchorWidth = true
+	s.sizing = triggerWidth
 	return s
 }
 
@@ -61,7 +61,7 @@ func (s *NativeSelect) Node(options ...twi.NodeOption) twi.Node {
 }
 
 func (s *NativeSelect) open() {
-	s.active = max(slices.Index(s.Options, s.Value), 0)
+	s.active, s.reveal = max(slices.Index(s.Options, s.Value), 0), true
 	s.set(true)
 }
 

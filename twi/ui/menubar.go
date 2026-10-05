@@ -21,7 +21,7 @@ type MenubarMenu struct{ DropdownMenu }
 
 func (b *Menubar) Menu() *MenubarMenu {
 	m := &MenubarMenu{DropdownMenu{anchored: newAnchored(b.rt, Bottom, Start), bar: b}}
-	m.root, m.sideOffset, m.alignOffset = &m.DropdownMenu, 1, -1
+	m.root, m.popup, m.sideOffset, m.alignOffset, m.sizing = &m.DropdownMenu, &m.floating, 1, -1, availableHeight
 	b.menus = append(b.menus, m)
 	return m
 }
