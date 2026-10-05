@@ -76,7 +76,7 @@ func TestCellsUseOnlyConsoleGlyphs(t *testing.T) {
 
 func TestCellsDrawBarsInHalfCells(t *testing.T) {
 	c := &Chart{Kind: Bar, Labels: []string{"a", "b"}, Series: []Series{{Color: theme.Chart1, Values: []float64{4, 2}}}}
-	cells := c.cells(c.model(), 5, 5)
+	cells := cellsOf(c, 5, 5)
 	want := []string{"▄▄───", "██───", "██─▄▄", "██─██", "▀▀─▀▀"}
 	for y, row := range want {
 		var got strings.Builder
@@ -95,7 +95,7 @@ func TestCellsDrawBarsInHalfCells(t *testing.T) {
 func TestCellsKeepSteepLinesConnected(t *testing.T) {
 	c := &Chart{Kind: Line, Labels: []string{"a", "b", "c"}, Series: []Series{{Color: theme.Chart1, Values: []float64{0, 100, 0}}}}
 	const w, h = 30, 10
-	cells := c.cells(c.model(), w, h)
+	cells := cellsOf(c, w, h)
 	for x := 5; x < 25; x++ {
 		lit := 0
 		for y := range h {

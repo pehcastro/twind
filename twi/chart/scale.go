@@ -9,32 +9,56 @@ import (
 )
 
 type plot struct {
-	kind      Kind
-	stacked   bool
-	points    int
-	base, top [][]float64
-	ticks     []float64
+	kind                      Kind
+	stacked, horizontal, step bool
+	lead, points              int
+	labels                    []string
+	values, base, top         [][]float64
+	ticks                     []float64
 }
 
-func (c *Chart) model() plot {
-	p := plot{kind: c.Kind, stacked: c.Stacked, points: len(c.Labels)}
+func (c *Chart) model() plot { return c.window(c.From, c.To) }
+
+func (c *Chart) window(from, to int) plot {
+	if to == 0 {
+		to = len(c.Labels)
+	}
+	if from < 0 || to > len(c.Labels) || from >= to {
+		panic("chart: window " + strconv.Itoa(from) + " to " + strconv.Itoa(to) + " outside " + strconv.Itoa(len(c.Labels)) + " labels")
+	}
+	p := plot{kind: c.Kind, stacked: c.Stacked, horizontal: c.Horizontal && c.Kind == Bar, step: c.Step, points: to - from, labels: c.Labels[from:to]}
+	if c.Labelled && c.Kind == Bar && !p.horizontal {
+		p.lead = 1
+	}
 	lo, hi := 0.0, 0.0
 	for s, series := range c.Series {
-		if len(series.Values) != p.points {
-			panic("chart: series " + strconv.Itoa(s) + " has " + strconv.Itoa(len(series.Values)) + " values for " + strconv.Itoa(p.points) + " labels")
+		if len(series.Values) != len(c.Labels) {
+			panic("chart: series " + strconv.Itoa(s) + " has " + strconv.Itoa(len(series.Values)) + " values for " + strconv.Itoa(len(c.Labels)) + " labels")
 		}
+		values := series.Values[from:to]
 		base, top := make([]float64, p.points), make([]float64, p.points)
-		for i, v := range series.Values {
+		for i, v := range values {
+			if v < 0 && c.Kind >= Pie {
+				panic("chart: a pie, radial, radar or map value is not negative")
+			}
 			if c.Stacked && s > 0 {
 				base[i] = p.top[s-1][i]
 			}
 			top[i] = base[i] + v
 			lo, hi = min(lo, base[i], top[i]), max(hi, base[i], top[i])
 		}
-		p.base, p.top = append(p.base, base), append(p.top, top)
+		p.values, p.base, p.top = append(p.values, values), append(p.base, base), append(p.top, top)
 	}
 	p.ticks = niceTicks(lo, hi)
 	return p
+}
+
+func (p plot) extent() (lo, hi float64) {
+	lo, hi = math.Inf(1), math.Inf(-1)
+	for _, v := range p.values[0] {
+		lo, hi = min(lo, v), max(hi, v)
+	}
+	return lo, hi
 }
 
 func niceTicks(lo, hi float64) []float64 {
@@ -101,7 +125,7 @@ func number(v float64) string {
 }
 
 type metrics struct {
-	top, bottom, half, active, radius, gap, grid float32
+	top, bottom, half, active, radius, gap, grid, dot float32
 }
 
 func (p plot) y(v float64, m metrics) float32 {
@@ -111,13 +135,19 @@ func (p plot) y(v float64, m metrics) float32 {
 
 func (p plot) rows(m metrics, h int, unit float32) metrics {
 	last := len(p.ticks) - 1
-	span := h - 1
+	span := h - 1 - p.lead
 	if step := span / last; step > 0 {
 		span = step * last
 	}
 	m.top, m.bottom = (float32(h-1-span)+0.5)*unit, (float32(h)-0.5)*unit
 	return m
 }
+
+func (p plot) halves(h int) metrics {
+	return p.rows(metrics{half: 0.5, gap: 1, grid: 1, dot: 1}, h, konst.CellRows)
+}
+
+func (p plot) row(v float64, h int) int { return int(p.y(v, p.halves(h))) / konst.CellRows }
 
 func (p plot) series(s int, w float32, m metrics, out []point) []point {
 	out = out[:0]
@@ -127,15 +157,26 @@ func (p plot) series(s int, w float32, m metrics, out []point) []point {
 	return out
 }
 
-func (p plot) bar(i, s int, w float32, m metrics) (x0, x1 float32) {
-	band := w / float32(p.points)
+func (p plot) bar(i, s int, length float32, m metrics) (lo, hi float32) {
+	band := length / float32(p.points)
 	n, slot := float32(len(p.top)), float32(s)
 	if p.stacked {
 		n, slot = 1, 0
 	}
 	width := max(float32(math.Floor(float64((band*(1-2*konst.CategoryGap)-(n-1)*m.gap)/n))), 1)
-	x0 = round((float32(i)+0.5)*band-(n*width+(n-1)*m.gap)/2) + slot*(width+m.gap)
-	return x0, x0 + width
+	lo = round((float32(i)+0.5)*band-(n*width+(n-1)*m.gap)/2) + slot*(width+m.gap)
+	return lo, lo + width
 }
 
 func round(v float32) float32 { return float32(math.Round(float64(v))) }
+
+func span(i, n, length int) (lo, hi int) { return i * length / n, (i + 1) * length / n }
+
+func under(at, n, length int) int {
+	for i := range n {
+		if _, hi := span(i, n, length); at < hi {
+			return i + 1
+		}
+	}
+	return 0
+}

@@ -6,7 +6,6 @@ import (
 	"math"
 	"slices"
 	"sort"
-	"strconv"
 
 	konst "github.com/twind-dev/twind/internal/konst/chart"
 	stylekonst "github.com/twind-dev/twind/internal/konst/style"
@@ -21,29 +20,34 @@ type interval struct{ lo, hi float32 }
 type reach struct{ lo, hi int }
 
 type raster struct {
-	w, h                        int
+	w, h, dot                   int
 	cover                       []float32
 	reach                       []reach
 	top, bottom                 int
 	spans                       [][]interval
+	first, last                 int
 	points, curve, lower, under []point
+	ring                        []point
+	rings                       [][]point
+	xs                          []float32
 	dst                         *image.RGBA
 	token                       func(theme.Token) color.RGBA
 	ink                         []uint8
 }
 
 type paint struct {
-	token       theme.Token
-	ink         uint8
-	top, bottom float32
-	from, to    float32
+	token         theme.Token
+	ink           uint8
+	top, bottom   float32
+	from, to      float32
+	dither, erase bool
 }
 
 func reuse(r *raster, w, h int) *raster {
 	if r != nil && r.w == w && r.h == h {
 		return r
 	}
-	return &raster{w: w, h: h, cover: make([]float32, w*h), reach: make([]reach, h), top: h, spans: make([][]interval, h*konst.Samples)}
+	return &raster{w: w, h: h, cover: make([]float32, w*h), reach: make([]reach, h), top: h, spans: make([][]interval, h*konst.Samples), first: h * konst.Samples, last: -1}
 }
 
 func pixelMetrics(cell image.Point) metrics {
@@ -51,96 +55,14 @@ func pixelMetrics(cell image.Point) metrics {
 	return metrics{
 		half: konst.StrokeWidth * f / 2, active: konst.ActiveDotRadius * f,
 		radius: konst.BarRadius * f, gap: max(1, round(konst.BarGap*f)), grid: max(1, round(konst.GridWidth*f)),
+		dot: max(1, round(konst.DitherDot*f)),
 	}
 }
 
-func (c *Chart) paint(dst *image.RGBA, p plot, m metrics, hover int, token func(theme.Token) color.RGBA) {
-	c.pixels = reuse(c.pixels, dst.Rect.Dx(), dst.Rect.Dy())
-	c.pixels.dst, c.pixels.token = dst, token
-	c.draw(c.pixels, p, m, hover)
-}
-
-func (c *Chart) draw(r *raster, p plot, m metrics, hover int) {
-	w, h := float32(r.w), float32(r.h)
-	whole := func(float32) (float32, float32) { return 0, h }
-	if hover > 0 && p.kind == Bar {
-		band := w / float32(p.points)
-		r.span(float32(hover-1)*band, float32(hover)*band, whole)
-		r.commit(paint{token: theme.Muted, top: konst.CursorAlpha, bottom: konst.CursorAlpha})
-	}
-	if m.grid > 0 {
-		for _, t := range p.ticks {
-			y := min(max(round(p.y(t, m)-m.grid/2), 0), h-m.grid)
-			r.span(0, w, func(float32) (float32, float32) { return y, y + m.grid })
-			r.commit(paint{token: theme.Border, top: konst.GridAlpha, bottom: konst.GridAlpha})
-		}
-	}
-	if hover > 0 && p.kind != Bar {
-		x := round((float32(hover) - 0.5) * w / float32(p.points))
-		r.span(x, x+m.grid, whole)
-		r.commit(paint{token: theme.Border, top: 1, bottom: 1})
-	}
-	if p.kind == Area && p.points > 1 {
-		c.areas(r, p, m)
-	}
-	last := len(c.Series) - 1
-	for s, series := range c.Series {
-		solid := paint{token: series.Color, ink: uint8(2*s + 1), top: 1, bottom: 1}
-		switch p.kind {
-		case Bar:
-			for i, v := range p.top[s] {
-				x0, x1 := p.bar(i, s, w, m)
-				y0, y1 := p.y(v, m), p.y(p.base[s][i], m)
-				far, near := m.radius, m.radius
-				if p.stacked && s != last {
-					far = 0
-				}
-				if p.stacked && s != 0 {
-					near = 0
-				}
-				if y0 > y1 {
-					y0, y1, far, near = y1, y0, near, far
-				}
-				r.bar(x0, x1, y0, y1, far, near)
-				r.commit(solid)
-			}
-		case Line, Area:
-			r.points = p.series(s, w, m, r.points)
-			r.curve = natural(r.curve, r.points)
-			r.stroke(r.curve, m.half)
-			r.commit(solid)
-			if hover > 0 && m.active > 0 {
-				r.disc(r.points[hover-1], m.active)
-				r.commit(solid)
-			}
-		default:
-			panic("chart: unknown kind " + strconv.Itoa(int(p.kind)))
-		}
-	}
-}
-
-func (c *Chart) areas(r *raster, p plot, m metrics) {
-	w, h := float32(r.w), float32(r.h)
-	for s, series := range c.Series {
-		r.points = p.series(s, w, m, r.points)
-		r.curve = natural(r.curve, r.points)
-		if p.stacked && s > 0 {
-			r.under = p.series(s-1, w, m, r.under)
-			r.lower = natural(r.lower, r.under)
-		} else {
-			zero := p.y(0, m)
-			r.lower = append(r.lower[:0], point{r.points[0].x, zero}, point{r.points[len(r.points)-1].x, zero})
-		}
-		top, bottom := h, float32(0)
-		for _, pt := range r.curve {
-			top = min(top, pt.y)
-		}
-		for _, pt := range r.lower {
-			bottom = max(bottom, pt.y)
-		}
-		r.span(r.points[0].x, r.points[len(r.points)-1].x, func(x float32) (float32, float32) { return at(r.curve, x), at(r.lower, x) })
-		r.commit(paint{token: series.Color, ink: uint8(2*s + 2), top: konst.FillTop * konst.FillOpacity, bottom: konst.FillBottom * konst.FillOpacity, from: top, to: bottom})
-	}
+func (c *Chart) pixels(r *raster, dst *image.RGBA, cell image.Point) *raster {
+	r = reuse(r, dst.Rect.Dx(), dst.Rect.Dy())
+	r.dst, r.token, r.dot = dst, c.colours(), int(pixelMetrics(cell).dot)
+	return r
 }
 
 func at(poly []point, x float32) float32 {
@@ -150,6 +72,16 @@ func at(poly []point, x float32) float32 {
 		return b.y
 	}
 	return a.y + (b.y-a.y)*(x-a.x)/(b.x-a.x)
+}
+
+func steps(out, pts []point) []point {
+	out = append(out[:0], pts[0])
+	for i := 1; i < len(pts); i++ {
+		a, e := pts[i-1], pts[i]
+		mid := (a.x + e.x) / 2
+		out = append(out, point{mid, a.y}, point{mid, e.y}, e)
+	}
+	return out
 }
 
 func natural(out, pts []point) []point {
@@ -164,9 +96,9 @@ func natural(out, pts []point) []point {
 		a, e := pts[i], pts[i+1]
 		c0, c1 := point{cx0[i], cy0[i]}, point{cx1[i], cy1[i]}
 		chord := math.Hypot(float64(e.x-a.x), float64(e.y-a.y))
-		steps := min(max(int(math.Ceil(chord/konst.CurveStep)), 1), konst.MaxCurveSteps)
-		for k := 1; k <= steps; k++ {
-			t := float32(k) / float32(steps)
+		n := min(max(int(math.Ceil(chord/konst.CurveStep)), 1), konst.MaxCurveSteps)
+		for k := 1; k <= n; k++ {
+			t := float32(k) / float32(n)
 			u := 1 - t
 			out = append(out, point{
 				u*u*u*a.x + 3*u*u*t*c0.x + 3*u*t*t*c1.x + t*t*t*e.x,
@@ -203,6 +135,8 @@ func controls(pts []point, axis func(point) float32) (first, second []float32) {
 }
 
 func floor(v float32) int { return int(math.Floor(float64(v))) }
+
+func ceil32(v float32) int { return int(math.Ceil(float64(v))) }
 
 func (r *raster) mark(y, x0, x1 int) {
 	e := &r.reach[y]
@@ -255,22 +189,25 @@ func (r *raster) span(x0, x1 float32, edges func(x float32) (top, bottom float32
 	}
 }
 
-func ceil32(v float32) int { return int(math.Ceil(float64(v))) }
+type corners struct{ topLeft, topRight, bottomRight, bottomLeft float32 }
 
-func (r *raster) bar(x0, x1, y0, y1, top, bottom float32) {
+func (r *raster) bar(x0, x1, y0, y1 float32, k corners) {
 	if y1 <= y0 || x1 <= x0 {
 		return
 	}
 	limit := min((x1-x0)/2, (y1-y0)/2)
-	top, bottom = min(top, limit), min(bottom, limit)
-	arc := func(radius, x float32) float32 {
-		d := max(x0+radius-x, x-(x1-radius), 0)
-		if radius == 0 || d == 0 {
+	arc := func(radius, d float32) float32 {
+		radius = min(radius, limit)
+		if radius <= 0 || d <= 0 {
 			return 0
 		}
 		return radius - float32(math.Sqrt(float64(max(radius*radius-d*d, 0))))
 	}
-	r.span(x0, x1, func(x float32) (float32, float32) { return y0 + arc(top, x), y1 - arc(bottom, x) })
+	left := func(radius, x float32) float32 { return arc(radius, x0+min(radius, limit)-x) }
+	right := func(radius, x float32) float32 { return arc(radius, x-(x1-min(radius, limit))) }
+	r.span(x0, x1, func(x float32) (float32, float32) {
+		return y0 + max(left(k.topLeft, x), right(k.topRight, x)), y1 - max(left(k.bottomLeft, x), right(k.bottomRight, x))
+	})
 }
 
 func (r *raster) disc(c point, radius float32) {
@@ -280,25 +217,61 @@ func (r *raster) disc(c point, radius float32) {
 	})
 }
 
+func (r *raster) add(k int, iv interval) {
+	r.spans[k] = append(r.spans[k], iv)
+	r.first, r.last = min(r.first, k), max(r.last, k)
+}
+
 func (r *raster) stroke(poly []point, half float32) {
 	if len(poly) == 1 {
 		r.disc(poly[0], half)
 		return
 	}
 	rows := r.h * konst.Samples
-	first, last := rows, -1
 	for i := 1; i < len(poly); i++ {
 		a, e := poly[i-1], poly[i]
-		from := max(int(math.Ceil(float64((min(a.y, e.y)-half)*konst.Samples-0.5))), 0)
+		from := max(ceil32((min(a.y, e.y)-half)*konst.Samples-0.5), 0)
 		to := min(floor((max(a.y, e.y)+half)*konst.Samples-0.5), rows-1)
 		for k := from; k <= to; k++ {
 			if iv, ok := capsule(a, e, (float32(k)+0.5)/konst.Samples, half); ok {
-				r.spans[k] = append(r.spans[k], iv)
-				first, last = min(first, k), max(last, k)
+				r.add(k, iv)
 			}
 		}
 	}
-	for k := first; k <= last; k++ {
+	r.flush()
+}
+
+func (r *raster) polygon(rings ...[]point) {
+	top, bottom := float32(r.h), float32(0)
+	for _, ring := range rings {
+		for _, p := range ring {
+			top, bottom = min(top, p.y), max(bottom, p.y)
+		}
+	}
+	from := max(ceil32(top*konst.Samples-0.5), 0)
+	to := min(floor(bottom*konst.Samples-0.5), r.h*konst.Samples-1)
+	for k := from; k <= to; k++ {
+		y := (float32(k) + 0.5) / konst.Samples
+		r.xs = r.xs[:0]
+		for _, ring := range rings {
+			a := ring[len(ring)-1]
+			for _, e := range ring {
+				if (a.y <= y) != (e.y <= y) {
+					r.xs = append(r.xs, a.x+(y-a.y)*(e.x-a.x)/(e.y-a.y))
+				}
+				a = e
+			}
+		}
+		slices.Sort(r.xs)
+		for i := 0; i+1 < len(r.xs); i += 2 {
+			r.add(k, interval{r.xs[i], r.xs[i+1]})
+		}
+	}
+	r.flush()
+}
+
+func (r *raster) flush() {
+	for k := r.first; k <= r.last; k++ {
 		spans, y := r.spans[k], k/konst.Samples
 		slices.SortFunc(spans, func(a, b interval) int { return cmp.Compare(a.lo, b.lo) })
 		row := r.cover[y*r.w:][:r.w]
@@ -311,13 +284,14 @@ func (r *raster) stroke(poly []point, half float32) {
 			if run.lo >= run.hi {
 				continue
 			}
-			r.mark(y, floor(run.lo), int(math.Ceil(float64(run.hi))))
+			r.mark(y, floor(run.lo), ceil32(run.hi))
 			for px := floor(run.lo); float32(px) < run.hi; px++ {
 				row[px] += (min(run.hi, float32(px+1)) - max(run.lo, float32(px))) / konst.Samples
 			}
 		}
 		r.spans[k] = spans[:0]
 	}
+	r.first, r.last = r.h*konst.Samples, -1
 }
 
 func capsule(a, e point, y, radius float32) (interval, bool) {
@@ -355,6 +329,15 @@ func capsule(a, e point, y, radius float32) (interval, bool) {
 	return out, out.lo <= out.hi
 }
 
+func bayer(x, y int) float32 {
+	v := 0
+	for bit := range konst.DitherBits {
+		xb, yb := x>>bit&1, y>>bit&1
+		v |= ((xb^yb)<<1 | yb) << (2 * (konst.DitherBits - 1 - bit))
+	}
+	return (float32(v) + 0.5) / (1 << (2 * konst.DitherBits))
+}
+
 func (r *raster) commit(p paint) {
 	var c color.RGBA
 	if r.dst != nil {
@@ -375,14 +358,27 @@ func (r *raster) commit(p paint) {
 		for x := e.lo; x < e.hi; x++ {
 			cover := min(row[x], 1)
 			row[x] = 0
+			a := cover * alpha
+			if p.dither {
+				if a <= bayer(x/r.dot, y/r.dot) {
+					continue
+				}
+				a, cover = 1, 1
+			}
 			switch {
 			case cover <= 0:
 			case line == nil:
 				if p.ink != 0 && cover >= konst.CellThreshold {
 					r.ink[y*r.w+x] = p.ink
 				}
+			case p.erase:
+				keep := uint32((1-a)*math.MaxUint8 + 0.5)
+				px := line[4*x:][:4]
+				for i := range px {
+					px[i] = uint8((uint32(px[i])*keep + math.MaxUint8/2) / math.MaxUint8)
+				}
 			default:
-				a := uint32(cover*alpha*float32(c.A) + 0.5)
+				a := uint32(a*float32(c.A) + 0.5)
 				px := line[4*x:][:4]
 				for i, v := range [4]uint8{c.R, c.G, c.B, math.MaxUint8} {
 					px[i] = uint8((uint32(v)*a + uint32(px[i])*(math.MaxUint8-a) + math.MaxUint8/2) / math.MaxUint8)

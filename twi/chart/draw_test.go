@@ -131,7 +131,7 @@ func BenchmarkDraw(b *testing.B) {
 		})
 		b.Run([]string{Bar: "bar", Line: "line", Area: "stacked-area"}[kind]+"/cells-90x22", func(b *testing.B) {
 			for b.Loop() {
-				c.cells(c.model(), 90, 22)
+				cellsOf(c, 90, 22)
 			}
 		})
 	}
@@ -139,7 +139,22 @@ func BenchmarkDraw(b *testing.B) {
 
 func draw(c *Chart, dst *image.RGBA, cell image.Point) {
 	p := c.model()
-	c.paint(dst, p, p.rows(pixelMetrics(cell), dst.Rect.Dy()/cell.Y, float32(cell.Y)), c.hover, palette)
+	c.canvas = reuse(c.canvas, dst.Rect.Dx(), dst.Rect.Dy())
+	r, m := c.canvas, pixelMetrics(cell)
+	r.dst, r.token, r.dot = dst, palette, int(m.dot)
+	switch p.kind {
+	case Pie, Donut, Radial, Radar:
+		c.spin(r, p, m, point{float32(cell.X), float32(cell.Y)}, 0, c.hover)
+	case Map:
+		c.colour(r, p, c.regions(p), m, c.hover)
+	default:
+		c.trace(r, p, p.rows(m, dst.Rect.Dy()/cell.Y, float32(cell.Y)), c.hover)
+	}
+}
+
+func cellsOf(c *Chart, w, h int) []cell {
+	p := c.model()
+	return c.cells(p, p.halves(h), w, h, image.Rectangle{})
 }
 
 func palette(t theme.Token) color.RGBA {
@@ -150,6 +165,8 @@ func palette(t theme.Token) color.RGBA {
 		return color.RGBA{B: 255, A: 255}
 	case theme.Chart3:
 		return color.RGBA{G: 255, A: 255}
+	case theme.Muted:
+		return color.RGBA{R: 128, G: 128, B: 128, A: 255}
 	}
 	return color.RGBA{}
 }

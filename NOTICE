@@ -11,3 +11,7 @@ Copyright (c) 2025 pngwn
 MIT License
 twi/highlight is heavily inspired by it: its grammar model and the Go, bash, JSON, TOML, CSS, YAML, Markdown, shell session, JavaScript, TypeScript, TSX, JSDoc and HTML grammars are ported from @twinkleplop 0.1.5 (core 0.2.2), and the benchmark inputs in twi/highlight/testdata/bench are taken from its corpus.
 The full licence text is in twi/highlight/README.md.
+
+Natural Earth 1:110m Admin 0 countries (https://www.naturalearthdata.com)
+Public domain
+twi/chart/world.bin is generated from it by twi/chart/internal/worldgen.

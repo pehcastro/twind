@@ -3,3 +3,4 @@
 *.twd text eol=lf
 *.png binary
 twi/**/testdata/** -text
+*.bin binary

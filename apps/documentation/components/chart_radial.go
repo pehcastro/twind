@@ -1,0 +1,20 @@
+package components
+
+import (
+	"github.com/twind-dev/twind/twi"
+	"github.com/twind-dev/twind/twi/chart"
+	"github.com/twind-dev/twind/twi/theme"
+)
+
+func ChartRadial(rt *twi.Runtime) func() twi.Node {
+	c := chart.New(rt)
+	c.Kind, c.Width, c.Height = chart.Radial, 56, 14
+	c.Labels = []string{"Visitors"}
+	c.Series = []chart.Series{
+		{Label: "Chrome", Color: theme.Chart1, Values: []float64{275}},
+		{Label: "Safari", Color: theme.Chart2, Values: []float64{200}},
+		{Label: "Firefox", Color: theme.Chart3, Values: []float64{187}},
+		{Label: "Edge", Color: theme.Chart4, Values: []float64{173}},
+	}
+	return func() twi.Node { return c.Node() }
+}
