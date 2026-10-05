@@ -19,7 +19,11 @@ func (s *Screen) edgedCell(x, y int) bool {
 		return false
 	}
 	r, c, at := s.area(x, y)
-	middle := c.line(r.Min.Y + s.Cell.Y/2)
+	mid := r.Min.Y + s.Cell.Y/2
+	middle := c.line(mid)
+	if !blank(s.text.At(x, y)) && !same(c.line(mid-1), middle, at, at+s.Cell.X) && !same(c.line(mid+1), middle, at, at+s.Cell.X) {
+		return false
+	}
 	for py := r.Min.Y; py < r.Max.Y; py++ {
 		if !same(c.line(py), middle, at, at+s.Cell.X) {
 			return true
